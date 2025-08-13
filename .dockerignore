@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+emulators/risc0/
+toolchains/risc0-riscv32im/
+
+# Test outputs
+riscof_work/
+
+# Documentation
+*.md
+README*
+
+# Docker
+Dockerfile
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
