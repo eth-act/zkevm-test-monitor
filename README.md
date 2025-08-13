@@ -1,4 +1,8 @@
-# RISCOF for ZKVMs
+# Workflows for showing testing results
+
+For now this is just a quick repo showing how to display RISCOF results. Eventually it will likely be a dashboard with more general ZKEVM testing information.
+
+## RISCOF for ZKVMs
 
 The [RISC-V Architectural Tests](https://github.com/riscv-non-isa/riscv-arch-test) are used by RISC-V International to determine whether a RISC-V implementation is officially compatible with the specification (see [here](https://riscv.org/about/brand-guidelines/)). The framework of the tests is differential. A test vector is an assembly file (.S file) that must be compiled to an ELF file for both a reference model ("REF") and the device under testing ("DUT").  Both REF and DUT must not only be able to execute the RISC-V file, but also they must have additional functionality to extract and write out a region of memory consisting of "signatures", which checkpoints written during execution. If all signatures match, the DUT passes the test suite.
 
