@@ -1,0 +1,78 @@
+name: Build SP1
+
+on:
+  workflow_call:
+    inputs:
+      commit_hash:
+        required: true
+        type: string
+    outputs:
+      artifact_name:
+        value: ${{ jobs.build.outputs.artifact }}
+      build_status:
+        value: ${{ jobs.build.outputs.status }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.artifact.outputs.name }}
+      status: ${{ steps.status.outputs.value }}
+    steps:
+      - name: Checkout SP1
+        uses: actions/checkout@v4
+        with:
+          repository: codygunton/sp1
+          ref: ${{ inputs.commit_hash }}
+          path: sp1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-sp1-${{ hashFiles('sp1/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-sp1-
+            
+      - name: Build SP1
+        id: build
+        working-directory: sp1
+        run: |
+          echo "Building SP1 with command: cargo build sp1-perf"
+          cargo build sp1-perf
+          echo "Build completed successfully"
+          
+      - name: Verify Binary
+        working-directory: sp1
+        run: |
+          if [ ! -f "target/debug/sp1-perf-executor" ]; then
+            echo "Error: Expected binary not found at target/debug/sp1-perf-executor"
+            exit 1
+          fi
+          echo "Binary found at target/debug/sp1-perf-executor"
+          ls -la target/debug/sp1-perf-executor
+          
+      - name: Upload Binary Artifact
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sp1-binary-${{ inputs.commit_hash }}
+          path: sp1/target/debug/sp1-perf-executor
+          retention-days: 7
+          
+      - name: Set Status Output
+        id: status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "value=success" >> $GITHUB_OUTPUT
+          else
+            echo "value=failure" >> $GITHUB_OUTPUT
+          fi

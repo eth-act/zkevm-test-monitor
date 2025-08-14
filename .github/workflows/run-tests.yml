@@ -1,0 +1,139 @@
+name: Run RISCOF Tests
+
+on:
+  workflow_call:
+    inputs:
+      zkvm_name:
+        required: true
+        type: string
+      artifact_name:
+        required: true
+        type: string
+    outputs:
+      results_artifact:
+        value: ${{ jobs.test.outputs.results }}
+      test_status:
+        value: ${{ jobs.test.outputs.status }}
+      test_summary:
+        value: ${{ jobs.test.outputs.summary }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      results: ${{ steps.upload.outputs.artifact }}
+      status: ${{ steps.status.outputs.value }}
+      summary: ${{ steps.summary.outputs.json }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Download ZKVM Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: binaries/
+          
+      - name: Make Binary Executable
+        run: |
+          chmod +x binaries/*
+          ls -la binaries/
+          
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build Docker Container
+        run: |
+          echo "Building RISCOF Docker container..."
+          docker build -t riscof:latest .
+          
+      - name: Run RISCOF Tests
+        id: riscof
+        run: |
+          ZKVM_NAME="${{ inputs.zkvm_name }}"
+          BINARY_FILE=$(ls binaries/* | head -n1)
+          RESULTS_DIR="results-$ZKVM_NAME"
+          
+          echo "Running tests for $ZKVM_NAME"
+          echo "Binary: $BINARY_FILE"
+          
+          mkdir -p "$RESULTS_DIR"
+          
+          # Run tests using Docker
+          docker run --rm \
+            -v "$(pwd)/plugins/$ZKVM_NAME:/dut/plugin" \
+            -v "$(pwd)/$BINARY_FILE:/dut/bin/dut-exe" \
+            -v "$(pwd)/$RESULTS_DIR:/riscof/riscof_work" \
+            riscof:latest
+            
+      - name: Process Results
+        id: process
+        run: |
+          ZKVM_NAME="${{ inputs.zkvm_name }}"
+          RESULTS_DIR="results-$ZKVM_NAME"
+          
+          if [ -f "$RESULTS_DIR/report.html" ]; then
+            echo "Test report found"
+            
+            # Extract summary from HTML report
+            PASSED=$(grep -oP 'Passed:.*?<b>\K\d+' "$RESULTS_DIR/report.html" || echo "0")
+            FAILED=$(grep -oP 'Failed:.*?<b>\K\d+' "$RESULTS_DIR/report.html" || echo "0")
+            TOTAL=$((PASSED + FAILED))
+            
+            if [ $TOTAL -eq 0 ]; then
+              PASS_RATE=0
+            else
+              PASS_RATE=$(echo "scale=2; $PASSED * 100 / $TOTAL" | bc)
+            fi
+            
+            echo "Results: $PASSED/$TOTAL passed ($PASS_RATE%)"
+            
+            # Create summary JSON
+            cat > "$RESULTS_DIR/summary.json" <<EOF
+          {
+            "zkvm": "$ZKVM_NAME",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "commit": "$(jq -r '.commit' configs/zkvm-configs/${ZKVM_NAME}.json)",
+            "passed": $PASSED,
+            "failed": $FAILED,
+            "total": $TOTAL,
+            "pass_rate": $PASS_RATE
+          }
+          EOF
+            
+            echo "summary_created=true" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Test report not found"
+            echo "summary_created=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Upload Test Results
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ inputs.zkvm_name }}
+          path: results-${{ inputs.zkvm_name }}/
+          retention-days: 90
+          
+      - name: Read Summary
+        id: summary
+        run: |
+          ZKVM_NAME="${{ inputs.zkvm_name }}"
+          RESULTS_DIR="results-$ZKVM_NAME"
+          
+          if [ -f "$RESULTS_DIR/summary.json" ]; then
+            SUMMARY=$(cat "$RESULTS_DIR/summary.json" | jq -c .)
+            echo "json=$SUMMARY" >> $GITHUB_OUTPUT
+          else
+            echo "json={}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Set Status Output
+        id: status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "value=success" >> $GITHUB_OUTPUT
+          else
+            echo "value=failure" >> $GITHUB_OUTPUT
+          fi

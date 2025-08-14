@@ -1,0 +1,78 @@
+name: Build OpenVM
+
+on:
+  workflow_call:
+    inputs:
+      commit_hash:
+        required: true
+        type: string
+    outputs:
+      artifact_name:
+        value: ${{ jobs.build.outputs.artifact }}
+      build_status:
+        value: ${{ jobs.build.outputs.status }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.artifact.outputs.name }}
+      status: ${{ steps.status.outputs.value }}
+    steps:
+      - name: Checkout OpenVM
+        uses: actions/checkout@v4
+        with:
+          repository: codygunton/openvm
+          ref: ${{ inputs.commit_hash }}
+          path: openvm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-openvm-${{ hashFiles('openvm/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-openvm-
+            
+      - name: Build OpenVM
+        id: build
+        working-directory: openvm
+        run: |
+          echo "Building OpenVM with command: cargo build --release"
+          cargo build --release
+          echo "Build completed successfully"
+          
+      - name: Verify Binary
+        working-directory: openvm
+        run: |
+          if [ ! -f "target/release/cargo-openvm" ]; then
+            echo "Error: Expected binary not found at target/release/cargo-openvm"
+            exit 1
+          fi
+          echo "Binary found at target/release/cargo-openvm"
+          ls -la target/release/cargo-openvm
+          
+      - name: Upload Binary Artifact
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openvm-binary-${{ inputs.commit_hash }}
+          path: openvm/target/release/cargo-openvm
+          retention-days: 7
+          
+      - name: Set Status Output
+        id: status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "value=success" >> $GITHUB_OUTPUT
+          else
+            echo "value=failure" >> $GITHUB_OUTPUT
+          fi

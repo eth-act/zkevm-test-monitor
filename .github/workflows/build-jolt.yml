@@ -1,0 +1,78 @@
+name: Build Jolt
+
+on:
+  workflow_call:
+    inputs:
+      commit_hash:
+        required: true
+        type: string
+    outputs:
+      artifact_name:
+        value: ${{ jobs.build.outputs.artifact }}
+      build_status:
+        value: ${{ jobs.build.outputs.status }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.artifact.outputs.name }}
+      status: ${{ steps.status.outputs.value }}
+    steps:
+      - name: Checkout Jolt
+        uses: actions/checkout@v4
+        with:
+          repository: codygunton/jolt
+          ref: ${{ inputs.commit_hash }}
+          path: jolt
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-jolt-${{ hashFiles('jolt/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-jolt-
+            
+      - name: Build Jolt
+        id: build
+        working-directory: jolt
+        run: |
+          echo "Building Jolt with command: cargo build --release -p tracer --bin jolt-emu"
+          cargo build --release -p tracer --bin jolt-emu
+          echo "Build completed successfully"
+          
+      - name: Verify Binary
+        working-directory: jolt
+        run: |
+          if [ ! -f "target/release/jolt-emu" ]; then
+            echo "Error: Expected binary not found at target/release/jolt-emu"
+            exit 1
+          fi
+          echo "Binary found at target/release/jolt-emu"
+          ls -la target/release/jolt-emu
+          
+      - name: Upload Binary Artifact
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jolt-binary-${{ inputs.commit_hash }}
+          path: jolt/target/release/jolt-emu
+          retention-days: 7
+          
+      - name: Set Status Output
+        id: status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "value=success" >> $GITHUB_OUTPUT
+          else
+            echo "value=failure" >> $GITHUB_OUTPUT
+          fi

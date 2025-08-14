@@ -13,9 +13,22 @@ __pycache__/
 # Build artifacts
 emulators/risc0/
 toolchains/risc0-riscv32im/
+build-temp-*
+artifacts/
+target/
 
 # Test outputs
 riscof_work/
+results/
+test-results-*
+
+# Dashboard and data
+data/compliance/
+docs/
+standalone/
+.github/workflows/
+.github/scripts/
+configs/
 
 # Documentation
 *.md

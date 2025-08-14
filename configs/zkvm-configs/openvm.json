@@ -1,0 +1,20 @@
+{
+  "name": "OpenVM",
+  "repository": "https://github.com/codygunton/openvm",
+  "commit": "a6f77215f",
+  "build": {
+    "command": "cargo build --release",
+    "binary_path": "target/release/cargo-openvm",
+    "environment": {
+      "RUST_LOG": "info"
+    }
+  },
+  "plugin": {
+    "name": "openvm",
+    "path": "plugins/openvm"
+  },
+  "capabilities": {
+    "note": "ISA information is determined from the plugin's ISA YAML file",
+    "plugin_isa_file": "plugins/openvm/openvm_isa.yaml"
+  }
+}

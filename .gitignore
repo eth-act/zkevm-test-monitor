@@ -1,10 +1,36 @@
-.venv
-toolchains/gcc-riscv
-toolchains/sail-lang
-emulators/sail-riscv
-emulators/spike
-plugins/sail_cSim/__pycache__
-plugins/spike/__pycache__
-riscof_work
-results/*
-!results/.keep
+# Build artifacts
+artifacts/
+build-temp-*/
+
+# Test results (keep only the main results directory structure)
+results-*/
+test-debug/
+test-results-*/
+
+# Temporary documentation
+DEBUGGING.md
+README-DASHBOARD.md
+SSH_VIEWING.md
+
+# Local scripts
+use-local-repos.sh
+Makefile
+
+# Standalone directory
+standalone/
+
+# Keep the results directory but ignore large test artifacts
+results/*/rv32i_m/
+results/*/Makefile*
+results/*/database.yaml
+results/*/test_list.yaml
+results/*/*_checked.yaml
+results/*/style.css
+
+# Keep summary only (reports are generated artifacts)
+!results/*/summary.json
+
+# Ignore generated docs data (gets regenerated on update)
+docs/data/
+docs/reports/
+docs/zkvm/

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZKVM Compliance Dashboard</title>
+    <link rel="stylesheet" href="assets/css/dashboard.css">
+    <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 minutes -->
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>RISC-V ZKVM Compliance Dashboard</h1>
+            <p class="subtitle">Automated compliance testing for Zero-Knowledge Virtual Machines</p>
+            <div class="last-updated" id="last-updated">Loading...</div>
+        </header>
+
+        <main>
+            <section class="summary-section">
+                <h2>Current Compliance Status</h2>
+                <div id="summary-cards" class="summary-cards">
+                    <!-- Summary cards will be inserted here -->
+                </div>
+            </section>
+
+            <section class="table-section">
+                <h2>Detailed Results</h2>
+                <table id="compliance-table" class="compliance-table">
+                    <thead>
+                        <tr>
+                            <th>ZKVM</th>
+                            <th>ISA</th>
+                            <th>Last Tested Commit</th>
+                            <th>Results</th>
+                            <th>Pass Rate</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="compliance-tbody">
+                        <!-- Table rows will be inserted here -->
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="chart-section">
+                <h2>Compliance Trends (Last 90 Days)</h2>
+                <canvas id="trends-chart"></canvas>
+            </section>
+
+            <section class="info-section">
+                <h2>About This Dashboard</h2>
+                <p>
+                    This dashboard displays the results of nightly RISC-V compliance testing for various 
+                    Zero-Knowledge Virtual Machine implementations. Tests are run using the 
+                    <a href="https://github.com/riscv-software-src/riscof" target="_blank">RISCOF</a> 
+                    framework against the official RISC-V architectural test suite.
+                </p>
+                <p>
+                    <strong>Test Frequency:</strong> Nightly at 02:00 UTC<br>
+                    <strong>Data Retention:</strong> 90 days<br>
+                    <strong>Source Code:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor" target="_blank">GitHub Repository</a>
+                </p>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2025 ZKVM Test Monitor | Data updated nightly | <a href="https://github.com/codygunton/zkevm-test-monitor" target="_blank">Source</a></p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="assets/js/dashboard.js"></script>
+</body>
+</html>
