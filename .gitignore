@@ -30,7 +30,5 @@ results/*/style.css
 # Keep summary only (reports are generated artifacts)
 !results/*/summary.json
 
-# Ignore generated docs data (gets regenerated on update)
-docs/data/
-docs/reports/
-docs/zkvm/
+# Note: docs/ content must be committed for GitHub Pages to work
+# The GitHub Action will update these automatically

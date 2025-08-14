@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jolt - ZKVM Compliance Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>JOLT Details</h1>
+            <a href="../index.html" class="back-link">← Back to Dashboard</a>
+        </header>
+        
+        <div class="history-section">
+            <h2>Test History</h2>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Commit</th>
+                        <th>Results</th>
+                        <th>Pass Rate</th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody-jolt">
+                    <!-- Will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script src="../assets/js/zkvm-detail.js"></script>
+    <script>
+        window.zkvmName = 'jolt';
+        window.zkvmData = {
+  "zkvm": "jolt",
+  "timestamp": "2025-08-14T02:25:00Z",
+  "commit": "c4b9b060",
+  "passed": 47,
+  "failed": 0,
+  "total": 47,
+  "pass_rate": 100.00
+};
+    </script>
+</body>
+</html>
