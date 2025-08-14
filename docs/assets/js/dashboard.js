@@ -11,7 +11,6 @@ class ComplianceDashboard {
         try {
             await this.loadData();
             this.renderDashboard();
-            this.initChart();
             this.startAutoRefresh();
         } catch (error) {
             console.error('Error initializing dashboard:', error);
@@ -99,7 +98,6 @@ class ComplianceDashboard {
 
     renderDashboard() {
         this.updateLastUpdated();
-        this.renderSummaryCards();
         this.renderComplianceTable();
     }
 
@@ -178,7 +176,7 @@ class ComplianceDashboard {
             
             row.innerHTML = `
                 <td>
-                    <a href="https://github.com/codygunton/${zkvm}" target="_blank">
+                    <a href="zkvm/${zkvm}.html">
                         <strong>${zkvm.toUpperCase()}</strong>
                     </a>
                 </td>
@@ -190,22 +188,11 @@ class ComplianceDashboard {
                 </td>
                 <td>
                     <span class="badge ${data.failed === 0 ? 'pass' : 'fail'}">
-                        ${data.passed}/${data.total} Passed
+                        ${data.passed}/${data.total}
                     </span>
                 </td>
                 <td>
-                    <div class="pass-rate">
-                        <div class="pass-rate-bar">
-                            <div class="pass-rate-fill" style="width: ${data.pass_rate}%"></div>
-                        </div>
-                        <span class="pass-rate-text">${data.pass_rate.toFixed(1)}%</span>
-                    </div>
-                </td>
-                <td>
-                    <div class="action-buttons">
-                        <a href="zkvm/${zkvm}.html" class="btn btn-primary">History</a>
-                        <a href="reports/${zkvm}-report.html" class="btn btn-secondary">Report</a>
-                    </div>
+                    <a href="reports/${zkvm}-report.html" class="btn btn-secondary">View</a>
                 </td>
             `;
             

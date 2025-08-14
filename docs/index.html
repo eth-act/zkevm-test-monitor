@@ -16,15 +16,8 @@
         </header>
 
         <main>
-            <section class="summary-section">
-                <h2>Current Compliance Status</h2>
-                <div id="summary-cards" class="summary-cards">
-                    <!-- Summary cards will be inserted here -->
-                </div>
-            </section>
-
             <section class="table-section">
-                <h2>Detailed Results</h2>
+                <h2>Test Results</h2>
                 <table id="compliance-table" class="compliance-table">
                     <thead>
                         <tr>
@@ -32,19 +25,13 @@
                             <th>ISA</th>
                             <th>Last Tested Commit</th>
                             <th>Results</th>
-                            <th>Pass Rate</th>
-                            <th>Actions</th>
+                            <th>Report</th>
                         </tr>
                     </thead>
                     <tbody id="compliance-tbody">
                         <!-- Table rows will be inserted here -->
                     </tbody>
                 </table>
-            </section>
-
-            <section class="chart-section">
-                <h2>Compliance Trends (Last 90 Days)</h2>
-                <canvas id="trends-chart"></canvas>
             </section>
 
             <section class="info-section">
@@ -68,7 +55,6 @@
         </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="assets/js/dashboard.js"></script>
 </body>
 </html>

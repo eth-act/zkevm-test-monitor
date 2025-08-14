@@ -98,23 +98,28 @@ echo "$STATUS" | jq -r '.zkvms | keys[]' | while read -r ZKVM; do
 <body>
     <div class="container">
         <header>
-            <h1>${ZKVM} Compliance History</h1>
+            <h1>${ZKVM^^} Details</h1>
             <a href="../index.html" class="back-link">← Back to Dashboard</a>
         </header>
         
-        <div class="current-status">
-            <h2>Current Status</h2>
-            <div id="current-${ZKVM}" class="status-card"></div>
-        </div>
-        
         <div class="history-section">
-            <h2>Historical Results (Last 90 Days)</h2>
-            <canvas id="history-chart-${ZKVM}"></canvas>
-            <div id="history-table-${ZKVM}" class="history-table"></div>
+            <h2>Test History</h2>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Commit</th>
+                        <th>Results</th>
+                        <th>Pass Rate</th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody-${ZKVM}">
+                    <!-- Will be populated by JavaScript -->
+                </tbody>
+            </table>
         </div>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="../assets/js/zkvm-detail.js"></script>
     <script>
         window.zkvmName = '${ZKVM}';
