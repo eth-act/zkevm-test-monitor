@@ -1,18 +1,18 @@
 {
   "total_zkvms": 3,
-  "last_updated": 1755154804.602213,
+  "last_updated": 1755707349.264552,
   "summary": [
     {
       "name": "jolt",
-      "passed": 47,
+      "passed": 0,
       "total": 47,
-      "pass_rate": 100.00
+      "pass_rate": 0
     },
     {
       "name": "openvm",
-      "passed": 47,
+      "passed": 0,
       "total": 47,
-      "pass_rate": 100.00
+      "pass_rate": 0
     },
     {
       "name": "sp1",

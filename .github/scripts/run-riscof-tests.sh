@@ -12,10 +12,11 @@ if [ ! -f "$BINARY_PATH" ]; then
     exit 1
 fi
 
-# Check if plugin directory exists
-PLUGIN_DIR="plugins/$ZKVM_NAME"
+# Use plugin from riscof repo
+PLUGIN_DIR="riscof/plugins/$ZKVM_NAME"
 if [ ! -d "$PLUGIN_DIR" ]; then
     echo "Error: Plugin directory not found at $PLUGIN_DIR"
+    echo "Make sure the riscof symlink points to your riscof repository"
     exit 1
 fi
 
@@ -29,9 +30,16 @@ echo "========================================="
 # Create results directory
 mkdir -p "$RESULTS_DIR"
 
-# Build Docker container (if not already built)
-echo "Building Docker container..."
+# Build Docker container from riscof repo
+echo "Building Docker container from riscof repo..."
+if [ ! -d "riscof" ]; then
+    echo "Error: riscof directory/symlink not found"
+    echo "Please create a symlink: ln -s /path/to/your/riscof/repo riscof"
+    exit 1
+fi
+cd riscof
 docker build -t riscof:latest .
+cd ..
 
 # Run RISCOF tests
 echo "Running tests..."
@@ -49,9 +57,9 @@ if [ -f "$REPORT_FILE" ]; then
     # Extract test summary
     echo "Extracting test summary..."
     
-    # Count pass/fail from the HTML table rows
-    PASSED=$(grep -c '<td>Passed</td>' "$REPORT_FILE" 2>/dev/null || echo "0")
-    FAILED=$(grep -c '<td>Failed</td>' "$REPORT_FILE" 2>/dev/null || echo "0")
+    # Count pass/fail from the HTML table rows (ensure clean numbers)
+    PASSED=$(grep -c '<td>Passed</td>' "$REPORT_FILE" 2>/dev/null | tr -d '\n' || echo "0")
+    FAILED=$(grep -c '<td>Failed</td>' "$REPORT_FILE" 2>/dev/null | tr -d '\n' || echo "0")
     
     # If that didn't work, try the summary format
     if [ "$PASSED" = "0" ] && [ "$FAILED" = "0" ]; then

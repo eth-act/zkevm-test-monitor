@@ -29,6 +29,31 @@ results/*/style.css
 
 # Keep summary only (reports are generated artifacts)
 !results/*/summary.json
+results/*/report.html
 
-# Note: docs/ content must be committed for GitHub Pages to work
-# The GitHub Action will update these automatically
+# RISCOF repository clone/symlink
+riscof-repo/
+riscof
+
+# Data and compliance files - frequently changing
+data/compliance/current/*.json
+data/compliance/history/
+data/compliance/archives/
+
+# Generated docs that change frequently
+docs/data/
+docs/reports/
+docs/zkvm/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary directories
+shhh/
+tmp/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
