@@ -1,8 +1,9 @@
 {
-  "name": "Jolt",
+  "name": "jolt",
   "repository": "https://github.com/codygunton/jolt",
   "commit": "c4b9b060",
   "build": {
+    "docker": true,
     "command": "cargo build --release -p tracer --bin jolt-emu",
     "binary_path": "target/release/jolt-emu",
     "environment": {

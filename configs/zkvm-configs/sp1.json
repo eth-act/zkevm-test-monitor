@@ -1,8 +1,9 @@
 {
-  "name": "SP1",
+  "name": "sp1",
   "repository": "https://github.com/codygunton/sp1",
   "commit": "fc98075a",
   "build": {
+    "docker": true,
     "command": "cargo build --bin sp1-perf-executor",
     "binary_path": "target/debug/sp1-perf-executor",
     "environment": {

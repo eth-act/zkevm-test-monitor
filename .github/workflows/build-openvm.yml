@@ -19,52 +19,46 @@ jobs:
       artifact: ${{ steps.artifact.outputs.name }}
       status: ${{ steps.status.outputs.value }}
     steps:
-      - name: Checkout OpenVM
+      - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          repository: codygunton/openvm
-          ref: ${{ inputs.commit_hash }}
-          path: openvm
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-openvm-${{ hashFiles('openvm/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-openvm-
-            
-      - name: Build OpenVM
-        id: build
-        working-directory: openvm
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build OpenVM Docker Image with Caching
         run: |
-          echo "Building OpenVM with command: cargo build --release"
-          cargo build --release
-          echo "Build completed successfully"
+          echo "Building Docker image for openvm at commit ${{ inputs.commit_hash }}..."
+          docker build \
+            --build-arg REPO_URL="https://github.com/codygunton/openvm" \
+            --build-arg COMMIT_HASH="${{ inputs.commit_hash }}" \
+            -t "zkvm-build-openvm:${{ inputs.commit_hash }}" \
+            docker/build-openvm
+          
+      - name: Extract OpenVM Binary from Docker
+        run: |
+          echo "Extracting openvm binary from Docker image..."
+          mkdir -p artifacts/binaries
+          docker run --rm \
+            -v "$(pwd)/artifacts/binaries:/output" \
+            "zkvm-build-openvm:${{ inputs.commit_hash }}"
           
       - name: Verify Binary
-        working-directory: openvm
         run: |
-          if [ ! -f "target/release/cargo-openvm" ]; then
-            echo "Error: Expected binary not found at target/release/cargo-openvm"
+          if [ ! -f "artifacts/binaries/cargo-openvm" ]; then
+            echo "Error: Expected binary not found at artifacts/binaries/cargo-openvm"
             exit 1
           fi
-          echo "Binary found at target/release/cargo-openvm"
-          ls -la target/release/cargo-openvm
+          echo "Binary found at artifacts/binaries/cargo-openvm"
+          ls -la artifacts/binaries/cargo-openvm
+          # Rename for artifact upload (force overwrite)
+          mv -f artifacts/binaries/cargo-openvm artifacts/binaries/openvm-binary
           
       - name: Upload Binary Artifact
         id: artifact
         uses: actions/upload-artifact@v4
         with:
           name: openvm-binary-${{ inputs.commit_hash }}
-          path: openvm/target/release/cargo-openvm
+          path: artifacts/binaries/openvm-binary
           retention-days: 7
           
       - name: Set Status Output

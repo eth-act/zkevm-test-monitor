@@ -61,12 +61,32 @@ docker run --rm \
     -v "$OUTPUT_DIR:/output" \
     "$DOCKER_IMAGE"
 
+# Determine expected binary name based on ZKVM
+case "$ZKVM_NAME" in
+    sp1)
+        EXPECTED_BINARY="sp1-perf-executor"
+        ;;
+    openvm)
+        EXPECTED_BINARY="cargo-openvm"
+        ;;
+    jolt)
+        EXPECTED_BINARY="jolt-emu"
+        ;;
+    zisk)
+        EXPECTED_BINARY="ziskemu"
+        ;;
+    *)
+        echo "Error: Unknown ZKVM: $ZKVM_NAME"
+        exit 1
+        ;;
+esac
+
 # Rename output binary (force overwrite for CI)
-if [ -f "$OUTPUT_DIR/ziskemu" ]; then
-    mv -f "$OUTPUT_DIR/ziskemu" "$OUTPUT_DIR/${ZKVM_NAME}-binary"
+if [ -f "$OUTPUT_DIR/$EXPECTED_BINARY" ]; then
+    mv -f "$OUTPUT_DIR/$EXPECTED_BINARY" "$OUTPUT_DIR/${ZKVM_NAME}-binary"
     echo "Binary saved to $OUTPUT_DIR/${ZKVM_NAME}-binary"
 else
-    echo "Error: Build output not found"
+    echo "Error: Build output not found: $OUTPUT_DIR/$EXPECTED_BINARY"
     exit 1
 fi
 

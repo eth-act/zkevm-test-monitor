@@ -2,7 +2,7 @@
   "zkvms": {
     "jolt": {
       "zkvm": "jolt",
-      "timestamp": "2025-08-20T16:29:09Z",
+      "timestamp": "2025-08-21T20:00:59Z",
       "passed": 0,
       "failed": 47,
       "total": 47,
@@ -10,7 +10,7 @@
     },
     "openvm": {
       "zkvm": "openvm",
-      "timestamp": "2025-08-20T16:28:23Z",
+      "timestamp": "2025-08-21T20:14:39Z",
       "passed": 0,
       "failed": 47,
       "total": 47,
@@ -34,5 +34,5 @@
       "pass_rate": 0
     }
   },
-  "last_updated": 1755795381.295357
+  "last_updated": 1755807279.896729
 }

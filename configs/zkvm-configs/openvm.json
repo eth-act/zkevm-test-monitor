@@ -1,8 +1,9 @@
 {
-  "name": "OpenVM",
+  "name": "openvm",
   "repository": "https://github.com/codygunton/openvm",
   "commit": "a6f77215f",
   "build": {
+    "docker": true,
     "command": "cargo build --release",
     "binary_path": "target/release/cargo-openvm",
     "environment": {
