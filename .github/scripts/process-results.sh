@@ -4,8 +4,13 @@ set -euo pipefail
 
 RESULTS_DIR="${1:-results}"
 DATA_DIR="${2:-data/compliance}"
+ZKVM_FILTER="${3:-all}"  # Optional: specific ZKVM to process, or "all" for everything
 
-echo "Processing results from $RESULTS_DIR"
+if [ "$ZKVM_FILTER" = "all" ]; then
+    echo "Processing all results from $RESULTS_DIR"
+else
+    echo "Processing results only for $ZKVM_FILTER from $RESULTS_DIR"
+fi
 
 # Create data directories
 mkdir -p "$DATA_DIR/current"
@@ -24,6 +29,12 @@ for ZKVM_DIR in "$RESULTS_DIR"/*; do
     fi
     
     ZKVM_NAME=$(basename "$ZKVM_DIR")
+    
+    # Skip if we're filtering and this isn't the ZKVM we want
+    if [ "$ZKVM_FILTER" != "all" ] && [ "$ZKVM_NAME" != "$ZKVM_FILTER" ]; then
+        continue
+    fi
+    
     SUMMARY_FILE="$ZKVM_DIR/summary.json"
     
     if [ ! -f "$SUMMARY_FILE" ]; then

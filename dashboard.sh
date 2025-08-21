@@ -67,10 +67,16 @@ EOF
 }
 
 function update_dashboard() {
-    echo -e "${GREEN}Updating dashboard...${NC}"
+    local zkvm="${1:-all}"
     
-    # Process results
-    ./.github/scripts/process-results.sh results data/compliance
+    if [ "$zkvm" = "all" ]; then
+        echo -e "${GREEN}Updating dashboard for all ZKVMs...${NC}"
+    else
+        echo -e "${GREEN}Updating dashboard for $zkvm only...${NC}"
+    fi
+    
+    # Process results (pass ZKVM filter if specified)
+    ./.github/scripts/process-results.sh results data/compliance "$zkvm"
     
     # Generate dashboard
     ./.github/scripts/generate-dashboard.sh data/compliance docs
@@ -148,10 +154,11 @@ case "$ACTION" in
                 echo -e "${YELLOW}Testing $z...${NC}"
                 test_zkvm "$z" || echo -e "${YELLOW}$z test completed or skipped${NC}"
             done
+            update_dashboard "all"
         else
             test_zkvm "$ZKVM"
+            update_dashboard "$ZKVM"
         fi
-        update_dashboard
         ;;
     update)
         update_dashboard

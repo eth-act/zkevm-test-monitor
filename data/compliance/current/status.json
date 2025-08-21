@@ -27,12 +27,13 @@
     },
     "zisk": {
       "zkvm": "zisk",
-      "timestamp": "2025-08-21T16:56:21Z",
+      "timestamp": "2025-08-21T21:26:04Z",
+      "riscof_commit": "b11c80d",
       "passed": 0,
       "failed": 47,
       "total": 47,
       "pass_rate": 0
     }
   },
-  "last_updated": 1755807279.896729
+  "last_updated": 1755811564.406119
 }

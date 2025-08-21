@@ -45,6 +45,10 @@ else
     echo "Using existing RISCOF Docker image"
 fi
 
+# Get RISCOF container version info
+RISCOF_COMMIT=$(docker run --rm --entrypoint sh riscof:latest -c 'echo $RISCOF_COMMIT' 2>/dev/null || echo "unknown")
+echo "Using RISCOF container built from commit: $RISCOF_COMMIT"
+
 # Run RISCOF tests
 echo "Running tests..."
 docker run --rm \
@@ -91,6 +95,7 @@ if [ -f "$REPORT_FILE" ]; then
 {
   "zkvm": "$ZKVM_NAME",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "riscof_commit": "$RISCOF_COMMIT",
   "passed": $PASSED,
   "failed": $FAILED,
   "total": $TOTAL,
