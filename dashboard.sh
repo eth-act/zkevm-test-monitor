@@ -126,7 +126,7 @@ function clean_all() {
     rm -rf results/* artifacts/binaries/* build-temp-*
     mkdir -p results  # Keep the results directory
     rm -f data/compliance/current/status.json
-    echo '{"zkvms": {}, "last_updated": null}' > data/compliance/current/status.json
+    echo '{"zkvms": {}}' > data/compliance/current/status.json
     echo -e "${GREEN}✅ Cleaned${NC}"
 }
 

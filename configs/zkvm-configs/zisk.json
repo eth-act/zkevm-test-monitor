@@ -11,6 +11,6 @@
   },
   "test": {
     "plugin": "riscof/plugins/zisk",
-    "isa": "RV32IM"
+    "isa": "RV64IMA"
   }
 }

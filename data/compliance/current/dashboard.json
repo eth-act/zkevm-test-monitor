@@ -22,9 +22,9 @@
     },
     {
       "name": "zisk",
-      "passed": 0,
-      "total": 47,
-      "pass_rate": 0
+      "passed": 82,
+      "total": 82,
+      "pass_rate": 100.00
     }
   ]
 }

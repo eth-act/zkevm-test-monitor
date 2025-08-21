@@ -38,9 +38,8 @@ if ! docker image inspect riscof:latest &> /dev/null; then
         echo "Please create a symlink: ln -s /path/to/your/riscof/repo riscof"
         exit 1
     fi
-    cd riscof
-    docker build -t riscof:latest .
-    cd ..
+    # Use the build script to ensure git commit is embedded
+    ./riscof/build.sh
 else
     echo "Using existing RISCOF Docker image"
 fi
@@ -65,14 +64,15 @@ if [ -f "$REPORT_FILE" ]; then
     # Extract test summary
     echo "Extracting test summary..."
     
-    # Count pass/fail from the HTML table rows (ensure clean numbers)
-    PASSED=$(grep -c '<td>Passed</td>' "$REPORT_FILE" 2>/dev/null | tr -d '\n' || echo "0")
-    FAILED=$(grep -c '<td>Failed</td>' "$REPORT_FILE" 2>/dev/null | tr -d '\n' || echo "0")
+    # Try to extract from the summary line first (most reliable)
+    # Format: <span class="passed">82Passed</span>, <span class="failed">0Failed</span>
+    PASSED=$(grep -oE '<span class="passed">[0-9]+Passed</span>' "$REPORT_FILE" | grep -oE '[0-9]+' | head -1 || echo "0")
+    FAILED=$(grep -oE '<span class="failed">[0-9]+Failed</span>' "$REPORT_FILE" | grep -oE '[0-9]+' | head -1 || echo "0")
     
-    # If that didn't work, try the summary format
+    # If that didn't work, count the actual result rows
     if [ "$PASSED" = "0" ] && [ "$FAILED" = "0" ]; then
-        PASSED=$(grep -oE 'Total Passed:.*[0-9]+' "$REPORT_FILE" | grep -oE '[0-9]+' | tail -1 || echo "0")
-        FAILED=$(grep -oE 'Total Failed:.*[0-9]+' "$REPORT_FILE" | grep -oE '[0-9]+' | tail -1 || echo "0")
+        PASSED=$(grep -c '<td class="col-result">Passed</td>' "$REPORT_FILE" 2>/dev/null || echo "0")
+        FAILED=$(grep -c '<td class="col-result">Failed</td>' "$REPORT_FILE" 2>/dev/null || echo "0")
     fi
     
     TOTAL=$((PASSED + FAILED))

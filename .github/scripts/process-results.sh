@@ -19,7 +19,7 @@ mkdir -p "$DATA_DIR/history/$(date +%Y-%m)"
 # Initialize current status file if it doesn't exist
 CURRENT_FILE="$DATA_DIR/current/status.json"
 if [ ! -f "$CURRENT_FILE" ]; then
-    echo '{"zkvms": {}, "last_updated": null}' > "$CURRENT_FILE"
+    echo '{"zkvms": {}}' > "$CURRENT_FILE"
 fi
 
 # Process each ZKVM's results
@@ -47,10 +47,10 @@ for ZKVM_DIR in "$RESULTS_DIR"/*; do
     # Read summary data
     SUMMARY=$(cat "$SUMMARY_FILE")
     
-    # Update current status
+    # Update current status (each ZKVM has its own timestamp, no need for global last_updated)
     jq --arg zkvm "$ZKVM_NAME" \
        --argjson summary "$SUMMARY" \
-       '.zkvms[$zkvm] = $summary | .last_updated = now | .' \
+       '.zkvms[$zkvm] = $summary' \
        "$CURRENT_FILE" > "$CURRENT_FILE.tmp"
     mv -f "$CURRENT_FILE.tmp" "$CURRENT_FILE"
     
