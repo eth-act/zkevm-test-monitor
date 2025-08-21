@@ -35,6 +35,13 @@ jobs:
       commit_hash: c4b9b060
     secrets: inherit
 
+  build-zisk:
+    name: Build Zisk
+    uses: ./.github/workflows/build-zisk.yml
+    with:
+      commit_hash: main
+    secrets: inherit
+
   # Run tests for each ZKVM after builds complete
   test-sp1:
     name: Test SP1
@@ -63,10 +70,19 @@ jobs:
       artifact_name: jolt-binary-c4b9b060
     secrets: inherit
 
+  test-zisk:
+    name: Test Zisk
+    needs: build-zisk
+    uses: ./.github/workflows/run-tests.yml
+    with:
+      zkvm_name: zisk
+      artifact_name: zisk-binary-main
+    secrets: inherit
+
   # Process results and update dashboard
   process-results:
     name: Process Results and Update Dashboard
-    needs: [test-sp1, test-openvm, test-jolt]
+    needs: [test-sp1, test-openvm, test-jolt, test-zisk]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -97,6 +113,14 @@ jobs:
         with:
           name: test-results-jolt
           path: results/results-jolt
+        continue-on-error: true
+
+      - name: Download Zisk Results
+        if: needs.test-zisk.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-zisk
+          path: results/results-zisk
         continue-on-error: true
           
       - name: Process All Results
@@ -144,6 +168,7 @@ jobs:
           echo "| SP1 | ${{ needs.build-sp1.result }} | ${{ needs.test-sp1.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| OpenVM | ${{ needs.build-openvm.result }} | ${{ needs.test-openvm.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Jolt | ${{ needs.build-jolt.result }} | ${{ needs.test-jolt.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Zisk | ${{ needs.build-zisk.result }} | ${{ needs.test-zisk.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Dashboard: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
           

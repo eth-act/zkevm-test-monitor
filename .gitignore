@@ -1,11 +1,23 @@
 # Build artifacts
 artifacts/
 build-temp-*/
+*.log
 
-# Test results (keep only the main results directory structure)
-results-*/
-test-debug/
-test-results-*/
+# Test results - all of them
+results/
+
+# Current/temporary data - don't track
+data/compliance/current/
+data/cache/
+
+# BUT we DO want to track historical test results!
+# data/compliance/history/ - TRACKED for historical record
+# data/compliance/archives/ - TRACKED for historical reports
+
+# ALL generated docs - we only track the static HTML/JS/CSS
+docs/data/
+docs/reports/
+docs/zkvm/
 
 # Temporary documentation
 DEBUGGING.md
@@ -19,31 +31,9 @@ Makefile
 # Standalone directory
 standalone/
 
-# Keep the results directory but ignore large test artifacts
-results/*/rv32i_m/
-results/*/Makefile*
-results/*/database.yaml
-results/*/test_list.yaml
-results/*/*_checked.yaml
-results/*/style.css
-
-# Keep summary only (reports are generated artifacts)
-!results/*/summary.json
-results/*/report.html
-
-# RISCOF repository clone/symlink
+# RISCOF repository clone/symlink (this is YOUR repo, not tracked here)
 riscof-repo/
 riscof
-
-# Data and compliance files - frequently changing
-data/compliance/current/*.json
-data/compliance/history/
-data/compliance/archives/
-
-# Generated docs that change frequently
-docs/data/
-docs/reports/
-docs/zkvm/
 
 # Python cache
 __pycache__/

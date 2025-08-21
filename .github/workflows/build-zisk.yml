@@ -1,0 +1,72 @@
+name: Build Zisk
+
+on:
+  workflow_call:
+    inputs:
+      commit_hash:
+        required: true
+        type: string
+    outputs:
+      artifact_name:
+        value: ${{ jobs.build.outputs.artifact }}
+      build_status:
+        value: ${{ jobs.build.outputs.status }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.artifact.outputs.name }}
+      status: ${{ steps.status.outputs.value }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build Zisk Docker Image with Caching
+        run: |
+          echo "Building Docker image for zisk at commit ${{ inputs.commit_hash }}..."
+          docker build \
+            --build-arg REPO_URL="https://github.com/codygunton/zisk.git" \
+            --build-arg COMMIT_HASH="${{ inputs.commit_hash }}" \
+            -t "zkvm-build-zisk:${{ inputs.commit_hash }}" \
+            docker/build-zisk
+          
+      - name: Extract Zisk Binary from Docker
+        run: |
+          echo "Extracting zisk binary from Docker image..."
+          mkdir -p artifacts/binaries
+          docker run --rm \
+            -v "$(pwd)/artifacts/binaries:/output" \
+            "zkvm-build-zisk:${{ inputs.commit_hash }}"
+          
+      - name: Verify Binary
+        run: |
+          if [ ! -f "artifacts/binaries/ziskemu" ]; then
+            echo "Error: Expected binary not found at artifacts/binaries/ziskemu"
+            exit 1
+          fi
+          echo "Binary found at artifacts/binaries/ziskemu"
+          ls -la artifacts/binaries/ziskemu
+          # Rename for artifact upload (force overwrite)
+          mv -f artifacts/binaries/ziskemu artifacts/binaries/zisk-binary
+          
+      - name: Upload Binary Artifact
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zisk-binary-${{ inputs.commit_hash }}
+          path: artifacts/binaries/zisk-binary
+          retention-days: 7
+          
+      - name: Set Status Output
+        id: status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "value=success" >> $GITHUB_OUTPUT
+          else
+            echo "value=failure" >> $GITHUB_OUTPUT
+          fi

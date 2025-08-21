@@ -205,7 +205,8 @@ class ComplianceDashboard {
         const isaMap = {
             sp1: 'RV32IM',
             openvm: 'RV32IM',
-            jolt: 'RV32IM'
+            jolt: 'RV32IM',
+            zisk: 'RV32IM'
         };
         return isaMap[zkvm] || 'Unknown';
     }

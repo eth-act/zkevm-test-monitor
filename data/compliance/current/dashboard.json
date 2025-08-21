@@ -1,6 +1,6 @@
 {
-  "total_zkvms": 3,
-  "last_updated": 1755707349.264552,
+  "total_zkvms": 4,
+  "last_updated": 1755795381.295357,
   "summary": [
     {
       "name": "jolt",
@@ -16,9 +16,15 @@
     },
     {
       "name": "sp1",
-      "passed": 46,
+      "passed": 0,
+      "total": 0,
+      "pass_rate": 0
+    },
+    {
+      "name": "zisk",
+      "passed": 0,
       "total": 47,
-      "pass_rate": 97.87
+      "pass_rate": 0
     }
   ]
 }

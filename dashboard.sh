@@ -20,8 +20,8 @@ Usage: ./dashboard.sh [ACTION] [OPTIONS]
 ACTIONS:
   mock     - Create mock data and generate dashboard (quick test)
   serve    - Start web server on port 8000
-  build    - Build ZKVM binary (specify: sp1/openvm/jolt/all)
-  test     - Run RISCOF tests (specify: sp1/openvm/jolt/all)
+  build    - Build ZKVM binary (specify: sp1/openvm/jolt/zisk/all)
+  test     - Run RISCOF tests (specify: sp1/openvm/jolt/zisk/all)
   update   - Process results and regenerate dashboard
   clean    - Clean all test data
 
@@ -38,7 +38,7 @@ function create_mock_data() {
     echo -e "${GREEN}Creating mock test data...${NC}"
     mkdir -p results data/compliance/current
     
-    for zkvm in sp1 openvm jolt; do
+    for zkvm in sp1 openvm jolt zisk; do
         if [ -f "configs/zkvm-configs/${zkvm}.json" ]; then
             mkdir -p "results/$zkvm"
             
@@ -88,7 +88,18 @@ function serve_dashboard() {
 function build_zkvm() {
     local zkvm="$1"
     echo -e "${GREEN}Building $zkvm...${NC}"
-    ./.github/scripts/build-zkvm.sh "$zkvm"
+    
+    # Check if Docker build is enabled for this ZKVM
+    if [ -f "configs/zkvm-configs/${zkvm}.json" ]; then
+        DOCKER_BUILD=$(jq -r '.build.docker // false' "configs/zkvm-configs/${zkvm}.json")
+        if [ "$DOCKER_BUILD" = "true" ]; then
+            ./.github/scripts/build-zkvm-docker.sh "$zkvm"
+        else
+            ./.github/scripts/build-zkvm.sh "$zkvm"
+        fi
+    else
+        ./.github/scripts/build-zkvm.sh "$zkvm"
+    fi
 }
 
 function test_zkvm() {
@@ -124,7 +135,7 @@ case "$ACTION" in
         ;;
     build)
         if [ "$ZKVM" = "all" ]; then
-            for z in sp1 openvm jolt; do
+            for z in sp1 openvm jolt zisk; do
                 build_zkvm "$z"
             done
         else
@@ -133,7 +144,7 @@ case "$ACTION" in
         ;;
     test)
         if [ "$ZKVM" = "all" ]; then
-            for z in sp1 openvm jolt; do
+            for z in sp1 openvm jolt zisk; do
                 echo -e "${YELLOW}Testing $z...${NC}"
                 test_zkvm "$z" || echo -e "${YELLOW}$z test completed or skipped${NC}"
             done

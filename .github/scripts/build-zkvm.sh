@@ -17,6 +17,7 @@ REPO_URL=$(jq -r '.repository' "$CONFIG_FILE")
 COMMIT_HASH=$(jq -r '.commit' "$CONFIG_FILE")
 BUILD_CMD=$(jq -r '.build.command' "$CONFIG_FILE")
 BINARY_PATH=$(jq -r '.build.binary_path' "$CONFIG_FILE")
+DEPENDENCIES=$(jq -r '.build.dependencies // ""' "$CONFIG_FILE")
 
 echo "========================================="
 echo "Building $ZKVM_NAME"
@@ -24,7 +25,25 @@ echo "Repository: $REPO_URL"
 echo "Commit: $COMMIT_HASH"
 echo "Build Command: $BUILD_CMD"
 echo "Binary Path: $BINARY_PATH"
+if [ -n "$DEPENDENCIES" ] && [ "$DEPENDENCIES" != "null" ]; then
+    echo "Dependencies: $DEPENDENCIES"
+fi
 echo "========================================="
+
+# Install dependencies if specified and running in CI
+if [ -n "$DEPENDENCIES" ] && [ "$DEPENDENCIES" != "null" ]; then
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then
+        echo "Installing dependencies for $ZKVM_NAME (CI environment)..."
+        eval "$DEPENDENCIES"
+        echo "Dependencies installed successfully"
+    else
+        echo "Dependencies required for $ZKVM_NAME:"
+        echo "$DEPENDENCIES"
+        echo ""
+        echo "Note: In local environment, please install dependencies manually or run with sudo"
+        echo "Attempting to build without installing dependencies..."
+    fi
+fi
 
 # Clone or update repository
 BUILD_DIR="build-temp-$ZKVM_NAME"

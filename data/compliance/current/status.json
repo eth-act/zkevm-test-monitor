@@ -18,13 +18,21 @@
     },
     "sp1": {
       "zkvm": "sp1",
-      "timestamp": "2025-08-14T02:13:00Z",
+      "timestamp": "2025-08-21T04:43:57Z",
       "commit": "fc98075a",
-      "passed": 46,
-      "failed": 1,
+      "passed": 0,
+      "failed": 0,
+      "total": 0,
+      "pass_rate": 0
+    },
+    "zisk": {
+      "zkvm": "zisk",
+      "timestamp": "2025-08-21T16:56:21Z",
+      "passed": 0,
+      "failed": 47,
       "total": 47,
-      "pass_rate": 97.87
+      "pass_rate": 0
     }
   },
-  "last_updated": 1755707349.264552
+  "last_updated": 1755795381.295357
 }

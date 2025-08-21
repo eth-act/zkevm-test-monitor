@@ -22,7 +22,7 @@ cp -r "$DATA_DIR/archives" "$DOCS_DIR/data/" 2>/dev/null || true
 mkdir -p "$DOCS_DIR/reports"
 
 # Copy style.css if it exists in any results directory
-for zkvm in sp1 openvm jolt; do
+for zkvm in sp1 openvm jolt zisk; do
     if [ -f "results/$zkvm/style.css" ]; then
         cp "results/$zkvm/style.css" "$DOCS_DIR/reports/style.css"
         echo "  Copied style.css"
@@ -31,7 +31,7 @@ for zkvm in sp1 openvm jolt; do
 done
 
 # Copy individual reports
-for zkvm in sp1 openvm jolt; do
+for zkvm in sp1 openvm jolt zisk; do
     if [ -f "results/$zkvm/report.html" ]; then
         echo "  Copying report for $zkvm"
         cp "results/$zkvm/report.html" "$DOCS_DIR/reports/${zkvm}-report.html"

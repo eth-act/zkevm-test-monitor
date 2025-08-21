@@ -30,16 +30,20 @@ echo "========================================="
 # Create results directory
 mkdir -p "$RESULTS_DIR"
 
-# Build Docker container from riscof repo
-echo "Building Docker container from riscof repo..."
-if [ ! -d "riscof" ]; then
-    echo "Error: riscof directory/symlink not found"
-    echo "Please create a symlink: ln -s /path/to/your/riscof/repo riscof"
-    exit 1
+# Check if RISCOF Docker image exists, build only if needed
+if ! docker image inspect riscof:latest &> /dev/null; then
+    echo "RISCOF Docker image not found, building..."
+    if [ ! -d "riscof" ]; then
+        echo "Error: riscof directory/symlink not found"
+        echo "Please create a symlink: ln -s /path/to/your/riscof/repo riscof"
+        exit 1
+    fi
+    cd riscof
+    docker build -t riscof:latest .
+    cd ..
+else
+    echo "Using existing RISCOF Docker image"
 fi
-cd riscof
-docker build -t riscof:latest .
-cd ..
 
 # Run RISCOF tests
 echo "Running tests..."

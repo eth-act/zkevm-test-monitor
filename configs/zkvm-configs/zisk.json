@@ -1,0 +1,16 @@
+{
+  "name": "zisk",
+  "repository": "https://github.com/codygunton/zisk.git",
+  "commit": "main",
+  "note": "Built from source using Docker for consistency",
+  "build": {
+    "docker": true,
+    "command": "cargo build --release --bin ziskemu",
+    "binary_path": "target/release/ziskemu",
+    "dependencies": "Docker required for containerized build"
+  },
+  "test": {
+    "plugin": "riscof/plugins/zisk",
+    "isa": "RV32IM"
+  }
+}

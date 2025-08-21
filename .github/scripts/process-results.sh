@@ -41,7 +41,7 @@ for ZKVM_DIR in "$RESULTS_DIR"/*; do
        --argjson summary "$SUMMARY" \
        '.zkvms[$zkvm] = $summary | .last_updated = now | .' \
        "$CURRENT_FILE" > "$CURRENT_FILE.tmp"
-    mv "$CURRENT_FILE.tmp" "$CURRENT_FILE"
+    mv -f "$CURRENT_FILE.tmp" "$CURRENT_FILE"
     
     # Save to history
     HISTORY_FILE="$DATA_DIR/history/$(date +%Y-%m)/${ZKVM_NAME}-$(date +%Y%m%d-%H%M%S).json"
