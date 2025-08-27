@@ -24,13 +24,15 @@ ACTIONS:
   test     - Run RISCOF tests (specify: sp1/openvm/jolt/zisk/risc0/all)
   update   - Process results and regenerate dashboard
   clean    - Clean all test data
+  set-commit - Manually set commit SHA for a ZKVM (usually automatic)
 
 EXAMPLES:
   ./dashboard.sh mock        # Quick test with fake data
   ./dashboard.sh serve       # Start server (port 8000)
-  ./dashboard.sh build sp1   # Build SP1 only
-  ./dashboard.sh test jolt   # Test Jolt only
+  ./dashboard.sh build sp1   # Build SP1 only (captures commit automatically)
+  ./dashboard.sh test jolt   # Test Jolt only (uses commit from config)
   ./dashboard.sh update      # Update dashboard with latest results
+  ./dashboard.sh set-commit openvm a6f77215  # Manually override commit (rarely needed)
 EOF
 }
 
@@ -165,6 +167,15 @@ case "$ACTION" in
         ;;
     clean)
         clean_all
+        ;;
+    set-commit)
+        if [ -z "$ZKVM" ] || [ "$ZKVM" = "all" ] || [ -z "$PORT" ]; then
+            echo -e "${RED}Error: Please specify ZKVM and commit SHA${NC}"
+            echo "Usage: ./dashboard.sh set-commit <zkvm> <commit>"
+            echo "Example: ./dashboard.sh set-commit openvm a6f77215"
+            exit 1
+        fi
+        ./.github/scripts/set-commit.sh "$ZKVM" "$PORT"  # PORT is actually the commit SHA (3rd arg)
         ;;
     *)
         show_help

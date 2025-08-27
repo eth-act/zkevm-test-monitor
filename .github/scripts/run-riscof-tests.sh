@@ -87,8 +87,46 @@ if [ -f "$REPORT_FILE" ]; then
     
     echo "Test Results: $PASSED/$TOTAL passed"
     
-    # Save summary to JSON
-    cat > "$RESULTS_DIR/summary.json" <<EOF
+    # Try to get ZKVM commit from build info if available
+    ZKVM_COMMIT=""
+    if [ -f "artifacts/commit-info/${ZKVM_NAME}.json" ]; then
+        ZKVM_COMMIT=$(jq -r '.commit' "artifacts/commit-info/${ZKVM_NAME}.json" 2>/dev/null || echo "")
+    fi
+    
+    # If no commit info exists, try to get it from the config file
+    if [ -z "$ZKVM_COMMIT" ] && [ -f "configs/zkvm-configs/${ZKVM_NAME}.json" ]; then
+        CONFIG_COMMIT=$(jq -r '.commit' "configs/zkvm-configs/${ZKVM_NAME}.json" 2>/dev/null || echo "")
+        if [ -n "$CONFIG_COMMIT" ] && [ "$CONFIG_COMMIT" != "null" ]; then
+            echo "Using commit from config: $CONFIG_COMMIT"
+            # Save it for future use
+            mkdir -p artifacts/commit-info
+            cat > "artifacts/commit-info/${ZKVM_NAME}.json" <<EOF
+{
+  "commit": "$CONFIG_COMMIT",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "source": "config"
+}
+EOF
+            ZKVM_COMMIT="$CONFIG_COMMIT"
+        fi
+    fi
+    
+    # Save summary to JSON (include zkvm_commit if available)
+    if [ -n "$ZKVM_COMMIT" ]; then
+        cat > "$RESULTS_DIR/summary.json" <<EOF
+{
+  "zkvm": "$ZKVM_NAME",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "riscof_commit": "$RISCOF_COMMIT",
+  "zkvm_commit": "$ZKVM_COMMIT",
+  "passed": $PASSED,
+  "failed": $FAILED,
+  "total": $TOTAL,
+  "pass_rate": $PASS_RATE
+}
+EOF
+    else
+        cat > "$RESULTS_DIR/summary.json" <<EOF
 {
   "zkvm": "$ZKVM_NAME",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
@@ -99,6 +137,7 @@ if [ -f "$REPORT_FILE" ]; then
   "pass_rate": $PASS_RATE
 }
 EOF
+    fi
     
     echo "Summary saved to $RESULTS_DIR/summary.json"
 else

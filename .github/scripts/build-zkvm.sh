@@ -69,6 +69,23 @@ else
     git checkout "$COMMIT_HASH"
 fi
 
+# Capture the actual commit SHA (full hash)
+ACTUAL_COMMIT=$(git rev-parse HEAD)
+ACTUAL_COMMIT_SHORT=$(git rev-parse --short HEAD)
+echo "Actual commit SHA: $ACTUAL_COMMIT_SHORT (full: $ACTUAL_COMMIT)"
+
+# Save commit info to artifacts for later use by tests
+mkdir -p ../artifacts/commit-info
+cat > "../artifacts/commit-info/${ZKVM_NAME}.json" <<EOF
+{
+  "commit": "$ACTUAL_COMMIT_SHORT",
+  "commit_full": "$ACTUAL_COMMIT",
+  "branch": "$(git branch --show-current || echo 'detached')",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+echo "Commit info saved to artifacts/commit-info/${ZKVM_NAME}.json"
+
 # Check if we need to rebuild
 ARTIFACT_BINARY="../artifacts/binaries/${ZKVM_NAME}-binary"
 NEEDS_BUILD=true

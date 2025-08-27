@@ -10,29 +10,47 @@ class ComplianceDashboard {
     async init() {
         try {
             await this.loadData();
-            this.renderDashboard();
-            this.startAutoRefresh();
         } catch (error) {
-            console.error('Error initializing dashboard:', error);
-            this.showError('Failed to load dashboard data');
+            console.error('Error loading data:', error);
+            // If data fails to load, use empty structure
+            this.data = {
+                zkvms: {},
+                last_updated: null
+            };
         }
+        
+        // Always try to render, even with empty or partial data
+        this.renderDashboard();
+        this.startAutoRefresh();
     }
 
     async loadData() {
         try {
+            console.log('Loading data from data/current/status.json...');
             // Load current status
             const response = await fetch('data/current/status.json');
-            if (!response.ok) throw new Error('Failed to load status data');
-            this.data = await response.json();
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const text = await response.text();
+            console.log('Raw response length:', text.length);
+            
+            this.data = JSON.parse(text);
+            console.log('Data parsed successfully:', this.data);
 
             // Load historical data for each ZKVM
             for (const zkvm in this.data.zkvms) {
                 this.historicalData[zkvm] = await this.loadHistoricalData(zkvm);
             }
+            console.log('Historical data loaded');
         } catch (error) {
             console.error('Error loading data:', error);
-            // Use mock data for demonstration
-            this.data = this.getMockData();
+            console.error('Error details:', error.message);
+            // Don't use mock data - let the error propagate
+            throw error;
         }
     }
 
@@ -61,49 +79,23 @@ class ComplianceDashboard {
     }
 
     getMockData() {
-        // Mock data for demonstration
+        // Return empty data structure when real data fails to load
+        // No hardcoded test results - only structure
         return {
-            zkvms: {
-                sp1: {
-                    zkvm: "sp1",
-                    timestamp: new Date().toISOString(),
-                    commit: "fc98075a",
-                    passed: 46,
-                    failed: 1,
-                    total: 47,
-                    pass_rate: 97.87
-                },
-                openvm: {
-                    zkvm: "openvm",
-                    timestamp: new Date().toISOString(),
-                    commit: "a6f77215f",
-                    passed: 47,
-                    failed: 0,
-                    total: 47,
-                    pass_rate: 100.00
-                },
-                jolt: {
-                    zkvm: "jolt",
-                    timestamp: new Date().toISOString(),
-                    commit: "c4b9b060",
-                    passed: 44,
-                    failed: 3,
-                    total: 47,
-                    pass_rate: 93.62
-                }
-            },
+            zkvms: {},
             last_updated: new Date().toISOString()
         };
     }
 
     renderDashboard() {
+        console.log('Rendering dashboard with data:', this.data);
         this.updateLastUpdated();
         this.renderComplianceTable();
     }
 
     updateLastUpdated() {
         const element = document.getElementById('last-updated');
-        if (this.data.last_updated) {
+        if (this.data && this.data.last_updated) {
             const date = new Date(this.data.last_updated);
             element.textContent = `Last updated: ${date.toLocaleString()}`;
         } else {
@@ -167,12 +159,24 @@ class ComplianceDashboard {
         const tbody = document.getElementById('compliance-tbody');
         tbody.innerHTML = '';
 
+        // Handle empty data gracefully
+        if (!this.data || !this.data.zkvms || Object.keys(this.data.zkvms).length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = '<td colspan="5" style="text-align: center; color: #666;">No test results available yet</td>';
+            tbody.appendChild(row);
+            return;
+        }
+
         for (const zkvm in this.data.zkvms) {
             const data = this.data.zkvms[zkvm];
             const row = document.createElement('tr');
             
             // Get ISA from plugin (would be fetched in real implementation)
             const isa = this.getISAForZKVM(zkvm);
+            
+            // Get ZKVM commit hash (not RISCOF commit)
+            const commitHash = data.zkvm_commit || data.commit || 'unknown';
+            const commitShort = commitHash === 'unknown' ? 'N/A' : commitHash.substring(0, 8);
             
             row.innerHTML = `
                 <td>
@@ -182,9 +186,10 @@ class ComplianceDashboard {
                 </td>
                 <td>${isa}</td>
                 <td>
-                    <a href="https://github.com/codygunton/${zkvm}/commit/${data.commit}" target="_blank">
-                        ${data.commit.substring(0, 8)}
-                    </a>
+                    ${commitHash !== 'unknown' ? 
+                        `<a href="https://github.com/codygunton/${zkvm}/commit/${commitHash}" target="_blank">${commitShort}</a>` :
+                        'N/A'
+                    }
                 </td>
                 <td>
                     <span class="badge ${data.failed === 0 ? 'pass' : 'fail'}">
@@ -201,12 +206,13 @@ class ComplianceDashboard {
     }
 
     getISAForZKVM(zkvm) {
-        // In real implementation, this would be fetched from plugin ISA files
+        // ISA configurations from each ZKVM's plugin files
         const isaMap = {
             sp1: 'RV32IM',
             openvm: 'RV32IM',
             jolt: 'RV32IM',
-            zisk: 'RV32IM'
+            zisk: 'RV64IMA',  // 64-bit with Atomic extension
+            risc0: 'RV32IM'
         };
         return isaMap[zkvm] || 'Unknown';
     }

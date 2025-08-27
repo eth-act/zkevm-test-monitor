@@ -1,0 +1,10 @@
+{
+  "zkvm": "jolt",
+  "timestamp": "2025-08-27T23:10:50Z",
+  "riscof_commit": "b4dad6dbc787183b896e5d0cdd98cef56f1cc95d",
+  "zkvm_commit": "c4b9b060",
+  "passed": 47,
+  "failed": 0,
+  "total": 47,
+  "pass_rate": 100.00
+}
