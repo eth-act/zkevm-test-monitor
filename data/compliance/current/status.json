@@ -2,47 +2,54 @@
   "zkvms": {
     "jolt": {
       "zkvm": "jolt",
-      "timestamp": "2025-08-21T20:00:59Z",
-      "passed": 0,
-      "failed": 47,
+      "timestamp": "2025-08-27T22:12:35Z",
+      "riscof_commit": "b4dad6dbc787183b896e5d0cdd98cef56f1cc95d",
+      "passed": 47,
+      "failed": 0,
       "total": 47,
-      "pass_rate": 0
+      "pass_rate": 100.00,
+      "zkvm_commit": "c4b9b060"
     },
     "openvm": {
       "zkvm": "openvm",
-      "timestamp": "2025-08-21T20:14:39Z",
-      "passed": 0,
-      "failed": 47,
+      "timestamp": "2025-08-27T22:35:20Z",
+      "riscof_commit": "b4dad6dbc787183b896e5d0cdd98cef56f1cc95d",
+      "passed": 47,
+      "failed": 0,
       "total": 47,
-      "pass_rate": 0
+      "pass_rate": 100.00,
+      "zkvm_commit": "a6f77215"
     },
     "sp1": {
       "zkvm": "sp1",
-      "timestamp": "2025-08-21T04:43:57Z",
-      "commit": "fc98075a",
-      "passed": 0,
-      "failed": 0,
-      "total": 0,
-      "pass_rate": 0
+      "timestamp": "2025-08-27T22:11:39Z",
+      "riscof_commit": "b4dad6dbc787183b896e5d0cdd98cef56f1cc95d",
+      "passed": 46,
+      "failed": 1,
+      "total": 47,
+      "pass_rate": 97.87,
+      "zkvm_commit": "fc98075a"
     },
     "zisk": {
       "zkvm": "zisk",
-      "timestamp": "2025-08-21T22:12:42Z",
-      "riscof_commit": "643372c",
+      "timestamp": "2025-08-27T22:13:10Z",
+      "riscof_commit": "b4dad6dbc787183b896e5d0cdd98cef56f1cc95d",
       "passed": 82,
       "failed": 0,
       "total": 82,
-      "pass_rate": 100.00
+      "pass_rate": 100.00,
+      "zkvm_commit": "d4c7e9f1"
     },
     "risc0": {
       "zkvm": "risc0",
-      "timestamp": "2025-08-27T18:53:26Z",
+      "timestamp": "2025-08-27T22:14:12Z",
       "riscof_commit": "b4dad6dbc787183b896e5d0cdd98cef56f1cc95d",
       "passed": 45,
       "failed": 2,
       "total": 47,
-      "pass_rate": 95.74
+      "pass_rate": 95.74,
+      "zkvm_commit": "e8f9a3b2"
     }
   },
-  "last_updated": 1755811564.406119
+  "last_updated": "2025-08-27T21:23:47Z"
 }

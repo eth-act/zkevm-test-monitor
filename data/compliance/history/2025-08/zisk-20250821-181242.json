@@ -1,9 +1,0 @@
-{
-  "zkvm": "zisk",
-  "timestamp": "2025-08-21T22:12:42Z",
-  "riscof_commit": "643372c",
-  "passed": 82,
-  "failed": 0,
-  "total": 82,
-  "pass_rate": 100.00
-}

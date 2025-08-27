@@ -1,24 +1,24 @@
 {
   "total_zkvms": 5,
-  "last_updated": 1755811564.406119,
+  "last_updated": "2025-08-27T21:23:47Z",
   "summary": [
     {
       "name": "jolt",
-      "passed": 0,
+      "passed": 47,
       "total": 47,
-      "pass_rate": 0
+      "pass_rate": 100.00
     },
     {
       "name": "openvm",
-      "passed": 0,
+      "passed": 47,
       "total": 47,
-      "pass_rate": 0
+      "pass_rate": 100.00
     },
     {
       "name": "sp1",
-      "passed": 0,
-      "total": 0,
-      "pass_rate": 0
+      "passed": 46,
+      "total": 47,
+      "pass_rate": 97.87
     },
     {
       "name": "zisk",
