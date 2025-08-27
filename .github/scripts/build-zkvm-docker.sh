@@ -38,6 +38,7 @@ if [ -d "$DOCKER_DIR" ]; then
     echo "This will use cached layers if the commit hasn't changed."
     
     # Build with build arguments for repository and commit
+    # BuildKit disabled for now - enable with DOCKER_BUILDKIT=1 when buildx is installed
     docker build \
         --build-arg REPO_URL="$REPO_URL" \
         --build-arg COMMIT_HASH="$COMMIT_HASH" \
@@ -74,6 +75,9 @@ case "$ZKVM_NAME" in
         ;;
     zisk)
         EXPECTED_BINARY="ziskemu"
+        ;;
+    risc0)
+        EXPECTED_BINARY="risc0-r0vm"
         ;;
     *)
         echo "Error: Unknown ZKVM: $ZKVM_NAME"

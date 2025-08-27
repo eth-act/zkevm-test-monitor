@@ -33,6 +33,15 @@
       "failed": 0,
       "total": 82,
       "pass_rate": 100.00
+    },
+    "risc0": {
+      "zkvm": "risc0",
+      "timestamp": "2025-08-27T18:53:26Z",
+      "riscof_commit": "b4dad6dbc787183b896e5d0cdd98cef56f1cc95d",
+      "passed": 45,
+      "failed": 2,
+      "total": 47,
+      "pass_rate": 95.74
     }
   },
   "last_updated": 1755811564.406119

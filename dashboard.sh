@@ -20,8 +20,8 @@ Usage: ./dashboard.sh [ACTION] [OPTIONS]
 ACTIONS:
   mock     - Create mock data and generate dashboard (quick test)
   serve    - Start web server on port 8000
-  build    - Build ZKVM binary (specify: sp1/openvm/jolt/zisk/all)
-  test     - Run RISCOF tests (specify: sp1/openvm/jolt/zisk/all)
+  build    - Build ZKVM binary (specify: sp1/openvm/jolt/zisk/risc0/all)
+  test     - Run RISCOF tests (specify: sp1/openvm/jolt/zisk/risc0/all)
   update   - Process results and regenerate dashboard
   clean    - Clean all test data
 
@@ -38,7 +38,7 @@ function create_mock_data() {
     echo -e "${GREEN}Creating mock test data...${NC}"
     mkdir -p results data/compliance/current
     
-    for zkvm in sp1 openvm jolt zisk; do
+    for zkvm in sp1 openvm jolt zisk risc0; do
         if [ -f "configs/zkvm-configs/${zkvm}.json" ]; then
             mkdir -p "results/$zkvm"
             
@@ -141,7 +141,7 @@ case "$ACTION" in
         ;;
     build)
         if [ "$ZKVM" = "all" ]; then
-            for z in sp1 openvm jolt zisk; do
+            for z in sp1 openvm jolt zisk risc0; do
                 build_zkvm "$z"
             done
         else
@@ -150,7 +150,7 @@ case "$ACTION" in
         ;;
     test)
         if [ "$ZKVM" = "all" ]; then
-            for z in sp1 openvm jolt zisk; do
+            for z in sp1 openvm jolt zisk risc0; do
                 echo -e "${YELLOW}Testing $z...${NC}"
                 test_zkvm "$z" || echo -e "${YELLOW}$z test completed or skipped${NC}"
             done

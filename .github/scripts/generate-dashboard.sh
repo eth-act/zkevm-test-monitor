@@ -31,7 +31,7 @@ for zkvm in sp1 openvm jolt zisk; do
 done
 
 # Copy individual reports
-for zkvm in sp1 openvm jolt zisk; do
+for zkvm in sp1 openvm jolt zisk risc0; do
     if [ -f "results/$zkvm/report.html" ]; then
         echo "  Copying report for $zkvm"
         cp "results/$zkvm/report.html" "$DOCS_DIR/reports/${zkvm}-report.html"

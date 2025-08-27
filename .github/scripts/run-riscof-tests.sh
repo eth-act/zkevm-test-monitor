@@ -30,19 +30,16 @@ echo "========================================="
 # Create results directory
 mkdir -p "$RESULTS_DIR"
 
-# Check if RISCOF Docker image exists, build only if needed
-if ! docker image inspect riscof:latest &> /dev/null; then
-    echo "RISCOF Docker image not found, building..."
-    if [ ! -d "riscof" ]; then
-        echo "Error: riscof directory/symlink not found"
-        echo "Please create a symlink: ln -s /path/to/your/riscof/repo riscof"
-        exit 1
-    fi
-    # Use the build script to ensure git commit is embedded
-    ./riscof/build.sh
-else
-    echo "Using existing RISCOF Docker image"
+# Always rebuild RISCOF Docker image to pick up latest changes
+echo "Building RISCOF Docker image..."
+if [ ! -d "riscof" ]; then
+    echo "Error: riscof directory/symlink not found"
+    echo "Please create a symlink: ln -s /path/to/your/riscof/repo riscof"
+    exit 1
 fi
+
+# Build the Docker image with current commit hash
+cd riscof && DOCKER_BUILDKIT=1 docker build --build-arg RISCOF_COMMIT=$(git rev-parse HEAD) -t riscof:latest . && cd ..
 
 # Get RISCOF container version info
 RISCOF_COMMIT=$(docker run --rm --entrypoint sh riscof:latest -c 'echo $RISCOF_COMMIT' 2>/dev/null || echo "unknown")
@@ -54,7 +51,7 @@ docker run --rm \
     -v "$(pwd)/$PLUGIN_DIR:/dut/plugin" \
     -v "$(realpath $BINARY_PATH):/dut/bin/dut-exe" \
     -v "$(pwd)/$RESULTS_DIR:/riscof/riscof_work" \
-    riscof:latest
+    riscof:latest || true
 
 # Check if report was generated
 REPORT_FILE="$RESULTS_DIR/report.html"

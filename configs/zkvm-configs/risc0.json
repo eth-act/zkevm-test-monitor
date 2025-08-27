@@ -1,0 +1,21 @@
+{
+  "name": "risc0",
+  "repository": "https://github.com/codygunton/risc0",
+  "commit": "riscof",
+  "build": {
+    "docker": true,
+    "command": "cargo build -p risc0-r0vm",
+    "binary_path": "target/debug/risc0-r0vm",
+    "environment": {
+      "RUST_LOG": "info"
+    }
+  },
+  "test": {
+    "plugin": "riscof/plugins/risc0",
+    "isa": "RV32IM"
+  },
+  "capabilities": {
+    "note": "RISC0 zkVM supports RV32IM instruction set",
+    "plugin_isa_file": "plugins/risc0/risc0_isa.yaml"
+  }
+}

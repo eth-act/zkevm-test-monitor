@@ -1,5 +1,5 @@
 {
-  "total_zkvms": 4,
+  "total_zkvms": 5,
   "last_updated": 1755811564.406119,
   "summary": [
     {
@@ -25,6 +25,12 @@
       "passed": 82,
       "total": 82,
       "pass_rate": 100.00
+    },
+    {
+      "name": "risc0",
+      "passed": 45,
+      "total": 47,
+      "pass_rate": 95.74
     }
   ]
 }
