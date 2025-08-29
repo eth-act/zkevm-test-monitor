@@ -7,8 +7,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 import subprocess
 
-def get_framework_version():
-    """Get git commit of this repo for tracking"""
+def get_test_monitor_commit():
+    """Get git commit of this test monitor repo for tracking"""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -28,7 +28,7 @@ if results_file.exists():
     with open(results_file) as f:
         results = json.load(f)
 else:
-    results = {"zkvms": {}, "last_updated": None, "framework_version": get_framework_version()}
+    results = {"zkvms": {}, "last_updated": None, "test_monitor_commit": get_test_monitor_commit()}
 
 # Update results for each ZKVM
 for zkvm in config['zkvms']:
@@ -85,7 +85,7 @@ for zkvm in config['zkvms']:
 
 # Update timestamp and version
 results['last_updated'] = datetime.now(timezone.utc).isoformat()
-results['framework_version'] = get_framework_version()
+results['test_monitor_commit'] = get_test_monitor_commit()
 
 # Save results
 Path('data').mkdir(exist_ok=True)
@@ -179,7 +179,7 @@ html = f"""<!DOCTYPE html>
         <h1> RISC-V ZKVM Compliance Test Monitor</h1>
         <div class="metadata">
             <strong>Last Updated:</strong> {results.get('last_updated', 'Never')}<br>
-            <strong>Framework Version:</strong> <code>{results.get('framework_version', 'unknown')}</code><br>
+            <strong>Test Monitor Commit:</strong> <code>{results.get('test_monitor_commit', 'unknown')}</code><br>
             <strong>Test Suite:</strong> RISC-V Architectural Tests v3.9.1
         </div>
         
