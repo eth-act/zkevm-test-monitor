@@ -176,7 +176,7 @@ html = f"""<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <h1>🧪 ZKVM Compliance Test Monitor</h1>
+        <h1> RISC-V ZKVM Compliance Test Monitor</h1>
         <div class="metadata">
             <strong>Last Updated:</strong> {results.get('last_updated', 'Never')}<br>
             <strong>Framework Version:</strong> <code>{results.get('framework_version', 'unknown')}</code><br>
