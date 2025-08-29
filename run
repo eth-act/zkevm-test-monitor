@@ -30,11 +30,6 @@ case "$CMD" in
         python3 scripts/update.py
         ;;
     
-    verify)
-        echo "✅ Running verification"
-        ./scripts/verify.sh
-        ;;
-    
     serve)
         echo "🌐 Server at http://localhost:8000"
         echo "   Press Ctrl+C to stop"
@@ -46,6 +41,15 @@ case "$CMD" in
         rm -rf binaries/ test-results/*/
         ;;
     
+    deploy)
+        echo "🚀 Deploying dashboard to GitHub Pages"
+        python3 scripts/update.py
+        git add docs/ data/results.json
+        git commit -m "Update dashboard: $(date -u +%Y-%m-%d_%H:%M:%S)" || echo "No changes to commit"
+        git push
+        echo "✅ Deployment triggered. Check: https://codygunton.github.io/zkevm-test-monitor/"
+        ;;
+    
     *)
         cat << EOF
 Usage: ./run COMMAND [TARGETS]
@@ -55,15 +59,15 @@ Commands:
   test [zkvm]   - Run RISCOF tests  
   update        - Regenerate dashboard HTML
   all [zkvm]    - Build + test + update
-  verify        - Run regression tests
   serve         - Start local web server
+  deploy        - Update and push dashboard to GitHub Pages
   clean         - Remove build artifacts
 
 Examples:
   ./run build sp1        # Build just SP1
   ./run test sp1 jolt    # Test SP1 and Jolt
   ./run all              # Build and test everything
-  ./run verify           # Check system integrity
+  ./run deploy           # Deploy dashboard to GitHub Pages
 EOF
         ;;
 esac

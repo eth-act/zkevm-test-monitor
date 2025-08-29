@@ -94,16 +94,30 @@ See the [RISCOF plugin documentation](https://riscof.readthedocs.io/) for detail
 3. **Test**: `./run test sp1` runs compliance tests
 4. **View**: `./run serve` starts a web server with results
 
-## CI/CD
+## Deployment
 
-GitHub Actions runs the same commands:
-```yaml
-- run: ./run build all
-- run: ./run test all  
-- run: ./run verify
-```
+The dashboard automatically deploys to GitHub Pages when you push to main:
 
-The workflow is in `.github/workflows/test.yml`.
+1. **Local workflow**: Build, test, and update locally
+   ```bash
+   ./run test sp1      # Test locally
+   ./run update        # Update dashboard
+   git add -A          # Stage changes
+   git commit -m "Update test results"
+   git push            # Triggers deployment
+   ```
+
+2. **GitHub Pages**: The dashboard deploys to:
+   ```
+   https://codygunton.github.io/zkevm-test-monitor/
+   ```
+
+3. **Manual deployment**: Trigger from Actions tab if needed
+
+**Setup** (first time only):
+- Go to Settings → Pages
+- Source: GitHub Actions
+- The workflow will handle the rest
 
 ## Requirements
 
