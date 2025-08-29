@@ -1,61 +1,176 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZKVM Compliance Dashboard</title>
-    <link rel="stylesheet" href="assets/css/dashboard.css">
-    <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 minutes -->
+    <title>ZKVM Test Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container { 
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .metadata {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        table { 
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td { 
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th { 
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        tr:hover { background: #f8f9fa; }
+        .pass { color: #28a745; font-weight: 600; }
+        .fail { color: #dc3545; font-weight: 600; }
+        .none { color: #6c757d; }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-error { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .commit-link { font-family: monospace; }
+        .report-btn {
+            padding: 4px 12px;
+            background: #007bff;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.85em;
+            display: inline-block;
+        }
+        .report-btn:hover {
+            background: #0056b3;
+            text-decoration: none;
+        }
+        .report-btn.disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>RISC-V ZKVM Compliance Dashboard</h1>
-            <p class="subtitle">Automated compliance testing for Zero-Knowledge Virtual Machines</p>
-            <div class="last-updated" id="last-updated">Loading...</div>
-        </header>
+        <h1>🧪 ZKVM Compliance Test Monitor</h1>
+        <div class="metadata">
+            <strong>Last Updated:</strong> 2025-08-29T03:47:18.070555+00:00<br>
+            <strong>Framework Version:</strong> <code>57f790ad</code><br>
+            <strong>Test Suite:</strong> RISC-V Architectural Tests v3.9.1
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ZKVM</th>
+                    <th>Build Status</th>
+                    <th>Test Status</th>
+                    <th>Commit</th>
+                    <th>Results</th>
+                    <th>Pass Rate</th>
+                    <th>Full Report</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>SP1</strong></td>
+                    <td><span class="badge badge-success">success</span></td>
+                    <td><span class="badge badge-success">completed</span></td>
+                    <td><a href="https://github.com/codygunton/sp1/commit/fc98075a" class="commit-link">fc98075a</a></td>
+                    <td><span class="fail">46/47</span></td>
+                    <td>97.9%</td>
+                    <td><a href="reports/sp1.html" class="report-btn">View Report</a></td>
+                </tr>
+                <tr>
+                    <td><strong>JOLT</strong></td>
+                    <td><span class="badge badge-success">success</span></td>
+                    <td><span class="badge badge-success">completed</span></td>
+                    <td><a href="https://github.com/codygunton/jolt/commit/c4b9b060" class="commit-link">c4b9b060</a></td>
+                    <td><span class="pass">47/47</span></td>
+                    <td>100.0%</td>
+                    <td><a href="reports/jolt.html" class="report-btn">View Report</a></td>
+                </tr>
+                <tr>
+                    <td><strong>OPENVM</strong></td>
+                    <td><span class="badge badge-success">success</span></td>
+                    <td><span class="badge badge-success">completed</span></td>
+                    <td><a href="https://github.com/codygunton/openvm/commit/a6f77215f" class="commit-link">a6f77215</a></td>
+                    <td><span class="pass">47/47</span></td>
+                    <td>100.0%</td>
+                    <td><a href="reports/openvm.html" class="report-btn">View Report</a></td>
+                </tr>
+                <tr>
+                    <td><strong>RISC0</strong></td>
+                    <td><span class="badge badge-success">success</span></td>
+                    <td><span class="badge badge-success">completed</span></td>
+                    <td><span class="commit-link">riscof</span></td>
+                    <td><span class="fail">45/47</span></td>
+                    <td>95.7%</td>
+                    <td><a href="reports/risc0.html" class="report-btn">View Report</a></td>
+                </tr>
+                <tr>
+                    <td><strong>ZISK</strong></td>
+                    <td><span class="badge badge-success">success</span></td>
+                    <td><span class="badge badge-success">completed</span></td>
+                    <td><span class="commit-link">main</span></td>
+                    <td><span class="pass">82/82</span></td>
+                    <td>100.0%</td>
+                    <td><a href="reports/zisk.html" class="report-btn">View Report</a></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <h3>Quick Start</h3>
+            <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0;">
+# Build all ZKVMs
+./run build all
 
-        <main>
-            <section class="table-section">
-                <h2>Test Results</h2>
-                <table id="compliance-table" class="compliance-table">
-                    <thead>
-                        <tr>
-                            <th>ZKVM</th>
-                            <th>ISA</th>
-                            <th>Last Tested Commit</th>
-                            <th>Results</th>
-                            <th>Report</th>
-                        </tr>
-                    </thead>
-                    <tbody id="compliance-tbody">
-                        <!-- Table rows will be inserted here -->
-                    </tbody>
-                </table>
-            </section>
+# Test a specific ZKVM  
+./run test sp1
 
-            <section class="info-section">
-                <h2>About This Dashboard</h2>
-                <p>
-                    This dashboard displays the results of nightly RISC-V compliance testing for various 
-                    Zero-Knowledge Virtual Machine implementations. Tests are run using the 
-                    <a href="https://github.com/riscv-software-src/riscof" target="_blank">RISCOF</a> 
-                    framework against the official RISC-V architectural test suite.
-                </p>
-                <p>
-                    <strong>Test Frequency:</strong> Nightly at 02:00 UTC<br>
-                    <strong>Data Retention:</strong> 90 days<br>
-                    <strong>Source Code:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor" target="_blank">GitHub Repository</a>
-                </p>
-            </section>
-        </main>
+# Build and test everything
+./run all
 
-        <footer>
-            <p>© 2025 ZKVM Test Monitor | Data updated nightly | <a href="https://github.com/codygunton/zkevm-test-monitor" target="_blank">Source</a></p>
-        </footer>
+# Just update the dashboard
+./run update</pre>
+            
+            <p style="margin-top: 20px; color: #666;">
+                This dashboard shows RISC-V compliance test results for various ZKVM implementations.
+                Tests are run using <a href="https://github.com/riscv-software-src/riscof">RISCOF</a> 
+                against the official RISC-V architectural test suite. Full test reports show individual
+                test results and failure details.
+            </p>
+        </div>
     </div>
-
-    <!-- Version parameter forces browser to reload JS when changed -->
-    <script src="assets/js/dashboard.js?v=2.0.1"></script>
 </body>
 </html>

@@ -1,0 +1,43 @@
+{
+  "riscof": {
+    "repo_url": "https://github.com/codygunton/riscof",
+    "commit": "main"
+  },
+  "zkvms": {
+    "sp1": {
+      "repo_url": "https://github.com/codygunton/sp1",
+      "commit": "fc98075a",
+      "build_cmd": "cargo build --bin sp1-perf-executor",
+      "binary_name": "sp1-perf-executor",
+      "binary_path": "target/debug/sp1-perf-executor"
+    },
+    "jolt": {
+      "repo_url": "https://github.com/codygunton/jolt",
+      "commit": "c4b9b060",
+      "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
+      "binary_name": "jolt-emu",
+      "binary_path": "target/release/jolt-emu"
+    },
+    "openvm": {
+      "repo_url": "https://github.com/codygunton/openvm",
+      "commit": "a6f77215f",
+      "build_cmd": "cargo build --release",
+      "binary_name": "cargo-openvm",
+      "binary_path": "target/release/cargo-openvm"
+    },
+    "risc0": {
+      "repo_url": "https://github.com/codygunton/risc0",
+      "commit": "riscof",
+      "build_cmd": "cargo build --release -p risc0-r0vm --bin r0vm",
+      "binary_name": "r0vm",
+      "binary_path": "target/release/r0vm"
+    },
+    "zisk": {
+      "repo_url": "https://github.com/0xPolygonHermez/zisk",
+      "commit": "main",
+      "build_cmd": "cargo build --release --bin ziskemu",
+      "binary_name": "ziskemu",
+      "binary_path": "target/release/ziskemu"
+    }
+  }
+}

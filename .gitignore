@@ -1,49 +1,38 @@
+# Generated files
+index.html
+data/results.json
+docs/reports/
+
 # Build artifacts
-artifacts/
+binaries/
 build-temp-*/
 *.log
 
-# Test results - all of them
+# Test results
+test-results/
 results/
-
-# Current/temporary data - don't track
-data/compliance/current/
-data/cache/
-
-# BUT we DO want to track historical test results!
-# data/compliance/history/ - TRACKED for historical record
-# data/compliance/archives/ - TRACKED for historical reports
-
-# ALL generated docs - we only track the static HTML/JS/CSS
-docs/data/
-docs/reports/
-docs/zkvm/
-
-# Temporary documentation
-DEBUGGING.md
-README-DASHBOARD.md
-SSH_VIEWING.md
-
-# Local scripts
-use-local-repos.sh
-Makefile
-
-# Standalone directory
-standalone/
-
-# RISCOF repository clone/symlink (this is YOUR repo, not tracked here)
-riscof-repo/
-riscof
 
 # Python cache
 __pycache__/
 *.pyc
 
 # Temporary directories
-shhh/
 tmp/
 temp/
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# Editor files
+.cursor/
+.vscode/
+
+# RISCOF symlinks/clones
+riscof
+riscof-repo/
+
+# Old directories (can be removed after migration)
+artifacts/
+data/compliance/
+data/cache/

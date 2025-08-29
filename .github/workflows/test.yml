@@ -1,0 +1,61 @@
+name: Test ZKVMs
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 2 * * *'  # Nightly at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      zkvm:
+        description: 'ZKVM to test (or all)'
+        required: false
+        default: 'all'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      
+      - name: Build RISCOF container
+        run: docker build -t riscof:latest .
+      
+      # EXACT SAME COMMANDS AS LOCAL
+      - name: Build ZKVMs
+        run: ./run build ${{ github.event.inputs.zkvm || 'all' }}
+      
+      - name: Run Tests
+        run: ./run test ${{ github.event.inputs.zkvm || 'all' }}
+      
+      - name: Verify System
+        run: ./run verify
+      
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            data/results.json
+            index.html
+            docs/
+            test-results/
+            binaries/
+      
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          force_orphan: true  # Don't keep history
