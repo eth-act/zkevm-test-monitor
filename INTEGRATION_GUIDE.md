@@ -14,26 +14,258 @@ To integrate a new ZKVM, you need to:
 
 ## 1. Signature Capture
 
-*[This section will be provided separately]*
-
-The ZKVM must be able to output signature data to a file after executing RISC-V programs. This typically involves modifying the ZKVM to dump register and memory state at specific points.
+RISCOF compliance tests write signature values to specific memory locations that must be extracted after execution. These signatures verify correct instruction execution by comparing against expected values.
 
 ### Quick Check for Existing Signature Support
 
-Many ZKVMs already have signature output for testing. Look for:
+Many ZKVMs already have signature output. Check first:
 
 ```bash
-# Search for signature-related code
+# Search for existing signature support
 grep -r "signature\|begin_signature\|end_signature" <zkvm-repo>
+
+# Check for RISC-V test infrastructure
+grep -r "riscv-tests\|compliance\|torture" <zkvm-repo>
 
 # Look for memory dump functionality
 grep -r "dump_memory\|write_mem\|tohost" <zkvm-repo>
-
-# Check for existing RISC-V compliance test support
-find <zkvm-repo> -name "*compliance*" -o -name "*signature*"
 ```
 
-If signature output exists, you may only need to adapt the output format.
+**Note**: Jolt and Zisk already have built-in signature support!
+
+### Understanding RISCOF Signatures
+
+**What are signatures?**
+- Test programs write values to a designated memory region
+- Region is marked by `begin_signature` and `end_signature` ELF symbols
+- Output format: hexadecimal values, one 32-bit word per line
+
+### Implementation Steps
+
+#### Step 1: Add ELF Symbol Parsing
+
+Add the `elf` crate to your dependencies:
+```toml
+# Cargo.toml
+elf = "0.7"  # or use object = "0.36" as alternative
+```
+
+Parse signature boundaries from ELF:
+```rust
+use elf::{abi::STT_OBJECT, endian::AnyEndian, ElfBytes};
+
+fn find_signature_bounds(elf_data: &[u8]) -> Option<(u32, u32)> {
+    let elf = ElfBytes::<AnyEndian>::minimal_parse(elf_data).ok()?;
+    let (syms, strs) = elf.symbol_table().ok()??;
+    
+    let mut begin = None;
+    let mut end = None;
+    
+    for sym in syms.iter() {
+        if let Ok(name) = strs.get(sym.st_name as usize) {
+            match name {
+                "begin_signature" => begin = Some(sym.st_value as u32),
+                "end_signature" => end = Some(sym.st_value as u32),
+                _ => {}
+            }
+        }
+    }
+    
+    match (begin, end) {
+        (Some(b), Some(e)) if b < e => Some((b, e)),
+        _ => None
+    }
+}
+```
+
+#### Step 2: Add Memory Collection
+
+Add a method to collect signatures from memory after execution:
+
+```rust
+fn collect_signatures(memory: &impl MemoryInterface, start: u32, size: usize) -> Vec<u32> {
+    (0..size)
+        .step_by(4)  // Read in 4-byte words
+        .map(|i| {
+            let addr = start + i as u32;
+            u32::from_le_bytes([
+                memory.read_byte(addr),
+                memory.read_byte(addr + 1),
+                memory.read_byte(addr + 2),
+                memory.read_byte(addr + 3),
+            ])
+        })
+        .collect()
+}
+```
+
+**Memory Access Patterns by VM Type:**
+
+```rust
+// Direct byte access
+let byte = self.memory[addr];
+
+// Method-based access (most common)
+let byte = self.memory.read_byte(addr);
+
+// Bulk read (risc0 style)
+let data = self.load_region(LoadOp::Peek, addr, size);
+
+// Address space aware (openvm style)
+let byte = memory_state.get(&(RISC_V_MEMORY_AS, addr));
+
+// MMU-based (jolt style)
+let word = self.cpu.get_mut_mmu().load_raw(addr);
+```
+
+#### Step 3: Modify Executor
+
+Update your executor to collect signatures:
+
+```rust
+pub struct ExecutionResult {
+    // ... existing fields ...
+    pub signatures: Option<Vec<u32>>,  // ADD THIS
+}
+
+impl Executor {
+    pub fn execute(&mut self, elf: &[u8]) -> Result<ExecutionResult> {
+        // 1. Parse signature symbols before execution
+        let sig_bounds = find_signature_bounds(elf);
+        
+        // 2. Run program normally
+        self.run_program()?;
+        
+        // 3. Collect signatures after execution
+        let signatures = sig_bounds.map(|(start, end)| {
+            let size = (end - start) as usize;
+            collect_signatures(&self.memory, start, size)
+        });
+        
+        Ok(ExecutionResult { 
+            signatures, 
+            // ... other fields ...
+        })
+    }
+}
+```
+
+#### Step 4: Add CLI Support
+
+Add command-line option for signature output:
+
+```rust
+use clap::Parser;
+
+#[derive(Parser)]
+struct Args {
+    /// ELF file to execute
+    elf: PathBuf,
+    
+    /// Output signature file for RISCOF
+    #[arg(long)]
+    signatures: Option<PathBuf>,
+}
+
+fn main() -> Result<()> {
+    let args = Args::parse();
+    let elf = std::fs::read(&args.elf)?;
+    
+    // Execute with signature collection
+    let result = executor.execute(&elf)?;
+    
+    // Write signatures if requested
+    if let (Some(path), Some(sigs)) = (args.signatures, result.signatures) {
+        write_signatures(&path, &sigs)?;
+        println!("Wrote {} signatures to {:?}", sigs.len(), path);
+    }
+    
+    Ok(())
+}
+
+fn write_signatures(path: &Path, signatures: &[u32]) -> std::io::Result<()> {
+    use std::fs::File;
+    use std::io::Write;
+    
+    let mut file = File::create(path)?;
+    for sig in signatures {
+        writeln!(file, "{:08x}", sig)?;
+    }
+    Ok(())
+}
+```
+
+### Implementation Patterns
+
+**Pattern 1: Environment Variables** (risc0)
+- Parse ELF symbols once, set environment variables
+- Executor reads variables during execution
+- Flexible but requires process-level configuration
+
+**Pattern 2: Direct Symbol Passing** (sp1, openvm)
+- Parse ELF symbols directly in executor
+- Pass signature info through execution pipeline
+- More self-contained approach
+
+**Pattern 3: Tracer Integration** (jolt)
+- Built into tracer/emulator module
+- Store signature addresses in emulator state
+- Clean separation of concerns
+
+### Testing Your Implementation
+
+1. **Create a test with signatures:**
+```assembly
+.section .data
+.align 4
+.global begin_signature
+begin_signature:
+    .word 0xdeadbeef
+    .word 0xcafebabe
+.global end_signature
+end_signature:
+```
+
+2. **Run with signature extraction:**
+```bash
+./your-vm test.elf --signatures test.sig
+```
+
+3. **Verify output format:**
+```bash
+$ cat test.sig
+deadbeef
+cafebabe
+```
+
+### Common Issues and Solutions
+
+**Issue: Symbols not found**
+- Ensure ELF has symbol table (not stripped)
+- Check symbol types: accept both `STT_OBJECT` and `STT_NOTYPE`
+- Debug: `readelf -s test.elf | grep signature`
+
+**Issue: Wrong endianness**
+- RISC-V is little-endian
+- Use `u32::from_le_bytes()` when reading memory
+
+**Issue: Memory alignment**
+- Signatures must be word-aligned (4 bytes)
+- Start address should satisfy `addr % 4 == 0`
+
+**Issue: Zero padding**
+- Some VMs pad with zeros after actual signatures
+- May need to strip trailing zeros before writing
+
+### Minimal Implementation Checklist
+
+- [ ] Add `elf` crate dependency
+- [ ] Implement `find_signature_bounds()` function
+- [ ] Add `collect_signatures()` to read memory
+- [ ] Modify executor to collect signatures after execution
+- [ ] Add `--signatures` CLI option
+- [ ] Test with simple ELF containing signature symbols
+- [ ] Verify output format matches RISCOF expectations
 
 ---
 
