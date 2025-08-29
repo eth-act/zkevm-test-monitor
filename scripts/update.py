@@ -70,11 +70,15 @@ for zkvm in config['zkvms']:
             results['zkvms'][zkvm]['total'] = 0
             results['zkvms'][zkvm]['test_status'] = 'not_tested'
     
-    # Copy report if exists
+    # Copy report and CSS if exists
     report_src = Path(f'test-results/{zkvm}/report.html')
     if report_src.exists():
         Path('docs/reports').mkdir(parents=True, exist_ok=True)
         shutil.copy(report_src, f'docs/reports/{zkvm}.html')
+        # Also copy style.css if it exists
+        style_src = Path(f'test-results/{zkvm}/style.css')
+        if style_src.exists():
+            shutil.copy(style_src, f'docs/reports/style.css')
         results['zkvms'][zkvm]['has_report'] = True
     else:
         results['zkvms'][zkvm]['has_report'] = False
