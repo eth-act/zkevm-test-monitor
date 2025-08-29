@@ -39,7 +39,8 @@ ARG COMMIT_HASH=fork-riscof
 ADD https://api.github.com/repos/codygunton/risc0/git/refs/heads/$COMMIT_HASH /tmp/version.json
 RUN git clone "$REPO_URL" risc0 && \
     cd risc0 && \
-    git checkout "$COMMIT_HASH"
+    git checkout "$COMMIT_HASH" && \
+    git rev-parse HEAD > /workspace/commit.txt
 
 # Pre-install the Rust toolchain specified by risc0
 # This reads rust-toolchain.toml and installs the exact version needed
@@ -74,6 +75,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy the built binary from builder stage (debug build)
 COPY --from=builder /tmp/r0vm-binary /usr/local/bin/risc0-r0vm
+COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
 ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/risc0-r0vm /output/risc0-r0vm"]

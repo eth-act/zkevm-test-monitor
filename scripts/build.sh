@@ -53,6 +53,12 @@ for ZKVM in $ZKVMS; do
         continue
     }
     
+    # Capture actual commit hash from the built image
+    mkdir -p data/commits
+    ACTUAL_COMMIT=$(docker run --rm --entrypoint cat zkvm-${ZKVM}:latest /commit.txt 2>/dev/null || echo "$COMMIT")
+    echo "$ACTUAL_COMMIT" > "data/commits/${ZKVM}.txt"
+    echo "  📝 Built from commit: ${ACTUAL_COMMIT:0:8}"
+    
     # Extract binary (with current user ownership)
     mkdir -p binaries
     docker run --rm --user $(id -u):$(id -g) -v "$PWD/binaries:/output" zkvm-${ZKVM}:latest || {

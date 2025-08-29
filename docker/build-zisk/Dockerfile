@@ -60,7 +60,8 @@ ARG COMMIT_HASH=main
 # This layer will be cached until COMMIT_HASH changes
 RUN git clone "$REPO_URL" zisk && \
     cd zisk && \
-    git checkout "$COMMIT_HASH"
+    git checkout "$COMMIT_HASH" && \
+    git rev-parse HEAD > /workspace/commit.txt
 
 # Build zisk
 # This layer will be cached as long as the source code doesn't change
@@ -80,6 +81,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy the built binary from builder stage
 COPY --from=builder /workspace/zisk/target/release/ziskemu /usr/local/bin/ziskemu
+COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
 ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/ziskemu /output/ziskemu"]

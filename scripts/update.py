@@ -43,8 +43,12 @@ for zkvm in config['zkvms']:
         results['zkvms'][zkvm]['has_binary'] = False
         results['zkvms'][zkvm]['build_status'] = 'not_built'
     
-    # Get commit from config
-    results['zkvms'][zkvm]['commit'] = config['zkvms'][zkvm].get('commit', 'unknown')
+    # Get actual commit from build (fallback to config)
+    commit_file = Path(f'data/commits/{zkvm}.txt')
+    if commit_file.exists():
+        results['zkvms'][zkvm]['commit'] = commit_file.read_text().strip()
+    else:
+        results['zkvms'][zkvm]['commit'] = config['zkvms'][zkvm].get('commit', 'unknown')
     
     # Check test results
     summary_file = Path(f'test-results/{zkvm}/summary.json')
@@ -210,10 +214,14 @@ for zkvm in config['zkvms']:
         'not_tested': 'badge-info'
     }.get(test_status, 'badge-info')
     
-    # Commit link
+    # Commit link (use proper repo URL)
     commit = data.get('commit', 'unknown')
-    if commit != 'unknown' and len(commit) >= 8:
-        commit_display = f'<a href="https://github.com/codygunton/{zkvm}/commit/{commit}" class="commit-link">{commit[:8]}</a>'
+    repo_url = config['zkvms'][zkvm].get('repo_url', f'https://github.com/codygunton/{zkvm}')
+    
+    if commit != 'unknown' and len(commit) >= 8 and '/' in repo_url:
+        # Extract org/repo from URL
+        repo_path = repo_url.rstrip('/').replace('https://github.com/', '')
+        commit_display = f'<a href="https://github.com/{repo_path}/commit/{commit}" class="commit-link">{commit[:8]}</a>'
     else:
         commit_display = f'<span class="commit-link">{commit}</span>'
     
