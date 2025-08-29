@@ -96,28 +96,23 @@ See the [RISCOF plugin documentation](https://riscof.readthedocs.io/) for detail
 
 ## Deployment
 
-The dashboard automatically deploys to GitHub Pages when you push to main:
+The dashboard automatically deploys to GitHub Pages when you push changes to the `docs/` folder:
 
-1. **Local workflow**: Build, test, and update locally
-   ```bash
-   ./run test sp1      # Test locally
-   ./run update        # Update dashboard
-   git add -A          # Stage changes
-   git commit -m "Update test results"
-   git push            # Triggers deployment
-   ```
+```bash
+# Test and update locally
+./run test sp1
+./run update
 
-2. **GitHub Pages**: The dashboard deploys to:
-   ```
-   https://codygunton.github.io/zkevm-test-monitor/
-   ```
+# Push to deploy
+git add -A
+git commit -m "Update test results"
+git push
+```
 
-3. **Manual deployment**: Trigger from Actions tab if needed
+**GitHub Pages URL**: https://codygunton.github.io/zkevm-test-monitor/
 
 **Setup** (first time only):
-- Go to Settings → Pages
-- Source: GitHub Actions
-- The workflow will handle the rest
+- Go to Settings → Pages → Source: GitHub Actions
 
 ## Requirements
 
