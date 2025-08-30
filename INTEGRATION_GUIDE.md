@@ -40,6 +40,16 @@ grep -r "dump_memory\|write_mem\|tohost" <zkvm-repo>
 - Region is marked by `begin_signature` and `end_signature` ELF symbols
 - Output format: hexadecimal values, one 32-bit word per line
 
+### Key Implementation Insights
+
+**Before you start**: Most Rust-based ZKVMs already have these foundations:
+- ✅ The `elf` crate is likely already in dependencies (check Cargo.toml)
+- ✅ A memory read method exists (look for `word()`, `read_u32()`, or similar)
+- ✅ The `clap` crate for CLI parsing is probably available
+- ✅ An execution loop that can be modified to ignore halt errors
+
+**Time estimate**: If your ZKVM has the above, implementation typically takes 1-2 hours.
+
 ### Implementation Steps
 
 #### Step 1: Add ELF Symbol Parsing
@@ -817,6 +827,157 @@ RUN rustup default 1.75.0
 
 ### Issue: Large Docker images
 **Solution**: Use multi-stage builds and only copy the final binary to the runtime stage
+
+### Issue: Tests fail with ecall/halt errors
+**Solution**: RISCOF tests use ecall to halt execution, which causes errors in many ZKVMs. Handle this gracefully in your CLI:
+```rust
+// Execute program - ignore errors as tests may halt with ecall
+loop {
+    let result = emulator.emulate_batch(&mut |record| batch_records.push(record));
+    
+    match result {
+        Ok(true) => break,  // Normal completion
+        Ok(false) => continue,  // Continue execution
+        Err(_) => break,  // Error (likely ecall halt) - still try to collect signatures
+    }
+}
+```
+
+### Issue: Binary permission denied
+**Solution**: Ensure the binary is executable after copying:
+```bash
+chmod +x /path/to/binary
+```
+
+---
+
+## Lessons from Real Integrations
+
+### 1. Signature Collection Best Practices
+
+**Test directly first**: Before running the full RISCOF suite, test signature collection with a simple test:
+```bash
+# Copy a test ELF and run your binary directly
+cp test-results/zkvm/rv32i_m/I/src/add-01.S/dut/my.elf /tmp/test.elf
+./binaries/zkvm-binary --elf /tmp/test.elf --signatures /tmp/test.sig
+cat /tmp/test.sig | head -10
+```
+
+**Compare with reference**: Verify your signatures match the reference implementation:
+```bash
+diff /tmp/test.sig test-results/zkvm/rv32i_m/I/src/add-01.S/ref/Reference-sail_c_simulator.signature
+```
+
+### 2. Commit Management
+
+**Always use specific commits**: Never use "main" or branch names in config.json:
+```json
+// Bad
+"commit": "main"
+
+// Good  
+"commit": "ab21c6579e0e529c6c9e265a8798127a4db68523"
+```
+
+**Track commits properly**: Create a commit file for reproducibility:
+```bash
+echo "$COMMIT_HASH" > data/commits/zkvm.txt
+```
+
+### 3. Integration Testing Workflow
+
+**Recommended order**:
+1. Build locally first to verify compilation works
+2. Test signature extraction with a single test
+3. Create and test the RISCOF plugin with one test
+4. Build the Docker container
+5. Run the full test suite
+6. Update the dashboard
+
+**Quick validation command sequence**:
+```bash
+# Build locally
+cd zkvm && cargo build --release --bin zkvm-riscof
+
+# Test signature extraction
+./target/release/zkvm-riscof --elf test.elf --signatures test.sig
+
+# Run single RISCOF test
+./run test zkvm  # Will run all tests but you can ctrl-c after first one
+
+# Check results
+cat test-results/zkvm/summary.json
+```
+
+### 4. Debugging Failed Tests
+
+**Check test logs**: Each test directory contains logs:
+```bash
+# See what went wrong
+cat test-results/zkvm/rv32i_m/I/src/add-01.S/dut/zkvm.log
+
+# Check if signature was created
+ls -la test-results/zkvm/rv32i_m/I/src/add-01.S/dut/DUT-zkvm.signature
+```
+
+**Common failure patterns**:
+- Empty signature file → Symbol parsing failed
+- "PANIC" in signature → Program crashed, check error handling
+- Wrong values → Endianness or memory alignment issues
+
+### 5. Memory Access Patterns
+
+**Know your ZKVM's memory model**: Different ZKVMs access memory differently:
+```rust
+// Direct access (simplest)
+let word = memory[addr];
+
+// Method-based (most common)
+let word = self.memory.word(addr);
+let word = self.memory.read_u32(addr);
+
+// Through state/context
+let word = self.state.memory.get(addr);
+```
+
+### 6. CLI Design Tips
+
+**Keep it simple**: Only need two flags for RISCOF:
+```rust
+#[derive(Parser)]
+struct Args {
+    #[arg(long)]
+    elf: PathBuf,
+    
+    #[arg(long)]
+    signatures: Option<PathBuf>,
+}
+```
+
+**Always create output file**: Even on failure, create the signature file (possibly empty) so RISCOF can continue:
+```rust
+if let Some(sig_path) = args.signatures {
+    if let Some(signatures) = emulator.collect_signatures() {
+        // Write signatures
+    } else {
+        // Create empty file
+        fs::File::create(sig_path)?;
+    }
+}
+```
+
+### 7. RISCOF Plugin Tips
+
+**Error handling in plugin**: Always create signature file to prevent RISCOF from hanging:
+```python
+simcmd = '({0} --elf {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -10 > zkvm.log'.format(
+    self.dut_exe, elf, sig_file)
+```
+
+**Use consistent naming**: Follow the pattern of existing plugins:
+- Plugin class: `class zkvm(pluginTemplate)`
+- Model name: `__model__ = "zkvm"`
+- Signature file: `DUT-zkvm.signature`
 
 ---
 
