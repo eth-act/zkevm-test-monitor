@@ -73,6 +73,9 @@ for ZKVM in $ZKVMS; do
     if [ "$ZKVM" = "openvm" ] && [ -f "binaries/cargo-openvm" ]; then
         mv "binaries/cargo-openvm" "binaries/openvm-binary"
     fi
+    if [ "$ZKVM" = "pico" ] && [ -f "binaries/pico-riscof" ]; then
+        mv "binaries/pico-riscof" "binaries/pico-binary"
+    fi
     
     echo "  ✅ Built ${ZKVM}"
 done

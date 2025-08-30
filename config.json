@@ -38,6 +38,13 @@
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu"
+    },
+    "pico": {
+      "repo_url": "https://github.com/codygunton/pico",
+      "commit": "main",
+      "build_cmd": "cargo build --package pico-vm --release --bin pico-riscof",
+      "binary_name": "pico-riscof",
+      "binary_path": "target/release/pico-riscof"
     }
   }
 }
