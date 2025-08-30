@@ -45,6 +45,13 @@
       "build_cmd": "cargo build --package pico-vm --release --bin pico-riscof",
       "binary_name": "pico-riscof",
       "binary_path": "target/release/pico-riscof"
+    },
+    "airbender": {
+      "repo_url": "local://airbender",
+      "commit": "local",
+      "build_cmd": "cargo build --profile test-release --bin cli",
+      "binary_name": "cli",
+      "binary_path": "target/test-release/cli"
     }
   }
 }
