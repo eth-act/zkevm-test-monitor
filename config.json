@@ -41,7 +41,7 @@
     },
     "pico": {
       "repo_url": "https://github.com/codygunton/pico",
-      "commit": "main",
+      "commit": "ab21c6579e0e529c6c9e265a8798127a4db68523",
       "build_cmd": "cargo build --package pico-vm --release --bin pico-riscof",
       "binary_name": "pico-riscof",
       "binary_path": "target/release/pico-riscof"
