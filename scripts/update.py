@@ -6,6 +6,24 @@ import shutil
 from pathlib import Path
 from datetime import datetime, timezone
 import subprocess
+import yaml
+
+def get_zkvm_isa(zkvm):
+    """Extract ISA definition from RISCOF plugin YAML"""
+    try:
+        yaml_path = Path(f'riscof/plugins/{zkvm}/{zkvm}_isa.yaml')
+        if yaml_path.exists():
+            with open(yaml_path) as f:
+                data = yaml.safe_load(f)
+                # The ISA is typically under hart0 or hart_0
+                for key in ['hart0', 'hart_0']:
+                    if key in data and 'ISA' in data[key]:
+                        isa = data[key]['ISA']
+                        # Format as lowercase with extensions (e.g., RV32IM -> rv32im)
+                        return isa.lower()
+        return "unknown"
+    except:
+        return "unknown"
 
 def get_test_monitor_commit():
     """Get git commit of this test monitor repo for tracking"""
@@ -34,6 +52,9 @@ else:
 for zkvm in config['zkvms']:
     if zkvm not in results['zkvms']:
         results['zkvms'][zkvm] = {}
+    
+    # Get ISA definition
+    results['zkvms'][zkvm]['isa'] = get_zkvm_isa(zkvm)
     
     # Check binary status
     if Path(f'binaries/{zkvm}-binary').exists():
@@ -187,6 +208,7 @@ html = f"""<!DOCTYPE html>
             <thead>
                 <tr>
                     <th>ZKVM</th>
+                    <th>ISA</th>
                     <th>Build Status</th>
                     <th>Test Status</th>
                     <th>Commit</th>
@@ -248,9 +270,13 @@ for zkvm in config['zkvms']:
     else:
         report_link = '<span class="report-btn disabled">No Report</span>'
     
+    # Get ISA display
+    isa = data.get('isa', 'unknown')
+    
     html += f"""
                 <tr>
                     <td><strong>{zkvm.upper()}</strong></td>
+                    <td><code>{isa}</code></td>
                     <td><span class="badge {build_badge_class}">{build_status.replace('_', ' ')}</span></td>
                     <td><span class="badge {test_badge_class}">{test_status.replace('_', ' ')}</span></td>
                     <td>{commit_display}</td>
