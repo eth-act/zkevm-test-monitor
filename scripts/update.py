@@ -84,12 +84,14 @@ for zkvm in config['zkvms']:
         except:
             results['zkvms'][zkvm]['test_status'] = 'error'
     else:
-        # Check if we have results from RISCOF already stored
+        # Preserve existing test results if no new summary file
+        # Only set to 0 if this ZKVM has never been tested
         if 'passed' not in results['zkvms'][zkvm]:
             results['zkvms'][zkvm]['passed'] = 0
             results['zkvms'][zkvm]['failed'] = 0
             results['zkvms'][zkvm]['total'] = 0
             results['zkvms'][zkvm]['test_status'] = 'not_tested'
+        # Otherwise, existing results are preserved
     
     # Copy report and CSS if exists
     report_src = Path(f'test-results/{zkvm}/report.html')

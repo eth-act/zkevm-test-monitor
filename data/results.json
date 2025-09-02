@@ -1,0 +1,84 @@
+{
+  "zkvms": {
+    "sp1": {
+      "has_binary": false,
+      "build_status": "not_built",
+      "commit": "fc98075a",
+      "passed": 46,
+      "failed": 1,
+      "total": 47,
+      "test_status": "completed",
+      "has_report": true,
+      "isa": "rv32im"
+    },
+    "jolt": {
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "674065f5",
+      "passed": 47,
+      "failed": 0,
+      "total": 47,
+      "test_status": "completed",
+      "has_report": true,
+      "isa": "rv32im"
+    },
+    "openvm": {
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "a6f77215f",
+      "passed": 47,
+      "failed": 0,
+      "total": 47,
+      "test_status": "completed",
+      "has_report": true,
+      "isa": "rv32im"
+    },
+    "risc0": {
+      "has_binary": false,
+      "build_status": "not_built",
+      "commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
+      "passed": 45,
+      "failed": 2,
+      "total": 47,
+      "test_status": "completed",
+      "has_report": true,
+      "isa": "rv32im"
+    },
+    "zisk": {
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "c560a0e7f25c8feff405b32b81b800c1d4f6a8f1",
+      "passed": 82,
+      "failed": 0,
+      "total": 82,
+      "test_status": "completed",
+      "has_report": true,
+      "isa": "rv64ima"
+    },
+    "pico": {
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
+      "passed": 46,
+      "failed": 1,
+      "total": 47,
+      "test_status": "completed",
+      "has_report": true,
+      "isa": "rv32im"
+    },
+    "airbender": {
+      "has_binary": false,
+      "build_status": "not_built",
+      "commit": "1f52d2e241da9576f0440f1e8bf8854a0ad8f0a6",
+      "passed": 46,
+      "failed": 1,
+      "total": 47,
+      "test_status": "completed",
+      "has_report": true,
+      "isa": "rv32im"
+    }
+  },
+  "last_updated": "2025-09-02T20:03:51.123377+00:00",
+  "framework_version": "785c1fda",
+  "test_monitor_commit": "770e61aa"
+}
