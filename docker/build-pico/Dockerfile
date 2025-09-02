@@ -26,7 +26,7 @@ WORKDIR /workspace
 
 # Clone and checkout specific commit
 ARG REPO_URL=https://github.com/codygunton/pico
-ARG COMMIT_HASH=ab21c6579e0e529c6c9e265a8798127a4db68523
+ARG COMMIT_HASH=571dc543c4a73df2c34e86f8e36b529efb1b84b0
 RUN git clone "$REPO_URL" pico && \
     cd pico && \
     git checkout "$COMMIT_HASH" && \
