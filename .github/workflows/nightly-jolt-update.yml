@@ -137,37 +137,26 @@ jobs:
           COMMIT_MSG="chore: update Jolt ZKVM from $CURRENT_COMMIT to $LATEST_COMMIT"
           
           if [ "${{ steps.build-jolt.outcome }}" = "success" ]; then
-            COMMIT_MSG="$COMMIT_MSG
-
-✅ Build: successful"
+            COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"✅ Build: successful"
           else
-            COMMIT_MSG="$COMMIT_MSG
-
-❌ Build: failed"
+            COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"❌ Build: failed"
           fi
           
           if [ "${{ steps.test-jolt.outcome }}" = "success" ]; then
-            COMMIT_MSG="$COMMIT_MSG
-✅ Tests: completed"
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"✅ Tests: completed"
           elif [ "${{ steps.build-jolt.outcome }}" = "success" ]; then
-            COMMIT_MSG="$COMMIT_MSG
-❌ Tests: failed"
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"❌ Tests: failed"
           else
-            COMMIT_MSG="$COMMIT_MSG
-⚠️ Tests: skipped (build failed)"
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"⚠️ Tests: skipped (build failed)"
           fi
           
           if [ "${{ steps.update-dashboard.outcome }}" = "success" ]; then
-            COMMIT_MSG="$COMMIT_MSG
-✅ Dashboard: updated"
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"✅ Dashboard: updated"
           else
-            COMMIT_MSG="$COMMIT_MSG
-❌ Dashboard: update failed"
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"❌ Dashboard: update failed"
           fi
           
-          COMMIT_MSG="$COMMIT_MSG
-
-🤖 Automated nightly update"
+          COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"🤖 Automated nightly update"
           
           # Commit changes
           git commit -m "$COMMIT_MSG"
@@ -201,24 +190,26 @@ jobs:
                 repo: context.repo.repo,
                 title: `🚨 Nightly Jolt ZKVM Update Failed`,
                 labels: ['automated', 'jolt-update', 'failed'],
-                body: `## Jolt ZKVM Update Failed
-
-**Attempted Update:** \`${current_commit}\` → \`${latest_commit}\`
-
-**Workflow Run:** ${run_url}
-
-### Status Summary
-- **Build Status:** ${{ steps.build-jolt.outcome }}
-- **Test Status:** ${{ steps.test-jolt.outcome }}  
-- **Dashboard Update:** ${{ steps.update-dashboard.outcome }}
-
-### Next Steps
-1. Check the [workflow run](${run_url}) for detailed error logs
-2. Investigate build/test failures
-3. Fix any issues and manually trigger the workflow
-4. Close this issue once resolved
-
-This issue was created automatically by the nightly update workflow.`
+                body: [
+                  '## Jolt ZKVM Update Failed',
+                  '',
+                  `**Attempted Update:** \`${current_commit}\` → \`${latest_commit}\``,
+                  '',
+                  `**Workflow Run:** ${run_url}`,
+                  '',
+                  '### Status Summary',
+                  `- **Build Status:** ${{ steps.build-jolt.outcome }}`,
+                  `- **Test Status:** ${{ steps.test-jolt.outcome }}`,
+                  `- **Dashboard Update:** ${{ steps.update-dashboard.outcome }}`,
+                  '',
+                  '### Next Steps',
+                  `1. Check the [workflow run](${run_url}) for detailed error logs`,
+                  '2. Investigate build/test failures',
+                  '3. Fix any issues and manually trigger the workflow',
+                  '4. Close this issue once resolved',
+                  '',
+                  'This issue was created automatically by the nightly update workflow.'
+                ].join('\n')
               });
               console.log('Created issue for failed Jolt update');
             } else {
