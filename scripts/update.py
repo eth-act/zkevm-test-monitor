@@ -209,8 +209,6 @@ html = f"""<!DOCTYPE html>
                 <tr>
                     <th>ZKVM</th>
                     <th>ISA</th>
-                    <th>Build Status</th>
-                    <th>Test Status</th>
                     <th>Commit</th>
                     <th>Results</th>
                     <th>Pass Rate</th>
@@ -278,8 +276,6 @@ for zkvm in sorted(config['zkvms'].keys()):
                 <tr>
                     <td><strong>{zkvm.upper()}</strong></td>
                     <td><code>{isa}</code></td>
-                    <td><span class="badge {build_badge_class}">{build_status.replace('_', ' ')}</span></td>
-                    <td><span class="badge {test_badge_class}">{test_status.replace('_', ' ')}</span></td>
                     <td>{commit_display}</td>
                     <td>{results_text}</td>
                     <td>{pass_rate}</td>
