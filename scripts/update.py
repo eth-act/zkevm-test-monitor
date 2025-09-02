@@ -219,7 +219,8 @@ html = f"""<!DOCTYPE html>
             </thead>
             <tbody>"""
 
-for zkvm in config['zkvms']:
+# Sort ZKVMs alphabetically
+for zkvm in sorted(config['zkvms'].keys()):
     data = results['zkvms'].get(zkvm, {})
     
     # Build status badge
