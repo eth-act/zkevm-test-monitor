@@ -130,8 +130,8 @@ jobs:
           CURRENT_COMMIT=${{ steps.jolt-commit.outputs.current_commit }}
           LATEST_COMMIT=${{ steps.jolt-commit.outputs.latest_commit }}
           
-          # Add all modified files
-          git add config.json data/ docs/ binaries/ test-results/ || true
+          # Add all modified files (only tracked files that should be committed)
+          git add config.json data/ docs/ index.html || true
           
           # Create commit message with build/test status
           COMMIT_MSG="chore: update Jolt ZKVM from $CURRENT_COMMIT to $LATEST_COMMIT"

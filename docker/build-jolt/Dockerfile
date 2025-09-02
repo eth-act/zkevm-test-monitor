@@ -36,7 +36,8 @@ ARG COMMIT_HASH=c4b9b060
 # This layer will be cached until COMMIT_HASH changes
 RUN git clone "$REPO_URL" jolt && \
     cd jolt && \
-    git checkout "$COMMIT_HASH"
+    git checkout "$COMMIT_HASH" && \
+    git rev-parse HEAD | head -c8 > /commit.txt
 
 # Build Jolt
 # This layer will be cached as long as the source code doesn't change
@@ -54,6 +55,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy the built binary from builder stage
 COPY --from=builder /workspace/jolt/target/release/jolt-emu /usr/local/bin/jolt-emu
+COPY --from=builder /commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
 ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/jolt-emu /output/jolt-emu"]
