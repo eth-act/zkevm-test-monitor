@@ -12,8 +12,8 @@
       "binary_path": "target/debug/sp1-perf-executor"
     },
     "jolt": {
-      "repo_url": "https://github.com/codygunton/jolt",
-      "commit": "c4b9b060",
+      "repo_url": "https://github.com/a16z/jolt",
+      "commit": "87f4432c",
       "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
       "binary_name": "jolt-emu",
       "binary_path": "target/release/jolt-emu"

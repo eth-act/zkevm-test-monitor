@@ -43,10 +43,10 @@ jobs:
           CURRENT_COMMIT=$(jq -r '.zkvms.jolt.commit' config.json)
           echo "Current Jolt commit: $CURRENT_COMMIT"
           
-          # Get the latest commit hash from the remote repository
+          # Get the latest commit hash from the main branch of the remote repository
           REPO_URL=$(jq -r '.zkvms.jolt.repo_url' config.json)
-          LATEST_COMMIT=$(git ls-remote $REPO_URL HEAD | cut -f1 | head -c8)
-          echo "Latest Jolt commit: $LATEST_COMMIT"
+          LATEST_COMMIT=$(git ls-remote $REPO_URL refs/heads/main | cut -f1 | head -c8)
+          echo "Latest Jolt commit from main branch: $LATEST_COMMIT"
           
           # Check if there's an update available
           if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then

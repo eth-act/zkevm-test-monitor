@@ -29,8 +29,8 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
 # Build arguments for repository and commit
-ARG REPO_URL=https://github.com/codygunton/jolt
-ARG COMMIT_HASH=c4b9b060
+ARG REPO_URL=https://github.com/a16z/jolt
+ARG COMMIT_HASH=87f4432c
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
