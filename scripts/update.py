@@ -95,6 +95,8 @@ for zkvm in config['zkvms']:
     
     # Copy report and CSS if exists
     report_src = Path(f'test-results/{zkvm}/report.html')
+    report_dst = Path(f'docs/reports/{zkvm}.html')
+    
     if report_src.exists():
         Path('docs/reports').mkdir(parents=True, exist_ok=True)
         shutil.copy(report_src, f'docs/reports/{zkvm}.html')
@@ -102,6 +104,9 @@ for zkvm in config['zkvms']:
         style_src = Path(f'test-results/{zkvm}/style.css')
         if style_src.exists():
             shutil.copy(style_src, f'docs/reports/style.css')
+        results['zkvms'][zkvm]['has_report'] = True
+    elif report_dst.exists():
+        # Preserve existing report status if no new report
         results['zkvms'][zkvm]['has_report'] = True
     else:
         results['zkvms'][zkvm]['has_report'] = False

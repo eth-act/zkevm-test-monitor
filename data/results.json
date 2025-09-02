@@ -14,7 +14,7 @@
     "jolt": {
       "has_binary": true,
       "build_status": "success",
-      "commit": "674065f5",
+      "commit": "c4b9b060",
       "passed": 47,
       "failed": 0,
       "total": 47,
@@ -78,7 +78,7 @@
       "isa": "rv32im"
     }
   },
-  "last_updated": "2025-09-02T20:03:51.123377+00:00",
+  "last_updated": "2025-09-02T21:44:01.806039+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "770e61aa"
+  "test_monitor_commit": "dc9a1160"
 }
