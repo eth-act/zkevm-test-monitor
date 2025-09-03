@@ -44,7 +44,7 @@ for ZKVM in $ZKVMS; do
   # Docker build using ZKVM-specific Dockerfile
   docker build \
     --build-arg REPO_URL="$REPO_URL" \
-    --build-arg COMMIT="$COMMIT" \
+    --build-arg COMMIT_HASH="$COMMIT" \
     --cache-from zkvm-${ZKVM}:latest \
     -f docker/build-${ZKVM}/Dockerfile \
     -t zkvm-${ZKVM}:latest \
