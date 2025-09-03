@@ -981,6 +981,346 @@ simcmd = '({0} --elf {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -10
 
 ---
 
+## 6. Setting Up Nightly CI Updates
+
+Once your ZKVM is integrated and working AND your ZKVM emulator changes needed to support signature creation are in the upstream branch,
+you can set up automated nightly updates to track the latest changes from the upstream repository.
+
+### Overview
+
+The nightly update workflow:
+1. Checks for new commits in the upstream ZKVM repository
+2. Updates the configuration with the latest commit
+3. Rebuilds the ZKVM binary
+4. Runs compliance tests  
+5. Updates the dashboard
+6. Commits and pushes changes automatically
+
+### Creating the Workflow File
+
+Create a new GitHub Actions workflow at `.github/workflows/nightly-<zkvm>-update.yml`:
+
+```yaml
+name: Nightly <ZKVM> Update
+
+on:
+  schedule:
+    # Run daily at 3:00 AM UTC (adjust time to avoid conflicts)
+    - cron: '0 3 * * *'
+  workflow_dispatch:  # Allow manual trigger for testing
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: <zkvm>-update
+  cancel-in-progress: true
+
+jobs:
+  update-<zkvm>:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Set up Git configuration
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3 python3-pip
+          pip3 install pyyaml
+      
+      - name: Get latest <ZKVM> commit
+        id: zkvm-commit
+        run: |
+          # Get the current commit hash from config.json
+          CURRENT_COMMIT=$(jq -r '.zkvms.<zkvm>.commit' config.json)
+          echo "Current <ZKVM> commit: $CURRENT_COMMIT"
+          
+          # Get the latest commit hash from the main branch of the remote repository
+          REPO_URL=$(jq -r '.zkvms.<zkvm>.repo_url' config.json)
+          
+          # IMPORTANT: Use refs/heads/main to get the actual branch HEAD
+          LATEST_COMMIT=$(git ls-remote $REPO_URL refs/heads/main | cut -f1 | head -c8)
+          echo "Latest <ZKVM> commit from main branch: $LATEST_COMMIT"
+          
+          # Check if there's an update available
+          if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT  
+            echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+            echo "🔄 <ZKVM> update available: $CURRENT_COMMIT -> $LATEST_COMMIT"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "✅ <ZKVM> is up to date at commit $CURRENT_COMMIT"
+          fi
+      
+      - name: Update config.json with latest commit
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          LATEST_COMMIT=${{ steps.zkvm-commit.outputs.latest_commit }}
+          echo "📝 Updating config.json with commit: $LATEST_COMMIT"
+          
+          # Update the commit hash in config.json using jq
+          jq --arg commit "$LATEST_COMMIT" '.zkvms.<zkvm>.commit = $commit' config.json > config.json.tmp
+          mv config.json.tmp config.json
+          
+          # Verify the update
+          NEW_COMMIT=$(jq -r '.zkvms.<zkvm>.commit' config.json)
+          echo "✅ Updated <ZKVM> commit to: $NEW_COMMIT"
+      
+      - name: Set up Docker Buildx
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build <ZKVM>
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          echo "🔨 Building <ZKVM>..."
+          # Force rebuild by removing existing binary
+          rm -f binaries/<zkvm>-binary
+          
+          # Run the build script specifically for <ZKVM>
+          FORCE=1 ./scripts/build.sh <zkvm>
+        continue-on-error: true
+        id: build-zkvm
+      
+      - name: Test <ZKVM>
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
+        run: |
+          echo "🧪 Testing <ZKVM>..."
+          
+          # Run tests specifically for <ZKVM>
+          ./scripts/test.sh <zkvm>
+        continue-on-error: true
+        id: test-zkvm
+      
+      - name: Update dashboard
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          echo "📊 Updating dashboard..."
+          python3 scripts/update.py
+        continue-on-error: true
+        id: update-dashboard
+      
+      - name: Check for changes and commit
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          # Check if there are any changes to commit
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_ENV
+          else
+            echo "Changes detected, preparing to commit"
+            echo "has_changes=true" >> $GITHUB_ENV
+            
+            # Show what changed
+            echo "📋 Files changed:"
+            git diff --name-only
+            git diff --cached --name-only
+          fi
+      
+      - name: Commit and push changes
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && env.has_changes == 'true'
+        run: |
+          CURRENT_COMMIT=${{ steps.zkvm-commit.outputs.current_commit }}
+          LATEST_COMMIT=${{ steps.zkvm-commit.outputs.latest_commit }}
+          
+          # IMPORTANT: Only add tracked files that should be committed
+          # Do NOT add binaries/ or test-results/ as they are gitignored
+          git add config.json data/ docs/ index.html || true
+          
+          # Create commit message with build/test status
+          COMMIT_MSG="chore: update <ZKVM> from $CURRENT_COMMIT to $LATEST_COMMIT"
+          
+          if [ "${{ steps.build-zkvm.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"✅ Build: successful"
+          else
+            COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"❌ Build: failed"
+          fi
+          
+          if [ "${{ steps.test-zkvm.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"✅ Tests: completed"
+          elif [ "${{ steps.build-zkvm.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"❌ Tests: failed"
+          else
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"⚠️ Tests: skipped (build failed)"
+          fi
+          
+          if [ "${{ steps.update-dashboard.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"✅ Dashboard: updated"
+          else
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"❌ Dashboard: update failed"
+          fi
+          
+          COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"🤖 Automated nightly update"
+          
+          # Commit changes
+          git commit -m "$COMMIT_MSG"
+          
+          # Push changes
+          git push origin main
+          
+          echo "✅ Changes committed and pushed successfully"
+```
+
+### Key Implementation Details
+
+#### 1. Fetching the Latest Commit
+
+**Critical**: Use `refs/heads/main` to get the actual branch HEAD:
+```bash
+# Correct - gets the actual branch HEAD
+git ls-remote $REPO_URL refs/heads/main | cut -f1 | head -c8
+
+# Wrong - might get tag or other ref
+git ls-remote $REPO_URL HEAD | cut -f1 | head -c8
+```
+
+#### 2. Docker Build Arguments
+
+Ensure your Dockerfile accepts the correct build argument name:
+```dockerfile
+# In docker/build-<zkvm>/Dockerfile
+ARG COMMIT_HASH=main  # Not COMMIT
+```
+
+And the build script passes it correctly:
+```bash
+# In scripts/build.sh
+docker build \
+  --build-arg COMMIT_HASH="$COMMIT" \  # Not --build-arg COMMIT
+  ...
+```
+
+#### 3. Commit Tracking
+
+Make sure your Dockerfile saves the actual built commit:
+```dockerfile
+RUN git clone "$REPO_URL" <zkvm> && \
+    cd <zkvm> && \
+    git checkout "$COMMIT_HASH" && \
+    git rev-parse HEAD | head -c8 > /commit.txt  # Save actual commit
+
+# Copy in runtime stage
+COPY --from=builder /commit.txt /commit.txt
+```
+
+#### 4. Git Add Restrictions
+
+**Important**: Only add tracked files, never gitignored directories:
+```bash
+# Correct - only add tracked files
+git add config.json data/ docs/ index.html || true
+
+# Wrong - will fail if directories are gitignored
+git add . || true
+```
+
+### Dashboard Integration
+
+The nightly workflow status is automatically tracked on the dashboard:
+
+1. **Nightly Column**: Shows ✓ if workflow file exists
+2. **Last Run Column**: Will show the date when the workflow runs
+3. **Commit Column**: Updates automatically with latest commit
+
+To enable tracking in the dashboard, the `scripts/update.py` script checks for workflow files:
+```python
+# Check if nightly updates are configured
+nightly_workflow = Path(f'.github/workflows/nightly-{zkvm}-update.yml')
+results['zkvms'][zkvm]['has_nightly'] = nightly_workflow.exists()
+```
+
+### Testing Your Workflow
+
+#### Manual Trigger
+
+1. Go to the **Actions** tab in GitHub
+2. Select your workflow
+3. Click **Run workflow**
+4. Select the branch (usually `main`)
+5. Click **Run workflow** button
+
+#### Local Testing
+
+Test the update logic locally before deploying:
+```bash
+# Check current vs latest commit
+CURRENT=$(jq -r '.zkvms.<zkvm>.commit' config.json)
+REPO_URL=$(jq -r '.zkvms.<zkvm>.repo_url' config.json)
+LATEST=$(git ls-remote $REPO_URL refs/heads/main | cut -f1 | head -c8)
+
+echo "Current: $CURRENT"
+echo "Latest: $LATEST"
+
+if [ "$CURRENT" != "$LATEST" ]; then
+    echo "Update available!"
+    
+    # Test the update locally
+    jq --arg commit "$LATEST" '.zkvms.<zkvm>.commit = $commit' config.json > config.json.tmp
+    mv config.json.tmp config.json
+    
+    # Build and test
+    FORCE=1 ./run build <zkvm>
+    ./run test <zkvm>
+    ./run update
+fi
+```
+
+### Monitoring and Maintenance
+
+#### Workflow Status
+
+- Check the **Actions** tab for run history
+- Failed runs automatically create GitHub issues
+- Successful runs show in commit history
+
+#### Common Issues
+
+**Build failures after update**:
+- Check if upstream changed build dependencies
+- Review Dockerfile for needed updates
+- Consider pinning to stable releases if main is unstable
+
+**Test failures after update**:
+- Check if ISA features changed
+- Review test logs in `test-results/<zkvm>/`
+- May need to update RISCOF plugin
+
+**Git push failures**:
+- Ensure workflow has `contents: write` permission
+- Check for branch protection rules
+- Verify GitHub token permissions
+
+### Schedule Coordination
+
+To avoid conflicts when running multiple nightly jobs:
+- Space them out by at least 30 minutes
+- Use different times for each ZKVM:
+  - 3:00 AM UTC - Jolt
+  - 3:30 AM UTC - Next ZKVM
+  - 4:00 AM UTC - Another ZKVM
+
+### Best Practices
+
+1. **Start with manual runs**: Test thoroughly before enabling the schedule
+2. **Monitor early runs**: Watch the first few automated runs closely
+3. **Use stable branches**: Consider tracking release branches instead of main
+4. **Add error notifications**: Configure GitHub notifications for failed runs
+5. **Document upstream changes**: Note any breaking changes in commit messages
+
+---
+
 ## Next Steps
 
 After integration:
@@ -988,3 +1328,4 @@ After integration:
 2. Update dashboard: `./run update`
 3. Commit and push changes
 4. Verify deployment at https://codygunton.github.io/zkevm-test-monitor/
+5. (Optional) Set up nightly CI updates following section 6
