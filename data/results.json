@@ -9,7 +9,9 @@
       "total": 47,
       "test_status": "completed",
       "has_report": true,
-      "isa": "rv32im"
+      "isa": "rv32im",
+      "has_nightly": false,
+      "last_run": null
     },
     "jolt": {
       "has_binary": true,
@@ -20,18 +22,22 @@
       "total": 47,
       "test_status": "completed",
       "has_report": true,
-      "isa": "rv32im"
+      "isa": "rv32im",
+      "has_nightly": true,
+      "last_run": null
     },
     "openvm": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "a6f77215f",
       "passed": 47,
       "failed": 0,
       "total": 47,
       "test_status": "completed",
       "has_report": true,
-      "isa": "rv32im"
+      "isa": "rv32im",
+      "has_nightly": false,
+      "last_run": null
     },
     "risc0": {
       "has_binary": false,
@@ -42,29 +48,35 @@
       "total": 47,
       "test_status": "completed",
       "has_report": true,
-      "isa": "rv32im"
+      "isa": "rv32im",
+      "has_nightly": false,
+      "last_run": null
     },
     "zisk": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "c560a0e7f25c8feff405b32b81b800c1d4f6a8f1",
       "passed": 82,
       "failed": 0,
       "total": 82,
       "test_status": "completed",
       "has_report": true,
-      "isa": "rv64ima"
+      "isa": "rv64ima",
+      "has_nightly": false,
+      "last_run": null
     },
     "pico": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
       "passed": 46,
       "failed": 1,
       "total": 47,
       "test_status": "completed",
       "has_report": true,
-      "isa": "rv32im"
+      "isa": "rv32im",
+      "has_nightly": false,
+      "last_run": null
     },
     "airbender": {
       "has_binary": false,
@@ -75,10 +87,12 @@
       "total": 47,
       "test_status": "completed",
       "has_report": true,
-      "isa": "rv32im"
+      "isa": "rv32im",
+      "has_nightly": false,
+      "last_run": null
     }
   },
-  "last_updated": "2025-09-03T06:35:31.767483+00:00",
+  "last_updated": "2025-09-03T06:52:58.586510+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "b10ba6bc"
+  "test_monitor_commit": "35f63976"
 }

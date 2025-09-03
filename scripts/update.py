@@ -56,6 +56,14 @@ for zkvm in config['zkvms']:
     # Get ISA definition
     results['zkvms'][zkvm]['isa'] = get_zkvm_isa(zkvm)
     
+    # Check if nightly updates are configured
+    nightly_workflow = Path(f'.github/workflows/nightly-{zkvm}-update.yml')
+    results['zkvms'][zkvm]['has_nightly'] = nightly_workflow.exists()
+    
+    # Keep existing last_run if present, otherwise set to None
+    if 'last_run' not in results['zkvms'][zkvm]:
+        results['zkvms'][zkvm]['last_run'] = None
+    
     # Check binary status
     if Path(f'binaries/{zkvm}-binary').exists():
         results['zkvms'][zkvm]['has_binary'] = True
@@ -216,9 +224,10 @@ html = f"""<!DOCTYPE html>
                 <tr>
                     <th>ZKVM</th>
                     <th>ISA</th>
+                    <th>Nightly?</th>
                     <th>Commit</th>
                     <th>Results</th>
-                    <th>Pass Rate</th>
+                    <th>Last Run</th>
                     <th>Full Report</th>
                 </tr>
             </thead>
@@ -263,12 +272,21 @@ for zkvm in sorted(config['zkvms'].keys()):
     total = data.get('total', 0)
     
     if total > 0:
-        pass_rate = f"{(passed/total*100):.1f}%"
         results_class = "pass" if failed == 0 else "fail"
         results_text = f'<span class="{results_class}">{passed}/{total}</span>'
     else:
-        pass_rate = "—"
         results_text = '<span class="none">—</span>'
+    
+    # Nightly status
+    has_nightly = data.get('has_nightly', False)
+    nightly_text = '✓' if has_nightly else '—'
+    
+    # Last run date
+    last_run = data.get('last_run')
+    if last_run:
+        last_run_text = last_run
+    else:
+        last_run_text = '—'
     
     # Report link
     if data.get('has_report'):
@@ -283,9 +301,10 @@ for zkvm in sorted(config['zkvms'].keys()):
                 <tr>
                     <td><strong>{zkvm.upper()}</strong></td>
                     <td><code>{isa}</code></td>
+                    <td>{nightly_text}</td>
                     <td>{commit_display}</td>
                     <td>{results_text}</td>
-                    <td>{pass_rate}</td>
+                    <td>{last_run_text}</td>
                     <td>{report_link}</td>
                 </tr>"""
 
