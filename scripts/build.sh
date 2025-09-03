@@ -67,6 +67,12 @@ for ZKVM in $ZKVMS; do
   }
 
   # Handle special cases for binary naming
+  if [ "$ZKVM" = "sp1" ] && [ -f "binaries/sp1-perf-executor" ]; then
+    mv "binaries/sp1-perf-executor" "binaries/sp1-binary"
+  fi
+  if [ "$ZKVM" = "risc0" ] && [ -f "binaries/risc0-r0vm" ]; then
+    mv "binaries/risc0-r0vm" "binaries/risc0-binary"
+  fi
   if [ "$ZKVM" = "zisk" ] && [ -f "binaries/ziskemu" ]; then
     mv "binaries/ziskemu" "binaries/zisk-binary"
   fi

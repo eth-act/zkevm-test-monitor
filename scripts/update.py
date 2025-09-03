@@ -2,6 +2,7 @@
 """Generate static HTML dashboard with embedded data"""
 
 import json
+import os
 import shutil
 from pathlib import Path
 from datetime import datetime, timezone
@@ -89,6 +90,11 @@ for zkvm in config['zkvms']:
                 results['zkvms'][zkvm]['failed'] = summary.get('failed', 0)
                 results['zkvms'][zkvm]['total'] = summary.get('total', 0)
                 results['zkvms'][zkvm]['test_status'] = 'completed'
+                
+                # Update last_run date based on summary file modification time
+                mtime = os.path.getmtime(summary_file)
+                last_run_date = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
+                results['zkvms'][zkvm]['last_run'] = last_run_date
         except:
             results['zkvms'][zkvm]['test_status'] = 'error'
     else:

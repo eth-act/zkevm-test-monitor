@@ -32,21 +32,18 @@ ENV RUST_LOG=info
 # Enable incremental compilation for faster rebuilds
 ENV CARGO_INCREMENTAL=1
 
-# For Airbender, we expect the source to be bind-mounted during build
-# The build script will handle this specially
-# We'll create a placeholder to be replaced by the bind mount
-RUN mkdir -p /workspace/airbender
+# Build arguments for repository and commit
+ARG REPO_URL=https://github.com/codygunton/zksync-airbender
+ARG COMMIT_HASH=riscof
+
+# Clone the repository at the specific commit
+RUN git clone "$REPO_URL" airbender && \
+    cd airbender && \
+    git checkout "$COMMIT_HASH" && \
+    git rev-parse HEAD | head -c8 > /workspace/commit.txt
 
 # Set working directory to airbender
 WORKDIR /workspace/airbender
-
-# Capture commit info from the local directory if it's a git repository
-# Handle case where it might not be a git repo or might be a symlink
-RUN if [ -d .git ]; then \
-        git rev-parse HEAD > /workspace/commit.txt 2>/dev/null || echo "local-build-$(date +%Y%m%d-%H%M%S)" > /workspace/commit.txt; \
-    else \
-        echo "local-build-$(date +%Y%m%d-%H%M%S)" > /workspace/commit.txt; \
-    fi
 
 # Build the CLI binary with optimizations but without GPU support for compatibility
 # Use the test-release profile for moderate optimization with faster compilation

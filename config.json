@@ -47,8 +47,8 @@
       "binary_path": "target/release/pico-riscof"
     },
     "airbender": {
-      "repo_url": "https://github.com/matter-labs/zksync-airbender",
-      "commit": "1f52d2e241da9576f0440f1e8bf8854a0ad8f0a6",
+      "repo_url": "https://github.com/codygunton/zksync-airbender",
+      "commit": "1f52d2e2",
       "build_cmd": "cargo build --profile test-release --bin cli",
       "binary_name": "cli",
       "binary_path": "target/test-release/cli"
