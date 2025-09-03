@@ -14,7 +14,7 @@
     "jolt": {
       "has_binary": true,
       "build_status": "success",
-      "commit": "c4b9b060",
+      "commit": "87f4432c",
       "passed": 47,
       "failed": 0,
       "total": 47,
@@ -23,8 +23,8 @@
       "isa": "rv32im"
     },
     "openvm": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "a6f77215f",
       "passed": 47,
       "failed": 0,
@@ -45,8 +45,8 @@
       "isa": "rv32im"
     },
     "zisk": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "c560a0e7f25c8feff405b32b81b800c1d4f6a8f1",
       "passed": 82,
       "failed": 0,
@@ -56,8 +56,8 @@
       "isa": "rv64ima"
     },
     "pico": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
       "passed": 46,
       "failed": 1,
@@ -78,7 +78,7 @@
       "isa": "rv32im"
     }
   },
-  "last_updated": "2025-09-02T22:38:09.236436+00:00",
+  "last_updated": "2025-09-03T06:35:31.767483+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "f6ac02fb"
+  "test_monitor_commit": "b10ba6bc"
 }
