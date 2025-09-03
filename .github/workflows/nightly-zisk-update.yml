@@ -43,10 +43,10 @@ jobs:
           CURRENT_COMMIT=$(jq -r '.zkvms.zisk.commit' config.json)
           echo "Current Zisk commit: $CURRENT_COMMIT"
           
-          # Get the latest commit hash from the main branch of the remote repository
+          # Get the latest commit hash from the pre-develop-0.11.0 branch of the remote repository
           REPO_URL=$(jq -r '.zkvms.zisk.repo_url' config.json)
-          LATEST_COMMIT=$(git ls-remote $REPO_URL refs/heads/main | cut -f1 | head -c8)
-          echo "Latest Zisk commit from main branch: $LATEST_COMMIT"
+          LATEST_COMMIT=$(git ls-remote $REPO_URL refs/heads/pre-develop-0.11.0 | cut -f1 | head -c8)
+          echo "Latest Zisk commit from pre-develop-0.11.0 branch: $LATEST_COMMIT"
           
           # Check if there's an update available
           if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
