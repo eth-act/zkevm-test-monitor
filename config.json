@@ -1,8 +1,4 @@
 {
-  "riscof": {
-    "repo_url": "https://github.com/codygunton/riscof",
-    "commit": "main"
-  },
   "zkvms": {
     "sp1": {
       "repo_url": "https://github.com/codygunton/sp1",

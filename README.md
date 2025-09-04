@@ -55,24 +55,18 @@ The system uses a minimal, robust architecture:
 
 ## RISCOF Integration
 
-The test system automatically handles the RISCOF framework:
+The test system uses the integrated RISCOF framework:
 
-1. **Automatic Setup**: On first run, the test script will:
-   - Clone the RISCOF repository (configured in `config.json`)
-   - Build the RISCOF Docker image
+1. **Built-in Setup**: RISCOF is included as part of this repository:
+   - Build the RISCOF Docker image on first run
    - Use plugins from `riscof/plugins/` for each ZKVM
 
-2. **Local Development**: To use your own RISCOF fork:
-   ```bash
-   # Option 1: Update config.json with your repo
-   # Edit config.json -> riscof.repo_url and riscof.commit
-   
-   # Option 2: Use existing local clone
-   rm -rf riscof  # Remove auto-cloned version
-   ln -s /path/to/your/riscof/repo riscof
-   ```
+2. **Local Development**: RISCOF is located at `./riscof/` in this repository:
+   - Modify plugins directly in `riscof/plugins/[zkvm-name]/`
+   - Update the Docker environment in `riscof/Dockerfile`
+   - No external dependencies or configuration needed
 
-3. **Plugin Structure**: RISCOF plugins for each ZKVM should be at:
+3. **Plugin Structure**: RISCOF plugins for each ZKVM are located at:
    ```
    riscof/plugins/
    ├── sp1/

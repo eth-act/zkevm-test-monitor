@@ -9,30 +9,15 @@ if [ ! -f config.json ]; then
     exit 1
 fi
 
-# Setup RISCOF repository
-RISCOF_URL=$(jq -r '.riscof.repo_url' config.json)
-RISCOF_COMMIT=$(jq -r '.riscof.commit' config.json)
-
+# Setup RISCOF (now integrated locally)
 if [ ! -d "riscof" ]; then
-    echo "📦 Cloning RISCOF repository..."
-    git clone "$RISCOF_URL" riscof || {
-        echo "❌ Failed to clone RISCOF repository"
-        exit 1
-    }
+    echo "❌ riscof directory not found - riscof should be integrated into this repository"
+    exit 1
 fi
 
-# Update to specified commit
-echo "📦 Updating RISCOF to commit $RISCOF_COMMIT..."
-cd riscof
-git fetch origin
-git checkout "$RISCOF_COMMIT" || {
-    echo "❌ Failed to checkout RISCOF commit $RISCOF_COMMIT"
-    cd ..
-    exit 1
-}
-
-# Build RISCOF Docker image
+# Build RISCOF Docker image from local directory
 echo "🔨 Building RISCOF Docker image..."
+cd riscof
 docker build -t riscof:latest . || {
     echo "❌ Failed to build RISCOF Docker image"
     cd ..

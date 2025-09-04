@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper script for ziskemu to work with RISCOF
+# Simply calls the mounted ziskemu binary
+
+# The actual ziskemu is mounted at /dut/bin/dut-exe
+exec /dut/bin/dut-exe "$@"

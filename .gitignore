@@ -20,7 +20,6 @@ Thumbs.db
 .vscode/
 
 # Symlinks to local repositories
-riscof
 .roo
 ai_docs
 llms

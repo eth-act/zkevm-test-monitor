@@ -1,0 +1,10 @@
+mtime:
+  implemented: false
+  address: 0xbff8
+mtimecmp:
+  implemented: false
+  address: 0x4000
+nmi:
+  address: 0x80000018
+reset:
+  address: 0x80000000
