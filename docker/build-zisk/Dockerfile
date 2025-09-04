@@ -54,7 +54,7 @@ ENV CXXFLAGS="-std=c++17"
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/0xPolygonHermez/zisk.git
-ARG COMMIT_HASH=pre-develop-0.11.0
+ARG COMMIT_HASH=main
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
