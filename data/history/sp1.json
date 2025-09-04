@@ -1,0 +1,14 @@
+{
+  "zkvm": "sp1",
+  "runs": [
+    {
+      "date": "2025-09-04",
+      "test_monitor_commit": "397d7c18",
+      "zkvm_commit": "fc98075a",
+      "isa": "rv32im",
+      "passed": 46,
+      "total": 47,
+      "notes": ""
+    }
+  ]
+}

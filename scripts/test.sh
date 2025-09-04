@@ -85,6 +85,52 @@ for ZKVM in $ZKVMS; do
 }
 EOF
         
+        # Record history
+        mkdir -p data/history
+        HISTORY_FILE="data/history/${ZKVM}.json"
+        TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
+        ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || jq -r ".zkvms.${ZKVM}.commit" config.json || echo "unknown")
+        ISA=$(grep -oP 'ISA:\s*\K\S+' "riscof/plugins/${ZKVM}/${ZKVM}_isa.yaml" 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
+        RUN_DATE=$(date -u +"%Y-%m-%d")
+        
+        # Create or update history file
+        if [ -f "$HISTORY_FILE" ]; then
+            # Append to existing history
+            jq --arg date "$RUN_DATE" \
+               --arg monitor "$TEST_MONITOR_COMMIT" \
+               --arg zkvm "$ZKVM_COMMIT" \
+               --arg isa "$ISA" \
+               --argjson passed "$PASSED" \
+               --argjson total "$TOTAL" \
+               '.runs += [{
+                   "date": $date,
+                   "test_monitor_commit": $monitor,
+                   "zkvm_commit": $zkvm,
+                   "isa": $isa,
+                   "passed": $passed,
+                   "total": $total,
+                   "notes": ""
+               }]' "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
+        else
+            # Create new history file
+            cat > "$HISTORY_FILE" <<HISTORY
+{
+  "zkvm": "${ZKVM}",
+  "runs": [
+    {
+      "date": "${RUN_DATE}",
+      "test_monitor_commit": "${TEST_MONITOR_COMMIT}",
+      "zkvm_commit": "${ZKVM_COMMIT}",
+      "isa": "${ISA}",
+      "passed": ${PASSED},
+      "total": ${TOTAL},
+      "notes": ""
+    }
+  ]
+}
+HISTORY
+        fi
+        
         echo "  ✅ Tested ${ZKVM}: ${PASSED}/${TOTAL} passed"
     else
         echo "  ⚠️  Tests ran but no report generated"

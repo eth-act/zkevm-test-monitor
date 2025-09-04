@@ -20,6 +20,23 @@ A simplified, robust testing framework for Zero-Knowledge Virtual Machines (ZKVM
 
 This repository provides automated RISC-V compliance testing for various ZKVM implementations using the [RISCOF](https://github.com/riscv-software-src/riscof/) framework. Tests are run differentially against the [Sail reference model](https://github.com/riscv/sail-riscv).
 
+## Reproducing Results
+
+Every test run is fully reproducible. Each ZKVM's history page shows:
+- **Test Monitor Commit**: The exact version of this repository used
+- **ZKVM Commit**: The specific ZKVM commit tested
+- **ISA**: The instruction set tested (e.g., rv32im)
+- **Results**: Pass/total ratio
+- **Notes**: Optional notes about regressions, ISA changes, or other remarks
+
+To reproduce any historical test result:
+1. Check out the test monitor commit: `git checkout <test-monitor-commit>`
+2. The ZKVM commit is automatically used from that version's `config.json`
+3. Run: `./run test <zkvm>` to reproduce the exact test
+4. View the dashboard at the specific commit on GitHub to see the original report
+
+To add notes to history entries, edit `data/history/{zkvm}.json` and add a "notes" field to any run.
+
 ## Supported ZKVMs
 
 - SP1

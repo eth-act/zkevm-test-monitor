@@ -83,8 +83,9 @@
     <div class="container">
         <h1> RISC-V ZKVM Compliance Test Monitor</h1>
         <div class="metadata">
-            <strong>Last Updated:</strong> 2025-09-04T14:15:19.006380+00:00<br>
-            <strong>Test Monitor Commit:</strong> <code>7882d1cd</code><br>
+            <strong>Repository:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor">github.com/codygunton/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
+            <strong>Last Updated:</strong> 2025-09-04T20:00:38.572807+00:00<br>
+            <strong>Test Monitor Commit:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor/commit/397d7c18" class="commit-link"><code>397d7c18</code></a><br>
             <strong>Test Suite:</strong> RISC-V Architectural Tests v3.9.1
         </div>
         
@@ -102,93 +103,70 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>AIRBENDER</strong></td>
+                    <td><strong><a href="zkvms/airbender.html">AIRBENDER</a></strong></td>
                     <td><code>rv32im</code></td>
                     <td>—</td>
                     <td><a href="https://github.com/codygunton/zksync-airbender/commit/1f52d2e2" class="commit-link">1f52d2e2</a></td>
                     <td><span class="fail">46/47</span></td>
-                    <td>2025-09-03</td>
+                    <td>2025-09-04</td>
                     <td><a href="reports/airbender.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td><strong>JOLT</strong></td>
+                    <td><strong><a href="zkvms/jolt.html">JOLT</a></strong></td>
                     <td><code>rv32im</code></td>
                     <td>✓</td>
                     <td><a href="https://github.com/a16z/jolt/commit/87f4432c" class="commit-link">87f4432c</a></td>
                     <td><span class="pass">47/47</span></td>
-                    <td>2025-09-03</td>
+                    <td>2025-09-04</td>
                     <td><a href="reports/jolt.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td><strong>OPENVM</strong></td>
+                    <td><strong><a href="zkvms/openvm.html">OPENVM</a></strong></td>
                     <td><code>rv32im</code></td>
                     <td>—</td>
                     <td><a href="https://github.com/codygunton/openvm/commit/a6f77215f" class="commit-link">a6f77215</a></td>
                     <td><span class="pass">47/47</span></td>
-                    <td>2025-09-03</td>
+                    <td>2025-09-04</td>
                     <td><a href="reports/openvm.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td><strong>PICO</strong></td>
+                    <td><strong><a href="zkvms/pico.html">PICO</a></strong></td>
                     <td><code>rv32im</code></td>
                     <td>—</td>
                     <td><a href="https://github.com/codygunton/pico/commit/571dc543c4a73df2c34e86f8e36b529efb1b84b0" class="commit-link">571dc543</a></td>
                     <td><span class="fail">46/47</span></td>
-                    <td>2025-09-03</td>
+                    <td>2025-09-04</td>
                     <td><a href="reports/pico.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td><strong>RISC0</strong></td>
+                    <td><strong><a href="zkvms/risc0.html">RISC0</a></strong></td>
                     <td><code>rv32im</code></td>
                     <td>—</td>
                     <td><a href="https://github.com/codygunton/risc0/commit/e9a6b28579f700b56b1e9dc12cec0df68be47a96" class="commit-link">e9a6b285</a></td>
                     <td><span class="fail">45/47</span></td>
-                    <td>2025-09-03</td>
+                    <td>2025-09-04</td>
                     <td><a href="reports/risc0.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td><strong>SP1</strong></td>
+                    <td><strong><a href="zkvms/sp1.html">SP1</a></strong></td>
                     <td><code>rv32im</code></td>
                     <td>—</td>
                     <td><a href="https://github.com/codygunton/sp1/commit/fc98075a" class="commit-link">fc98075a</a></td>
                     <td><span class="fail">46/47</span></td>
-                    <td>2025-09-03</td>
+                    <td>2025-09-04</td>
                     <td><a href="reports/sp1.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td><strong>ZISK</strong></td>
+                    <td><strong><a href="zkvms/zisk.html">ZISK</a></strong></td>
                     <td><code>rv64ima</code></td>
                     <td>✓</td>
                     <td><a href="https://github.com/0xPolygonHermez/zisk/commit/48751a63f3a5f94f2c067b755c4838a692d3f313" class="commit-link">48751a63</a></td>
                     <td><span class="pass">82/82</span></td>
-                    <td>2025-09-03</td>
+                    <td>2025-09-04</td>
                     <td><a href="reports/zisk.html" class="report-btn">View Report</a></td>
                 </tr>
             </tbody>
         </table>
-        
-        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <h3>Quick Start</h3>
-            <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0;">
-# Build all ZKVMs
-./run build all
-
-# Test a specific ZKVM  
-./run test sp1
-
-# Build and test everything
-./run all
-
-# Just update the dashboard
-./run update</pre>
-            
-            <p style="margin-top: 20px; color: #666;">
-                This dashboard shows RISC-V compliance test results for various ZKVM implementations.
-                Tests are run using <a href="https://github.com/riscv-software-src/riscof">RISCOF</a> 
-                against the official RISC-V architectural test suite. Full test reports show individual
-                test results and failure details.
-            </p>
-        </div>
     </div>
 </body>
 </html>

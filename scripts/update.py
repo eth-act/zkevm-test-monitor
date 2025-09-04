@@ -3,6 +3,7 @@
 
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 from datetime import datetime, timezone
@@ -220,8 +221,9 @@ html = f"""<!DOCTYPE html>
     <div class="container">
         <h1> RISC-V ZKVM Compliance Test Monitor</h1>
         <div class="metadata">
+            <strong>Repository:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor">github.com/codygunton/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
             <strong>Last Updated:</strong> {results.get('last_updated', 'Never')}<br>
-            <strong>Test Monitor Commit:</strong> <code>{results.get('test_monitor_commit', 'unknown')}</code><br>
+            <strong>Test Monitor Commit:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor/commit/{results.get('test_monitor_commit', 'unknown')}" class="commit-link"><code>{results.get('test_monitor_commit', 'unknown')}</code></a><br>
             <strong>Test Suite:</strong> RISC-V Architectural Tests v3.9.1
         </div>
         
@@ -305,7 +307,7 @@ for zkvm in sorted(config['zkvms'].keys()):
     
     html += f"""
                 <tr>
-                    <td><strong>{zkvm.upper()}</strong></td>
+                    <td><strong><a href="zkvms/{zkvm}.html">{zkvm.upper()}</a></strong></td>
                     <td><code>{isa}</code></td>
                     <td>{nightly_text}</td>
                     <td>{commit_display}</td>
@@ -317,29 +319,6 @@ for zkvm in sorted(config['zkvms'].keys()):
 html += """
             </tbody>
         </table>
-        
-        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <h3>Quick Start</h3>
-            <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0;">
-# Build all ZKVMs
-./run build all
-
-# Test a specific ZKVM  
-./run test sp1
-
-# Build and test everything
-./run all
-
-# Just update the dashboard
-./run update</pre>
-            
-            <p style="margin-top: 20px; color: #666;">
-                This dashboard shows RISC-V compliance test results for various ZKVM implementations.
-                Tests are run using <a href="https://github.com/riscv-software-src/riscof">RISCOF</a> 
-                against the official RISC-V architectural test suite. Full test reports show individual
-                test results and failure details.
-            </p>
-        </div>
     </div>
 </body>
 </html>"""
@@ -351,5 +330,186 @@ with open('index.html', 'w') as f:
 Path('docs').mkdir(exist_ok=True)
 with open('docs/index.html', 'w') as f:
     f.write(html)
+
+# Generate individual ZKVM pages
+Path('docs/zkvms').mkdir(parents=True, exist_ok=True)
+
+for zkvm in config['zkvms']:
+    # Load history if it exists
+    history_file = Path(f'data/history/{zkvm}.json')
+    history_runs = []
+    if history_file.exists():
+        with open(history_file) as f:
+            history_data = json.load(f)
+            history_runs = history_data.get('runs', [])
+    
+    # Get repo URL
+    repo_url = config['zkvms'][zkvm].get('repo_url', f'https://github.com/codygunton/{zkvm}')
+    repo_path = repo_url.rstrip('/').replace('https://github.com/', '')
+    
+    # Generate ZKVM page HTML
+    zkvm_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{zkvm.upper()} - ZKVM Test Monitor</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }}
+        .container {{ 
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        h1 {{ 
+            margin-bottom: 10px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }}
+        h1 a {{
+            font-size: 0.8em;
+            font-weight: normal;
+        }}
+        .back-link {{
+            margin-bottom: 20px;
+        }}
+        .metadata {{
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        table {{ 
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }}
+        th, td {{ 
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        th {{ 
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }}
+        tr:hover {{ background: #f8f9fa; }}
+        .pass {{ color: #28a745; font-weight: 600; }}
+        .fail {{ color: #dc3545; font-weight: 600; }}
+        .commit-link {{ font-family: monospace; }}
+        a {{ color: #007bff; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+        .empty-state {{
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="back-link">
+            <a href="../index.html">← Back to Dashboard</a>
+        </div>
+        <h1>
+            {zkvm.upper()}
+            <a href="{repo_url}" target="_blank">View Repository →</a>
+        </h1>
+        <div class="metadata">
+            <strong>Repository:</strong> <a href="{repo_url}">{repo_path}</a>
+        </div>
+        
+        <h2>Test Run History</h2>
+"""
+    
+    if history_runs:
+        zkvm_html += """
+        <table>
+            <thead>
+                <tr>
+                    <th>Run Date</th>
+                    <th>Test Monitor Commit</th>
+                    <th>ZKVM Commit</th>
+                    <th>ISA</th>
+                    <th>Results</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+"""
+        # Sort runs by date in reverse chronological order
+        sorted_runs = sorted(history_runs, key=lambda x: x['date'], reverse=True)
+        
+        for run in sorted_runs:
+            # Test monitor commit link
+            monitor_commit = run.get('test_monitor_commit', 'unknown')
+            if monitor_commit != 'unknown':
+                monitor_link = f'<a href="https://github.com/codygunton/zkevm-test-monitor/commit/{monitor_commit}" class="commit-link">{monitor_commit}</a>'
+            else:
+                monitor_link = f'<span class="commit-link">{monitor_commit}</span>'
+            
+            # ZKVM commit link
+            zkvm_commit = run.get('zkvm_commit', 'unknown')
+            if zkvm_commit != 'unknown' and len(zkvm_commit) >= 8:
+                zkvm_link = f'<a href="https://github.com/{repo_path}/commit/{zkvm_commit}" class="commit-link">{zkvm_commit[:8]}</a>'
+            else:
+                zkvm_link = f'<span class="commit-link">{zkvm_commit}</span>'
+            
+            # Results
+            passed = run.get('passed', 0)
+            total = run.get('total', 0)
+            if total > 0:
+                failed = total - passed
+                results_class = "pass" if failed == 0 else "fail"
+                results_text = f'<span class="{results_class}">{passed}/{total}</span>'
+            else:
+                results_text = '—'
+            
+            # Notes field  
+            notes = run.get('notes', '')
+            notes_html = f'<em>{notes}</em>' if notes else ''
+            
+            zkvm_html += f"""
+                <tr>
+                    <td>{run.get('date', 'unknown')}</td>
+                    <td>{monitor_link}</td>
+                    <td>{zkvm_link}</td>
+                    <td><code>{run.get('isa', 'unknown')}</code></td>
+                    <td>{results_text}</td>
+                    <td>{notes_html}</td>
+                </tr>
+"""
+        
+        zkvm_html += """
+            </tbody>
+        </table>
+"""
+    else:
+        zkvm_html += """
+        <div class="empty-state">
+            <p>No test history available yet.</p>
+            <p>Run tests to start tracking history.</p>
+        </div>
+"""
+    
+    zkvm_html += """
+    </div>
+</body>
+</html>"""
+    
+    # Write ZKVM page
+    with open(f'docs/zkvms/{zkvm}.html', 'w') as f:
+        f.write(zkvm_html)
 
 print("✅ Dashboard updated")

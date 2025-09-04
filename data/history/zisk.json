@@ -1,0 +1,13 @@
+{
+  "zkvm": "zisk",
+  "runs": [
+    {
+      "date": "2025-09-04",
+      "test_monitor_commit": "397d7c18",
+      "zkvm_commit": "48751a63f3a5f94f2c067b755c4838a692d3f313",
+      "isa": "rv64ima",
+      "passed": 82,
+      "total": 82
+    }
+  ]
+}
