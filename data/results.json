@@ -1,8 +1,8 @@
 {
   "zkvms": {
     "sp1": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "fc98075a",
       "passed": 46,
       "failed": 1,
@@ -14,8 +14,8 @@
       "last_run": "2025-09-04"
     },
     "jolt": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "87f4432c",
       "passed": 47,
       "failed": 0,
@@ -27,8 +27,8 @@
       "last_run": "2025-09-04"
     },
     "openvm": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "a6f77215f",
       "passed": 47,
       "failed": 0,
@@ -40,8 +40,8 @@
       "last_run": "2025-09-04"
     },
     "risc0": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
       "passed": 45,
       "failed": 2,
@@ -53,8 +53,8 @@
       "last_run": "2025-09-04"
     },
     "zisk": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "48751a63f3a5f94f2c067b755c4838a692d3f313",
       "passed": 82,
       "failed": 0,
@@ -66,8 +66,8 @@
       "last_run": "2025-09-04"
     },
     "pico": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
       "passed": 46,
       "failed": 1,
@@ -79,8 +79,8 @@
       "last_run": "2025-09-04"
     },
     "airbender": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "1f52d2e2",
       "passed": 46,
       "failed": 1,
@@ -92,7 +92,7 @@
       "last_run": "2025-09-04"
     }
   },
-  "last_updated": "2025-09-04T20:00:38.572807+00:00",
+  "last_updated": "2025-09-05T03:26:37.734290+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "397d7c18"
+  "test_monitor_commit": "025b64e6"
 }
