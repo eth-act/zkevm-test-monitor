@@ -8,6 +8,15 @@
       "isa": "rv64ima",
       "passed": 82,
       "total": 82
+    },
+    {
+      "date": "2025-09-05",
+      "test_monitor_commit": "c05bad22",
+      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
+      "isa": "rv64ima",
+      "passed": 82,
+      "total": 82,
+      "notes": ""
     }
   ]
 }

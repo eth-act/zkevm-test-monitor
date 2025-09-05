@@ -53,9 +53,9 @@
       "last_run": "2025-09-04"
     },
     "zisk": {
-      "has_binary": false,
-      "build_status": "not_built",
-      "commit": "48751a63f3a5f94f2c067b755c4838a692d3f313",
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
       "passed": 82,
       "failed": 0,
       "total": 82,
@@ -63,7 +63,7 @@
       "has_report": true,
       "isa": "rv64ima",
       "has_nightly": true,
-      "last_run": "2025-09-04"
+      "last_run": "2025-09-05"
     },
     "pico": {
       "has_binary": false,
@@ -92,7 +92,7 @@
       "last_run": "2025-09-04"
     }
   },
-  "last_updated": "2025-09-05T03:26:37.734290+00:00",
+  "last_updated": "2025-09-05T04:13:13.187850+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "025b64e6"
+  "test_monitor_commit": "c05bad22"
 }
