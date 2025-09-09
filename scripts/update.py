@@ -232,7 +232,7 @@ html = f"""<!DOCTYPE html>
                 <tr>
                     <th>ZKVM</th>
                     <th>ISA</th>
-                    <th>Nightly?</th>
+                    <th>CI?</th>
                     <th>Commit</th>
                     <th>Results</th>
                     <th>Last Run</th>
