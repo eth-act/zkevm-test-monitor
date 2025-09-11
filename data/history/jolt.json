@@ -26,6 +26,15 @@
       "passed": 47,
       "total": 47,
       "notes": ""
+    },
+    {
+      "date": "2025-09-11",
+      "test_monitor_commit": "58d961d1",
+      "zkvm_commit": "13e96f9b",
+      "isa": "rv32im",
+      "passed": 47,
+      "total": 47,
+      "notes": ""
     }
   ]
 }
