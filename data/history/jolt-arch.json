@@ -7,7 +7,8 @@
       "zkvm_commit": "87f4432c",
       "isa": "rv32im",
       "passed": 47,
-      "total": 47
+      "total": 47,
+      "suite": "arch"
     },
     {
       "date": "2025-09-09",
@@ -16,7 +17,8 @@
       "isa": "rv32im",
       "passed": 47,
       "total": 47,
-      "notes": ""
+      "notes": "",
+      "suite": "arch"
     },
     {
       "date": "2025-09-10",
@@ -25,7 +27,8 @@
       "isa": "rv32im",
       "passed": 47,
       "total": 47,
-      "notes": ""
+      "notes": "",
+      "suite": "arch"
     },
     {
       "date": "2025-09-11",
@@ -34,7 +37,9 @@
       "isa": "rv32im",
       "passed": 47,
       "total": 47,
-      "notes": ""
+      "notes": "",
+      "suite": "arch"
     }
-  ]
+  ],
+  "suite": "arch"
 }

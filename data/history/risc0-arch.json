@@ -7,7 +7,9 @@
       "zkvm_commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
       "isa": "rv32im",
       "passed": 45,
-      "total": 47
+      "total": 47,
+      "suite": "arch"
     }
-  ]
+  ],
+  "suite": "arch"
 }

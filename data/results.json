@@ -4,95 +4,180 @@
       "has_binary": false,
       "build_status": "not_built",
       "commit": "fc98075a",
-      "passed": 46,
-      "failed": 1,
-      "total": 47,
-      "test_status": "completed",
-      "has_report": true,
       "isa": "rv32im",
       "has_nightly": false,
-      "last_run": "2025-09-04"
+      "suites": {
+        "arch": {
+          "passed": 46,
+          "failed": 1,
+          "total": 47,
+          "test_status": "completed",
+          "last_run": "2025-09-04",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested",
+          "has_report": false
+        }
+      },
+      "last_run": null
     },
     "jolt": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "13e96f9b",
-      "passed": 47,
-      "failed": 0,
-      "total": 47,
-      "test_status": "completed",
-      "has_report": true,
       "isa": "rv32im",
       "has_nightly": true,
-      "last_run": "2025-09-11"
+      "suites": {
+        "arch": {
+          "passed": 47,
+          "failed": 0,
+          "total": 47,
+          "test_status": "completed",
+          "last_run": "2025-09-11",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested",
+          "has_report": false
+        }
+      },
+      "last_run": null
     },
     "openvm": {
       "has_binary": false,
       "build_status": "not_built",
       "commit": "a6f77215f",
-      "passed": 47,
-      "failed": 0,
-      "total": 47,
-      "test_status": "completed",
-      "has_report": true,
       "isa": "rv32im",
       "has_nightly": false,
-      "last_run": "2025-09-04"
+      "suites": {
+        "arch": {
+          "passed": 47,
+          "failed": 0,
+          "total": 47,
+          "test_status": "completed",
+          "last_run": "2025-09-04",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested",
+          "has_report": false
+        }
+      },
+      "last_run": null
     },
     "risc0": {
       "has_binary": false,
       "build_status": "not_built",
       "commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
-      "passed": 45,
-      "failed": 2,
-      "total": 47,
-      "test_status": "completed",
-      "has_report": true,
       "isa": "rv32im",
       "has_nightly": false,
-      "last_run": "2025-09-04"
+      "suites": {
+        "arch": {
+          "passed": 45,
+          "failed": 2,
+          "total": 47,
+          "test_status": "completed",
+          "last_run": "2025-09-04",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested",
+          "has_report": false
+        }
+      },
+      "last_run": null
     },
     "zisk": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "passed": 82,
-      "failed": 0,
-      "total": 82,
-      "test_status": "completed",
-      "has_report": true,
       "isa": "rv64ima",
       "has_nightly": true,
-      "last_run": "2025-09-05"
+      "suites": {
+        "arch": {
+          "passed": 82,
+          "failed": 0,
+          "total": 82,
+          "test_status": "completed",
+          "last_run": "2025-09-05",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 1,
+          "failed": 0,
+          "total": 1,
+          "test_status": "completed",
+          "last_run": "2025-09-18",
+          "has_report": true
+        }
+      },
+      "last_run": null
     },
     "pico": {
       "has_binary": false,
       "build_status": "not_built",
       "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
-      "passed": 46,
-      "failed": 1,
-      "total": 47,
-      "test_status": "completed",
-      "has_report": true,
       "isa": "rv32im",
       "has_nightly": false,
-      "last_run": "2025-09-04"
+      "suites": {
+        "arch": {
+          "passed": 46,
+          "failed": 1,
+          "total": 47,
+          "test_status": "completed",
+          "last_run": "2025-09-04",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested",
+          "has_report": false
+        }
+      },
+      "last_run": null
     },
     "airbender": {
       "has_binary": false,
       "build_status": "not_built",
       "commit": "1f52d2e2",
-      "passed": 46,
-      "failed": 1,
-      "total": 47,
-      "test_status": "completed",
-      "has_report": true,
       "isa": "rv32im",
       "has_nightly": false,
-      "last_run": "2025-09-04"
+      "suites": {
+        "arch": {
+          "passed": 46,
+          "failed": 1,
+          "total": 47,
+          "test_status": "completed",
+          "last_run": "2025-09-04",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested",
+          "has_report": false
+        }
+      },
+      "last_run": null
     }
   },
-  "last_updated": "2025-09-11T03:21:52.469975+00:00",
+  "last_updated": "2025-09-18T21:16:05.519633+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "58d961d1"
+  "test_monitor_commit": "a92d99eb"
 }

@@ -7,7 +7,8 @@
       "zkvm_commit": "48751a63f3a5f94f2c067b755c4838a692d3f313",
       "isa": "rv64ima",
       "passed": 82,
-      "total": 82
+      "total": 82,
+      "suite": "arch"
     },
     {
       "date": "2025-09-05",
@@ -16,7 +17,9 @@
       "isa": "rv64ima",
       "passed": 82,
       "total": 82,
-      "notes": ""
+      "notes": "",
+      "suite": "arch"
     }
-  ]
+  ],
+  "suite": "arch"
 }
