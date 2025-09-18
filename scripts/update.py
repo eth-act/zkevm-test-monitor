@@ -54,6 +54,18 @@ else:
 for zkvm in config['zkvms']:
     if zkvm not in results['zkvms']:
         results['zkvms'][zkvm] = {}
+
+    # Initialize suites if not present
+    if 'suites' not in results['zkvms'][zkvm]:
+        results['zkvms'][zkvm]['suites'] = {
+            'arch': {},
+            'extra': {}
+        }
+
+    # Clean up any leftover fields that shouldn't be at base level
+    for field in ['last_run', 'has_report']:
+        if field in results['zkvms'][zkvm]:
+            del results['zkvms'][zkvm][field]
     
     # Get ISA definition
     results['zkvms'][zkvm]['isa'] = get_zkvm_isa(zkvm)
@@ -81,50 +93,66 @@ for zkvm in config['zkvms']:
     else:
         results['zkvms'][zkvm]['commit'] = config['zkvms'][zkvm].get('commit', 'unknown')
     
-    # Check test results
-    summary_file = Path(f'test-results/{zkvm}/summary.json')
-    if summary_file.exists():
-        try:
-            with open(summary_file) as f:
-                summary = json.load(f)
-                results['zkvms'][zkvm]['passed'] = summary.get('passed', 0)
-                results['zkvms'][zkvm]['failed'] = summary.get('failed', 0)
-                results['zkvms'][zkvm]['total'] = summary.get('total', 0)
-                results['zkvms'][zkvm]['test_status'] = 'completed'
-                
-                # Update last_run date based on summary file modification time
-                mtime = os.path.getmtime(summary_file)
-                last_run_date = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
-                results['zkvms'][zkvm]['last_run'] = last_run_date
-        except:
-            results['zkvms'][zkvm]['test_status'] = 'error'
-    else:
-        # Preserve existing test results if no new summary file
-        # Only set to 0 if this ZKVM has never been tested
-        if 'passed' not in results['zkvms'][zkvm]:
-            results['zkvms'][zkvm]['passed'] = 0
-            results['zkvms'][zkvm]['failed'] = 0
-            results['zkvms'][zkvm]['total'] = 0
-            results['zkvms'][zkvm]['test_status'] = 'not_tested'
-        # Otherwise, existing results are preserved
+    # Check test results for both suites
+    for suite in ['arch', 'extra']:
+        summary_file = Path(f'test-results/{zkvm}/summary-{suite}.json')
+
+        # Fallback to old summary.json for arch suite
+        if suite == 'arch' and not summary_file.exists():
+            old_summary_file = Path(f'test-results/{zkvm}/summary.json')
+            if old_summary_file.exists():
+                summary_file = old_summary_file
+
+        if summary_file.exists():
+            try:
+                with open(summary_file) as f:
+                    summary = json.load(f)
+                    suite_data = results['zkvms'][zkvm]['suites'][suite]
+                    suite_data['passed'] = summary.get('passed', 0)
+                    suite_data['failed'] = summary.get('failed', 0)
+                    suite_data['total'] = summary.get('total', 0)
+                    suite_data['test_status'] = 'completed'
+
+                    # Update last_run date based on summary file modification time
+                    mtime = os.path.getmtime(summary_file)
+                    last_run_date = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
+                    suite_data['last_run'] = last_run_date
+            except:
+                results['zkvms'][zkvm]['suites'][suite]['test_status'] = 'error'
+        else:
+            # Preserve existing test results if no new summary file
+            suite_data = results['zkvms'][zkvm]['suites'][suite]
+            # Only set to 0 if this ZKVM/suite combo has never been tested
+            if 'passed' not in suite_data:
+                suite_data['passed'] = 0
+                suite_data['failed'] = 0
+                suite_data['total'] = 0
+                suite_data['test_status'] = 'not_tested'
+            # Otherwise, existing results are preserved
     
-    # Copy report and CSS if exists
-    report_src = Path(f'test-results/{zkvm}/report.html')
-    report_dst = Path(f'docs/reports/{zkvm}.html')
-    
-    if report_src.exists():
-        Path('docs/reports').mkdir(parents=True, exist_ok=True)
-        shutil.copy(report_src, f'docs/reports/{zkvm}.html')
-        # Also copy style.css if it exists
-        style_src = Path(f'test-results/{zkvm}/style.css')
-        if style_src.exists():
-            shutil.copy(style_src, f'docs/reports/style.css')
-        results['zkvms'][zkvm]['has_report'] = True
-    elif report_dst.exists():
-        # Preserve existing report status if no new report
-        results['zkvms'][zkvm]['has_report'] = True
-    else:
-        results['zkvms'][zkvm]['has_report'] = False
+    # Copy report and CSS if exists for both suites
+    for suite in ['arch', 'extra']:
+        report_src = Path(f'test-results/{zkvm}/report-{suite}.html')
+
+        # Fallback to old report.html for arch suite
+        if suite == 'arch' and not report_src.exists():
+            report_src = Path(f'test-results/{zkvm}/report.html')
+
+        report_dst = Path(f'docs/reports/{zkvm}-{suite}.html')
+
+        if report_src.exists():
+            Path('docs/reports').mkdir(parents=True, exist_ok=True)
+            shutil.copy(report_src, report_dst)
+            # Also copy style.css if it exists
+            style_src = Path(f'test-results/{zkvm}/style.css')
+            if style_src.exists():
+                shutil.copy(style_src, f'docs/reports/style.css')
+            results['zkvms'][zkvm]['suites'][suite]['has_report'] = True
+        elif report_dst.exists():
+            # Preserve existing report status if no new report
+            results['zkvms'][zkvm]['suites'][suite]['has_report'] = True
+        else:
+            results['zkvms'][zkvm]['suites'][suite]['has_report'] = False
 
 # Update timestamp and version
 results['last_updated'] = datetime.now(timezone.utc).isoformat()
@@ -231,6 +259,7 @@ html = f"""<!DOCTYPE html>
             <thead>
                 <tr>
                     <th>ZKVM</th>
+                    <th>Suite</th>
                     <th>ISA</th>
                     <th>CI?</th>
                     <th>Commit</th>
@@ -241,73 +270,97 @@ html = f"""<!DOCTYPE html>
             </thead>
             <tbody>"""
 
-# Sort ZKVMs alphabetically
+# Sort ZKVMs alphabetically and show both arch and extra suites
 for zkvm in sorted(config['zkvms'].keys()):
-    data = results['zkvms'].get(zkvm, {})
-    
-    # Build status badge
-    build_status = data.get('build_status', 'not_built')
-    build_badge_class = {
-        'success': 'badge-success',
-        'building': 'badge-warning',
-        'failed': 'badge-error',
-        'not_built': 'badge-info'
-    }.get(build_status, 'badge-info')
-    
-    # Test status badge  
-    test_status = data.get('test_status', 'not_tested')
-    test_badge_class = {
-        'completed': 'badge-success',
-        'running': 'badge-warning',
-        'error': 'badge-error',
-        'not_tested': 'badge-info'
-    }.get(test_status, 'badge-info')
-    
-    # Commit link (use proper repo URL)
-    commit = data.get('commit', 'unknown')
-    repo_url = config['zkvms'][zkvm].get('repo_url', f'https://github.com/codygunton/{zkvm}')
-    
-    if commit != 'unknown' and len(commit) >= 8 and '/' in repo_url:
-        # Extract org/repo from URL
-        repo_path = repo_url.rstrip('/').replace('https://github.com/', '')
-        commit_display = f'<a href="https://github.com/{repo_path}/commit/{commit}" class="commit-link">{commit[:8]}</a>'
-    else:
-        commit_display = f'<span class="commit-link">{commit}</span>'
-    
-    # Test results
-    passed = data.get('passed', 0)
-    failed = data.get('failed', 0)
-    total = data.get('total', 0)
-    
-    if total > 0:
-        results_class = "pass" if failed == 0 else "fail"
-        results_text = f'<span class="{results_class}">{passed}/{total}</span>'
-    else:
-        results_text = '<span class="none">—</span>'
-    
-    # Nightly status
-    has_nightly = data.get('has_nightly', False)
-    nightly_text = '✓' if has_nightly else '—'
-    
-    # Last run date
-    last_run = data.get('last_run')
-    if last_run:
-        last_run_text = last_run
-    else:
-        last_run_text = '—'
-    
-    # Report link
-    if data.get('has_report'):
-        report_link = f'<a href="reports/{zkvm}.html" class="report-btn">View Report</a>'
-    else:
-        report_link = '<span class="report-btn disabled">No Report</span>'
-    
-    # Get ISA display
-    isa = data.get('isa', 'unknown')
-    
-    html += f"""
+    base_data = results['zkvms'].get(zkvm, {})
+
+    # Display two rows per ZKVM: one for arch, one for extra
+    for suite in ['arch', 'extra']:
+        # Get suite-specific data from nested structure
+        suite_data = base_data.get('suites', {}).get(suite, {})
+
+        # Build status badge (from base data)
+        build_status = base_data.get('build_status', 'not_built')
+        build_badge_class = {
+            'success': 'badge-success',
+            'building': 'badge-warning',
+            'failed': 'badge-error',
+            'not_built': 'badge-info'
+        }.get(build_status, 'badge-info')
+
+        # Test status badge (suite-specific)
+        test_status = suite_data.get('test_status', 'not_tested')
+        test_badge_class = {
+            'completed': 'badge-success',
+            'running': 'badge-warning',
+            'error': 'badge-error',
+            'not_tested': 'badge-info'
+        }.get(test_status, 'badge-info')
+
+        # Commit link (from base data)
+        commit = base_data.get('commit', 'unknown')
+        repo_url = config['zkvms'][zkvm].get('repo_url', f'https://github.com/codygunton/{zkvm}')
+
+        if commit != 'unknown' and len(commit) >= 8 and '/' in repo_url:
+            # Extract org/repo from URL
+            repo_path = repo_url.rstrip('/').replace('https://github.com/', '')
+            commit_display = f'<a href="https://github.com/{repo_path}/commit/{commit}" class="commit-link">{commit[:8]}</a>'
+        else:
+            commit_display = f'<span class="commit-link">{commit}</span>'
+
+        # Test results (suite-specific)
+        passed = suite_data.get('passed', 0)
+        failed = suite_data.get('failed', 0)
+        total = suite_data.get('total', 0)
+
+        if total > 0:
+            results_class = "pass" if failed == 0 else "fail"
+            results_text = f'<span class="{results_class}">{passed}/{total}</span>'
+        else:
+            results_text = '<span class="none">—</span>'
+
+        # Nightly status (from base data)
+        has_nightly = base_data.get('has_nightly', False)
+        nightly_text = '✓' if has_nightly else '✗'
+
+        # Last run date (suite-specific)
+        last_run = suite_data.get('last_run')
+        if last_run:
+            last_run_text = last_run
+        else:
+            last_run_text = '—'
+
+        # Report link (suite-specific)
+        if suite_data.get('has_report'):
+            report_link = f'<a href="reports/{zkvm}-{suite}.html" class="report-btn">View Report</a>'
+        else:
+            report_link = '<span class="report-btn disabled">No Report</span>'
+
+        # Get ISA display (from base data)
+        isa = base_data.get('isa', 'unknown')
+
+        # Suite display
+        suite_display = suite.capitalize()
+
+        # For extra suite rows, only show suite, results, last run, and report
+        if suite == 'extra':
+            html += f"""
+                <tr>
+                    <td></td>
+                    <td>{suite_display}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>{results_text}</td>
+                    <td>{last_run_text}</td>
+                    <td>{report_link}</td>
+                </tr>"""
+        else:
+            # For arch suite rows, show all fields
+            html += f"""
                 <tr>
                     <td><strong><a href="zkvms/{zkvm}.html">{zkvm.upper()}</a></strong></td>
+                    <td>{suite_display}</td>
                     <td><code>{isa}</code></td>
                     <td>{nightly_text}</td>
                     <td>{commit_display}</td>
@@ -335,13 +388,31 @@ with open('docs/index.html', 'w') as f:
 Path('docs/zkvms').mkdir(parents=True, exist_ok=True)
 
 for zkvm in config['zkvms']:
-    # Load history if it exists
-    history_file = Path(f'data/history/{zkvm}.json')
+    # Load history for both arch and extra suites
     history_runs = []
-    if history_file.exists():
-        with open(history_file) as f:
-            history_data = json.load(f)
-            history_runs = history_data.get('runs', [])
+
+    # Load arch history
+    arch_history_file = Path(f'data/history/{zkvm}-arch.json')
+    if arch_history_file.exists():
+        with open(arch_history_file) as f:
+            arch_data = json.load(f)
+            history_runs.extend(arch_data.get('runs', []))
+    # Fallback to old history file for arch
+    elif Path(f'data/history/{zkvm}.json').exists():
+        with open(f'data/history/{zkvm}.json') as f:
+            old_data = json.load(f)
+            runs = old_data.get('runs', [])
+            # Add suite field to old runs
+            for run in runs:
+                run['suite'] = 'arch'
+            history_runs.extend(runs)
+
+    # Load extra history
+    extra_history_file = Path(f'data/history/{zkvm}-extra.json')
+    if extra_history_file.exists():
+        with open(extra_history_file) as f:
+            extra_data = json.load(f)
+            history_runs.extend(extra_data.get('runs', []))
     
     # Get repo URL
     repo_url = config['zkvms'][zkvm].get('repo_url', f'https://github.com/codygunton/{zkvm}')
@@ -439,6 +510,7 @@ for zkvm in config['zkvms']:
             <thead>
                 <tr>
                     <th>Run Date</th>
+                    <th>Suite</th>
                     <th>Test Monitor Commit</th>
                     <th>ZKVM Commit</th>
                     <th>ISA</th>
@@ -476,13 +548,18 @@ for zkvm in config['zkvms']:
             else:
                 results_text = '—'
             
-            # Notes field  
+            # Notes field
             notes = run.get('notes', '')
             notes_html = f'<em>{notes}</em>' if notes else ''
-            
+
+            # Suite field
+            suite = run.get('suite', 'arch')  # Default to arch for old data
+            suite_display = suite.capitalize()
+
             zkvm_html += f"""
                 <tr>
                     <td>{run.get('date', 'unknown')}</td>
+                    <td>{suite_display}</td>
                     <td>{monitor_link}</td>
                     <td>{zkvm_link}</td>
                     <td><code>{run.get('isa', 'unknown')}</code></td>
