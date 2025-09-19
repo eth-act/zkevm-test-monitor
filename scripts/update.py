@@ -321,7 +321,7 @@ for zkvm in sorted(config['zkvms'].keys()):
 
         # Nightly status (from base data)
         has_nightly = base_data.get('has_nightly', False)
-        nightly_text = '✓' if has_nightly else '✗'
+        nightly_text = '✓' if has_nightly else '-'
 
         # Last run date (suite-specific)
         last_run = suite_data.get('last_run')

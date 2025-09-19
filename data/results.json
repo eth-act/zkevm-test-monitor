@@ -191,7 +191,7 @@
           "failed": 0,
           "total": 2,
           "test_status": "completed",
-          "has_report": false,
+          "has_report": true,
           "last_run": "2025-09-19"
         }
       },
@@ -203,7 +203,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-09-19T22:26:29.040021+00:00",
+  "last_updated": "2025-09-19T22:56:38.016881+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "af8553ac"
+  "test_monitor_commit": "70fc6f14"
 }

@@ -68,7 +68,7 @@ CANARY;
 test_A_res:
     .fill 2, 4, 0xdeadbeef
 
-#if defined(extra_trap_routine) || defined(rvtest_mtrap_routine)
+#ifdef rvtest_mtrap_routine
 mtrap_sigptr:
   .fill 8, 4, 0xdeadbeef
 #endif

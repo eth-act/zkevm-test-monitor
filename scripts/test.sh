@@ -83,6 +83,13 @@ for ZKVM in $ZKVMS; do
     -v "$PWD/test-results/${ZKVM}:/riscof/riscof_work" \
     riscof:latest || true
 
+  # Determine suite name first
+  if [ "$ACT_EXTRA" = "true" ]; then
+    SUITE="extra"
+  else
+    SUITE="arch"
+  fi
+
   # Copy report with suite suffix
   if [ -f "test-results/${ZKVM}/report.html" ]; then
     cp "test-results/${ZKVM}/report.html" "test-results/${ZKVM}/report-${SUITE}.html"
@@ -101,13 +108,6 @@ for ZKVM in $ZKVMS; do
     fi
 
     TOTAL=$((PASSED + FAILED))
-
-    # Determine suite name
-    if [ "$ACT_EXTRA" = "true" ]; then
-      SUITE="extra"
-    else
-      SUITE="arch"
-    fi
 
     # Create summary.json for update script (with suite-specific file)
     cat > "test-results/${ZKVM}/summary-${SUITE}.json" << EOF
