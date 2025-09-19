@@ -95,8 +95,24 @@ class sail_cSim(pluginTemplate):
 
             execute = "@cd "+testentry['work_dir']+";"
 
-            cmd = self.compile_cmd.format(testentry['isa'].lower()) + ' ' + test + ' -o ' + elf
-            compile_cmd = cmd + ' -D' + " -D".join(testentry['macros'])
+            # Handle different trap mechanisms
+            march = testentry['isa'].lower()
+            macros = testentry['macros'].copy()
+
+            if 'extra_trap_routine=True' in macros:
+                # For Sail, convert extra to standard CSR-based traps
+                # Sail always uses CSR-based implementation
+                if '_zicsr' not in march:
+                    march = march + '_zicsr'
+                # Map extra_trap_routine to rvtest_mtrap_routine
+                macros = [m.replace('extra_trap_routine=True', 'rvtest_mtrap_routine=True') for m in macros]
+            elif 'rvtest_mtrap_routine=True' in macros:
+                # Standard CSR-based traps
+                if '_zicsr' not in march:
+                    march = march + '_zicsr'
+
+            cmd = self.compile_cmd.format(march) + ' ' + test + ' -o ' + elf
+            compile_cmd = cmd + ' -D' + " -D".join(macros)
             execute+=compile_cmd+";"
 
             execute += self.objdump_cmd.format(elf, 'ref.disass')

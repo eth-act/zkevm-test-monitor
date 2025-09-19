@@ -148,7 +148,22 @@ class spike(pluginTemplate):
 
           # substitute all variables in the compile command that we created in the initialize
           # function
-          cmd = self.compile_cmd.format(testentry['isa'].lower(), test, elf, compile_macros)
+          # Handle different trap mechanisms
+          march = testentry['isa'].lower()
+          if 'rvtest_mtrap_routine=True' in compile_macros:
+              # Standard CSR-based trap handling
+              if '_zicsr' not in march:
+                  march = march + '_zicsr'
+          elif 'extra_trap_routine=True' in compile_macros:
+              # For Spike testing: we need Zicsr to avoid hanging
+              # Real zkVMs would implement their own trap mechanism here
+              # Map extra_trap_routine to rvtest_mtrap_routine for Spike
+              if '_zicsr' not in march:
+                  march = march + '_zicsr'
+              # Replace extra with standard trap routine for compilation
+              compile_macros = compile_macros.replace('extra_trap_routine=True',
+                                                      'rvtest_mtrap_routine=True')
+          cmd = self.compile_cmd.format(march, test, elf, compile_macros)
 
 	  # if the user wants to disable running the tests and only compile the tests, then
 	  # the "else" clause is executed below assigning the sim command to simple no action

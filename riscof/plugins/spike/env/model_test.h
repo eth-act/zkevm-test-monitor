@@ -17,7 +17,9 @@
     sw x1, tohost, t5;                                                        \
     j write_tohost;
 
+#ifndef extra_trap_routine
 #define RVMODEL_BOOT
+#endif
 
 //RV_COMPLIANCE_DATA_BEGIN
 #define RVMODEL_DATA_BEGIN                                              \
@@ -56,5 +58,8 @@
 
 #define RVMODEL_CLEAR_MEXT_INT
 
+// Note: For Spike, extra_trap_routine is mapped to rvtest_mtrap_routine
+// in the Python plugin, so we use standard CSR-based trap handling.
+// Real zkVM implementations would put their custom trap handling here.
 
 #endif // _COMPLIANCE_MODEL_H

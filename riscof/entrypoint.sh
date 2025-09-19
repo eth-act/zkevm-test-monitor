@@ -114,9 +114,15 @@ if [ $# -eq 0 ]; then
   # Check if we should use ACT-Extra tests
   if [ "${ACT_EXTRA}" = "true" ] || [ "${ACT_EXTRA}" = "1" ]; then
     echo "Running ACT-Extra tests..."
+    # Clean compiled tests but keep the directory structure
+    find /riscof/riscof_work -name "*.elf" -delete 2>/dev/null || true
+    find /riscof/riscof_work -name "*.o" -delete 2>/dev/null || true
     exec riscof run --config=/riscof/config.ini --suite=/riscof/act-extra --env=/riscof/act-extra/env --no-clean
   else
     echo "Running RISCOF arch tests..."
+    # Clean compiled tests but keep the directory structure
+    find /riscof/riscof_work -name "*.elf" -delete 2>/dev/null || true
+    find /riscof/riscof_work -name "*.o" -delete 2>/dev/null || true
     exec riscof run --config=/riscof/config.ini --suite=/riscof/riscv-arch-test/riscv-test-suite/ --env=/riscof/riscv-arch-test/riscv-test-suite/env --no-clean
   fi
 else
