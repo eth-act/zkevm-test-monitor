@@ -1,0 +1,46 @@
+{
+  "zkvm": "spike",
+  "suite": "arch",
+  "runs": [
+    {
+      "date": "2025-09-18",
+      "test_monitor_commit": "39bd1c3a",
+      "zkvm_commit": "f51df5d3955a27602a872eaf01492177513baf6f",
+      "isa": "rv64imazicsr_zifencei",
+      "suite": "arch",
+      "passed": 0,
+      "total": 101,
+      "notes": ""
+    },
+    {
+      "date": "2025-09-18",
+      "test_monitor_commit": "39bd1c3a",
+      "zkvm_commit": "f51df5d3955a27602a872eaf01492177513baf6f",
+      "isa": "rv64imazicsr_zifencei",
+      "suite": "arch",
+      "passed": 0,
+      "total": 101,
+      "notes": ""
+    },
+    {
+      "date": "2025-09-18",
+      "test_monitor_commit": "39bd1c3a",
+      "zkvm_commit": "f51df5d3955a27602a872eaf01492177513baf6f",
+      "isa": "rv64imazicsr_zifencei",
+      "suite": "arch",
+      "passed": 0,
+      "total": 101,
+      "notes": ""
+    },
+    {
+      "date": "2025-09-19",
+      "test_monitor_commit": "39bd1c3a",
+      "zkvm_commit": "f51df5d3955a27602a872eaf01492177513baf6f",
+      "isa": "rv32imczicsr_zifencei",
+      "suite": "arch",
+      "passed": 92,
+      "total": 92,
+      "notes": ""
+    }
+  ]
+}

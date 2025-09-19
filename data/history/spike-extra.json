@@ -1,0 +1,16 @@
+{
+  "zkvm": "spike",
+  "suite": "extra",
+  "runs": [
+    {
+      "date": "2025-09-18",
+      "test_monitor_commit": "39bd1c3a",
+      "zkvm_commit": "f51df5d3955a27602a872eaf01492177513baf6f",
+      "isa": "rv64imazicsr_zifencei",
+      "suite": "extra",
+      "passed": 0,
+      "total": 1,
+      "notes": ""
+    }
+  ]
+}

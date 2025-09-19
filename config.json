@@ -48,6 +48,13 @@
       "build_cmd": "cargo build --profile test-release --bin cli",
       "binary_name": "cli",
       "binary_path": "target/test-release/cli"
+    },
+    "spike": {
+      "repo_url": "https://github.com/riscv-software-src/riscv-isa-sim",
+      "commit": "master",
+      "build_cmd": "mkdir -p build && cd build && ../configure --prefix=/opt/spike && make -j$(nproc)",
+      "binary_name": "spike",
+      "binary_path": "build/spike"
     }
   }
 }

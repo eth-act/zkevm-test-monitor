@@ -175,9 +175,35 @@
         }
       },
       "last_run": null
+    },
+    "spike": {
+      "suites": {
+        "arch": {
+          "passed": 92,
+          "failed": 0,
+          "total": 92,
+          "test_status": "completed",
+          "has_report": true,
+          "last_run": "2025-09-18"
+        },
+        "extra": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1,
+          "test_status": "completed",
+          "has_report": false,
+          "last_run": "2025-09-18"
+        }
+      },
+      "isa": "rv32imczicsr_zifencei",
+      "has_nightly": false,
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "f51df5d3955a27602a872eaf01492177513baf6f",
+      "last_run": null
     }
   },
-  "last_updated": "2025-09-18T21:24:18.463755+00:00",
+  "last_updated": "2025-09-19T00:24:52.920415+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "5bcfbfa3"
+  "test_monitor_commit": "39bd1c3a"
 }
