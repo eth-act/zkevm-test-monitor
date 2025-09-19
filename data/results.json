@@ -187,12 +187,12 @@
           "last_run": "2025-09-19"
         },
         "extra": {
-          "passed": 0,
-          "failed": 1,
+          "passed": 1,
+          "failed": 0,
           "total": 1,
           "test_status": "completed",
           "has_report": false,
-          "last_run": "2025-09-18"
+          "last_run": "2025-09-19"
         }
       },
       "isa": "rv64imczicsr_zifencei",
@@ -203,7 +203,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-09-19T04:04:25.838150+00:00",
+  "last_updated": "2025-09-19T04:15:22.564627+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "ad109424"
+  "test_monitor_commit": "45591646"
 }
