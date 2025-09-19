@@ -31,6 +31,16 @@
       "passed": 1,
       "total": 1,
       "notes": ""
+    },
+    {
+      "date": "2025-09-19",
+      "test_monitor_commit": "af8553ac",
+      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
+      "isa": "rv64ima",
+      "suite": "extra",
+      "passed": 1,
+      "total": 2,
+      "notes": ""
     }
   ]
 }

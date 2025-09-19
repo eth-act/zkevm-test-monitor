@@ -155,7 +155,19 @@ class zisk(pluginTemplate):
 
           # substitute all variables in the compile command that we created in the initialize
           # function
-          cmd = self.compile_cmd.format(testentry['isa'].lower(), self.xlen, test, elf, compile_macros)
+          march = testentry['isa'].lower()
+
+          # Handle extra_trap_routine for Zisk
+          # Zisk has built-in trap handling at address 0x38 that checks a7
+          if 'extra_trap_routine=True' in compile_macros:
+              # Zisk doesn't need special compilation for trap handling
+              # Its trap handler is always active and checks a7 != 93 (CAUSE_EXIT)
+              pass
+          elif 'rvtest_mtrap_routine=True' in compile_macros:
+              # For standard trap tests, also no special handling needed
+              pass
+
+          cmd = self.compile_cmd.format(march, self.xlen, test, elf, compile_macros)
 
 	  # if the user wants to disable running the tests and only compile the tests, then
 	  # the "else" clause is executed below assigning the sim command to simple no action
