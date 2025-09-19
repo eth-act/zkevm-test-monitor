@@ -265,7 +265,7 @@ function filter_table(elem) {
 
 </script>
     <h1></h1>
-    <p>Report generated on 2025-09-19 00:24 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
+    <p>Report generated on 2025-09-19 04:03 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
     <h2>Environment</h2>
     <table id="environment">
       <tr>
@@ -282,7 +282,7 @@ function filter_table(elem) {
         <td>sail c simulator</td></tr>
       <tr>
         <td>ISA</td>
-        <td>RV32IMCZicsr_Zifencei</td></tr>
+        <td>RV64IMCZicsr_Zifencei</td></tr>
       <tr>
         <td>User Spec Version</td>
         <td>2.3</td></tr>
@@ -305,14 +305,16 @@ function filter_table(elem) {
               <div class="log">hart_ids:
   - 0
 hart0:
-    ISA: RV32IMCZicsr_Zifencei
-    physical_addr_sz: 32
+    ISA: RV64IMCZicsr_Zifencei
+    physical_addr_sz: 56
     User_Spec_Version: '2.3'
     supported_xlen:
-      - 32
+      - 64
     misa:
-        reset-val: 1073746180
+        reset-val: 0x8000000000001104
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             mxl:
                 implemented: true
@@ -320,14 +322,14 @@ hart0:
                     warl:
                         dependency_fields: []
                         legal:
-                          - mxl[1:0] in [0x1]
+                          - mxl[1:0] in [0x2]
                         wr_illegal:
                           - Unchanged
                 description: Encodes the native base integer ISA width.
                 shadow:
                 shadow_type: rw
-                msb: 31
-                lsb: 30
+                msb: 63
+                lsb: 62
             extensions:
                 implemented: true
                 type:
@@ -349,13 +351,11 @@ hart0:
               -
                   -
                       - 26
-                      - 29
+                      - 61
         description: misa is a read-write register reporting the ISA supported 
             by the hart.
         address: 769
         priv_mode: M
-        rv64:
-            accessible: false
     Privilege_Spec_Version: '1.10'
     hw_data_misaligned_support: false
     pmp_granularity: 0
@@ -365,6 +365,8 @@ hart0:
     mtval_update: 0b11111111
     mstatus:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields:
               - uie
@@ -384,6 +386,11 @@ hart0:
               - tw
               - tsr
               - spelp
+              - uxl
+              - sxl
+              - gva
+              - mpv
+              - mpelp
               - sd
               -
                   -
@@ -395,7 +402,15 @@ hart0:
                       - 10
                   -
                       - 24
-                      - 30
+                      - 31
+                  -
+                      - 36
+                      - 37
+                  -
+                      - 40
+                  -
+                      - 42
+                      - 62
             uie:
                 implemented: false
                 description: Stores the state of the user mode interrupts.
@@ -533,16 +548,53 @@ hart0:
                 shadow_type: rw
                 msb: 23
                 lsb: 23
+            sxl:
+                implemented: false
+                description: Controls the value of xlen for Supervisor mode.
+                shadow:
+                shadow_type: rw
+                msb: 35
+                lsb: 34
+            uxl:
+                implemented: false
+                description: Controls the xlen for User mode.
+                shadow:
+                shadow_type: rw
+                msb: 33
+                lsb: 32
+            gva:
+                implemented: false
+                description: For any trap (access fault, page fault, or 
+                    guest-page fault) that writes a guest virtual address to 
+                    mtval, GVA is set to 1.
+                shadow:
+                shadow_type: rw
+                msb: 38
+                lsb: 38
+            mpv:
+                implemented: false
+                description: Machine Previous Virtualization Mode is written by 
+                    the implementation whenever a trap is taken into M-mode.
+                shadow:
+                shadow_type: rw
+                msb: 39
+                lsb: 39
+            mpelp:
+                implemented: false
+                description: Machine mode previous expected-landing-pad (ELP) 
+                    state.
+                shadow:
+                shadow_type: rw
+                msb: 41
+                lsb: 41
             sd:
                 implemented: false
                 description: Read-only bit that summarizes whether either the FS
                     field or XS field signals the presence of some dirty state.
                 shadow:
                 shadow_type: rw
-                msb: 31
-                lsb: 31
-        rv64:
-            accessible: false
+                msb: 63
+                lsb: 63
         description: The mstatus register keeps track of and controls the hart’s
             current operating state.
         address: 768
@@ -550,60 +602,7 @@ hart0:
         reset-val: 0
     mstatush:
         rv32:
-            accessible: true
-            fields:
-              - sbe
-              - mbe
-              - gva
-              - mpv
-              - mpelp
-              -
-                  -
-                      - 0
-                      - 3
-                  -
-                      - 8
-                  -
-                      - 10
-                      - 31
-            mpv:
-                implemented: false
-                description: Stores the state of the user mode interrupts.
-                shadow:
-                shadow_type: rw
-                msb: 7
-                lsb: 7
-            gva:
-                implemented: false
-                description: Stores the state of the supervisor mode interrupts.
-                shadow:
-                shadow_type: rw
-                msb: 6
-                lsb: 6
-            mbe:
-                implemented: false
-                description: control the endianness of memory accesses other 
-                    than instruction fetches for machine mode
-                shadow:
-                shadow_type: rw
-                msb: 5
-                lsb: 5
-            sbe:
-                implemented: false
-                description: control the endianness of memory accesses other 
-                    than instruction fetches for supervisor mode
-                shadow:
-                shadow_type: rw
-                msb: 4
-                lsb: 4
-            mpelp:
-                implemented: false
-                description: Machine mode previous expected-landing-pad (ELP) 
-                    state.
-                shadow:
-                shadow_type: rw
-                msb: 9
-                lsb: 9
+            accessible: false
         rv64:
             accessible: false
         description: The mstatush register keeps track of and controls the 
@@ -613,6 +612,8 @@ hart0:
         reset-val: 0
     mvendorid:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
@@ -621,8 +622,6 @@ hart0:
             lsb: 0
             type:
                 ro_constant: 0
-        rv64:
-            accessible: false
         description: 32-bit read-only register providing the JEDEC manufacturer 
             ID of the provider of the core.
         address: 3857
@@ -630,16 +629,16 @@ hart0:
         reset-val: 0
     marchid:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 ro_constant: 0
-        rv64:
-            accessible: false
         description: MXLEN-bit read-only register encoding the base 
             microarchitecture of the hart.
         address: 3858
@@ -647,16 +646,16 @@ hart0:
         reset-val: 0
     mimpid:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 ro_constant: 0
-        rv64:
-            accessible: false
         description: Provides a unique encoding of the version of the processor 
             implementation.
         address: 3859
@@ -664,16 +663,16 @@ hart0:
         reset-val: 0
     mhartid:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 ro_constant: 0
-        rv64:
-            accessible: false
         description: MXLEN-bit read-only register containing the integer ID of 
             the hardware thread running the code.
         address: 3860
@@ -681,6 +680,8 @@ hart0:
         reset-val: 0
     mtvec:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields:
               - mode
@@ -690,13 +691,14 @@ hart0:
                 description: Vector base address.
                 shadow:
                 shadow_type: rw
-                msb: 31
+                msb: 63
                 lsb: 2
                 type:
                     warl:
                         dependency_fields: []
                         legal:
-                          - base[29:0] bitmask [0x3FFFFFFF, 0x00000000]
+                          - base[61:0] bitmask [0x3FFFFFFFFFFFFFFF, 
+                            0x0000000000000000]
                         wr_illegal:
                           - Unchanged
             mode:
@@ -710,11 +712,9 @@ hart0:
                     warl:
                         dependency_fields: []
                         legal:
-                          - mode[1:0] in [0x0,0x1]
+                          - mode[1:0] in [0x0:0x1]
                         wr_illegal:
                           - Unchanged
-        rv64:
-            accessible: false
         description: MXLEN-bit read/write register that holds trap vector 
             configuration.
         address: 773
@@ -740,6 +740,8 @@ hart0:
         reset-val: 0
     mip:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields:
               - usip
@@ -758,7 +760,7 @@ hart0:
               -
                   -
                       - 13
-                      - 31
+                      - 63
             usip:
                 implemented: false
                 description: User Software Interrupt Pending.
@@ -856,8 +858,6 @@ hart0:
                 shadow_type: rw
                 msb: 12
                 lsb: 12
-        rv64:
-            accessible: false
         description: The mip register is an MXLEN-bit read/write register 
             containing information on pending interrupts.
         address: 836
@@ -875,6 +875,8 @@ hart0:
         reset-val: 0
     mie:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields:
               - usie
@@ -893,7 +895,7 @@ hart0:
               -
                   -
                       - 13
-                      - 31
+                      - 63
             usie:
                 implemented: false
                 description: User Software Interrupt enable.
@@ -994,8 +996,6 @@ hart0:
                 shadow_type: rw
                 msb: 12
                 lsb: 12
-        rv64:
-            accessible: false
         description: The mie register is an MXLEN-bit read/write register 
             containing interrupt enable bits.
         address: 772
@@ -1003,21 +1003,22 @@ hart0:
         reset-val: 0
     mscratch:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 warl:
                     dependency_fields: []
                     legal:
-                      - mscratch[31:0] in [0x00000000:0xFFFFFFFF]
+                      - mscratch[63:0] in [0x00000000:0xFFFFFFFFFFFFFFFF]
                     wr_illegal:
                       - unchanged
-        rv64:
-            accessible: false
+
         description: The mscratch register is an MXLEN-bit read/write register 
             dedicated for use by machine mode.
         address: 832
@@ -1025,21 +1026,21 @@ hart0:
         reset-val: 0
     mepc:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 warl:
                     dependency_fields: []
                     legal:
-                      - mepc[31:0] in [0x00000000:0xFFFFFFFF]
+                      - mepc[63:0] in [0x00000000:0xFFFFFFFFFFFFFFFF]
                     wr_illegal:
                       - unchanged
-        rv64:
-            accessible: false
         description: The mepc is a warl register that must be able to hold all 
             valid physical and virtual addresses.
         address: 0x341
@@ -1047,21 +1048,21 @@ hart0:
         reset-val: 0
     mtval:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 warl:
                     dependency_fields: []
                     legal:
-                      - mtval[31:0] in [0x00000000:0xFFFFFFFF]
+                      - mtval[63:0] in [0x00000000:0xFFFFFFFFFFFFFFFF]
                     wr_illegal:
                       - unchanged
-        rv64:
-            accessible: false
         description: The mtval is a warl register that holds the address of the 
             instruction which caused the exception.
         address: 835
@@ -1069,6 +1070,8 @@ hart0:
         reset-val: 0
     mcause:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields:
               - exception_code
@@ -1078,23 +1081,21 @@ hart0:
                 description: Indicates whether the trap was due to an interrupt.
                 shadow:
                 shadow_type: rw
-                msb: 31
-                lsb: 31
+                msb: 63
+                lsb: 63
                 type:
                     wlrl:
-                      - 0x0:0x1
+                      - 0:1
             exception_code:
                 implemented: true
                 description: Encodes the exception code.
                 shadow:
                 shadow_type: rw
-                msb: 30
+                msb: 62
                 lsb: 0
                 type:
                     wlrl:
                       - 0:15
-        rv64:
-            accessible: false
         description: The mcause register stores the information regarding the 
             trap.
         address: 834
@@ -1833,15 +1834,16 @@ hart0:
         reset-val: 0
     mcountinhibit:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
             msb: 31
             lsb: 0
-            type: {ro_constant: 0}
-        rv64:
-            accessible: false
+            type:
+                ro_constant: 0
         description: The mcountinhibit is a 32-bit WARL register that controls 
             which of the hardware performance-monitoring counters increment.
         address: 0x320
@@ -1849,21 +1851,21 @@ hart0:
         reset-val: 0
     mcycle:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 warl:
                     dependency_fields: []
                     legal:
-                      - mcycle[31:0] in [0x00000000:0xFFFFFFFF]
+                      - mcycle[63:0] in [0x0000000000000000:0xFFFFFFFFFFFFFFFF]
                     wr_illegal:
-                      - unchanged
-        rv64:
-            accessible: false
+                      - Unchanged
         description: Counts the number of clock cycles executed from an 
             arbitrary point in time.
         address: 0xB00
@@ -1871,19 +1873,7 @@ hart0:
         reset-val: 0
     mcycleh:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - mcycleh[31:0] in [0x00000000:0xFFFFFFFF]
-                    wr_illegal:
-                      - unchanged
+            accessible: false
         rv64:
             accessible: false
         description: upper 32 bits of mcycle
@@ -1892,21 +1882,22 @@ hart0:
         reset-val: 0
     minstret:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type:
                 warl:
                     dependency_fields: []
                     legal:
-                      - minstret[31:0] in [0x00000000:0xFFFFFFFF]
+                      - minstret[63:0] in 
+                        [0x0000000000000000:0xFFFFFFFFFFFFFFFF]
                     wr_illegal:
-                      - unchanged
-        rv64:
-            accessible: false
+                      - Unchanged
         description: Counts the number of instructions completed from an 
             arbitrary point in time.
         address: 0xB02
@@ -1914,19 +1905,7 @@ hart0:
         reset-val: 0
     minstreth:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - minstreth[31:0] in [0x00000000:0xFFFFFFFF]
-                    wr_illegal:
-                      - unchanged
+            accessible: false
         rv64:
             accessible: false
         description: Upper 32 bits of minstret.
@@ -1935,16 +1914,16 @@ hart0:
         reset-val: 0
     mhpmevent3:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: &id001
                 ro_constant: 0
-        rv64:
-            accessible: false
         description: The mhpmevent3 is a MXLEN-bit event register which controls
             mhpmcounter3.
         address: 0x323
@@ -1952,15 +1931,15 @@ hart0:
         reset-val: 0
     mhpmcounter3:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter3 is a 64-bit counter. Returns lower 32 bits
             in RV32I mode.
         address: 0xB03
@@ -1968,14 +1947,7 @@ hart0:
         reset-val: 0
     mhpmcounter3h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: &id002
-                ro_constant: 0
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter3h returns the upper half word in RV32I 
@@ -1985,15 +1957,15 @@ hart0:
         reset-val: 0
     mhpmevent4:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent4 is a MXLEN-bit event register which controls
             mhpmcounter4.
         address: 0x324
@@ -2001,15 +1973,15 @@ hart0:
         reset-val: 0
     mhpmcounter4:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter4 is a 64-bit counter. Returns lower 42 bits
             in RV42I mode.
         address: 0xB04
@@ -2017,13 +1989,7 @@ hart0:
         reset-val: 0
     mhpmcounter4h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter4h returns the upper half word in RV42I 
@@ -2033,15 +1999,15 @@ hart0:
         reset-val: 0
     mhpmevent5:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent5 is a MXLEN-bit event register which controls
             mhpmcounter5.
         address: 0x325
@@ -2049,15 +2015,15 @@ hart0:
         reset-val: 0
     mhpmcounter5:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter5 is a 64-bit counter. Returns lower 52 bits
             in RV52I mode.
         address: 0xB05
@@ -2065,13 +2031,7 @@ hart0:
         reset-val: 0
     mhpmcounter5h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter5h returns the upper half word in RV52I 
@@ -2081,15 +2041,15 @@ hart0:
         reset-val: 0
     mhpmevent6:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent6 is a MXLEN-bit event register which controls
             mhpmcounter6.
         address: 0x326
@@ -2097,15 +2057,15 @@ hart0:
         reset-val: 0
     mhpmcounter6:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter6 is a 64-bit counter. Returns lower 62 bits
             in RV62I mode.
         address: 0xB06
@@ -2113,13 +2073,7 @@ hart0:
         reset-val: 0
     mhpmcounter6h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter6h returns the upper half word in RV62I 
@@ -2129,15 +2083,15 @@ hart0:
         reset-val: 0
     mhpmevent7:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent7 is a MXLEN-bit event register which controls
             mhpmcounter7.
         address: 0x327
@@ -2145,15 +2099,15 @@ hart0:
         reset-val: 0
     mhpmcounter7:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter7 is a 64-bit counter. Returns lower 72 bits
             in RV72I mode.
         address: 0xB07
@@ -2161,13 +2115,7 @@ hart0:
         reset-val: 0
     mhpmcounter7h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter7h returns the upper half word in RV72I 
@@ -2177,15 +2125,15 @@ hart0:
         reset-val: 0
     mhpmevent8:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent8 is a MXLEN-bit event register which controls
             mhpmcounter8.
         address: 0x328
@@ -2193,15 +2141,15 @@ hart0:
         reset-val: 0
     mhpmcounter8:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter8 is a 64-bit counter. Returns lower 82 bits
             in RV82I mode.
         address: 0xB08
@@ -2209,13 +2157,7 @@ hart0:
         reset-val: 0
     mhpmcounter8h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter8h returns the upper half word in RV82I 
@@ -2225,15 +2167,15 @@ hart0:
         reset-val: 0
     mhpmevent9:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent9 is a MXLEN-bit event register which controls
             mhpmcounter9.
         address: 0x329
@@ -2241,15 +2183,15 @@ hart0:
         reset-val: 0
     mhpmcounter9:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter9 is a 64-bit counter. Returns lower 32 bits
             in RV32I mode.
         address: 0xB09
@@ -2257,13 +2199,7 @@ hart0:
         reset-val: 0
     mhpmcounter9h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter9h returns the upper half word in RV32I 
@@ -2273,15 +2209,15 @@ hart0:
         reset-val: 0
     mhpmevent10:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent10 is a MXLEN-bit event register which 
             controls mhpmcounter10.
         address: 0x32a
@@ -2289,15 +2225,15 @@ hart0:
         reset-val: 0
     mhpmcounter10:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter10 is a 64-bit counter. Returns lower 102 
             bits in RV102I mode.
         address: 0xB0A
@@ -2305,13 +2241,7 @@ hart0:
         reset-val: 0
     mhpmcounter10h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter10h returns the upper half word in RV102I 
@@ -2321,15 +2251,15 @@ hart0:
         reset-val: 0
     mhpmevent11:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent11 is a MXLEN-bit event register which 
             controls mhpmcounter11.
         address: 0x32b
@@ -2337,15 +2267,15 @@ hart0:
         reset-val: 0
     mhpmcounter11:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter11 is a 64-bit counter. Returns lower 112 
             bits in RV112I mode.
         address: 0xB0B
@@ -2353,13 +2283,7 @@ hart0:
         reset-val: 0
     mhpmcounter11h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter11h returns the upper half word in RV112I 
@@ -2369,15 +2293,15 @@ hart0:
         reset-val: 0
     mhpmevent12:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent12 is a MXLEN-bit event register which 
             controls mhpmcounter12.
         address: 0x32c
@@ -2385,15 +2309,15 @@ hart0:
         reset-val: 0
     mhpmcounter12:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter12 is a 64-bit counter. Returns lower 122 
             bits in RV122I mode.
         address: 0xB0C
@@ -2401,13 +2325,7 @@ hart0:
         reset-val: 0
     mhpmcounter12h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter12h returns the upper half word in RV122I 
@@ -2417,15 +2335,15 @@ hart0:
         reset-val: 0
     mhpmevent13:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent13 is a MXLEN-bit event register which 
             controls mhpmcounter13.
         address: 0x32d
@@ -2433,15 +2351,15 @@ hart0:
         reset-val: 0
     mhpmcounter13:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter13 is a 64-bit counter. Returns lower 132 
             bits in RV132I mode.
         address: 0xB0D
@@ -2449,13 +2367,7 @@ hart0:
         reset-val: 0
     mhpmcounter13h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter13h returns the upper half word in RV132I 
@@ -2465,15 +2377,15 @@ hart0:
         reset-val: 0
     mhpmevent14:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent14 is a MXLEN-bit event register which 
             controls mhpmcounter14.
         address: 0x32e
@@ -2481,15 +2393,15 @@ hart0:
         reset-val: 0
     mhpmcounter14:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter14 is a 64-bit counter. Returns lower 142 
             bits in RV142I mode.
         address: 0xB0E
@@ -2497,13 +2409,7 @@ hart0:
         reset-val: 0
     mhpmcounter14h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter14h returns the upper half word in RV142I 
@@ -2513,15 +2419,15 @@ hart0:
         reset-val: 0
     mhpmevent15:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent15 is a MXLEN-bit event register which 
             controls mhpmcounter15.
         address: 0x32f
@@ -2529,15 +2435,15 @@ hart0:
         reset-val: 0
     mhpmcounter15:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter15 is a 64-bit counter. Returns lower 152 
             bits in RV152I mode.
         address: 0xB0F
@@ -2545,13 +2451,7 @@ hart0:
         reset-val: 0
     mhpmcounter15h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter15h returns the upper half word in RV152I 
@@ -2561,15 +2461,15 @@ hart0:
         reset-val: 0
     mhpmevent16:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent16 is a MXLEN-bit event register which 
             controls mhpmcounter16.
         address: 0x330
@@ -2577,15 +2477,15 @@ hart0:
         reset-val: 0
     mhpmcounter16:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter16 is a 64-bit counter. Returns lower 162 
             bits in RV162I mode.
         address: 0xB10
@@ -2593,13 +2493,7 @@ hart0:
         reset-val: 0
     mhpmcounter16h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter16h returns the upper half word in RV162I 
@@ -2609,15 +2503,15 @@ hart0:
         reset-val: 0
     mhpmevent17:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent17 is a MXLEN-bit event register which 
             controls mhpmcounter17.
         address: 0x331
@@ -2625,15 +2519,15 @@ hart0:
         reset-val: 0
     mhpmcounter17:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter17 is a 64-bit counter. Returns lower 172 
             bits in RV172I mode.
         address: 0xB11
@@ -2641,13 +2535,7 @@ hart0:
         reset-val: 0
     mhpmcounter17h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter17h returns the upper half word in RV172I 
@@ -2657,15 +2545,15 @@ hart0:
         reset-val: 0
     mhpmevent18:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent18 is a MXLEN-bit event register which 
             controls mhpmcounter18.
         address: 0x332
@@ -2673,15 +2561,15 @@ hart0:
         reset-val: 0
     mhpmcounter18:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter18 is a 64-bit counter. Returns lower 182 
             bits in RV182I mode.
         address: 0xB12
@@ -2689,13 +2577,7 @@ hart0:
         reset-val: 0
     mhpmcounter18h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter18h returns the upper half word in RV182I 
@@ -2705,15 +2587,15 @@ hart0:
         reset-val: 0
     mhpmevent19:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent19 is a MXLEN-bit event register which 
             controls mhpmcounter19.
         address: 0x333
@@ -2721,15 +2603,15 @@ hart0:
         reset-val: 0
     mhpmcounter19:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter19 is a 64-bit counter. Returns lower 32 
             bits in RV32I mode.
         address: 0xB13
@@ -2737,13 +2619,7 @@ hart0:
         reset-val: 0
     mhpmcounter19h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter19h returns the upper half word in RV32I 
@@ -2753,15 +2629,15 @@ hart0:
         reset-val: 0
     mhpmevent20:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent20 is a MXLEN-bit event register which 
             controls mhpmcounter20.
         address: 0x334
@@ -2769,15 +2645,15 @@ hart0:
         reset-val: 0
     mhpmcounter20:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter20 is a 64-bit counter. Returns lower 202 
             bits in RV202I mode.
         address: 0xB14
@@ -2785,13 +2661,7 @@ hart0:
         reset-val: 0
     mhpmcounter20h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter20h returns the upper half word in RV202I 
@@ -2801,15 +2671,15 @@ hart0:
         reset-val: 0
     mhpmevent21:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent21 is a MXLEN-bit event register which 
             controls mhpmcounter21.
         address: 0x335
@@ -2817,15 +2687,15 @@ hart0:
         reset-val: 0
     mhpmcounter21:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter21 is a 64-bit counter. Returns lower 212 
             bits in RV212I mode.
         address: 0xB15
@@ -2833,13 +2703,7 @@ hart0:
         reset-val: 0
     mhpmcounter21h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter21h returns the upper half word in RV212I 
@@ -2849,15 +2713,15 @@ hart0:
         reset-val: 0
     mhpmevent22:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent22 is a MXLEN-bit event register which 
             controls mhpmcounter22.
         address: 0x336
@@ -2865,15 +2729,15 @@ hart0:
         reset-val: 0
     mhpmcounter22:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter22 is a 64-bit counter. Returns lower 222 
             bits in RV222I mode.
         address: 0xB16
@@ -2881,13 +2745,7 @@ hart0:
         reset-val: 0
     mhpmcounter22h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter22h returns the upper half word in RV222I 
@@ -2897,15 +2755,15 @@ hart0:
         reset-val: 0
     mhpmevent23:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent23 is a MXLEN-bit event register which 
             controls mhpmcounter23.
         address: 0x337
@@ -2913,15 +2771,15 @@ hart0:
         reset-val: 0
     mhpmcounter23:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter23 is a 64-bit counter. Returns lower 232 
             bits in RV232I mode.
         address: 0xB17
@@ -2929,13 +2787,7 @@ hart0:
         reset-val: 0
     mhpmcounter23h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter23h returns the upper half word in RV232I 
@@ -2945,15 +2797,15 @@ hart0:
         reset-val: 0
     mhpmevent24:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent24 is a MXLEN-bit event register which 
             controls mhpmcounter24.
         address: 0x338
@@ -2961,15 +2813,15 @@ hart0:
         reset-val: 0
     mhpmcounter24:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter24 is a 64-bit counter. Returns lower 242 
             bits in RV242I mode.
         address: 0xB18
@@ -2977,13 +2829,7 @@ hart0:
         reset-val: 0
     mhpmcounter24h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter24h returns the upper half word in RV242I 
@@ -2993,15 +2839,15 @@ hart0:
         reset-val: 0
     mhpmevent25:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent25 is a MXLEN-bit event register which 
             controls mhpmcounter25.
         address: 0x339
@@ -3009,15 +2855,15 @@ hart0:
         reset-val: 0
     mhpmcounter25:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter25 is a 64-bit counter. Returns lower 252 
             bits in RV252I mode.
         address: 0xB19
@@ -3025,13 +2871,7 @@ hart0:
         reset-val: 0
     mhpmcounter25h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter25h returns the upper half word in RV252I 
@@ -3041,15 +2881,15 @@ hart0:
         reset-val: 0
     mhpmevent26:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent26 is a MXLEN-bit event register which 
             controls mhpmcounter26.
         address: 0x33a
@@ -3057,15 +2897,15 @@ hart0:
         reset-val: 0
     mhpmcounter26:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter26 is a 64-bit counter. Returns lower 262 
             bits in RV262I mode.
         address: 0xB1A
@@ -3073,13 +2913,7 @@ hart0:
         reset-val: 0
     mhpmcounter26h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter26h returns the upper half word in RV262I 
@@ -3089,15 +2923,15 @@ hart0:
         reset-val: 0
     mhpmevent27:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent27 is a MXLEN-bit event register which 
             controls mhpmcounter27.
         address: 0x33b
@@ -3105,15 +2939,15 @@ hart0:
         reset-val: 0
     mhpmcounter27:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter27 is a 64-bit counter. Returns lower 272 
             bits in RV272I mode.
         address: 0xB1B
@@ -3121,13 +2955,7 @@ hart0:
         reset-val: 0
     mhpmcounter27h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter27h returns the upper half word in RV272I 
@@ -3137,15 +2965,15 @@ hart0:
         reset-val: 0
     mhpmevent28:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent28 is a MXLEN-bit event register which 
             controls mhpmcounter28.
         address: 0x33c
@@ -3153,15 +2981,15 @@ hart0:
         reset-val: 0
     mhpmcounter28:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter28 is a 64-bit counter. Returns lower 282 
             bits in RV282I mode.
         address: 0xB1C
@@ -3169,13 +2997,7 @@ hart0:
         reset-val: 0
     mhpmcounter28h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter28h returns the upper half word in RV282I 
@@ -3185,15 +3007,15 @@ hart0:
         reset-val: 0
     mhpmevent29:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent29 is a MXLEN-bit event register which 
             controls mhpmcounter29.
         address: 0x33d
@@ -3201,15 +3023,15 @@ hart0:
         reset-val: 0
     mhpmcounter29:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter29 is a 64-bit counter. Returns lower 32 
             bits in RV32I mode.
         address: 0xB1D
@@ -3217,13 +3039,7 @@ hart0:
         reset-val: 0
     mhpmcounter29h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter29h returns the upper half word in RV32I 
@@ -3233,15 +3049,15 @@ hart0:
         reset-val: 0
     mhpmevent30:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent30 is a MXLEN-bit event register which 
             controls mhpmcounter30.
         address: 0x33e
@@ -3249,15 +3065,15 @@ hart0:
         reset-val: 0
     mhpmcounter30:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter30 is a 64-bit counter. Returns lower 302 
             bits in RV302I mode.
         address: 0xB1E
@@ -3265,13 +3081,7 @@ hart0:
         reset-val: 0
     mhpmcounter30h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter30h returns the upper half word in RV302I 
@@ -3281,15 +3091,15 @@ hart0:
         reset-val: 0
     mhpmevent31:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmevent31 is a MXLEN-bit event register which 
             controls mhpmcounter31.
         address: 0x33f
@@ -3297,15 +3107,15 @@ hart0:
         reset-val: 0
     mhpmcounter31:
         rv32:
+            accessible: false
+        rv64:
             accessible: true
             fields: []
             shadow:
             shadow_type: rw
-            msb: 31
+            msb: 63
             lsb: 0
             type: *id001
-        rv64:
-            accessible: false
         description: The mhpmcounter31 is a 64-bit counter. Returns lower 312 
             bits in RV312I mode.
         address: 0xB1F
@@ -3313,13 +3123,7 @@ hart0:
         reset-val: 0
     mhpmcounter31h:
         rv32:
-            accessible: true
-            fields: []
-            shadow:
-            shadow_type: rw
-            msb: 31
-            lsb: 0
-            type: *id002
+            accessible: false
         rv64:
             accessible: false
         description: The mhpmcounter31h returns the upper half word in RV312I 
@@ -4490,7 +4294,7 @@ hart0:
             and the NMI cause encoded in the least-significant bits or zero if NMI causes are not supported.
         address: 0x742
         priv_mode: M
-        reset-val: 2147483648
+        reset-val: 9223372036854775808
     mnstatus:
         rv32:
             accessible: false
@@ -4544,7 +4348,7 @@ zicbo_cache_block_sz:
     <p>Please visit <a href="https://riscv-config.readthedocs.io/en/latest/yaml-specs.html">YAML specifications</a> for more information. </p>
 
     <h2>Summary</h2>
-    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">92Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">0Failed</span>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">118Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">0Failed</span>
     <h2>Results</h2>
     <table id="results-table">
       <thead id="results-table-head">
@@ -4557,1214 +4361,1555 @@ zicbo_cache_block_sz:
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cadd-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cadd-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cadd-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cadd-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/caddi-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/caddi-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/caddi-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/caddi-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/caddi16sp-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/caddi16sp-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/caddi16sp-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/caddi16sp-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/caddi4spn-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/caddi4spn-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/caddi4spn-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/caddi4spn-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cand-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/caddiw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cand-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/caddiw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/candi-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/caddw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/candi-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/caddw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cbeqz-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cand-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cbeqz-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cand-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cbnez-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/candi-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cbnez-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/candi-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cebreak-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cbeqz-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cebreak-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cbeqz-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cbnez-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cbnez-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cebreak-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cebreak-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:136ab593b08af9ea3081f822767e44d4133d301d
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cj-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cj-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cj-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cj-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cjal-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cjalr-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cjal-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cjalr-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cjalr-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cjr-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cjalr-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cjr-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cjr-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cld-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cjr-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cld-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cli-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cldsp-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cli-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cldsp-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/clui-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cli-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/clui-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cli-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/clw-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/clui-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/clw-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/clui-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/clwsp-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/clw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/clwsp-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/clw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cmv-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/clwsp-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cmv-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/clwsp-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cnop-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cmv-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cnop-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cmv-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cor-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cnop-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cor-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cnop-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cslli-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cor-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cslli-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cor-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/csrai-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/csd-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/csrai-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/csd-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/csrli-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/csdsp-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/csrli-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/csdsp-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/csub-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cslli-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/csub-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cslli-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/csw-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/csrai-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/csw-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/csrai-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cswsp-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/csrli-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cswsp-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/csrli-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/cxor-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/csub-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/cxor-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/csub-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/misalign1-cjalr-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/csubw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/misalign1-cjalr-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/csubw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/csw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/csw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cswsp-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cswsp-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/cxor-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/cxor-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/misalign1-cjalr-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/misalign1-cjalr-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:0bf9236d18b17643c2d367e3be92d676c0c3a36f
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/C/src/misalign1-cjr-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/C/src/misalign1-cjr-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/C/src/misalign1-cjr-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/C/src/misalign1-cjr-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:0bf9236d18b17643c2d367e3be92d676c0c3a36f
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/add-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/add-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/add-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/add-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/addi-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/addi-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/addi-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/addi-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/and-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/addiw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/and-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/addiw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/andi-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/addw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/andi-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/addw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/auipc-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/and-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/auipc-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/and-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/beq-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/andi-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/beq-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/andi-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bge-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/auipc-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/bge-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/auipc-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bgeu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/beq-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/bgeu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/beq-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/blt-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/bge-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/blt-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/bge-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bltu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/bgeu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/bltu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/bgeu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bne-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/blt-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/bne-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/blt-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/fence-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/bltu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/fence-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/bltu-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/bne-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/bne-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/fence-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/fence-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:81c7a2b769baa2f33f40bc5455299b1362b5d125
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jal-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/jal-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/jal-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/jal-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jalr-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/jalr-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/jalr-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/jalr-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lb-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/lb-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/lb-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/lb-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lbu-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/lbu-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/lbu-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/lbu-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lh-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/ld-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/lh-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/ld-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lhu-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/lh-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/lhu-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/lh-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lui-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/lhu-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/lui-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/lhu-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lw-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/lui-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/lw-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/lui-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/misalign1-jalr-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/lw-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/misalign1-jalr-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/lw-align-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/lwu-align-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/lwu-align-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/misalign1-jalr-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/misalign1-jalr-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:0c4cdffe19b1a48d9fec8590c8817af2ff924a37
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/or-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/or-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/or-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/or-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/ori-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/ori-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/ori-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/ori-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sb-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sb-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sb-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sb-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sh-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sd-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sh-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sd-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sll-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sh-align-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sll-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sh-align-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/slli-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sll-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/slli-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sll-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/slt-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/slli-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/slt-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/slli-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/slti-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/slliw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/slti-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/slliw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sltiu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sllw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sltiu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sllw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sltu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/slt-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sltu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/slt-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sra-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/slti-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sra-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/slti-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/srai-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sltiu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/srai-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sltiu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/srl-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sltu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/srl-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sltu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/srli-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sra-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/srli-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sra-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sub-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/srai-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sub-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/srai-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sw-align-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sraiw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/sw-align-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sraiw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/xor-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sraw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/xor-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sraw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/xori-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/srl-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/I/src/xori-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/srl-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/div-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/srli-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/div-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/srli-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/srliw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/srliw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/srlw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/srlw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sub-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sub-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/subw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/subw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/sw-align-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/sw-align-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/xor-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/xor-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/I/src/xori-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/I/src/xori-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/div-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/div-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:9b503d7890296e53aa8a06e49ebef3c61ce5d3fd
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/divu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/divu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/divu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/divu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:3c7e9d41d4efb9dcb9c0af83e0eecbe28327bf3c
+            <div class="log">commit_id:4e61c25bdd4ec4e7b9894a6c85a997b496a83bb2
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/mul-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/divuw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/mul-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/divuw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:3c7e9d41d4efb9dcb9c0af83e0eecbe28327bf3c
+            <div class="log">commit_id:9b503d7890296e53aa8a06e49ebef3c61ce5d3fd
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/mulh-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/divw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/mulh-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/divw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:3c7e9d41d4efb9dcb9c0af83e0eecbe28327bf3c
+            <div class="log">commit_id:9b503d7890296e53aa8a06e49ebef3c61ce5d3fd
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/mulhsu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/mul-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/mulhsu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/mul-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:a02feaee118fbea01fbb8fdcdf62bce6f7067478
+            <div class="log">commit_id:4e61c25bdd4ec4e7b9894a6c85a997b496a83bb2
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/mulhu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/mulh-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/mulhu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/mulh-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:3c7e9d41d4efb9dcb9c0af83e0eecbe28327bf3c
+            <div class="log">commit_id:4e61c25bdd4ec4e7b9894a6c85a997b496a83bb2
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/rem-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/mulhsu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/rem-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/mulhsu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:3c7e9d41d4efb9dcb9c0af83e0eecbe28327bf3c
+            <div class="log">commit_id:4e61c25bdd4ec4e7b9894a6c85a997b496a83bb2
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/M/src/remu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/mulhu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/M/src/remu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/mulhu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:3c7e9d41d4efb9dcb9c0af83e0eecbe28327bf3c
+            <div class="log">commit_id:4e61c25bdd4ec4e7b9894a6c85a997b496a83bb2
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/Zifencei/src/Fencei.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/mulw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/Zifencei/src/Fencei.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/mulw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:9b503d7890296e53aa8a06e49ebef3c61ce5d3fd
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/rem-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/rem-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:4e61c25bdd4ec4e7b9894a6c85a997b496a83bb2
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/remu-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/remu-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:4e61c25bdd4ec4e7b9894a6c85a997b496a83bb2
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/remuw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/remuw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:9b503d7890296e53aa8a06e49ebef3c61ce5d3fd
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/M/src/remw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/M/src/remw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:9b503d7890296e53aa8a06e49ebef3c61ce5d3fd
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/Zifencei/src/Fencei.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/Zifencei/src/Fencei.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:274b6cd787d4d5b0b6c41424b9b7dcca495a9d4b
 MACROS:
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/ebreak.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/ebreak.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/ebreak.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/ebreak.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/ecall.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/ecall.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/ecall.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/ecall.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
             <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-beq-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-beq-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-beq-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-beq-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-bge-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-bge-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-bge-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-bge-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-bgeu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-bgeu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-bgeu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-bgeu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-blt-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-blt-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-blt-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-blt-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-bltu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-bltu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-bltu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-bltu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-bne-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-bne-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-bne-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-bne-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-jal-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-jal-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-jal-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-jal-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-lh-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-ld-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-lh-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-ld-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-lhu-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-lh-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-lhu-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-lh-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-lw-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-lhu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-lw-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-lhu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-sh-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-lw-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-sh-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-lw-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-sw-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-lwu-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-sw-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-lwu-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
-          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign2-jalr-01.S</td>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-sd-01.S</td>
           <td class="col-result">Passed</td>
-          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign2-jalr-01.S</td></tr>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-sd-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
 MACROS:
 rvtest_mtrap_routine=True
 TEST_CASE_1=True
-XLEN=32</br></div></td>
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-sh-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-sh-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign-sw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign-sw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign2-jalr-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign2-jalr-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:fa34ab09dc4314604ae644dfcf818babdb8ea44a
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
         </tr></tbody>
         
       </table>
