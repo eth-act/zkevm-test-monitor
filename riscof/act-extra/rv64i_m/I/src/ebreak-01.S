@@ -1,6 +1,6 @@
-// Test ecall without privilege architecture.
+// Test ebreak without privilege architecture.
 //
-// ZKVMs implement ecall without full CSR support. This test verifies ecall
+// ZKVMs implement ebreak without full CSR support. This test verifies ebreak
 // execution continues after the instruction, overwriting trap handler signatures
 // for compatibility with the reference model.
 
@@ -18,14 +18,13 @@ RVMODEL_BOOT
 RVTEST_CODE_BEGIN
 
 #ifdef TEST_CASE_1
-    RVTEST_CASE(1,"//check ISA:=regex(.*64.*); check ISA:=regex(.*I.*); def extra_trap_routine=True; def TEST_CASE_1=True",ecall)
-    
-    li      a7, 0
-    ecall
+    RVTEST_CASE(1,"//check ISA:=regex(.*64.*); check ISA:=regex(.*I.*); def extra_trap_routine=True; def TEST_CASE_1=True",ebreak)
+
+    ebreak
     nop
 
-    # Write a signature to show that execution continued after the ecall
-    LA(     x31,sigptr)  
+    # Write a signature to show that execution continued after the ebreak
+    LA(     x31,sigptr)
     LI(     x3,0xffffffff)
     sw      x3, 0(x31)
     sw      x0, 4(x31)
@@ -72,4 +71,3 @@ mtrap_sigptr:
 
 rvtest_sig_end:
 RVMODEL_DATA_END
-

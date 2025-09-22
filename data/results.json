@@ -116,11 +116,11 @@
           "has_report": true
         },
         "extra": {
-          "passed": 1,
-          "failed": 1,
+          "passed": 2,
+          "failed": 0,
           "total": 2,
           "test_status": "completed",
-          "last_run": "2025-09-19",
+          "last_run": "2025-09-22",
           "has_report": true
         }
       },
@@ -175,35 +175,9 @@
         }
       },
       "last_run": null
-    },
-    "spike": {
-      "suites": {
-        "arch": {
-          "passed": 118,
-          "failed": 0,
-          "total": 118,
-          "test_status": "completed",
-          "has_report": true,
-          "last_run": "2025-09-19"
-        },
-        "extra": {
-          "passed": 2,
-          "failed": 0,
-          "total": 2,
-          "test_status": "completed",
-          "has_report": true,
-          "last_run": "2025-09-19"
-        }
-      },
-      "isa": "rv64imczicsr_zifencei",
-      "has_nightly": false,
-      "has_binary": true,
-      "build_status": "success",
-      "commit": "f51df5d3955a27602a872eaf01492177513baf6f",
-      "last_run": null
     }
   },
-  "last_updated": "2025-09-19T22:56:38.016881+00:00",
+  "last_updated": "2025-09-22T19:52:08.600284+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "70fc6f14"
+  "test_monitor_commit": "cef76056"
 }

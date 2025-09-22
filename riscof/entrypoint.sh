@@ -67,15 +67,8 @@ EOF
 
 # Make DUT executable available in PATH
 mkdir -p /riscof/dut-bin
-
-# For spike, use its actual name; others use the original name
-if [ "$PLUGIN_NAME" = "spike" ]; then
-  cp "$DUT_EXECUTABLE" "/riscof/dut-bin/spike"
-  chmod +x "/riscof/dut-bin/spike"
-else
-  cp "$DUT_EXECUTABLE" "/riscof/dut-bin/"
-  chmod +x "/riscof/dut-bin/$DUT_NAME"
-fi
+cp "$DUT_EXECUTABLE" "/riscof/dut-bin/"
+chmod +x "/riscof/dut-bin/$DUT_NAME"
 
 export PATH="/riscof/dut-bin:/riscof/toolchains/riscv64/bin:/riscof/emulators/sail-riscv:$PATH"
 
