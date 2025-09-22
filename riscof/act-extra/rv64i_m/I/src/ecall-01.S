@@ -25,8 +25,13 @@ RVTEST_CODE_BEGIN
     # Test ecall by setting values before and after
     # If ecall returns correctly, x3 will be set to the "after" value
 
-    LI(     x3,0x11111111)  # Value before ecall
-
+    # Store "before" values in signature
+    LA(     x31,test_A_res)  # Use x31 instead of x1 (x1/ra might be modified by ecall)
+    LI(     x3,0x11111111)   # Value before ecall
+    sw      x3, 0(x31)       # Store 0x11111111 (before value)
+    sw      x0, 4(x31)       # Store zero as second value
+    addi    x31, x31, 8      # Advance pointer by 8 bytes
+    
     # Set a7 to a value other than 93 (CAUSE_EXIT) for Zisk compatibility
     # This ensures the ecall returns to the next instruction instead of terminating
     li      a7, 1           # Use syscall number 1 (not 93/CAUSE_EXIT)
@@ -35,13 +40,14 @@ RVTEST_CODE_BEGIN
     nop
 
     # If we reach here, ecall returned successfully
-    LI(     x3,0x22222222)  # Value after ecall - proves we continued execution
+    LI(     x3,0xffffffff)  # Value after ecall - proves we continued execution
 
-    # Store results in signature
-    LA(     x1,test_A_res)
-    sw      x3, 0(x1)       # Will be 0x22222222 if ecall returned correctly
-    sw      x0, 4(x1)       # Store zero as second value
-    
+    # Store "after" values using already-advanced pointer
+    sw      x3, 0(x31)      # Store 0xffffffff (after value)
+    sw      x0, 4(x31)      # Store zero at offset 4
+
+
+   
     RVMODEL_IO_WRITE_STR(x30, "# Test part A - test ECALL\n");
 
     RVMODEL_IO_WRITE_STR(x30, "# Test End\n")
@@ -66,8 +72,10 @@ rvtest_sig_begin:
 sig_begin_canary:
 CANARY;
 test_A_res:
-    .fill 2, 4, 0xdeadbeef
+    .fill 4, 4, 0xdeadbeef
 
+sig_end_canary:
+CANARY;
 #ifdef rvtest_mtrap_routine
 mtrap_sigptr:
   .fill 8, 4, 0xdeadbeef
@@ -78,7 +86,5 @@ gpr_save:
   .fill 32*(XLEN/32), 4, 0xdeadbeef
 #endif
 
-sig_end_canary:
-CANARY;
 rvtest_sig_end:
 RVMODEL_DATA_END

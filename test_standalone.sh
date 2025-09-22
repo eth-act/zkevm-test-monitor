@@ -8,27 +8,49 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ./run test --act-extra zisk
 
-# Find the most recent RISCOF test container
-CONTAINER_NAME=$(docker ps -a --filter "name=riscof-test-" --format "{{.Names}}" | head -1)
-
-if [ -z "$CONTAINER_NAME" ]; then
-  echo "Error: No RISCOF test container found."
-  echo "Please run: ./scripts/test.sh --act-extra zisk"
-  exit 1
-fi
-
-# Extract compiled test files from container
+# Extract compiled test files from test-results directory
 WORKDIR="${SCRIPT_DIR}/copied"
 rm -rf "$WORKDIR"
 mkdir -p "$WORKDIR"
 
-docker cp "$CONTAINER_NAME:/riscof/riscof_work/." "$WORKDIR" 2> /dev/null || {
-  echo "Error: Could not extract from container"
+# The test outputs to test-results/zisk directory
+if [ -d "${SCRIPT_DIR}/test-results/zisk" ]; then
+  cp -r "${SCRIPT_DIR}/test-results/zisk/"* "$WORKDIR/" 2>/dev/null || {
+    echo "Error: Could not copy test results"
+    exit 1
+  }
+else
+  echo "Error: test-results/zisk directory not found"
   exit 1
-}
+fi
 
-# Find the DUT test ELF
-TEST_ELF=$(find "$WORKDIR" -path "*/dut/*.elf" -type f | head -1)
+# Print the signature files from the container
+echo ""
+echo "=== Signatures from RISCOF container ==="
+echo ""
+echo "--- DUT (ZisK) Signature ---"
+DUT_SIG=$(find "$WORKDIR" -path "*ecall-01*/dut/DUT-zisk.signature" -type f | head -1)
+if [ -f "$DUT_SIG" ]; then
+  cat "$DUT_SIG"
+else
+  echo "DUT signature not found"
+fi
+
+echo ""
+echo "--- Reference (Sail) Signature ---"
+REF_SIG=$(find "$WORKDIR" -path "*ecall-01*/ref/Reference-*.signature" -type f | head -1)
+if [ -f "$REF_SIG" ]; then
+  cat "$REF_SIG"
+else
+  echo "Reference signature not found"
+fi
+
+echo ""
+echo "=== Running external ZisK test ==="
+echo ""
+
+# Find the DUT test ELF - specifically ecall-01
+TEST_ELF=$(find "$WORKDIR" -path "*ecall-01*/dut/*.elf" -type f | head -1)
 
 if [ -z "$TEST_ELF" ]; then
   echo "Error: No DUT test ELF found"
