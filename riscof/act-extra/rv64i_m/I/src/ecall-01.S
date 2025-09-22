@@ -1,10 +1,14 @@
-// -----------
-// Copyright (c) 2020. RISC-V International. All rights reserved.
-// SPDX-License-Identifier: BSD-3-Clause
-// -----------
+// Test ecall without any part of the privilege architecture.
 //
-// This assembly file tests the ecall instruction of the RISC-V I extension.
-// 
+// The base ISA RV32I requires that ecall be implemented but places no conditions on how it executes.
+// Many (but not all) ZKVMs impelement ecall using a trap handler that does not follow the privilege spec. This test allows
+// testing such implementations. Unfortunately, running RISCOF with the Sail model as a reference, one cannot simply remove 
+// rvtest_mtrap_routine (extended by our extra_trap_routine flag) without hitting errors requiring that Zicsr be impelemented.
+// Our solution is to keep the privilege signature region, but to post-process it (in the test) to ensure those signatures will
+// match in such cases.
+//
+// Note that the official architecture tests's privlege tests do cover ecall, and implementations of Zicsr should be additionally
+// tested against using that suite.
 
 #include "model_test.h"
 #include "arch_test.h"
@@ -14,61 +18,36 @@ RVTEST_ISA("RV64I")
 # Test code region
 .section .text.init
 .globl rvtest_entry_point
+
 rvtest_entry_point:
 RVMODEL_BOOT
 RVTEST_CODE_BEGIN
 
 #ifdef TEST_CASE_1
     RVTEST_CASE(1,"//check ISA:=regex(.*64.*); check ISA:=regex(.*I.*); def extra_trap_routine=True; def TEST_CASE_1=True",ecall)
-
-    # ---------------------------------------------------------------------------------------------
-    # Test ecall by setting values before and after
-    # If ecall returns correctly, x3 will be set to the "after" value
-
-    # Store "before" values in signature
-    LA(     x31,test_A_res)  # Use x31 instead of x1 (x1/ra might be modified by ecall)
-    LI(     x3,0x11111111)   # Value before ecall
-    sw      x3, 0(x31)       # Store 0x11111111 (before value)
-    sw      x0, 4(x31)       # Store zero as second value
-    addi    x31, x31, 8      # Advance pointer by 8 bytes
     
-    # Set a7 to a value other than 93 (CAUSE_EXIT) for Zisk compatibility
-    # This ensures the ecall returns to the next instruction instead of terminating
-    li      a7, 1           # Use syscall number 1 (not 93/CAUSE_EXIT)
-
+    li      a7, 0
     ecall
     nop
 
-    # If we reach here, ecall returned successfully
-    LI(     x3,0xffffffff)  # Value after ecall - proves we continued execution
+    # Write a signature to show that execution continued after the ecall
+    LA(     x31,sigptr)  
+    LI(     x3,0xffffffff)
+    sw      x3, 0(x31)
+    sw      x0, 4(x31)
 
-    # Store "after" values using already-advanced pointer
-    sw      x3, 0(x31)      # Store 0xffffffff (after value)
-    sw      x0, 4(x31)      # Store zero at offset 4
-
-    # Overwrite mtrap_sigptr region with known values to ensure signatures match
-    # This region might have been written by the trap handler
+    # Overwrite the signature written by the reference's trap handler
     LA(     x31,mtrap_sigptr)
     LI(     x3,0xffffffff)
-    sw      x3, 0(x31)      # Overwrite trap data with 0xffffffff
+    sw      x3, 0(x31)
     sw      x3, 4(x31)
     sw      x3, 8(x31)
     sw      x3, 12(x31)
     sw      x3, 16(x31)
     sw      x3, 20(x31)
     sw      x3, 24(x31)
-    sw      x3, 28(x31)     # All 8 words of mtrap_sigptr
-
-
-   
-    RVMODEL_IO_WRITE_STR(x30, "# Test part A - test ECALL\n");
-
-    RVMODEL_IO_WRITE_STR(x30, "# Test End\n")
-
+    sw      x3, 28(x31)
 #endif
-
- # ---------------------------------------------------------------------------------------------
-    # HALT
 
 RVTEST_CODE_END
 RVMODEL_HALT
@@ -82,24 +61,21 @@ RVTEST_DATA_END
 # Output data section.
 RVMODEL_DATA_BEGIN
 rvtest_sig_begin:
+
 sig_begin_canary:
 CANARY;
-test_A_res:
+
+# unprivileged signature spce
+sigptr:
     .fill 4, 4, 0xfeedbabe
 
 sig_end_canary:
 CANARY;
 
-# Always define mtrap_sigptr so we can overwrite it to ensure matching signatures
+# signature region to be written by the reference's trap handler only
 mtrap_sigptr:
   .fill 8, 4, 0xdeadbeef
 
 rvtest_sig_end:
 RVMODEL_DATA_END
-
-#ifdef rvtest_gpr_save
-gpr_save:
-  .fill 32*(XLEN/32), 4, 0xfefedade
-#endif
-
 
