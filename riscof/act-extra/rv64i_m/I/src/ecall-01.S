@@ -46,6 +46,19 @@ RVTEST_CODE_BEGIN
     sw      x3, 0(x31)      # Store 0xffffffff (after value)
     sw      x0, 4(x31)      # Store zero at offset 4
 
+    # Overwrite mtrap_sigptr region with known values to ensure signatures match
+    # This region might have been written by the trap handler
+    LA(     x31,mtrap_sigptr)
+    LI(     x3,0xffffffff)
+    sw      x3, 0(x31)      # Overwrite trap data with 0xffffffff
+    sw      x3, 4(x31)
+    sw      x3, 8(x31)
+    sw      x3, 12(x31)
+    sw      x3, 16(x31)
+    sw      x3, 20(x31)
+    sw      x3, 24(x31)
+    sw      x3, 28(x31)     # All 8 words of mtrap_sigptr
+
 
    
     RVMODEL_IO_WRITE_STR(x30, "# Test part A - test ECALL\n");
@@ -72,19 +85,21 @@ rvtest_sig_begin:
 sig_begin_canary:
 CANARY;
 test_A_res:
-    .fill 4, 4, 0xdeadbeef
+    .fill 4, 4, 0xfeedbabe
 
 sig_end_canary:
 CANARY;
-#ifdef rvtest_mtrap_routine
+
+# Always define mtrap_sigptr so we can overwrite it to ensure matching signatures
 mtrap_sigptr:
   .fill 8, 4, 0xdeadbeef
-#endif
-
-#ifdef rvtest_gpr_save
-gpr_save:
-  .fill 32*(XLEN/32), 4, 0xdeadbeef
-#endif
 
 rvtest_sig_end:
 RVMODEL_DATA_END
+
+#ifdef rvtest_gpr_save
+gpr_save:
+  .fill 32*(XLEN/32), 4, 0xfefedade
+#endif
+
+
