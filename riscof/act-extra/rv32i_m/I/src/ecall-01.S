@@ -7,7 +7,7 @@
 #include "model_test.h"
 #include "arch_test.h"
 
-RVTEST_ISA("RV64I")
+RVTEST_ISA("RV32I")
 
 # Test code region
 .section .text.init
@@ -18,8 +18,8 @@ RVMODEL_BOOT
 RVTEST_CODE_BEGIN
 
 #ifdef TEST_CASE_1
-    RVTEST_CASE(1,"//check ISA:=regex(.*64.*); check ISA:=regex(.*I.*); def extra_trap_routine=True; def TEST_CASE_1=True",ecall)
-    
+    RVTEST_CASE(1,"//check ISA:=regex(.*32.*); check ISA:=regex(.*I.*); def extra_trap_routine=True; def TEST_CASE_1=True",ecall)
+
     li      a7, 0
 #ifdef JOLT_CYCLE_TRACK_ECALL
     # Jolt requires special values for cycle tracking ecalls
@@ -27,18 +27,19 @@ RVTEST_CODE_BEGIN
     LA(     a1, sigptr)                 # marker pointer (use sigptr address)
     li      a2, 1                       # JOLT_CYCLE_MARKER_START
 #endif
+
     ecall
     nop
 
     # Write a signature to show that execution continued after the ecall
-    LA(     x31,sigptr)  
-    LI(     x3,0xffffffff)
+    LA(     x31,sigptr)
+    LI(     x3,0x111fffaa)
     sw      x3, 0(x31)
     sw      x0, 4(x31)
 
     # Overwrite the signature written by the reference's trap handler
     LA(     x31,mtrap_sigptr)
-    LI(     x3,0xffffffff)
+    LI(     x3,0x222fffaa)
     sw      x3, 0(x31)
     sw      x3, 4(x31)
     sw      x3, 8(x31)
@@ -78,4 +79,3 @@ mtrap_sigptr:
 
 rvtest_sig_end:
 RVMODEL_DATA_END
-

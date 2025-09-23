@@ -124,7 +124,16 @@ class jolt(pluginTemplate):
             
             # Compile macros with -D prefix for gcc
             compile_macros = ' -D' + " -D".join(testentry['macros'])
-            
+
+            # Note: Jolt doesn't support standard ecall/ebreak behavior
+            # It requires ecall to have a0=0xC7C1E for cycle tracking,
+            # otherwise it tries CSR-based trap handling which causes panics.
+            # For tests with extra_trap_routine, we define the magic value
+            # so the test files can set up registers correctly for Jolt
+            if 'extra_trap_routine=True' in compile_macros:
+                compile_macros += ' -DJOLT_CYCLE_TRACK_ECALL=0xC7C1E'
+                logger.info(f"Test {testname} uses ecall/ebreak - adding Jolt cycle tracking support")
+
             # Substitute variables in compile command
             # Format: {0}=march, {1}=xlen, {1}=input_test, {2}=output_elf, {3}=compile_macros
             cmd = self.compile_cmd.format(testentry['isa'].lower(), test, elf, compile_macros)
