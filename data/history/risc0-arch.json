@@ -9,6 +9,16 @@
       "passed": 45,
       "total": 47,
       "suite": "arch"
+    },
+    {
+      "date": "2025-09-23",
+      "test_monitor_commit": "5bf90a77",
+      "zkvm_commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
+      "isa": "rv32im",
+      "suite": "arch",
+      "passed": 47,
+      "total": 47,
+      "notes": ""
     }
   ],
   "suite": "arch"
