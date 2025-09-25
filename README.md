@@ -143,7 +143,7 @@ git commit -m "Update test results"
 git push
 ```
 
-**GitHub Pages URL**: https://codygunton.github.io/zkevm-test-monitor/
+**GitHub Pages URL**: https://eth-act.github.io/zkevm-test-monitor/
 
 **Setup** (first time only):
 - Go to Settings → Pages → Source: GitHub Actions

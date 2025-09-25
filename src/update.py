@@ -366,8 +366,8 @@ def generate_dashboard_html(suite_type, results, config):
             </nav>
         </div>
         <div class="metadata">
-            <strong>Source:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor">github.com/codygunton/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
-            <strong>Test Suite:</strong> {'<a href="https://github.com/riscv-non-isa/riscv-arch-test">RISC-V Architecture Tests v3.9.1</a>' if suite_type == 'arch' else '<a href="https://github.com/codygunton/zkevm-test-monitor/tree/main/extra-tests">ACT Extra Tests</a>'}
+            <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
+            <strong>Test Suite:</strong> {'<a href="https://github.com/riscv-non-isa/riscv-arch-test">RISC-V Architecture Tests v3.9.1</a>' if suite_type == 'arch' else '<a href="https://github.com/eth-act/zkevm-test-monitor/tree/main/extra-tests">ACT Extra Tests</a>'}
         </div>
 
         <table>
