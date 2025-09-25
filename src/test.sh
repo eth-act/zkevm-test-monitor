@@ -92,6 +92,7 @@ for ZKVM in $ZKVMS; do
     -v "$PWD/binaries/${ZKVM}-binary:/dut/bin/dut-exe" \
     -v "$PWD/riscof/plugins/${ZKVM}:/dut/plugin" \
     -v "$PWD/test-results/${ZKVM}:/riscof/riscof_work" \
+    -v "$PWD/extra-tests:/extra-tests" \
     riscof:latest || true
 
   # Copy report with suite suffix

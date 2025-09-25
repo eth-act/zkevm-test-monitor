@@ -91,12 +91,12 @@ The `env/` directory is a symlink to the standard riscv-arch-test environment fi
 
 ### Run ACT-Extra custom tests for a specific ZKVM:
 ```bash
-./scripts/test.sh --act-extra zisk
+./src/test.sh --act-extra zisk
 ```
 
 ### Run standard tests (default):
 ```bash
-./scripts/test.sh zisk
+./src/test.sh zisk
 ```
 
 ## Current Tests
@@ -107,7 +107,7 @@ The `env/` directory is a symlink to the standard riscv-arch-test environment fi
 ## Test Validation
 Use the validation script to verify test structure:
 ```bash
-./scripts/validate-custom-tests.sh
+./src/validate-custom-tests.sh
 ```
 
 This checks:

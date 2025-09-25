@@ -366,10 +366,8 @@ def generate_dashboard_html(suite_type, results, config):
             </nav>
         </div>
         <div class="metadata">
-            <strong>Repository:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor">github.com/codygunton/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
-            <strong>Last Updated:</strong> {results.get('last_updated', 'Never')}<br>
-            <strong>Test Monitor Commit:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor/commit/{results.get('test_monitor_commit', 'unknown')}" class="commit-link"><code>{results.get('test_monitor_commit', 'unknown')}</code></a><br>
-            <strong>Test Suite:</strong> {'RISC-V Architecture Tests v3.9.1' if suite_type == 'arch' else 'Custom Extra Tests'}
+            <strong>Source:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor">github.com/codygunton/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
+            <strong>Test Suite:</strong> {'<a href="https://github.com/riscv-non-isa/riscv-arch-test">RISC-V Architecture Tests v3.9.1</a>' if suite_type == 'arch' else '<a href="https://github.com/codygunton/zkevm-test-monitor/tree/main/extra-tests">ACT Extra Tests</a>'}
         </div>
 
         <table>
@@ -626,7 +624,7 @@ for zkvm in config['zkvms']:
             <a href="{repo_url}" target="_blank">View Repository →</a>
         </h1>
         <div class="metadata">
-            <strong>Repository:</strong> <a href="{repo_url}">{repo_path}</a>
+            <strong>Source:</strong> <a href="{repo_url}">{repo_path}</a>
         </div>
 
         <h2>Test Run History</h2>
@@ -639,7 +637,6 @@ for zkvm in config['zkvms']:
                 <tr>
                     <th>Run Date</th>
                     <th>Suite</th>
-                    <th>Test Monitor Commit</th>
                     <th>ZKVM Commit</th>
                     <th>ISA</th>
                     <th>Results</th>
@@ -652,20 +649,13 @@ for zkvm in config['zkvms']:
         sorted_runs = sorted(history_runs, key=lambda x: x['date'], reverse=True)
         
         for run in sorted_runs:
-            # Test monitor commit link
-            monitor_commit = run.get('test_monitor_commit', 'unknown')
-            if monitor_commit != 'unknown':
-                monitor_link = f'<a href="https://github.com/codygunton/zkevm-test-monitor/commit/{monitor_commit}" class="commit-link">{monitor_commit}</a>'
-            else:
-                monitor_link = f'<span class="commit-link">{monitor_commit}</span>'
-            
             # ZKVM commit link
             zkvm_commit = run.get('zkvm_commit', 'unknown')
             if zkvm_commit != 'unknown' and len(zkvm_commit) >= 8:
                 zkvm_link = f'<a href="https://github.com/{repo_path}/commit/{zkvm_commit}" class="commit-link">{zkvm_commit[:8]}</a>'
             else:
                 zkvm_link = f'<span class="commit-link">{zkvm_commit}</span>'
-            
+
             # Results
             passed = run.get('passed', 0)
             total = run.get('total', 0)
@@ -675,7 +665,7 @@ for zkvm in config['zkvms']:
                 results_text = f'<span class="{results_class}">{passed}/{total}</span>'
             else:
                 results_text = '—'
-            
+
             # Notes field
             notes = run.get('notes', '')
             notes_html = f'<em>{notes}</em>' if notes else ''
@@ -688,7 +678,6 @@ for zkvm in config['zkvms']:
                 <tr>
                     <td>{run.get('date', 'unknown')}</td>
                     <td>{suite_display}</td>
-                    <td>{monitor_link}</td>
                     <td>{zkvm_link}</td>
                     <td><code>{run.get('isa', 'unknown')}</code></td>
                     <td>{results_text}</td>

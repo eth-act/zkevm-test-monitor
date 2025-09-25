@@ -9,7 +9,7 @@ shift || true
 case "$CMD" in
     build)
         echo "🔨 Building ZKVMs: ${@:-all}"
-        ./scripts/build.sh "$@"
+        ./src/build.sh "$@"
         ;;
     
     test)
@@ -33,13 +33,13 @@ case "$CMD" in
         done
         DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
         echo "🧪 Testing ZKVMs (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
-        ./scripts/test.sh "$@"
-        python3 scripts/update.py
+        ./src/test.sh "$@"
+        python3 src/update.py
         ;;
     
     update)
         echo "📊 Updating dashboard"
-        python3 scripts/update.py
+        python3 src/update.py
         ;;
     
     all)
@@ -70,9 +70,9 @@ case "$CMD" in
                 BUILD_TARGETS="$BUILD_TARGETS $arg"
             fi
         done
-        ./scripts/build.sh ${BUILD_TARGETS# }
-        ./scripts/test.sh "$@"
-        python3 scripts/update.py
+        ./src/build.sh ${BUILD_TARGETS# }
+        ./src/test.sh "$@"
+        python3 src/update.py
         ;;
     
     serve)

@@ -85,7 +85,7 @@ jobs:
           rm -f binaries/zisk-binary
           
           # Run the build script specifically for Zisk
-          FORCE=1 ./scripts/build.sh zisk
+          FORCE=1 ./src/build.sh zisk
         continue-on-error: true
         id: build-zisk
       
@@ -95,7 +95,7 @@ jobs:
           echo "🧪 Testing Zisk ZKVM..."
           
           # Run tests specifically for Zisk
-          ./scripts/test.sh zisk
+          ./src/test.sh zisk
         continue-on-error: true
         id: test-zisk
       
@@ -103,7 +103,7 @@ jobs:
         if: steps.zisk-commit.outputs.needs_update == 'true'
         run: |
           echo "📊 Updating dashboard..."
-          python3 scripts/update.py
+          python3 src/update.py
         continue-on-error: true
         id: update-dashboard
       

@@ -66,7 +66,7 @@ The system uses a minimal, robust architecture:
 - `run` - Main entry point (bash)
 - `config.json` - All ZKVM configurations
 - `docker/build-*/` - Docker builds for each ZKVM
-- `scripts/` - Core logic (build, test, update, verify)
+- `src/` - Core logic (build, test, update, verify)
 - `data/results.json` - Test results (generated)
 - `docs/index.html` - Static dashboard (generated)
 

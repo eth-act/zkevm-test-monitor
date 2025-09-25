@@ -85,7 +85,7 @@ jobs:
           rm -f binaries/jolt-binary
           
           # Run the build script specifically for Jolt
-          FORCE=1 ./scripts/build.sh jolt
+          FORCE=1 ./src/build.sh jolt
         continue-on-error: true
         id: build-jolt
       
@@ -95,7 +95,7 @@ jobs:
           echo "🧪 Testing Jolt ZKVM..."
           
           # Run tests specifically for Jolt
-          ./scripts/test.sh jolt
+          ./src/test.sh jolt
         continue-on-error: true
         id: test-jolt
       
@@ -103,7 +103,7 @@ jobs:
         if: steps.jolt-commit.outputs.needs_update == 'true'
         run: |
           echo "📊 Updating dashboard..."
-          python3 scripts/update.py
+          python3 src/update.py
         continue-on-error: true
         id: update-dashboard
       

@@ -758,7 +758,7 @@ Add your ZKVM to `config.json`:
 
 ### Build Script Integration
 
-The build script (`scripts/build.sh`) will automatically:
+The build script (`src/build.sh`) will automatically:
 1. Use your Dockerfile if it exists at `docker/build-<zkvm>/Dockerfile`
 2. Build the Docker image with your repo URL and commit
 3. Extract the binary to `binaries/<zkvm>-binary`
@@ -766,7 +766,7 @@ The build script (`scripts/build.sh`) will automatically:
 
 ### Test Script Integration
 
-The test script (`scripts/test.sh`) will:
+The test script (`src/test.sh`) will:
 1. Check for binary at `binaries/<zkvm>-binary`
 2. Look for RISCOF plugin at `riscof/plugins/<zkvm>/`
 3. Mount binary and plugin into RISCOF container
@@ -775,7 +775,7 @@ The test script (`scripts/test.sh`) will:
 
 ### Binary Naming Edge Cases
 
-If your ZKVM binary has a different name than expected, add special handling in `scripts/build.sh`:
+If your ZKVM binary has a different name than expected, add special handling in `src/build.sh`:
 
 ```bash
 # Handle special cases for binary naming

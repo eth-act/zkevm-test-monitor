@@ -106,7 +106,7 @@ if [ $# -eq 0 ]; then
   # Check which test suite to run
   if [ "${TEST_SUITE}" = "extra" ]; then
     echo "Running ACT-Extra tests..."
-    exec riscof run --config=/riscof/config.ini --suite=/riscof/act-extra --env=/riscof/act-extra/env --no-clean
+    exec riscof run --config=/riscof/config.ini --suite=/extra-tests --env=/extra-tests/env --no-clean
   elif [ "${TEST_SUITE}" = "arch" ]; then
     echo "Running RISCOF arch tests..."
     exec riscof run --config=/riscof/config.ini --suite=/riscof/riscv-arch-test/riscv-test-suite/ --env=/riscof/riscv-arch-test/riscv-test-suite/env --no-clean

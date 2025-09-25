@@ -45,7 +45,7 @@ Before the workflow runs, you can test the update logic locally:
 
 ```bash
 # Test the update logic
-./scripts/test-jolt-update.sh
+./src/test-jolt-update.sh
 
 # Manually perform a Jolt update
 CURRENT_COMMIT=$(jq -r '.zkvms.jolt.commit' config.json)
@@ -116,7 +116,7 @@ To debug issues:
 
 1. Check the **Actions** tab for detailed logs
 2. Look for automatically created **Issues** for failed runs
-3. Run the test script locally: `./scripts/test-jolt-update.sh`
+3. Run the test script locally: `./src/test-jolt-update.sh`
 4. Check individual components: `./run build jolt`, `./run test jolt`
 
 ### Manual Recovery
@@ -128,7 +128,7 @@ If the workflow fails and needs manual intervention:
 git pull origin main
 
 # 2. Check current state
-./scripts/test-jolt-update.sh
+./src/test-jolt-update.sh
 
 # 3. Force rebuild if needed
 FORCE=1 ./run build jolt
