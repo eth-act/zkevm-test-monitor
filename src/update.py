@@ -393,7 +393,7 @@ def generate_dashboard_html(suite_type, results, config):
 
         # Commit link (from base data)
         commit = base_data.get('commit', 'unknown')
-        repo_url = config['zkvms'][zkvm].get('repo_url', f'https://github.com/codygunton/{zkvm}')
+        repo_url = config['zkvms'][zkvm].get('repo_url', '#')
 
         if commit != 'unknown' and len(commit) >= 8 and '/' in repo_url:
             # Extract org/repo from URL
@@ -506,7 +506,7 @@ for zkvm in config['zkvms']:
             history_runs.extend(extra_data.get('runs', []))
     
     # Get repo URL
-    repo_url = config['zkvms'][zkvm].get('repo_url', f'https://github.com/codygunton/{zkvm}')
+    repo_url = config['zkvms'][zkvm].get('repo_url', '#')
     repo_path = repo_url.rstrip('/').replace('https://github.com/', '')
     
     # Generate ZKVM page HTML

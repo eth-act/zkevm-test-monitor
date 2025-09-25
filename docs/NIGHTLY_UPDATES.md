@@ -83,7 +83,7 @@ The workflow behavior can be customized by modifying the YAML file:
 
 ## Current Status
 
-- **Jolt Repository**: `https://github.com/codygunton/jolt`
+- **Jolt Repository**: `https://github.com/a16z/jolt`
 - **Current Commit**: Check `config.json` or the dashboard
 - **Build Command**: `cargo build --release -p tracer --bin jolt-emu`
 - **Binary Path**: `target/release/jolt-emu`

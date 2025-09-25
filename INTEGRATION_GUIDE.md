@@ -1327,5 +1327,5 @@ After integration:
 1. Run full test suite: `./run test your-zkvm`
 2. Update dashboard: `./run update`
 3. Commit and push changes
-4. Verify deployment at https://codygunton.github.io/zkevm-test-monitor/
+4. Verify deployment at https://eth-act.github.io/zkevm-test-monitor/
 5. (Optional) Set up nightly CI updates following section 6
