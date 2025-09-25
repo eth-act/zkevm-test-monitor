@@ -2,15 +2,15 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ZKVM Test Monitor</title>
+    <title>Architecture Tests - ZKVM Test Monitor</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
+        body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
             padding: 20px;
             background: #f5f5f5;
         }
-        .container { 
+        .container {
             max-width: 1200px;
             margin: 0 auto;
             background: white;
@@ -18,7 +18,36 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        h1 { 
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        .nav-link {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            color: #495057;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background: #e9ecef;
+            text-decoration: none;
+        }
+        .nav-link.active {
+            background: #007bff;
+            color: white;
+        }
+        h1 {
             margin-bottom: 10px;
             color: #333;
         }
@@ -29,17 +58,17 @@
             padding-bottom: 20px;
             border-bottom: 1px solid #e0e0e0;
         }
-        table { 
+        table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }
-        th, td { 
+        th, td {
             text-align: left;
             padding: 12px;
             border-bottom: 1px solid #e0e0e0;
         }
-        th { 
+        th {
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
@@ -81,19 +110,24 @@
 </head>
 <body>
     <div class="container">
-        <h1> RISC-V ZKVM Compliance Test Monitor</h1>
+        <div class="nav-header">
+            <h1>RISC-V ZKVM Compliance Test Monitor</h1>
+            <nav class="nav-links">
+                <a href="index.html" class="nav-link active">Architecture Tests</a>
+                <a href="index-extra.html" class="nav-link">Extra Tests</a>
+            </nav>
+        </div>
         <div class="metadata">
             <strong>Repository:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor">github.com/codygunton/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
-            <strong>Last Updated:</strong> 2025-09-23T20:49:23.773716+00:00<br>
-            <strong>Test Monitor Commit:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor/commit/5bf90a77" class="commit-link"><code>5bf90a77</code></a><br>
-            <strong>Test Suite:</strong> RISC-V Architectural Tests v3.9.1
+            <strong>Last Updated:</strong> 2025-09-25T04:39:53.126749+00:00<br>
+            <strong>Test Monitor Commit:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor/commit/c2e8ca64" class="commit-link"><code>c2e8ca64</code></a><br>
+            <strong>Test Suite:</strong> RISC-V Architecture Tests v3.9.1
         </div>
-        
+
         <table>
             <thead>
                 <tr>
                     <th>ZKVM</th>
-                    <th>Suite</th>
                     <th>ISA</th>
                     <th>CI?</th>
                     <th>Commit</th>
@@ -105,27 +139,15 @@
             <tbody>
                 <tr>
                     <td><strong><a href="zkvms/airbender.html">AIRBENDER</a></strong></td>
-                    <td>Arch</td>
                     <td><code>rv32im</code></td>
-                    <td>✗</td>
+                    <td>−</td>
                     <td><a href="https://github.com/codygunton/zksync-airbender/commit/1f52d2e2" class="commit-link">1f52d2e2</a></td>
                     <td><span class="fail">46/47</span></td>
                     <td>2025-09-04</td>
                     <td><a href="reports/airbender-arch.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td></td>
-                    <td>Extra</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td><span class="none">—</span></td>
-                    <td>—</td>
-                    <td><span class="report-btn disabled">No Report</span></td>
-                </tr>
-                <tr>
                     <td><strong><a href="zkvms/jolt.html">JOLT</a></strong></td>
-                    <td>Arch</td>
                     <td><code>rv32im</code></td>
                     <td>✓</td>
                     <td><a href="https://github.com/a16z/jolt/commit/87af8fe6" class="commit-link">87af8fe6</a></td>
@@ -134,114 +156,49 @@
                     <td><a href="reports/jolt-arch.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td></td>
-                    <td>Extra</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td><span class="fail">0/2</span></td>
-                    <td>2025-09-23</td>
-                    <td><a href="reports/jolt-extra.html" class="report-btn">View Report</a></td>
-                </tr>
-                <tr>
                     <td><strong><a href="zkvms/openvm.html">OPENVM</a></strong></td>
-                    <td>Arch</td>
                     <td><code>rv32im</code></td>
-                    <td>✗</td>
+                    <td>−</td>
                     <td><a href="https://github.com/codygunton/openvm/commit/a6f77215f" class="commit-link">a6f77215</a></td>
                     <td><span class="pass">47/47</span></td>
                     <td>2025-09-04</td>
                     <td><a href="reports/openvm-arch.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td></td>
-                    <td>Extra</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td><span class="none">—</span></td>
-                    <td>—</td>
-                    <td><span class="report-btn disabled">No Report</span></td>
-                </tr>
-                <tr>
                     <td><strong><a href="zkvms/pico.html">PICO</a></strong></td>
-                    <td>Arch</td>
                     <td><code>rv32im</code></td>
-                    <td>✗</td>
+                    <td>−</td>
                     <td><a href="https://github.com/codygunton/pico/commit/571dc543c4a73df2c34e86f8e36b529efb1b84b0" class="commit-link">571dc543</a></td>
                     <td><span class="fail">46/47</span></td>
                     <td>2025-09-04</td>
                     <td><a href="reports/pico-arch.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td></td>
-                    <td>Extra</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td><span class="none">—</span></td>
-                    <td>—</td>
-                    <td><span class="report-btn disabled">No Report</span></td>
-                </tr>
-                <tr>
                     <td><strong><a href="zkvms/risc0.html">RISC0</a></strong></td>
-                    <td>Arch</td>
                     <td><code>rv32im</code></td>
-                    <td>✗</td>
+                    <td>−</td>
                     <td><a href="https://github.com/codygunton/risc0/commit/e9a6b28579f700b56b1e9dc12cec0df68be47a96" class="commit-link">e9a6b285</a></td>
                     <td><span class="pass">47/47</span></td>
                     <td>2025-09-23</td>
                     <td><a href="reports/risc0-arch.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td></td>
-                    <td>Extra</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td><span class="none">—</span></td>
-                    <td>—</td>
-                    <td><span class="report-btn disabled">No Report</span></td>
-                </tr>
-                <tr>
                     <td><strong><a href="zkvms/sp1.html">SP1</a></strong></td>
-                    <td>Arch</td>
                     <td><code>rv32im</code></td>
-                    <td>✗</td>
+                    <td>−</td>
                     <td><a href="https://github.com/codygunton/sp1/commit/fc98075a" class="commit-link">fc98075a</a></td>
                     <td><span class="fail">46/47</span></td>
                     <td>2025-09-04</td>
                     <td><a href="reports/sp1-arch.html" class="report-btn">View Report</a></td>
                 </tr>
                 <tr>
-                    <td></td>
-                    <td>Extra</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td><span class="none">—</span></td>
-                    <td>—</td>
-                    <td><span class="report-btn disabled">No Report</span></td>
-                </tr>
-                <tr>
                     <td><strong><a href="zkvms/zisk.html">ZISK</a></strong></td>
-                    <td>Arch</td>
                     <td><code>rv64ima</code></td>
                     <td>✓</td>
                     <td><a href="https://github.com/0xPolygonHermez/zisk/commit/c2aad6eb75bf757a8a35e76e5a544d886adbd5d6" class="commit-link">c2aad6eb</a></td>
                     <td><span class="pass">82/82</span></td>
                     <td>2025-09-05</td>
                     <td><a href="reports/zisk-arch.html" class="report-btn">View Report</a></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td>Extra</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td><span class="pass">2/2</span></td>
-                    <td>2025-09-22</td>
-                    <td><a href="reports/zisk-extra.html" class="report-btn">View Report</a></td>
                 </tr>
             </tbody>
         </table>

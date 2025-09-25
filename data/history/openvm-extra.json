@@ -1,0 +1,26 @@
+{
+  "zkvm": "openvm",
+  "suite": "extra",
+  "runs": [
+    {
+      "date": "2025-09-25",
+      "test_monitor_commit": "c2e8ca64",
+      "zkvm_commit": "a6f77215f",
+      "isa": "rv32im",
+      "suite": "extra",
+      "passed": 1,
+      "total": 1,
+      "notes": ""
+    },
+    {
+      "date": "2025-09-25",
+      "test_monitor_commit": "c2e8ca64",
+      "zkvm_commit": "a6f77215f",
+      "isa": "rv32im",
+      "suite": "extra",
+      "passed": 1,
+      "total": 1,
+      "notes": ""
+    }
+  ]
+}

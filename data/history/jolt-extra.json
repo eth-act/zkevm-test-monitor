@@ -1,32 +1,12 @@
 {
-  "zkvm": "zisk",
+  "zkvm": "jolt",
   "suite": "extra",
   "runs": [
     {
-      "date": "2025-09-18",
-      "test_monitor_commit": "a92d99eb",
-      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "isa": "rv64ima",
-      "suite": "extra",
-      "passed": 1,
-      "total": 1,
-      "notes": ""
-    },
-    {
-      "date": "2025-09-18",
-      "test_monitor_commit": "a92d99eb",
-      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "isa": "rv64ima",
-      "suite": "extra",
-      "passed": 1,
-      "total": 1,
-      "notes": ""
-    },
-    {
-      "date": "2025-09-18",
-      "test_monitor_commit": "a92d99eb",
-      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "isa": "rv64ima",
+      "date": "2025-09-25",
+      "test_monitor_commit": "c2e8ca64",
+      "zkvm_commit": "87af8fe6",
+      "isa": "rv32im",
       "suite": "extra",
       "passed": 1,
       "total": 1,
@@ -35,8 +15,8 @@
     {
       "date": "2025-09-25",
       "test_monitor_commit": "c2e8ca64",
-      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "isa": "rv64ima",
+      "zkvm_commit": "87af8fe6",
+      "isa": "rv32im",
       "suite": "extra",
       "passed": 1,
       "total": 1,
@@ -45,8 +25,8 @@
     {
       "date": "2025-09-25",
       "test_monitor_commit": "c2e8ca64",
-      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "isa": "rv64ima",
+      "zkvm_commit": "87af8fe6",
+      "isa": "rv32im",
       "suite": "extra",
       "passed": 1,
       "total": 1,
@@ -55,8 +35,8 @@
     {
       "date": "2025-09-25",
       "test_monitor_commit": "c2e8ca64",
-      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "isa": "rv64ima",
+      "zkvm_commit": "87af8fe6",
+      "isa": "rv32im",
       "suite": "extra",
       "passed": 1,
       "total": 1,
@@ -65,8 +45,28 @@
     {
       "date": "2025-09-25",
       "test_monitor_commit": "c2e8ca64",
-      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
-      "isa": "rv64ima",
+      "zkvm_commit": "87af8fe6",
+      "isa": "rv32im",
+      "suite": "extra",
+      "passed": 1,
+      "total": 1,
+      "notes": ""
+    },
+    {
+      "date": "2025-09-25",
+      "test_monitor_commit": "c2e8ca64",
+      "zkvm_commit": "87af8fe6",
+      "isa": "rv32im",
+      "suite": "extra",
+      "passed": 1,
+      "total": 1,
+      "notes": ""
+    },
+    {
+      "date": "2025-09-25",
+      "test_monitor_commit": "c2e8ca64",
+      "zkvm_commit": "87af8fe6",
+      "isa": "rv32im",
       "suite": "extra",
       "passed": 1,
       "total": 1,

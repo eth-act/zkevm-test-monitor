@@ -1,8 +1,8 @@
 {
   "zkvms": {
     "sp1": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "fc98075a",
       "isa": "rv32im",
       "has_nightly": false,
@@ -16,11 +16,12 @@
           "has_report": true
         },
         "extra": {
-          "passed": 0,
+          "passed": 1,
           "failed": 0,
-          "total": 0,
-          "test_status": "not_tested",
-          "has_report": false
+          "total": 1,
+          "test_status": "completed",
+          "has_report": true,
+          "last_run": "2025-09-24"
         }
       },
       "last_run": null
@@ -41,19 +42,19 @@
           "has_report": true
         },
         "extra": {
-          "passed": 0,
-          "failed": 2,
-          "total": 2,
+          "passed": 1,
+          "failed": 0,
+          "total": 1,
           "test_status": "completed",
           "has_report": true,
-          "last_run": "2025-09-23"
+          "last_run": "2025-09-25"
         }
       },
       "last_run": null
     },
     "openvm": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "a6f77215f",
       "isa": "rv32im",
       "has_nightly": false,
@@ -67,11 +68,12 @@
           "has_report": true
         },
         "extra": {
-          "passed": 0,
+          "passed": 1,
           "failed": 0,
-          "total": 0,
-          "test_status": "not_tested",
-          "has_report": false
+          "total": 1,
+          "test_status": "completed",
+          "has_report": true,
+          "last_run": "2025-09-24"
         }
       },
       "last_run": null
@@ -92,11 +94,12 @@
           "has_report": true
         },
         "extra": {
-          "passed": 0,
+          "passed": 1,
           "failed": 0,
-          "total": 0,
-          "test_status": "not_tested",
-          "has_report": false
+          "total": 1,
+          "test_status": "completed",
+          "has_report": true,
+          "last_run": "2025-09-24"
         }
       },
       "last_run": null
@@ -117,19 +120,19 @@
           "has_report": true
         },
         "extra": {
-          "passed": 2,
+          "passed": 1,
           "failed": 0,
-          "total": 2,
+          "total": 1,
           "test_status": "completed",
-          "last_run": "2025-09-22",
+          "last_run": "2025-09-24",
           "has_report": true
         }
       },
       "last_run": null
     },
     "pico": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
       "isa": "rv32im",
       "has_nightly": false,
@@ -143,18 +146,19 @@
           "has_report": true
         },
         "extra": {
-          "passed": 0,
+          "passed": 1,
           "failed": 0,
-          "total": 0,
-          "test_status": "not_tested",
-          "has_report": false
+          "total": 1,
+          "test_status": "completed",
+          "has_report": true,
+          "last_run": "2025-09-24"
         }
       },
       "last_run": null
     },
     "airbender": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "1f52d2e2",
       "isa": "rv32im",
       "has_nightly": false,
@@ -168,17 +172,18 @@
           "has_report": true
         },
         "extra": {
-          "passed": 0,
+          "passed": 1,
           "failed": 0,
-          "total": 0,
-          "test_status": "not_tested",
-          "has_report": false
+          "total": 1,
+          "test_status": "completed",
+          "has_report": true,
+          "last_run": "2025-09-24"
         }
       },
       "last_run": null
     }
   },
-  "last_updated": "2025-09-23T20:49:23.773716+00:00",
+  "last_updated": "2025-09-25T04:39:53.126749+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "5bf90a77"
+  "test_monitor_commit": "c2e8ca64"
 }

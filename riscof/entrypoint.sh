@@ -103,13 +103,16 @@ fi
 # If command line arguments are provided, run them
 # Otherwise, run the default riscof command
 if [ $# -eq 0 ]; then
-  # Check if we should use ACT-Extra tests
-  if [ "${ACT_EXTRA}" = "true" ] || [ "${ACT_EXTRA}" = "1" ]; then
+  # Check which test suite to run
+  if [ "${TEST_SUITE}" = "extra" ]; then
     echo "Running ACT-Extra tests..."
     exec riscof run --config=/riscof/config.ini --suite=/riscof/act-extra --env=/riscof/act-extra/env --no-clean
-  else
+  elif [ "${TEST_SUITE}" = "arch" ]; then
     echo "Running RISCOF arch tests..."
     exec riscof run --config=/riscof/config.ini --suite=/riscof/riscv-arch-test/riscv-test-suite/ --env=/riscof/riscv-arch-test/riscv-test-suite/env --no-clean
+  else
+    echo "Error: TEST_SUITE must be 'arch' or 'extra', got: ${TEST_SUITE}"
+    exit 1
   fi
 else
   exec "$@"

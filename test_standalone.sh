@@ -6,14 +6,14 @@ set -e
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-./run test --act-extra zisk
+./run test --extra zisk
 
 # Find the most recent RISCOF test container
 CONTAINER_NAME=$(docker ps -a --filter "name=riscof-test-" --format "{{.Names}}" | head -1)
 
 if [ -z "$CONTAINER_NAME" ]; then
   echo "Error: No RISCOF test container found."
-  echo "Please run: ./scripts/test.sh --act-extra zisk"
+  echo "Please run: ./scripts/test.sh --extra zisk"
   exit 1
 fi
 

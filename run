@@ -13,7 +13,26 @@ case "$CMD" in
         ;;
     
     test)
-        echo "🧪 Testing ZKVMs: ${@:-all}"
+        # Validate that a suite flag is provided
+        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
+            echo "❌ Error: Must specify either --arch or --extra"
+            echo "Usage: ./run test [--arch|--extra] [target1 target2 ...]"
+            exit 1
+        fi
+        # Extract suite type and targets for display
+        SUITE_TYPE=""
+        DISPLAY_TARGETS=""
+        for arg in "$@"; do
+            if [[ "$arg" == "--arch" ]]; then
+                SUITE_TYPE="arch"
+            elif [[ "$arg" == "--extra" ]]; then
+                SUITE_TYPE="extra"
+            else
+                DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
+            fi
+        done
+        DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
+        echo "🧪 Testing ZKVMs (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
         ./scripts/test.sh "$@"
         python3 scripts/update.py
         ;;
@@ -24,8 +43,34 @@ case "$CMD" in
         ;;
     
     all)
-        echo "🚀 Building and testing: ${@:-all}"
-        ./scripts/build.sh "$@"
+        # Validate that a suite flag is provided
+        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
+            echo "❌ Error: Must specify either --arch or --extra"
+            echo "Usage: ./run all [--arch|--extra] [target1 target2 ...]"
+            exit 1
+        fi
+        # Extract suite type and targets for display
+        SUITE_TYPE=""
+        DISPLAY_TARGETS=""
+        for arg in "$@"; do
+            if [[ "$arg" == "--arch" ]]; then
+                SUITE_TYPE="arch"
+            elif [[ "$arg" == "--extra" ]]; then
+                SUITE_TYPE="extra"
+            else
+                DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
+            fi
+        done
+        DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
+        echo "🚀 Building and testing (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
+        # Extract non-flag arguments for build.sh
+        BUILD_TARGETS=""
+        for arg in "$@"; do
+            if [[ "$arg" != "--arch" && "$arg" != "--extra" ]]; then
+                BUILD_TARGETS="$BUILD_TARGETS $arg"
+            fi
+        done
+        ./scripts/build.sh ${BUILD_TARGETS# }
         ./scripts/test.sh "$@"
         python3 scripts/update.py
         ;;
@@ -43,21 +88,26 @@ case "$CMD" in
     
     *)
         cat << EOF
-Usage: ./run COMMAND [TARGETS]
+Usage: ./run COMMAND [OPTIONS]
 
 Commands:
-  build [zkvm]  - Build ZKVM binaries
-  test [zkvm]   - Run RISCOF tests  
-  update        - Regenerate dashboard HTML
-  all [zkvm]    - Build + test + update
-  serve         - Start local web server
-  clean         - Remove build artifacts
+  build [zkvm]                    - Build ZKVM binaries
+  test [--arch|--extra] [zkvm]    - Run RISCOF tests (suite required)
+  update                          - Regenerate dashboard HTML
+  all [--arch|--extra] [zkvm]     - Build + test + update (suite required)
+  serve                           - Start local web server
+  clean                           - Remove build artifacts
+
+Test Suite Options:
+  --arch                          - Run architecture compliance tests
+  --extra                         - Run extended differential tests
 
 Examples:
-  ./run build sp1        # Build just SP1
-  ./run test sp1 jolt    # Test SP1 and Jolt
-  ./run all              # Build and test everything
-  ./run serve            # View dashboard locally
+  ./run build sp1                 # Build just SP1
+  ./run test --arch sp1 jolt      # Test SP1 and Jolt with arch suite
+  ./run test --extra              # Test all ZKVMs with extra suite
+  ./run all --arch                # Build and test everything with arch suite
+  ./run serve                     # View dashboard locally
 EOF
         ;;
 esac

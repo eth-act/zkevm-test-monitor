@@ -38,6 +38,80 @@ def get_test_monitor_commit():
     except:
         return "unknown"
 
+def add_navigation_to_report(report_path):
+    """Add navigation header to report HTML files"""
+    if not report_path.exists():
+        return
+
+    try:
+        with open(report_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Navigation header HTML and CSS
+        nav_header = '''
+        <style>
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0 30px 0;
+            padding: 0 20px 20px 20px;
+            border-bottom: 2px solid #e0e0e0;
+            background: white;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        .nav-link {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            color: #495057;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background: #e9ecef;
+            text-decoration: none;
+        }
+        .nav-link.active {
+            background: #007bff;
+            color: white;
+        }
+        </style>
+        '''
+
+        nav_body = '''
+        <div class="nav-header">
+            <div>
+                <a href="../index.html">← Back to Dashboard</a>
+            </div>
+            <nav class="nav-links">
+                <a href="../index.html" class="nav-link">Architecture Tests</a>
+                <a href="../index-extra.html" class="nav-link">Extra Tests</a>
+            </nav>
+        </div>
+        '''
+
+        # Inject CSS in head
+        if '</head>' in content:
+            content = content.replace('</head>', nav_header + '</head>')
+
+        # Inject navigation after body tag (handles both <body> and <body ...> variants)
+        import re
+        content = re.sub(r'(<body[^>]*>)', r'\1' + nav_body, content)
+
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+    except Exception as e:
+        print(f"Warning: Could not add navigation to {report_path}: {e}")
+
 # Load config
 with open('config.json') as f:
     config = json.load(f)
@@ -143,6 +217,8 @@ for zkvm in config['zkvms']:
         if report_src.exists():
             Path('docs/reports').mkdir(parents=True, exist_ok=True)
             shutil.copy(report_src, report_dst)
+            # Add navigation header to the copied report
+            add_navigation_to_report(report_dst)
             # Also copy style.css if it exists
             style_src = Path(f'test-results/{zkvm}/style.css')
             if style_src.exists():
@@ -163,20 +239,26 @@ Path('data').mkdir(exist_ok=True)
 with open('data/results.json', 'w') as f:
     json.dump(results, f, indent=2)
 
-# Generate HTML
-html = f"""<!DOCTYPE html>
+def generate_dashboard_html(suite_type, results, config):
+    """Generate HTML for either arch or extra test dashboard"""
+    page_title = "Architecture Tests" if suite_type == "arch" else "Extra Tests"
+    other_suite = "extra" if suite_type == "arch" else "arch"
+    other_page = "index-extra.html" if suite_type == "arch" else "index.html"
+    other_title = "Extra Tests" if suite_type == "arch" else "Architecture Tests"
+
+    html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ZKVM Test Monitor</title>
+    <title>{page_title} - ZKVM Test Monitor</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ 
+        body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
             padding: 20px;
             background: #f5f5f5;
         }}
-        .container {{ 
+        .container {{
             max-width: 1200px;
             margin: 0 auto;
             background: white;
@@ -184,7 +266,36 @@ html = f"""<!DOCTYPE html>
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }}
-        h1 {{ 
+        .nav-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }}
+        .nav-links {{
+            display: flex;
+            gap: 20px;
+        }}
+        .nav-link {{
+            padding: 10px 20px;
+            background: #f8f9fa;
+            color: #495057;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }}
+        .nav-link:hover {{
+            background: #e9ecef;
+            text-decoration: none;
+        }}
+        .nav-link.active {{
+            background: #007bff;
+            color: white;
+        }}
+        h1 {{
             margin-bottom: 10px;
             color: #333;
         }}
@@ -195,17 +306,17 @@ html = f"""<!DOCTYPE html>
             padding-bottom: 20px;
             border-bottom: 1px solid #e0e0e0;
         }}
-        table {{ 
+        table {{
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }}
-        th, td {{ 
+        th, td {{
             text-align: left;
             padding: 12px;
             border-bottom: 1px solid #e0e0e0;
         }}
-        th {{ 
+        th {{
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
@@ -247,19 +358,24 @@ html = f"""<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <h1> RISC-V ZKVM Compliance Test Monitor</h1>
+        <div class="nav-header">
+            <h1>RISC-V ZKVM Compliance Test Monitor</h1>
+            <nav class="nav-links">
+                <a href="index.html" class="nav-link{' active' if suite_type == 'arch' else ''}">Architecture Tests</a>
+                <a href="index-extra.html" class="nav-link{' active' if suite_type == 'extra' else ''}">Extra Tests</a>
+            </nav>
+        </div>
         <div class="metadata">
             <strong>Repository:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor">github.com/codygunton/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
             <strong>Last Updated:</strong> {results.get('last_updated', 'Never')}<br>
             <strong>Test Monitor Commit:</strong> <a href="https://github.com/codygunton/zkevm-test-monitor/commit/{results.get('test_monitor_commit', 'unknown')}" class="commit-link"><code>{results.get('test_monitor_commit', 'unknown')}</code></a><br>
-            <strong>Test Suite:</strong> RISC-V Architectural Tests v3.9.1
+            <strong>Test Suite:</strong> {'RISC-V Architecture Tests v3.9.1' if suite_type == 'arch' else 'Custom Extra Tests'}
         </div>
-        
+
         <table>
             <thead>
                 <tr>
                     <th>ZKVM</th>
-                    <th>Suite</th>
                     <th>ISA</th>
                     <th>CI?</th>
                     <th>Commit</th>
@@ -270,32 +386,12 @@ html = f"""<!DOCTYPE html>
             </thead>
             <tbody>"""
 
-# Sort ZKVMs alphabetically and show both arch and extra suites
-for zkvm in sorted(config['zkvms'].keys()):
-    base_data = results['zkvms'].get(zkvm, {})
+    # Sort ZKVMs alphabetically and show only the specific suite
+    for zkvm in sorted(config['zkvms'].keys()):
+        base_data = results['zkvms'].get(zkvm, {})
 
-    # Display two rows per ZKVM: one for arch, one for extra
-    for suite in ['arch', 'extra']:
         # Get suite-specific data from nested structure
-        suite_data = base_data.get('suites', {}).get(suite, {})
-
-        # Build status badge (from base data)
-        build_status = base_data.get('build_status', 'not_built')
-        build_badge_class = {
-            'success': 'badge-success',
-            'building': 'badge-warning',
-            'failed': 'badge-error',
-            'not_built': 'badge-info'
-        }.get(build_status, 'badge-info')
-
-        # Test status badge (suite-specific)
-        test_status = suite_data.get('test_status', 'not_tested')
-        test_badge_class = {
-            'completed': 'badge-success',
-            'running': 'badge-warning',
-            'error': 'badge-error',
-            'not_tested': 'badge-info'
-        }.get(test_status, 'badge-info')
+        suite_data = base_data.get('suites', {}).get(suite_type, {})
 
         # Commit link (from base data)
         commit = base_data.get('commit', 'unknown')
@@ -319,9 +415,13 @@ for zkvm in sorted(config['zkvms'].keys()):
         else:
             results_text = '<span class="none">—</span>'
 
-        # Nightly status (from base data)
-        has_nightly = base_data.get('has_nightly', False)
-        nightly_text = '✓' if has_nightly else '✗'
+        # Nightly status (from base data) - use subtle minus sign for non-CI tests
+        # Extra tests are never in CI, so always show minus sign for extra suite
+        if suite_type == 'extra':
+            nightly_text = '−'
+        else:
+            has_nightly = base_data.get('has_nightly', False)
+            nightly_text = '✓' if has_nightly else '−'
 
         # Last run date (suite-specific)
         last_run = suite_data.get('last_run')
@@ -332,35 +432,16 @@ for zkvm in sorted(config['zkvms'].keys()):
 
         # Report link (suite-specific)
         if suite_data.get('has_report'):
-            report_link = f'<a href="reports/{zkvm}-{suite}.html" class="report-btn">View Report</a>'
+            report_link = f'<a href="reports/{zkvm}-{suite_type}.html" class="report-btn">View Report</a>'
         else:
             report_link = '<span class="report-btn disabled">No Report</span>'
 
         # Get ISA display (from base data)
         isa = base_data.get('isa', 'unknown')
 
-        # Suite display
-        suite_display = suite.capitalize()
-
-        # For extra suite rows, only show suite, results, last run, and report
-        if suite == 'extra':
-            html += f"""
-                <tr>
-                    <td></td>
-                    <td>{suite_display}</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td>{results_text}</td>
-                    <td>{last_run_text}</td>
-                    <td>{report_link}</td>
-                </tr>"""
-        else:
-            # For arch suite rows, show all fields
-            html += f"""
+        html += f"""
                 <tr>
                     <td><strong><a href="zkvms/{zkvm}.html">{zkvm.upper()}</a></strong></td>
-                    <td>{suite_display}</td>
                     <td><code>{isa}</code></td>
                     <td>{nightly_text}</td>
                     <td>{commit_display}</td>
@@ -369,20 +450,32 @@ for zkvm in sorted(config['zkvms'].keys()):
                     <td>{report_link}</td>
                 </tr>"""
 
-html += """
+    html += """
             </tbody>
         </table>
     </div>
 </body>
 </html>"""
 
+    return html
+
+# Generate both dashboard pages
+arch_html = generate_dashboard_html('arch', results, config)
+extra_html = generate_dashboard_html('extra', results, config)
+
 # Write HTML files
 with open('index.html', 'w') as f:
-    f.write(html)
+    f.write(arch_html)
+
+with open('index-extra.html', 'w') as f:
+    f.write(extra_html)
 
 Path('docs').mkdir(exist_ok=True)
 with open('docs/index.html', 'w') as f:
-    f.write(html)
+    f.write(arch_html)
+
+with open('docs/index-extra.html', 'w') as f:
+    f.write(extra_html)
 
 # Generate individual ZKVM pages
 Path('docs/zkvms').mkdir(parents=True, exist_ok=True)
@@ -426,12 +519,12 @@ for zkvm in config['zkvms']:
     <title>{zkvm.upper()} - ZKVM Test Monitor</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ 
+        body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
             padding: 20px;
             background: #f5f5f5;
         }}
-        .container {{ 
+        .container {{
             max-width: 1200px;
             margin: 0 auto;
             background: white;
@@ -439,7 +532,36 @@ for zkvm in config['zkvms']:
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }}
-        h1 {{ 
+        .nav-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }}
+        .nav-links {{
+            display: flex;
+            gap: 20px;
+        }}
+        .nav-link {{
+            padding: 10px 20px;
+            background: #f8f9fa;
+            color: #495057;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }}
+        .nav-link:hover {{
+            background: #e9ecef;
+            text-decoration: none;
+        }}
+        .nav-link.active {{
+            background: #007bff;
+            color: white;
+        }}
+        h1 {{
             margin-bottom: 10px;
             color: #333;
             display: flex;
@@ -460,17 +582,17 @@ for zkvm in config['zkvms']:
             padding-bottom: 20px;
             border-bottom: 1px solid #e0e0e0;
         }}
-        table {{ 
+        table {{
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }}
-        th, td {{ 
+        th, td {{
             text-align: left;
             padding: 12px;
             border-bottom: 1px solid #e0e0e0;
         }}
-        th {{ 
+        th {{
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
@@ -490,8 +612,14 @@ for zkvm in config['zkvms']:
 </head>
 <body>
     <div class="container">
-        <div class="back-link">
-            <a href="../index.html">← Back to Dashboard</a>
+        <div class="nav-header">
+            <div class="back-link">
+                <a href="../index.html">← Back to Dashboard</a>
+            </div>
+            <nav class="nav-links">
+                <a href="../index.html" class="nav-link">Architecture Tests</a>
+                <a href="../index-extra.html" class="nav-link">Extra Tests</a>
+            </nav>
         </div>
         <h1>
             {zkvm.upper()}
@@ -500,7 +628,7 @@ for zkvm in config['zkvms']:
         <div class="metadata">
             <strong>Repository:</strong> <a href="{repo_url}">{repo_path}</a>
         </div>
-        
+
         <h2>Test Run History</h2>
 """
     
