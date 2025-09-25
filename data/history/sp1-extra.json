@@ -4,7 +4,7 @@
   "runs": [
     {
       "date": "2025-09-25",
-      "test_monitor_commit": "c2e8ca64",
+      "test_monitor_commit": "679a3fad",
       "zkvm_commit": "fc98075a",
       "isa": "rv32im",
       "suite": "extra",
