@@ -368,6 +368,9 @@ def generate_dashboard_html(suite_type, results, config):
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
             <strong>Test Suite:</strong> {'<a href="https://github.com/riscv-non-isa/riscv-arch-test">RISC-V Architecture Tests v3.9.1</a>' if suite_type == 'arch' else '<a href="https://github.com/eth-act/zkevm-test-monitor/tree/main/extra-tests">ACT Extra Tests</a>'}
+            {'''<br><br><em style="color: #856404; background-color: #fff3cd; padding: 10px; display: block; border-radius: 4px; border: 1px solid #ffeaa7;">
+            ⚠️ <strong>Warning:</strong> This suite is currently experimental. In time, it may contain additional conditions not covered in the standard RISC-V Architecture Tests suite.
+            </em>''' if suite_type == 'extra' else ''}
         </div>
 
         <table>
