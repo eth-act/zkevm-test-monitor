@@ -1,5 +1,5 @@
 {
-  "zkvm": "risc0",
+  "zkvm": "r0vm",
   "runs": [
     {
       "date": "2025-09-04",

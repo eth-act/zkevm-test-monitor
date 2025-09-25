@@ -16,8 +16,8 @@ from riscof.pluginTemplate import pluginTemplate
 
 logger = logging.getLogger()
 
-class risc0(pluginTemplate):
-    __model__ = "risc0"
+class r0vm(pluginTemplate):
+    __model__ = "r0vm"
 
     #TODO: please update the below to indicate family, version, etc of your DUT.
     __version__ = "XXX"
@@ -41,7 +41,7 @@ class risc0(pluginTemplate):
         # emulator, this variable could point to where the iss binary is located. If 'PATH variable
         # is missing in the config.ini we can hardcode the alternate here.
         
-        # Build path to executable - RISC0 binary is mounted at /dut/bin/dut-exe
+        # Build path to executable - r0vm binary is mounted at /dut/bin/dut-exe
         self.dut_exe = "/dut/bin/dut-exe"
 
         # Number of parallel jobs that can be spawned off by RISCOF
@@ -72,7 +72,7 @@ class risc0(pluginTemplate):
        # capture the architectural test-suite directory.
        self.suite_dir = suite
 
-       # RISC0 is RV32IM only. We hardcode rv32im in runTests() regardless of test ISA.
+       # R0VM is RV32IM only. We hardcode rv32im in runTests() regardless of test ISA.
        # We use riscv64 toolchain but compile for 32-bit targets with -mabi=ilp32
        self.compile_cmd = 'riscv64-unknown-elf-gcc -march={0}\
          -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -g -mno-relax\
@@ -106,7 +106,7 @@ class risc0(pluginTemplate):
       if "C" in ispec["ISA"]:
           self.isa += 'c'
 
-      # RISC0 is RV32, so always use ilp32 ABI
+      # R0VM is RV32, so always use ilp32 ABI
       self.compile_cmd = self.compile_cmd+' -mabi=ilp32 '
 
     def runTests(self, testList):
@@ -156,7 +156,7 @@ class risc0(pluginTemplate):
 	  # the "else" clause is executed below assigning the sim command to simple no action
 	  # echo statement.
           if self.target_run:
-            # Run RISC0 and ensure a signature file exists even if it panics
+            # Run R0VM and ensure a signature file exists even if it panics
             # This allows RISCOF to complete and show which tests failed
             simcmd = '({0} --signatures {1} --test-elf {2} || echo "PANIC" > {1}) 2>&1 | tail -10 > risc0.log'.format(
                 self.dut_exe, sig_file, elf)

@@ -37,29 +37,29 @@ ARG REPO_URL=https://github.com/codygunton/risc0
 ARG COMMIT_HASH=fork-riscof
 # Force Docker to check if the remote has changed
 ADD https://api.github.com/repos/codygunton/risc0/git/refs/heads/$COMMIT_HASH /tmp/version.json
-RUN git clone "$REPO_URL" risc0 && \
-    cd risc0 && \
+RUN git clone "$REPO_URL" r0vm && \
+    cd r0vm && \
     git checkout "$COMMIT_HASH" && \
     git rev-parse HEAD > /workspace/commit.txt
 
-# Pre-install the Rust toolchain specified by risc0
+# Pre-install the Rust toolchain specified by r0vm
 # This reads rust-toolchain.toml and installs the exact version needed
-WORKDIR /workspace/risc0
+WORKDIR /workspace/r0vm
 RUN --mount=type=cache,target=/root/.rustup \
     rustup show
 
-# Build RISC0 (debug mode for better error messages)
+# Build r0vm (debug mode for better error messages)
 # Use BuildKit cache mounts to preserve ALL cargo caches:
 # - /root/.cargo/registry: Package registry index and .crate files
 # - /root/.cargo/git: Git dependencies
 # - /root/.rustup: Rust toolchains (to avoid re-downloading)
 # - target: Build artifacts
-# - ccache: Cache C/C++ compilation (for risc0's heavy C++ components)
-WORKDIR /workspace/risc0
+# - ccache: Cache C/C++ compilation (for r0vm's heavy C++ components)
+WORKDIR /workspace/r0vm
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.rustup \
-    --mount=type=cache,target=/workspace/risc0/target \
+    --mount=type=cache,target=/workspace/r0vm/target \
     --mount=type=cache,target=/root/.cache/sccache \
     cargo build -p risc0-r0vm && \
     cp target/debug/r0vm /tmp/r0vm-binary
@@ -74,8 +74,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the built binary from builder stage (debug build)
-COPY --from=builder /tmp/r0vm-binary /usr/local/bin/risc0-r0vm
+COPY --from=builder /tmp/r0vm-binary /usr/local/bin/r0vm-binary
 COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/risc0-r0vm /output/risc0-r0vm"]
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/r0vm-binary /output/r0vm-binary"]

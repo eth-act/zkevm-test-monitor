@@ -48,7 +48,7 @@ Currently testing:
 - **Jolt** - a16z's lookup-based zkVM
 - **OpenVM** - Modular zkVM framework
 - **Pico** - Experimental zkVM
-- **Risc0** - RISC Zero's zkVM
+- **r0vm** - RISC Zero's zkVM
 - **SP1** - Succinct Labs' zkVM
 - **Zisk** - Polygon's zkVM (RV64IMA)
 

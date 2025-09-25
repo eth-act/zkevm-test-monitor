@@ -181,9 +181,34 @@
         }
       },
       "last_run": null
+    },
+    "r0vm": {
+      "suites": {
+        "arch": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested",
+          "has_report": true
+        },
+        "extra": {
+          "passed": 1,
+          "failed": 0,
+          "total": 1,
+          "test_status": "completed",
+          "last_run": "2025-09-25",
+          "has_report": true
+        }
+      },
+      "isa": "rv32im",
+      "has_nightly": false,
+      "last_run": null,
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96"
     }
   },
-  "last_updated": "2025-09-25T14:03:42.908114+00:00",
+  "last_updated": "2025-09-25T15:25:26.268069+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "2f8dd044"
+  "test_monitor_commit": "483af8e5"
 }
