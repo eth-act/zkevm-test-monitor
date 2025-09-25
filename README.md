@@ -29,32 +29,28 @@ Two test suites are available:
 
 ## Reproducing Results
 
-Every test run is fully reproducible. Each ZKVM's history page shows:
-- **ZKVM Commit**: The specific ZKVM commit tested
-- **ISA**: The instruction set tested (e.g., rv32im)
-- **Results**: Pass/total ratio
-- **Notes**: Optional notes about regressions, ISA changes, or other remarks
+To specify a ZKVM commit, edit `config.json`:
+```bash
+# Using jq
+jq '.zkvms.sp1.commit = "fc98075a"' config.json > config.tmp && mv config.tmp config.json
 
-To reproduce any historical test result:
-1. Check out this repository at the desired point in history
-2. The ZKVM commit is automatically used from that version's `config.json`
-3. Run: `./run test --arch <zkvm>` or `./run test --extra <zkvm>` to reproduce the exact test
-4. View the dashboard at the specific commit on GitHub to see the original report
+# Then rebuild and test
+FORCE=1 ./run build sp1  # FORCE=1 rebuilds even if binary exists
+./run test --arch sp1
+```
 
-To add notes to history entries, edit `data/history/{zkvm}-{suite}.json` and add a "notes" field to any run.
+Each ZKVM's history page shows the exact commit, ISA, and results for every past run, as well as the particular test monitor commit, so the above workflow allows for reproducing historical results. 
 
 ## Supported ZKVMs
 
 Currently testing:
-- **SP1** - Succinct Labs' zkVM
+- **Airbender** - zkSync's zkVM
 - **Jolt** - a16z's lookup-based zkVM
 - **OpenVM** - Modular zkVM framework
-- **Risc0** - RISC Zero's zkVM
-- **Zisk** - Polygon's zkVM (RV64IMA)
-
-Additional ZKVMs with limited support:
-- **Airbender** - zkSync's zkVM
 - **Pico** - Experimental zkVM
+- **Risc0** - RISC Zero's zkVM
+- **SP1** - Succinct Labs' zkVM
+- **Zisk** - Polygon's zkVM (RV64IMA)
 
 Configuration for each ZKVM is in `config.json`.
 
