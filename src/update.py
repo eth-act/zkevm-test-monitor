@@ -194,15 +194,43 @@ for zkvm in config['zkvms']:
             except:
                 results['zkvms'][zkvm]['suites'][suite]['test_status'] = 'error'
         else:
-            # Preserve existing test results if no new summary file
+            # No test-results, try to get data from history file
             suite_data = results['zkvms'][zkvm]['suites'][suite]
-            # Only set to 0 if this ZKVM/suite combo has never been tested
-            if 'passed' not in suite_data:
-                suite_data['passed'] = 0
-                suite_data['failed'] = 0
-                suite_data['total'] = 0
-                suite_data['test_status'] = 'not_tested'
-            # Otherwise, existing results are preserved
+            history_file = Path(f'data/history/{zkvm}-{suite}.json')
+
+            if history_file.exists():
+                try:
+                    with open(history_file) as f:
+                        history = json.load(f)
+                        if history.get('runs'):
+                            # Get the most recent run
+                            latest_run = history['runs'][-1]
+                            suite_data['passed'] = latest_run.get('passed', 0)
+                            suite_data['total'] = latest_run.get('total', 0)
+                            suite_data['failed'] = suite_data['total'] - suite_data['passed']
+                            suite_data['last_run'] = latest_run.get('date', None)
+                            suite_data['test_status'] = 'completed'
+                        else:
+                            # History exists but no runs
+                            if 'passed' not in suite_data:
+                                suite_data['passed'] = 0
+                                suite_data['failed'] = 0
+                                suite_data['total'] = 0
+                                suite_data['test_status'] = 'not_tested'
+                except:
+                    # Error reading history
+                    if 'passed' not in suite_data:
+                        suite_data['passed'] = 0
+                        suite_data['failed'] = 0
+                        suite_data['total'] = 0
+                        suite_data['test_status'] = 'not_tested'
+            else:
+                # No history file either
+                if 'passed' not in suite_data:
+                    suite_data['passed'] = 0
+                    suite_data['failed'] = 0
+                    suite_data['total'] = 0
+                    suite_data['test_status'] = 'not_tested'
     
     # Copy report and CSS if exists for both suites
     for suite in ['arch', 'extra']:
@@ -368,8 +396,8 @@ def generate_dashboard_html(suite_type, results, config):
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
             <strong>Test Suite:</strong> {'<a href="https://github.com/riscv-non-isa/riscv-arch-test">RISC-V Architecture Tests v3.9.1</a>' if suite_type == 'arch' else '<a href="https://github.com/eth-act/zkevm-test-monitor/tree/main/extra-tests">ACT Extra Tests</a>'}
-            {'''<br><br><em style="color: #856404; background-color: #fff3cd; padding: 10px; display: block; border-radius: 4px; border: 1px solid #ffeaa7;">
-            ⚠️ <strong>Warning:</strong> This suite is currently experimental. In time, it may contain additional conditions not covered in the standard RISC-V Architecture Tests suite.
+            {'''<br><br><em style="color: #155724; background-color: #d4edda; padding: 10px; display: block; border-radius: 4px; border: 1px solid #c3e6cb;">
+            🚧 <strong>Note:</strong> This suite is currently only used for experimentation.
             </em>''' if suite_type == 'extra' else ''}
         </div>
 

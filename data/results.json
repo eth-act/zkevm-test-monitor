@@ -185,11 +185,12 @@
     "r0vm": {
       "suites": {
         "arch": {
-          "passed": 0,
+          "passed": 47,
           "failed": 0,
-          "total": 0,
-          "test_status": "not_tested",
-          "has_report": true
+          "total": 47,
+          "test_status": "completed",
+          "has_report": true,
+          "last_run": "2025-09-23"
         },
         "extra": {
           "passed": 1,
@@ -208,7 +209,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-09-25T18:02:22.558670+00:00",
+  "last_updated": "2025-09-25T18:10:38.166959+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "72ff4d5f"
+  "test_monitor_commit": "518a45db"
 }
