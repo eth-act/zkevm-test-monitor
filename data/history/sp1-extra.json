@@ -1,6 +1,5 @@
 {
   "zkvm": "sp1",
-  "suite": "extra",
   "runs": [
     {
       "date": "2025-09-25",
