@@ -64,7 +64,7 @@
           "failed": 0,
           "total": 47,
           "test_status": "completed",
-          "last_run": "2025-09-04",
+          "last_run": "2025-10-01",
           "has_report": true
         },
         "extra": {
@@ -209,7 +209,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-09-25T18:10:38.166959+00:00",
+  "last_updated": "2025-10-01T14:50:14.847024+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "518a45db"
+  "test_monitor_commit": "a2338797"
 }

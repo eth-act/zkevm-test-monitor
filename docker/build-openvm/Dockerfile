@@ -5,13 +5,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    curl \
-    build-essential \
-    git \
-    ca-certificates \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+  curl \
+  build-essential \
+  git \
+  ca-certificates \
+  pkg-config \
+  libssl-dev \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -35,22 +35,22 @@ ARG COMMIT_HASH=a6f77215f
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
 RUN git clone "$REPO_URL" openvm && \
-    cd openvm && \
-    git checkout "$COMMIT_HASH"
+  cd openvm && \
+  git checkout "$COMMIT_HASH"
 
 # Build OpenVM
 # This layer will be cached as long as the source code doesn't change
 WORKDIR /workspace/openvm
-RUN cargo build --release
+RUN cargo build --release -p openvm
 
 # Final stage - just the binary
 FROM ubuntu:24.04
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \
-    libssl3 \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+  libssl3 \
+  ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy the built binary from builder stage
 COPY --from=builder /workspace/openvm/target/release/cargo-openvm /usr/local/bin/cargo-openvm

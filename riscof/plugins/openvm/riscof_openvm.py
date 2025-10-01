@@ -151,11 +151,12 @@ class openvm(pluginTemplate):
           # the "else" clause is executed below assigning the sim command to simple no action
           # echo statement.
           if self.target_run:
-              # Run the test using cargo-openvm with the --elf flag
+              # Run the test using cargo-openvm with the --exe flag
               # cargo-openvm is available at self.dut_exe
-              # Touch openvm.toml to avoid the warning, then run
+              # Create minimal Cargo.toml and openvm.toml to satisfy OpenVM requirements
               # Ensure a signature file exists even if OpenVM panics
-              simcmd = 'touch openvm.toml; ({0} openvm run --elf {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -5 > openvm.log'.format(
+              # Use printf to write files directly to avoid Makefile heredoc issues
+              simcmd = 'printf "[package]\\nname = \\"riscof-test\\"\\nversion = \\"0.1.0\\"\\nedition = \\"2021\\"\\n\\n[dependencies]\\n" > Cargo.toml && printf "app_vm_config = {{ exe = \\"{1}\\" }}\\n" > openvm.toml && ({0} openvm run --exe {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -5 > openvm.log'.format(
                   self.dut_exe, elf, sig_file)
           else:
               # Create dummy signature file for RISCOF when not running

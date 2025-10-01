@@ -81,11 +81,16 @@ case "$CMD" in
         cd docs && python3 -m http.server 8000
         ;;
     
+    debug)
+        echo "🐛 Debug mode"
+        ./src/debug.sh "$@"
+        ;;
+
     clean)
         echo "🧹 Cleaning artifacts"
         rm -rf binaries/ test-results/*/
         ;;
-    
+
     *)
         cat << EOF
 Usage: ./run COMMAND [OPTIONS]
@@ -93,6 +98,8 @@ Usage: ./run COMMAND [OPTIONS]
 Commands:
   build [zkvm]                    - Build ZKVM binaries
   test [--arch|--extra] [zkvm]    - Run RISCOF tests (suite required)
+  debug [--arch|--extra] <zkvm> <test-pattern>
+                                  - Re-run specific test with verbose logging
   update                          - Regenerate dashboard HTML
   all [--arch|--extra] [zkvm]     - Build + test + update (suite required)
   serve                           - Start local web server
@@ -107,6 +114,7 @@ Examples:
   ./run test --arch sp1 jolt      # Test SP1 and Jolt with arch suite
   ./run test --extra              # Test all ZKVMs with extra suite
   ./run all --arch                # Build and test everything with arch suite
+  ./run debug openvm div-01       # Debug specific test with full logging
   ./run serve                     # View dashboard locally
 EOF
         ;;
