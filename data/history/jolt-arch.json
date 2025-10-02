@@ -59,6 +59,36 @@
       "passed": 47,
       "total": 47,
       "notes": ""
+    },
+    {
+      "date": "2025-10-01",
+      "test_monitor_commit": "cdcf23c1",
+      "zkvm_commit": "5101ad21",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 116,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-10-01",
+      "test_monitor_commit": "cdcf23c1",
+      "zkvm_commit": "5101ad21",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 116,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-10-01",
+      "test_monitor_commit": "cdcf23c1",
+      "zkvm_commit": "5101ad21",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
     }
   ]
 }

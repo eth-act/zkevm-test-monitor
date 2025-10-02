@@ -19,6 +19,16 @@
       "total": 82,
       "notes": "",
       "suite": "arch"
+    },
+    {
+      "date": "2025-10-01",
+      "test_monitor_commit": "cdcf23c1",
+      "zkvm_commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
+      "isa": "rv64ima",
+      "suite": "arch",
+      "passed": 82,
+      "total": 82,
+      "notes": ""
     }
   ]
 }

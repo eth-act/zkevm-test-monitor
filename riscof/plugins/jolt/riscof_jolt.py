@@ -82,12 +82,16 @@ class jolt(pluginTemplate):
         # Capture XLEN value
         self.xlen = ('64' if 64 in ispec['supported_xlen'] else '32')
         
-        # Build ISA string for jolt (simplified since Jolt supports RV32IM)
+        # Build ISA string for jolt (supports RV64IMAC)
         self.isa = 'rv' + self.xlen
         if "I" in ispec["ISA"]:
             self.isa += 'i'
         if "M" in ispec["ISA"]:
             self.isa += 'm'
+        if "A" in ispec["ISA"]:
+            self.isa += 'a'
+        if "C" in ispec["ISA"]:
+            self.isa += 'c'
         
         # Set ABI based on XLEN
         abi = 'lp64' if 64 in ispec['supported_xlen'] else 'ilp32'
