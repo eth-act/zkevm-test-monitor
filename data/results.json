@@ -27,8 +27,8 @@
       "last_run": null
     },
     "jolt": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "e1c961ce",
       "isa": "rv32im",
       "has_nightly": true,
@@ -105,9 +105,9 @@
       "last_run": null
     },
     "zisk": {
-      "has_binary": false,
-      "build_status": "not_built",
-      "commit": "c2aad6eb75bf757a8a35e76e5a544d886adbd5d6",
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "5104c56c4736f99e1a3e809511e41ed6306a7db5",
       "isa": "rv64ima",
       "has_nightly": true,
       "suites": {
@@ -209,7 +209,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-10-02T03:17:56.478013+00:00",
+  "last_updated": "2025-10-02T03:43:36.476217+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "cdcf23c1"
+  "test_monitor_commit": "dc699762"
 }
