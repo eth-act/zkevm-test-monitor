@@ -93,9 +93,9 @@ jobs:
         if: steps.jolt-commit.outputs.needs_update == 'true' && steps.build-jolt.outcome == 'success'
         run: |
           echo "🧪 Testing Jolt ZKVM..."
-          
+
           # Run tests specifically for Jolt
-          ./src/test.sh jolt
+          ./src/test.sh --arch jolt
         continue-on-error: true
         id: test-jolt
       
