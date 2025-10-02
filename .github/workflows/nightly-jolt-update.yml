@@ -93,7 +93,7 @@ jobs:
         if: steps.jolt-commit.outputs.needs_update == 'true' && steps.build-jolt.outcome == 'success'
         run: |
           echo "🧪 Testing Jolt ZKVM..."
-          
+        
           # Run tests specifically for Jolt
           ./src/test.sh jolt
         continue-on-error: true
@@ -122,7 +122,7 @@ jobs:
           python3 src/update.py
         continue-on-error: true
         id: update-dashboard
-      
+
       - name: Check for changes and commit
         if: steps.jolt-commit.outputs.needs_update == 'true'
         run: |
@@ -181,7 +181,13 @@ jobs:
           git push origin main
           
           echo "✅ Changes committed and pushed successfully"
-      
+
+      - name: Fail job if tests failed
+        if: steps.jolt-commit.outputs.needs_update == 'true' && steps.test-jolt.outcome == 'failure'
+        run: |
+          echo "❌ Tests failed - marking job as failed"
+          exit 1
+
       - name: Create issue on failure
         if: failure() && steps.jolt-commit.outputs.needs_update == 'true'
         uses: actions/github-script@v7

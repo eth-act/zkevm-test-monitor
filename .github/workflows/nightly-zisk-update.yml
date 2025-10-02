@@ -93,7 +93,7 @@ jobs:
         if: steps.zisk-commit.outputs.needs_update == 'true' && steps.build-zisk.outcome == 'success'
         run: |
           echo "🧪 Testing Zisk ZKVM..."
-          
+
           # Run tests specifically for Zisk
           ./src/test.sh zisk
         continue-on-error: true
@@ -122,7 +122,7 @@ jobs:
           python3 src/update.py
         continue-on-error: true
         id: update-dashboard
-      
+
       - name: Check for changes and commit
         if: steps.zisk-commit.outputs.needs_update == 'true'
         run: |
@@ -181,7 +181,13 @@ jobs:
           git push origin main
           
           echo "✅ Changes committed and pushed successfully"
-      
+
+      - name: Fail job if tests failed
+        if: steps.zisk-commit.outputs.needs_update == 'true' && steps.test-zisk.outcome == 'failure'
+        run: |
+          echo "❌ Tests failed - marking job as failed"
+          exit 1
+
       - name: Create issue on failure
         if: failure() && steps.zisk-commit.outputs.needs_update == 'true'
         uses: actions/github-script@v7
