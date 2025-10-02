@@ -111,6 +111,9 @@ jobs:
             --arg timestamp "$TIMESTAMP" \
             '{zkvm: $zkvm, suite: $suite, timestamp: $timestamp, passed: 0, failed: 0, total: 0}' \
             > test-results/zisk/summary-arch.json
+
+          # Create placeholder report indicating failure
+          cp src/report-not-generated-template.html test-results/zisk/report-arch.html
       
       - name: Update dashboard
         if: steps.zisk-commit.outputs.needs_update == 'true'
