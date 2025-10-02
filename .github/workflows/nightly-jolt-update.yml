@@ -105,16 +105,12 @@ jobs:
           # Create summary file indicating test failure
           mkdir -p test-results/jolt
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          cat > test-results/jolt/summary-arch.json << EOF
-{
-  "zkvm": "jolt",
-  "suite": "arch",
-  "timestamp": "${TIMESTAMP}",
-  "passed": 0,
-  "failed": 0,
-  "total": 0
-}
-EOF
+          jq -n \
+            --arg zkvm "jolt" \
+            --arg suite "arch" \
+            --arg timestamp "$TIMESTAMP" \
+            '{zkvm: $zkvm, suite: $suite, timestamp: $timestamp, passed: 0, failed: 0, total: 0}' \
+            > test-results/jolt/summary-arch.json
       
       - name: Update dashboard
         if: steps.jolt-commit.outputs.needs_update == 'true'
