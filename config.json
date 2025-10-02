@@ -30,7 +30,7 @@
     },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",
-      "commit": "c2aad6eb",
+      "commit": "5104c56c",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu"
