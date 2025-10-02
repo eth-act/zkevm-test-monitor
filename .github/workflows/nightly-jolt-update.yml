@@ -6,6 +6,11 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:  # Allow manual trigger for testing
 
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
 concurrency:
   group: jolt-update
   cancel-in-progress: true
