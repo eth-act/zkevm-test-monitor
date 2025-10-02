@@ -98,6 +98,23 @@ jobs:
           ./src/test.sh zisk
         continue-on-error: true
         id: test-zisk
+
+      - name: Record test failure
+        if: steps.zisk-commit.outputs.needs_update == 'true' && steps.build-zisk.outcome == 'success' && steps.test-zisk.outcome == 'failure'
+        run: |
+          # Create summary file indicating test failure
+          mkdir -p test-results/zisk
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > test-results/zisk/summary-arch.json << EOF
+{
+  "zkvm": "zisk",
+  "suite": "arch",
+  "timestamp": "${TIMESTAMP}",
+  "passed": 0,
+  "failed": 0,
+  "total": 0
+}
+EOF
       
       - name: Update dashboard
         if: steps.zisk-commit.outputs.needs_update == 'true'

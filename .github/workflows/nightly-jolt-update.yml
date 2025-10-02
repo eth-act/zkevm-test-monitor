@@ -98,6 +98,23 @@ jobs:
           ./src/test.sh jolt
         continue-on-error: true
         id: test-jolt
+
+      - name: Record test failure
+        if: steps.jolt-commit.outputs.needs_update == 'true' && steps.build-jolt.outcome == 'success' && steps.test-jolt.outcome == 'failure'
+        run: |
+          # Create summary file indicating test failure
+          mkdir -p test-results/jolt
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > test-results/jolt/summary-arch.json << EOF
+{
+  "zkvm": "jolt",
+  "suite": "arch",
+  "timestamp": "${TIMESTAMP}",
+  "passed": 0,
+  "failed": 0,
+  "total": 0
+}
+EOF
       
       - name: Update dashboard
         if: steps.jolt-commit.outputs.needs_update == 'true'
