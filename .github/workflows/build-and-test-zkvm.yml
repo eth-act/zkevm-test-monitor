@@ -99,7 +99,7 @@ jobs:
           echo "🧪 Testing ${ZKVM} ZKVM..."
 
           # Run tests
-          ./src/test.sh --arch ${ZKVM}
+          ./src/test.sh ${ZKVM}
         continue-on-error: true
         id: test-zkvm
 
