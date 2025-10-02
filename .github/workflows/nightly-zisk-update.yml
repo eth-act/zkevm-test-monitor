@@ -93,9 +93,9 @@ jobs:
         if: steps.zisk-commit.outputs.needs_update == 'true' && steps.build-zisk.outcome == 'success'
         run: |
           echo "🧪 Testing Zisk ZKVM..."
-
+          
           # Run tests specifically for Zisk
-          ./src/test.sh --arch zisk
+          ./src/test.sh zisk
         continue-on-error: true
         id: test-zisk
       
