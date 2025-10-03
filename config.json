@@ -9,14 +9,14 @@
     },
     "jolt": {
       "repo_url": "https://github.com/a16z/jolt",
-      "commit": "87af8fe6",
+      "commit": "6e289f39",
       "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
       "binary_name": "jolt-emu",
       "binary_path": "target/release/jolt-emu"
     },
     "openvm": {
       "repo_url": "https://github.com/codygunton/openvm",
-      "commit": "a6f77215f",
+      "commit": "b5f3f0197",
       "build_cmd": "cargo build --release",
       "binary_name": "cargo-openvm",
       "binary_path": "target/release/cargo-openvm"
@@ -30,7 +30,7 @@
     },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",
-      "commit": "c2aad6eb",
+      "commit": "5104c56c",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu"
