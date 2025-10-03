@@ -41,7 +41,7 @@ RUN git clone "$REPO_URL" openvm && \
 # Build OpenVM
 # This layer will be cached as long as the source code doesn't change
 WORKDIR /workspace/openvm
-RUN cargo build --release -p openvm
+RUN cargo build --release
 
 # Final stage - just the binary
 FROM ubuntu:24.04
