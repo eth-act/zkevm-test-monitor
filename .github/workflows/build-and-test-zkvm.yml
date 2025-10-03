@@ -1,0 +1,295 @@
+name: Update ZKVM
+
+on:
+  workflow_call:
+    inputs:
+      zkvm:
+        required: true
+        type: string
+        description: 'Name of the ZKVM to update (e.g., jolt, zisk)'
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Git configuration
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3 python3-pip
+          pip3 install pyyaml
+
+      - name: Get latest commit
+        id: zkvm-commit
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+
+          # Get the current commit hash from config.json
+          CURRENT_COMMIT=$(jq -r ".zkvms.${ZKVM}.commit" config.json)
+          echo "Current ${ZKVM} commit: $CURRENT_COMMIT"
+
+          # Get the latest commit hash from the main branch of the remote repository
+          REPO_URL=$(jq -r ".zkvms.${ZKVM}.repo_url" config.json)
+          LATEST_COMMIT=$(git ls-remote $REPO_URL refs/heads/main | cut -f1 | head -c8)
+          echo "Latest ${ZKVM} commit from main branch: $LATEST_COMMIT"
+
+          # Check if there's an update available
+          if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
+            echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+            echo "🔄 ${ZKVM} update available: $CURRENT_COMMIT -> $LATEST_COMMIT"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "✅ ${ZKVM} is up to date at commit $CURRENT_COMMIT"
+          fi
+
+      - name: Update config.json with latest commit
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+          LATEST_COMMIT=${{ steps.zkvm-commit.outputs.latest_commit }}
+          echo "📝 Updating config.json with commit: $LATEST_COMMIT"
+
+          # Update the commit hash in config.json using jq
+          jq --arg zkvm "$ZKVM" --arg commit "$LATEST_COMMIT" '.zkvms[$zkvm].commit = $commit' config.json > config.json.tmp
+          mv config.json.tmp config.json
+
+          # Verify the update
+          NEW_COMMIT=$(jq -r ".zkvms.${ZKVM}.commit" config.json)
+          echo "✅ Updated ${ZKVM} commit to: $NEW_COMMIT"
+
+      - name: Set up Docker Buildx
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ZKVM
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+          echo "🔨 Building ${ZKVM} ZKVM..."
+          # Force rebuild by removing existing binary
+          rm -f binaries/${ZKVM}-binary
+
+          # Run the build script
+          FORCE=1 ./src/build.sh ${ZKVM}
+        continue-on-error: true
+        id: build-zkvm
+
+      - name: Test ZKVM
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+          echo "🧪 Testing ${ZKVM} ZKVM..."
+
+          # Run tests
+          ./src/test.sh --arch ${ZKVM}
+        continue-on-error: true
+        id: test-zkvm
+
+      - name: Record test failure
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success' && steps.test-zkvm.outcome == 'failure'
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+
+          # Create summary file indicating test failure
+          mkdir -p test-results/${ZKVM}
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq -n \
+            --arg zkvm "$ZKVM" \
+            --arg suite "arch" \
+            --arg timestamp "$TIMESTAMP" \
+            '{zkvm: $zkvm, suite: $suite, timestamp: $timestamp, passed: 0, failed: 0, total: 0}' \
+            > test-results/${ZKVM}/summary-arch.json
+
+          # Create placeholder report indicating failure
+          cp src/report-not-generated-template.html test-results/${ZKVM}/report-arch.html
+
+      - name: Update dashboard
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          echo "📊 Updating dashboard..."
+          python3 src/update.py
+        continue-on-error: true
+        id: update-dashboard
+
+      - name: Check for changes and commit
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          # Check if there are any changes to commit
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_ENV
+          else
+            echo "Changes detected, preparing to commit"
+            echo "has_changes=true" >> $GITHUB_ENV
+
+            # Show what changed
+            echo "📋 Files changed:"
+            git diff --name-only
+            git diff --cached --name-only
+          fi
+
+      - name: Commit and push changes
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && env.has_changes == 'true'
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+          CURRENT_COMMIT=${{ steps.zkvm-commit.outputs.current_commit }}
+          LATEST_COMMIT=${{ steps.zkvm-commit.outputs.latest_commit }}
+
+          # Add all modified files (only tracked files that should be committed)
+          git add config.json data/ docs/ index.html || true
+
+          # Create commit message with build/test status
+          COMMIT_MSG="chore: update ${ZKVM} ZKVM from $CURRENT_COMMIT to $LATEST_COMMIT"
+
+          if [ "${{ steps.build-zkvm.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"✅ Build: successful"
+          else
+            COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"❌ Build: failed"
+          fi
+
+          if [ "${{ steps.test-zkvm.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"✅ Tests: completed"
+          elif [ "${{ steps.build-zkvm.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"❌ Tests: failed"
+          else
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"⚠️ Tests: skipped (build failed)"
+          fi
+
+          if [ "${{ steps.update-dashboard.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"✅ Dashboard: updated"
+          else
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"❌ Dashboard: update failed"
+          fi
+
+          COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"🤖 Automated nightly update"
+
+          # Commit changes
+          git commit -m "$COMMIT_MSG"
+
+          # Push changes
+          git push origin main
+
+          echo "✅ Changes committed and pushed successfully"
+
+      - name: Fail job if tests failed
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.test-zkvm.outcome == 'failure'
+        run: |
+          echo "❌ Tests failed - marking job as failed"
+          exit 1
+
+      - name: Create issue on failure
+        if: failure() && steps.zkvm-commit.outputs.needs_update == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const zkvm = '${{ inputs.zkvm }}';
+            const current_commit = '${{ steps.zkvm-commit.outputs.current_commit }}';
+            const latest_commit = '${{ steps.zkvm-commit.outputs.latest_commit }}';
+            const run_url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            // Check if there's already an open issue for failed updates
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: `automated,${zkvm}-update,failed`
+            });
+
+            if (issues.data.length === 0) {
+              // Create new issue only if none exists
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚨 Nightly ${zkvm.toUpperCase()} ZKVM Update Failed`,
+                labels: ['automated', `${zkvm}-update`, 'failed'],
+                body: [
+                  `## ${zkvm.toUpperCase()} ZKVM Update Failed`,
+                  '',
+                  `**Attempted Update:** \`${current_commit}\` → \`${latest_commit}\``,
+                  '',
+                  `**Workflow Run:** ${run_url}`,
+                  '',
+                  '### Status Summary',
+                  `- **Build Status:** ${{ steps.build-zkvm.outcome }}`,
+                  `- **Test Status:** ${{ steps.test-zkvm.outcome }}`,
+                  `- **Dashboard Update:** ${{ steps.update-dashboard.outcome }}`,
+                  '',
+                  '### Next Steps',
+                  `1. Check the [workflow run](${run_url}) for detailed error logs`,
+                  '2. Investigate build/test failures',
+                  '3. Fix any issues and manually trigger the workflow',
+                  '4. Close this issue once resolved',
+                  '',
+                  'This issue was created automatically by the nightly update workflow.'
+                ].join('\n')
+              });
+              console.log(`Created issue for failed ${zkvm} update`);
+            } else {
+              console.log(`Issue already exists for failed ${zkvm} updates`);
+            }
+
+      - name: Post job summary
+        if: always()
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+          ZKVM_UPPER=$(echo "$ZKVM" | tr '[:lower:]' '[:upper:]')
+
+          echo "## Nightly ${ZKVM_UPPER} ZKVM Update Summary" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.zkvm-commit.outputs.needs_update }}" = "true" ]; then
+            echo "### Update Status: 🔄 Update Available" >> $GITHUB_STEP_SUMMARY
+            echo "- **From:** \`${{ steps.zkvm-commit.outputs.current_commit }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **To:** \`${{ steps.zkvm-commit.outputs.latest_commit }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Build status
+            if [ "${{ steps.build-zkvm.outcome }}" = "success" ]; then
+              echo "### 🔨 Build: ✅ Successful" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### 🔨 Build: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Test status
+            if [ "${{ steps.test-zkvm.outcome }}" = "success" ]; then
+              echo "### 🧪 Tests: ✅ Completed" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.build-zkvm.outcome }}" = "success" ]; then
+              echo "### 🧪 Tests: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### 🧪 Tests: ⚠️ Skipped (build failed)" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Dashboard status
+            if [ "${{ steps.update-dashboard.outcome }}" = "success" ]; then
+              echo "### 📊 Dashboard: ✅ Updated" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### 📊 Dashboard: ❌ Update failed" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Commit status
+            if [ "${{ env.has_changes }}" = "true" ]; then
+              echo "### 📝 Changes: ✅ Committed and pushed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### 📝 Changes: ℹ️ No changes to commit" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "### Update Status: ✅ Already Up to Date" >> $GITHUB_STEP_SUMMARY
+            echo "${ZKVM_UPPER} ZKVM is already at the latest commit: \`$(jq -r ".zkvms.${ZKVM}.commit" config.json)\`" >> $GITHUB_STEP_SUMMARY
+          fi

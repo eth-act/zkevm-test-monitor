@@ -187,10 +187,22 @@ for zkvm in config['zkvms']:
                     suite_data['total'] = summary.get('total', 0)
                     suite_data['test_status'] = 'completed'
 
-                    # Update last_run date based on summary file modification time
-                    mtime = os.path.getmtime(summary_file)
-                    last_run_date = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
-                    suite_data['last_run'] = last_run_date
+                    # Try to get last_run from history file first (more reliable)
+                    history_file = Path(f'data/history/{zkvm}-{suite}.json')
+                    if history_file.exists():
+                        try:
+                            with open(history_file) as hf:
+                                history = json.load(hf)
+                                if history.get('runs'):
+                                    suite_data['last_run'] = history['runs'][-1].get('date')
+                        except:
+                            pass
+
+                    # Fallback to summary file modification time if no history
+                    if 'last_run' not in suite_data or not suite_data['last_run']:
+                        mtime = os.path.getmtime(summary_file)
+                        last_run_date = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d')
+                        suite_data['last_run'] = last_run_date
             except:
                 results['zkvms'][zkvm]['suites'][suite]['test_status'] = 'error'
         else:

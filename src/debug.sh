@@ -200,27 +200,21 @@ fi
 echo ""
 echo "📝 Full log saved to: $LOG_FILE"
 
-# Show signature if it exists
+# Save signature to output folder if it exists
 if [ -f "${DEBUG_DIR}/debug.signature" ]; then
   echo ""
-  echo "📄 Generated signature:"
-  cat "${DEBUG_DIR}/debug.signature"
+  echo "📄 Signature saved to: ${DEBUG_DIR}/debug.signature"
 fi
 
 # Compare with expected if available
 EXPECTED_SIG="${TEST_DIR}/../ref/Reference-sail_cSim.signature"
 if [ -f "$EXPECTED_SIG" ]; then
-  echo ""
-  echo "📊 Expected signature:"
-  cat "$EXPECTED_SIG"
-
   if [ -f "${DEBUG_DIR}/debug.signature" ]; then
     echo ""
     if diff -q "${DEBUG_DIR}/debug.signature" "$EXPECTED_SIG" > /dev/null; then
       echo "✅ Signatures match!"
     else
-      echo "❌ Signatures differ:"
-      diff "${DEBUG_DIR}/debug.signature" "$EXPECTED_SIG" || true
+      echo "❌ Signatures differ (see ${DEBUG_DIR}/debug.signature and ${EXPECTED_SIG})"
     fi
   fi
 fi
