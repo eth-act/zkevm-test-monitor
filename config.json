@@ -16,7 +16,7 @@
     },
     "openvm": {
       "repo_url": "https://github.com/codygunton/openvm",
-      "commit": "a6f77215f",
+      "commit": "b5f3f0197",
       "build_cmd": "cargo build --release",
       "binary_name": "cargo-openvm",
       "binary_path": "target/release/cargo-openvm"
