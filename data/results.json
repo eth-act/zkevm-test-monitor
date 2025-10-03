@@ -1,8 +1,8 @@
 {
   "zkvms": {
     "sp1": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "fc98075a",
       "isa": "rv32im",
       "has_nightly": false,
@@ -29,7 +29,7 @@
     "jolt": {
       "has_binary": true,
       "build_status": "success",
-      "commit": "6e289f39",
+      "commit": "97c1b40a",
       "isa": "rv32im",
       "has_nightly": true,
       "suites": {
@@ -38,7 +38,7 @@
           "failed": 0,
           "total": 47,
           "test_status": "completed",
-          "last_run": "2025-10-02",
+          "last_run": "2025-10-03",
           "has_report": true
         },
         "extra": {
@@ -53,15 +53,15 @@
       "last_run": null
     },
     "openvm": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "a6f77215f",
       "isa": "rv32im",
       "has_nightly": false,
       "suites": {
         "arch": {
-          "passed": 0,
-          "failed": 47,
+          "passed": 47,
+          "failed": 0,
           "total": 47,
           "test_status": "completed",
           "last_run": "2025-09-04",
@@ -105,8 +105,8 @@
       "last_run": null
     },
     "zisk": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "5104c56c4736f99e1a3e809511e41ed6306a7db5",
       "isa": "rv64ima",
       "has_nightly": true,
@@ -131,8 +131,8 @@
       "last_run": null
     },
     "pico": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
       "isa": "rv32im",
       "has_nightly": false,
@@ -157,8 +157,8 @@
       "last_run": null
     },
     "airbender": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "1f52d2e2",
       "isa": "rv32im",
       "has_nightly": false,
@@ -203,13 +203,13 @@
       },
       "isa": "rv32im",
       "has_nightly": false,
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
       "last_run": null
     }
   },
-  "last_updated": "2025-10-02T21:53:47.345259+00:00",
+  "last_updated": "2025-10-03T03:22:25.855312+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "9d28fba9"
+  "test_monitor_commit": "7cdd318d"
 }
