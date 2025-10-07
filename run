@@ -7,92 +7,111 @@ CMD=${1:-help}
 shift || true
 
 case "$CMD" in
-    build)
-        echo "🔨 Building ZKVMs: ${@:-all}"
-        ./src/build.sh "$@"
-        ;;
-    
-    test)
-        # Validate that a suite flag is provided
-        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
-            echo "❌ Error: Must specify either --arch or --extra"
-            echo "Usage: ./run test [--arch|--extra] [target1 target2 ...]"
-            exit 1
-        fi
-        # Extract suite type and targets for display
-        SUITE_TYPE=""
-        DISPLAY_TARGETS=""
-        for arg in "$@"; do
-            if [[ "$arg" == "--arch" ]]; then
-                SUITE_TYPE="arch"
-            elif [[ "$arg" == "--extra" ]]; then
-                SUITE_TYPE="extra"
-            else
-                DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
-            fi
-        done
-        DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
-        echo "🧪 Testing ZKVMs (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
-        ./src/test.sh "$@"
-        python3 src/update.py
-        ;;
-    
-    update)
-        echo "📊 Updating dashboard"
-        python3 src/update.py
-        ;;
-    
-    all)
-        # Validate that a suite flag is provided
-        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
-            echo "❌ Error: Must specify either --arch or --extra"
-            echo "Usage: ./run all [--arch|--extra] [target1 target2 ...]"
-            exit 1
-        fi
-        # Extract suite type and targets for display
-        SUITE_TYPE=""
-        DISPLAY_TARGETS=""
-        for arg in "$@"; do
-            if [[ "$arg" == "--arch" ]]; then
-                SUITE_TYPE="arch"
-            elif [[ "$arg" == "--extra" ]]; then
-                SUITE_TYPE="extra"
-            else
-                DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
-            fi
-        done
-        DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
-        echo "🚀 Building and testing (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
-        # Extract non-flag arguments for build.sh
-        BUILD_TARGETS=""
-        for arg in "$@"; do
-            if [[ "$arg" != "--arch" && "$arg" != "--extra" ]]; then
-                BUILD_TARGETS="$BUILD_TARGETS $arg"
-            fi
-        done
-        ./src/build.sh ${BUILD_TARGETS# }
-        ./src/test.sh "$@"
-        python3 src/update.py
-        ;;
-    
-    serve)
-        echo "🌐 Server at http://localhost:8000"
-        echo "   Press Ctrl+C to stop"
-        cd docs && python3 -m http.server 8000 --bind 127.0.0.1
-        ;;
-    
-    clean)
-        echo "🧹 Cleaning artifacts"
-        rm -rf binaries/ test-results/*/
-        ;;
-    
-    *)
-        cat << EOF
+  build)
+    echo "🔨 Building ZKVMs: ${@:-all}"
+    ./src/build.sh "$@"
+    ;;
+
+  test)
+    # Validate that a suite flag is provided
+    if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
+      echo "❌ Error: Must specify either --arch or --extra"
+      echo "Usage: ./run test [--arch|--extra] [target1 target2 ...]"
+      exit 1
+    fi
+    # Extract suite type and targets for display
+    SUITE_TYPE=""
+    DISPLAY_TARGETS=""
+    for arg in "$@"; do
+      if [[ "$arg" == "--arch" ]]; then
+        SUITE_TYPE="arch"
+      elif [[ "$arg" == "--extra" ]]; then
+        SUITE_TYPE="extra"
+      else
+        DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
+      fi
+    done
+    DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
+    echo "🧪 Testing ZKVMs (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
+    ./src/test.sh "$@"
+    python3 src/update.py
+    ;;
+
+  update)
+    echo "📊 Updating dashboard"
+    python3 src/update.py
+    ;;
+
+  all)
+    # Validate that a suite flag is provided
+    if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
+      echo "❌ Error: Must specify either --arch or --extra"
+      echo "Usage: ./run all [--arch|--extra] [target1 target2 ...]"
+      exit 1
+    fi
+    # Extract suite type and targets for display
+    SUITE_TYPE=""
+    DISPLAY_TARGETS=""
+    for arg in "$@"; do
+      if [[ "$arg" == "--arch" ]]; then
+        SUITE_TYPE="arch"
+      elif [[ "$arg" == "--extra" ]]; then
+        SUITE_TYPE="extra"
+      else
+        DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
+      fi
+    done
+    DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
+    echo "🚀 Building and testing (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
+    # Extract non-flag arguments for build.sh
+    BUILD_TARGETS=""
+    for arg in "$@"; do
+      if [[ "$arg" != "--arch" && "$arg" != "--extra" ]]; then
+        BUILD_TARGETS="$BUILD_TARGETS $arg"
+      fi
+    done
+    ./src/build.sh ${BUILD_TARGETS# }
+    ./src/test.sh "$@"
+    python3 src/update.py
+    ;;
+
+  serve)
+    echo "🌐 Server at http://localhost:8000"
+    echo "   Press Ctrl+C to stop"
+    cd docs && python3 -m http.server 8000 --bind 127.0.0.1
+    ;;
+
+  debug)
+    echo "🐛 Debug mode"
+    ./src/debug.sh "$@"
+    ;;
+
+  generate-test-artifact)
+    echo "🔧 Generating test artifact"
+    ./src/generate_test_artifact.sh "$@"
+    ;;
+
+  test-debug)
+    echo "🧪 Testing debug command"
+    ./src/test_debug.sh "$@"
+    ;;
+
+  clean)
+    echo "🧹 Cleaning artifacts"
+    rm -rf binaries/ test-results/*/
+    ;;
+
+  *)
+    cat << EOF
 Usage: ./run COMMAND [OPTIONS]
 
 Commands:
   build [zkvm]                    - Build ZKVM binaries
   test [--arch|--extra] [zkvm]    - Run RISCOF tests (suite required)
+  debug [--arch|--extra] <zkvm> <test-pattern>
+                                  - Re-run specific test with verbose logging
+  generate-test-artifact <zkvm>   - Generate test artifact for ZKVM
+  test-debug [zkvm]               - Test debug command with artifacts
   update                          - Regenerate dashboard HTML
   all [--arch|--extra] [zkvm]     - Build + test + update (suite required)
   serve                           - Start local web server
@@ -103,11 +122,16 @@ Test Suite Options:
   --extra                         - Run extended differential tests
 
 Examples:
-  ./run build sp1                 # Build just SP1
-  ./run test --arch sp1 jolt      # Test SP1 and Jolt with arch suite
-  ./run test --extra              # Test all ZKVMs with extra suite
-  ./run all --arch                # Build and test everything with arch suite
+  ./run build sp1                      # Build just SP1
+  ./run test --arch sp1 jolt           # Test SP1 and Jolt with arch suite
+  ./run test --extra                   # Test all ZKVMs with extra suite
+  ./run all --arch                     # Build and test everything with arch suite
+  ./run debug openvm div-01            # Debug specific test with full logging
+  ./run generate-test-artifact openvm  # Generate OpenVM test artifact
+  ./run test-debug openvm              # Test OpenVM debug command
+  ./run test-debug                     # Test all ZKVMs
   ./run serve                     # View dashboard locally
 EOF
-        ;;
+    ;;
 esac
+
