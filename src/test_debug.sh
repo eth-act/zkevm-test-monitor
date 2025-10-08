@@ -56,7 +56,14 @@ for ZKVM in $ZKVMS; do
 
   # Check if test results exist with jal-01 test
   # Debug command expects test-results/{zkvm}/path/to/test/dut/my.elf
-  TEST_ELF="test-results/${ZKVM}/rv32i_m/I/src/jal-01.S/dut/my.elf"
+  # Determine ISA prefix (RV32 vs RV64)
+  if [ "$ZKVM" = "zisk" ]; then
+    ISA_PREFIX="rv64i_m"
+  else
+    ISA_PREFIX="rv32i_m"
+  fi
+
+  TEST_ELF="test-results/${ZKVM}/${ISA_PREFIX}/I/src/jal-01.S/dut/my.elf"
 
   if [ ! -f "$TEST_ELF" ]; then
     # If testing a specific ZKVM, missing test results is a FAILURE
