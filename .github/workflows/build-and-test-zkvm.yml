@@ -103,6 +103,17 @@ jobs:
         continue-on-error: true
         id: test-zkvm
 
+      - name: Test Debug Command
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+          echo "🐛 Testing debug command for ${ZKVM}..."
+
+          # Run debug command test against git-tracked artifact
+          ./run test-debug ${ZKVM}
+        continue-on-error: true
+        id: test-debug
+
       - name: Record test failure
         if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success' && steps.test-zkvm.outcome == 'failure'
         run: |

@@ -59,12 +59,19 @@ for ZKVM in $ZKVMS; do
   echo "$ACTUAL_COMMIT" > "data/commits/${ZKVM}.txt"
   echo "  📝 Built from commit: ${ACTUAL_COMMIT:0:8}"
 
-  # Extract binary (with current user ownership)
+  # Extract binary using docker cp (works better in CI/act)
   mkdir -p binaries
-  docker run --rm --user $(id -u):$(id -g) -v "$PWD/binaries:/output" zkvm-${ZKVM}:latest || {
+  BINARY_NAME=$(jq -r ".zkvms.${ZKVM}.binary_name" config.json)
+
+  # Create a temporary container, copy binary, and clean up
+  CONTAINER_ID=$(docker create zkvm-${ZKVM}:latest)
+  docker cp "$CONTAINER_ID:/usr/local/bin/$BINARY_NAME" "binaries/$BINARY_NAME" || {
     echo "  ❌ Failed to extract binary for $ZKVM"
+    docker rm "$CONTAINER_ID" > /dev/null 2>&1
     continue
   }
+  docker rm "$CONTAINER_ID" > /dev/null 2>&1
+  chmod +x "binaries/$BINARY_NAME"
 
   # Handle special cases for binary naming
   if [ "$ZKVM" = "sp1" ] && [ -f "binaries/sp1-perf-executor" ]; then

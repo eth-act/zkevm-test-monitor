@@ -24,61 +24,45 @@ for ZKVM in $ZKVMS; do
   echo "Testing: $ZKVM"
   echo "──────────────────────────────────────"
 
-  # Check if artifact exists
-  ARTIFACT_DIR="test-artifacts/${ZKVM}"
-  ARTIFACT_ELF="$ARTIFACT_DIR/jal-01.elf"
-
-  if [ ! -f "$ARTIFACT_ELF" ]; then
-    echo "⏭️  SKIPPED - No artifact found"
-    echo "   Generate with: ./run generate-test-artifact $ZKVM"
-    echo ""
-    SKIPPED=$((SKIPPED + 1))
-    continue
-  fi
-
   # Check if binary exists
   if [ ! -f "binaries/${ZKVM}-binary" ]; then
-    echo "⏭️  SKIPPED - No binary found"
-    echo "   Build with: ./run build $ZKVM"
-    echo ""
-    SKIPPED=$((SKIPPED + 1))
-    continue
-  fi
-
-  # Setup temporary test structure
-  # Debug command expects test-results/{zkvm}/path/to/test/dut/my.elf
-
-  # Clean entire ZKVM test directory (may have root-owned files from Docker)
-  if ! rm -rf "test-results/${ZKVM}" 2>/dev/null; then
-    # If regular rm fails (permission denied), try with sudo or Docker
-    if command -v sudo &> /dev/null && sudo -n true 2>/dev/null; then
-      # Use sudo if available and configured for passwordless access
-      sudo rm -rf "test-results/${ZKVM}" 2>/dev/null || true
-    elif command -v docker &> /dev/null; then
-      # Fall back to Docker to clean up root-owned files
-      docker run --rm -v "${PWD}/test-results:/test-results" ubuntu:24.04 rm -rf "/test-results/${ZKVM}" 2>/dev/null || true
+    # If testing a specific ZKVM, missing binary is a FAILURE
+    if [ $(echo "$ZKVMS" | wc -w) -eq 1 ]; then
+      echo "❌ FAILED - No binary found"
+      echo "   Build with: ./run build $ZKVM"
+      echo ""
+      FAILED=$((FAILED + 1))
+      continue
+    else
+      # If testing all ZKVMs, missing binary is just skipped
+      echo "⏭️  SKIPPED - No binary found"
+      echo "   Build with: ./run build $ZKVM"
+      echo ""
+      SKIPPED=$((SKIPPED + 1))
+      continue
     fi
   fi
 
-  TEMP_TEST_DIR="test-results/${ZKVM}/rv32i_m/I/src/jal-01.S/dut"
-  mkdir -p "$TEMP_TEST_DIR"
-  cp "$ARTIFACT_ELF" "$TEMP_TEST_DIR/my.elf"
+  # Check if test results exist with jal-01 test
+  # Debug command expects test-results/{zkvm}/path/to/test/dut/my.elf
+  TEST_ELF="test-results/${ZKVM}/rv32i_m/I/src/jal-01.S/dut/my.elf"
 
-  # For OpenVM, also need Cargo.toml and openvm.toml
-  if [ "$ZKVM" = "openvm" ]; then
-    PARENT_DIR="$(dirname "$TEMP_TEST_DIR")"
-    cat > "$PARENT_DIR/Cargo.toml" << 'EOF_CARGO'
-[package]
-name = "riscof-test"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-EOF_CARGO
-
-    cat > "$PARENT_DIR/openvm.toml" << 'EOF_OPENVM'
-app_vm_config = { exe = "dut/my.elf" }
-EOF_OPENVM
+  if [ ! -f "$TEST_ELF" ]; then
+    # If testing a specific ZKVM, missing test results is a FAILURE
+    if [ $(echo "$ZKVMS" | wc -w) -eq 1 ]; then
+      echo "❌ FAILED - No test results found"
+      echo "   Run tests first: ./run test --arch $ZKVM"
+      echo ""
+      FAILED=$((FAILED + 1))
+      continue
+    else
+      # If testing all ZKVMs, missing test results is just skipped
+      echo "⏭️  SKIPPED - No test results found"
+      echo "   Run tests first: ./run test --arch $ZKVM"
+      echo ""
+      SKIPPED=$((SKIPPED + 1))
+      continue
+    fi
   fi
 
   # Run debug command and capture output
