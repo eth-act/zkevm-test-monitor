@@ -85,6 +85,25 @@ class sail_cSim(pluginTemplate):
             os.remove(self.work_dir+ "/Makefile." + self.name[:-1])
         make = utils.makeUtil(makefilePath=os.path.join(self.work_dir, "Makefile." + self.name[:-1]))
         make.makeCommand = self.make + ' -j' + self.num_jobs
+
+        # Load ISA YAML once (not per test) and determine PMP flags
+        isa_yaml = utils.load_yaml(self.isa_yaml_path)
+        # Verify the availability of PMP:
+        if "PMP" in isa_yaml['hart0']:
+            if isa_yaml['hart0']["PMP"]["implemented"] == True:
+                if "pmp-grain" in isa_yaml['hart0']["PMP"]:
+                    pmp_flags = " --pmp-grain=" + str(isa_yaml['hart0']["PMP"]["pmp-grain"])
+                else:
+                    logger.error("PMP grain not defined")
+                    pmp_flags = ""
+                if "pmp-count" in isa_yaml['hart0']["PMP"]:
+                    pmp_flags = pmp_flags + " --pmp-count=" + str(isa_yaml['hart0']["PMP"]["pmp-count"])
+                else:
+                    logger.error("PMP count not defined")
+                    pmp_flags = ""
+        else:
+            pmp_flags = ""
+
         for file in testList:
             testentry = testList[file]
             test = testentry['test_path']
@@ -101,23 +120,6 @@ class sail_cSim(pluginTemplate):
 
             execute += self.objdump_cmd.format(elf, 'ref.disass')
             sig_file = os.path.join(test_dir, self.name[:-1] + ".signature")
-
-            isa_yaml = utils.load_yaml(self.isa_yaml_path)
-            # Verify the availability of PMP:
-            if "PMP" in isa_yaml['hart0']:
-                if isa_yaml['hart0']["PMP"]["implemented"] == True:
-                    if "pmp-grain" in isa_yaml['hart0']["PMP"]:
-                        pmp_flags = " --pmp-grain=" + str(isa_yaml['hart0']["PMP"]["pmp-grain"])
-                    else:
-                        logger.error("PMP grain not defined")
-                        pmp_flags = ""
-                    if "pmp-count" in isa_yaml['hart0']["PMP"]:
-                        pmp_flags = pmp_flags + " --pmp-count=" + str(isa_yaml['hart0']["PMP"]["pmp-count"])
-                    else:
-                        logger.error("PMP count not defined")
-                        pmp_flags = ""
-            else:
-                pmp_flags = ""
 
             # execute += self.sail_exe[self.xlen] + '  -i -v --trace=step {0} --ram-size=8796093022208 --signature-granularity=8  --test-signature={1} {1} > {2}.log 2>&1;'.format(pmp_flags, sig_file, elf, test_name)
             execute += self.sail_exe[self.xlen] + '  -i -v {0} --signature-granularity=4 --test-signature={1} {2} > {3}.log 2>&1;'.format(pmp_flags, sig_file, elf, test_name)
