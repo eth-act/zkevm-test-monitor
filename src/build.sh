@@ -59,7 +59,7 @@ for ZKVM in $ZKVMS; do
   echo "$ACTUAL_COMMIT" > "data/commits/${ZKVM}.txt"
   echo "  📝 Built from commit: ${ACTUAL_COMMIT:0:8}"
 
-  # Extract binary using docker cp (works better in CI/act)
+  # Extract binary using docker cp (needed to test CI using act)
   mkdir -p binaries
   BINARY_NAME=$(jq -r ".zkvms.${ZKVM}.binary_name" config.json)
 
@@ -95,4 +95,3 @@ for ZKVM in $ZKVMS; do
 
   echo "  ✅ Built ${ZKVM}"
 done
-

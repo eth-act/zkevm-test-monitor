@@ -7,95 +7,95 @@ CMD=${1:-help}
 shift || true
 
 case "$CMD" in
-  build)
-    echo "🔨 Building ZKVMs: ${@:-all}"
-    ./src/build.sh "$@"
-    ;;
+    build)
+        echo "🔨 Building ZKVMs: ${@:-all}"
+        ./src/build.sh "$@"
+        ;;
 
-  test)
-    # Validate that a suite flag is provided
-    if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
-      echo "❌ Error: Must specify either --arch or --extra"
-      echo "Usage: ./run test [--arch|--extra] [--build-only] [target1 target2 ...]"
-      exit 1
-    fi
-    # Extract suite type and targets for display
-    SUITE_TYPE=""
-    DISPLAY_TARGETS=""
-    BUILD_ONLY_FLAG=""
-    for arg in "$@"; do
-      if [[ "$arg" == "--arch" ]]; then
-        SUITE_TYPE="arch"
-      elif [[ "$arg" == "--extra" ]]; then
-        SUITE_TYPE="extra"
-      elif [[ "$arg" == "--build-only" ]]; then
-        BUILD_ONLY_FLAG=" (build-only)"
-      else
-        DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
-      fi
-    done
-    DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
-    echo "🧪 Testing ZKVMs (${SUITE_TYPE})${BUILD_ONLY_FLAG}: ${DISPLAY_TARGETS# }"
-    ./src/test.sh "$@"
-    python3 src/update.py
-    ;;
+    test)
+        # Validate that a suite flag is provided
+        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
+            echo "❌ Error: Must specify either --arch or --extra"
+            echo "Usage: ./run test [--arch|--extra] [--build-only] [target1 target2 ...]"
+            exit 1
+        fi
+        # Extract suite type and targets for display
+        SUITE_TYPE=""
+        DISPLAY_TARGETS=""
+        BUILD_ONLY_FLAG=""
+        for arg in "$@"; do
+            if [[ "$arg" == "--arch" ]]; then
+                SUITE_TYPE="arch"
+            elif [[ "$arg" == "--extra" ]]; then
+                SUITE_TYPE="extra"
+            elif [[ "$arg" == "--build-only" ]]; then
+                BUILD_ONLY_FLAG=" (build-only)"
+            else
+                DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
+            fi
+        done
+        DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
+        echo "🧪 Testing ZKVMs (${SUITE_TYPE})${BUILD_ONLY_FLAG}: ${DISPLAY_TARGETS# }"
+        ./src/test.sh "$@"
+        python3 src/update.py
+        ;;
 
-  update)
-    echo "📊 Updating dashboard"
-    python3 src/update.py
-    ;;
+    update)
+        echo "📊 Updating dashboard"
+        python3 src/update.py
+        ;;
 
-  all)
-    # Validate that a suite flag is provided
-    if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
-      echo "❌ Error: Must specify either --arch or --extra"
-      echo "Usage: ./run all [--arch|--extra] [target1 target2 ...]"
-      exit 1
-    fi
-    # Extract suite type and targets for display
-    SUITE_TYPE=""
-    DISPLAY_TARGETS=""
-    for arg in "$@"; do
-      if [[ "$arg" == "--arch" ]]; then
-        SUITE_TYPE="arch"
-      elif [[ "$arg" == "--extra" ]]; then
-        SUITE_TYPE="extra"
-      else
-        DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
-      fi
-    done
-    DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
-    echo "🚀 Building and testing (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
-    # Extract non-flag arguments for build.sh
-    BUILD_TARGETS=""
-    for arg in "$@"; do
-      if [[ "$arg" != "--arch" && "$arg" != "--extra" ]]; then
-        BUILD_TARGETS="$BUILD_TARGETS $arg"
-      fi
-    done
-    ./src/build.sh ${BUILD_TARGETS# }
-    ./src/test.sh "$@"
-    python3 src/update.py
-    ;;
+    all)
+        # Validate that a suite flag is provided
+        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
+            echo "❌ Error: Must specify either --arch or --extra"
+            echo "Usage: ./run all [--arch|--extra] [target1 target2 ...]"
+            exit 1
+        fi
+        # Extract suite type and targets for display
+        SUITE_TYPE=""
+        DISPLAY_TARGETS=""
+        for arg in "$@"; do
+            if [[ "$arg" == "--arch" ]]; then
+                SUITE_TYPE="arch"
+            elif [[ "$arg" == "--extra" ]]; then
+                SUITE_TYPE="extra"
+            else
+                DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
+            fi
+        done
+        DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
+        echo "🚀 Building and testing (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
+        # Extract non-flag arguments for build.sh
+        BUILD_TARGETS=""
+        for arg in "$@"; do
+            if [[ "$arg" != "--arch" && "$arg" != "--extra" ]]; then
+                BUILD_TARGETS="$BUILD_TARGETS $arg"
+            fi
+        done
+        ./src/build.sh ${BUILD_TARGETS# }
+        ./src/test.sh "$@"
+        python3 src/update.py
+        ;;
 
-  serve)
-    echo "🌐 Server at http://localhost:8000"
-    echo "   Press Ctrl+C to stop"
-    cd docs && python3 -m http.server 8000 --bind 127.0.0.1
-    ;;
+    serve)
+        echo "🌐 Server at http://localhost:8000"
+        echo "   Press Ctrl+C to stop"
+        cd docs && python3 -m http.server 8000 --bind 127.0.0.1
+        ;;
 
-  debug)
-    echo "🐛 Debug mode"
-    ./src/debug.sh "$@"
-    ;;
+    debug)
+        echo "🐛 Debug mode"
+        ./src/debug.sh "$@"
+        ;;
 
-  clean)
-    echo "🧹 Cleaning artifacts"
-    rm -rf binaries/ test-results/*/
-    ;;
+    clean)
+        echo "🧹 Cleaning artifacts"
+        rm -rf binaries/ test-results/*/
+        ;;
 
-  *)
-    cat << EOF
+    *)
+        cat << EOF
 Usage: ./run COMMAND [OPTIONS]
 
 Commands:
@@ -126,6 +126,5 @@ Examples:
 Additional Scripts:
   ./src/test_debug.sh [zkvm]           - Validate debug command (run after tests)
 EOF
-    ;;
+        ;;
 esac
-
