@@ -109,6 +109,11 @@ jobs:
           ZKVM="${{ inputs.zkvm }}"
           echo "🐛 Testing debug command for ${ZKVM}..."
 
+          # Debug: Check what test results exist
+          echo "📁 Checking test-results directory..."
+          ls -la test-results/${ZKVM}/ || echo "test-results/${ZKVM} doesn't exist"
+          find test-results/${ZKVM} -name "my.elf" 2>/dev/null || echo "No my.elf found"
+
           # Run debug command test after full test suite completes
           ./src/test_debug.sh ${ZKVM}
         continue-on-error: true
