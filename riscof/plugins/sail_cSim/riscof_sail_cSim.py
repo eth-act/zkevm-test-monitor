@@ -75,16 +75,49 @@ class sail_cSim(pluginTemplate):
         if shutil.which(self.sail_exe[self.xlen]) is None:
             logger.error(self.sail_exe[self.xlen]+ ": executable not found. Please check environment setup.")
             raise SystemExit(1)
-        if shutil.which(self.make) is None:
-            logger.error(self.make+": executable not found. Please check environment setup.")
+        # Check for CMake (required for CTest-based parallel execution)
+        if shutil.which('cmake') is None:
+            logger.error("cmake: executable not found. Please check environment setup.")
+            raise SystemExit(1)
+        if shutil.which('ctest') is None:
+            logger.error("ctest: executable not found. Please check environment setup.")
             raise SystemExit(1)
 
 
     def runTests(self, testList, cgf_file=None, header_file= None):
-        if os.path.exists(self.work_dir+ "/Makefile." + self.name[:-1]):
-            os.remove(self.work_dir+ "/Makefile." + self.name[:-1])
-        make = utils.makeUtil(makefilePath=os.path.join(self.work_dir, "Makefile." + self.name[:-1]))
-        make.makeCommand = self.make + ' -j' + self.num_jobs
+        # Use CTest for parallel test execution instead of Make
+        cmake_file = os.path.join(self.work_dir, "CMakeLists.txt")
+        build_dir = os.path.join(self.work_dir, "build")
+
+        # Remove old CMake files if they exist
+        if os.path.exists(cmake_file):
+            os.remove(cmake_file)
+        if os.path.exists(build_dir):
+            shutil.rmtree(build_dir)
+
+        # Generate CMakeLists.txt
+        cmake_content = "cmake_minimum_required(VERSION 3.20)\n"
+        cmake_content += "project(RISCOFSailTests NONE)\n"
+        cmake_content += "enable_testing()\n\n"
+
+        # Load ISA YAML once (not per test) and determine PMP flags
+        isa_yaml = utils.load_yaml(self.isa_yaml_path)
+        # Verify the availability of PMP:
+        if "PMP" in isa_yaml['hart0']:
+            if isa_yaml['hart0']["PMP"]["implemented"] == True:
+                if "pmp-grain" in isa_yaml['hart0']["PMP"]:
+                    pmp_flags = " --pmp-grain=" + str(isa_yaml['hart0']["PMP"]["pmp-grain"])
+                else:
+                    logger.error("PMP grain not defined")
+                    pmp_flags = ""
+                if "pmp-count" in isa_yaml['hart0']["PMP"]:
+                    pmp_flags = pmp_flags + " --pmp-count=" + str(isa_yaml['hart0']["PMP"]["pmp-count"])
+                else:
+                    logger.error("PMP count not defined")
+                    pmp_flags = ""
+        else:
+            pmp_flags = ""
+
         for file in testList:
             testentry = testList[file]
             test = testentry['test_path']
@@ -93,34 +126,18 @@ class sail_cSim(pluginTemplate):
 
             elf = 'ref.elf'
 
-            execute = "@cd "+testentry['work_dir']+";"
+            # Build the test command (without @ prefix for CTest)
+            execute = "cd "+testentry['work_dir']+" && "
 
             cmd = self.compile_cmd.format(testentry['isa'].lower()) + ' ' + test + ' -o ' + elf
             compile_cmd = cmd + ' -D' + " -D".join(testentry['macros'])
-            execute+=compile_cmd+";"
+            execute += compile_cmd + " && "
 
             execute += self.objdump_cmd.format(elf, 'ref.disass')
             sig_file = os.path.join(test_dir, self.name[:-1] + ".signature")
 
-            isa_yaml = utils.load_yaml(self.isa_yaml_path)
-            # Verify the availability of PMP:
-            if "PMP" in isa_yaml['hart0']:
-                if isa_yaml['hart0']["PMP"]["implemented"] == True:
-                    if "pmp-grain" in isa_yaml['hart0']["PMP"]:
-                        pmp_flags = " --pmp-grain=" + str(isa_yaml['hart0']["PMP"]["pmp-grain"])
-                    else:
-                        logger.error("PMP grain not defined")
-                        pmp_flags = ""
-                    if "pmp-count" in isa_yaml['hart0']["PMP"]:
-                        pmp_flags = pmp_flags + " --pmp-count=" + str(isa_yaml['hart0']["PMP"]["pmp-count"])
-                    else:
-                        logger.error("PMP count not defined")
-                        pmp_flags = ""
-            else:
-                pmp_flags = ""
+            execute += self.sail_exe[self.xlen] + '  -i -v {0} --signature-granularity=4 --test-signature={1} {2} > {3}.log 2>&1'.format(pmp_flags, sig_file, elf, test_name)
 
-            # execute += self.sail_exe[self.xlen] + '  -i -v --trace=step {0} --ram-size=8796093022208 --signature-granularity=8  --test-signature={1} {1} > {2}.log 2>&1;'.format(pmp_flags, sig_file, elf, test_name)
-            execute += self.sail_exe[self.xlen] + '  -i -v {0} --signature-granularity=4 --test-signature={1} {2} > {3}.log 2>&1;'.format(pmp_flags, sig_file, elf, test_name)
             cov_str = ' '
             for label in testentry['coverage_labels']:
                 cov_str+=' -l '+label
@@ -134,17 +151,42 @@ class sail_cSim(pluginTemplate):
                     cgf_mac+=' -cm '+macro
 
             if cgf_file is not None:
-                coverage_cmd = 'riscv_isac --verbose info coverage -d \
+                coverage_cmd = ' && riscv_isac --verbose info coverage -d \
                         -t {0}.log --parser-name c_sail -o coverage.rpt  \
                         --sig-label begin_signature  end_signature \
                         --test-label rvtest_code_begin rvtest_code_end \
-                        -e ref.elf -c {1} -x{2} {3} {4} {5};'.format(\
+                        -e ref.elf -c {1} -x{2} {3} {4} {5}'.format(\
                         test_name, ' -c '.join(cgf_file), self.xlen, cov_str, header_file_flag, cgf_mac)
             else:
                 coverage_cmd = ''
 
+            execute += coverage_cmd
 
-            execute+=coverage_cmd
+            # Escape quotes for CMake
+            execute = execute.replace('"', '\\"')
 
-            make.add_target(execute)
-        make.execute_all(self.work_dir)
+            # Add test to CMakeLists.txt
+            cmake_content += f'add_test(NAME {test_name} COMMAND sh -c "{execute}")\n'
+
+        # Write CMakeLists.txt
+        with open(cmake_file, 'w') as f:
+            f.write(cmake_content)
+
+        logger.debug(f"Generated CMakeLists.txt with {len(testList)} tests")
+
+        # Configure with CMake
+        cmake_cmd = f'cmake -S {self.work_dir} -B {build_dir}'
+        logger.debug(f"Running: {cmake_cmd}")
+        result = utils.shellCommand(cmake_cmd).run(cwd=self.work_dir, timeout=60)
+        if result != 0:
+            logger.error("CMake configuration failed")
+            raise SystemExit(1)
+
+        # Run tests with CTest in parallel
+        ctest_cmd = f'ctest --test-dir {build_dir} --parallel {self.num_jobs} --output-on-failure'
+        logger.debug(f"Running: {ctest_cmd}")
+        result = utils.shellCommand(ctest_cmd).run(cwd=self.work_dir, timeout=300)
+
+        # CTest returns non-zero if any test fails, but we want to continue
+        # So we don't check the return code here
+        logger.debug(f"CTest completed with return code: {result}")

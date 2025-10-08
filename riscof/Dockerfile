@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
   xz-utils \
   zsh \
   vim \
+  cmake \
   && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
