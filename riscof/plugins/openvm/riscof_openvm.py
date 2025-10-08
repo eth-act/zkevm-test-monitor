@@ -66,15 +66,13 @@ class openvm(pluginTemplate):
        # capture the architectural test-suite directory.
        self.suite_dir = suite
 
+       # capture the archtest environment directory for includes
+       self.archtest_env = archtest_env
+
        # Note the march is not hardwired here, because it will change for each
        # test. Similarly the output elf name and compile macros will be assigned later in the
        # runTests function
-       self.compile_cmd = 'riscv64-unknown-elf-gcc -march={0}\
-         -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -g -mno-relax\
-         -Wa,-march={0}\
-         -T '+self.pluginpath+'/env/link.ld\
-         -I '+self.pluginpath+'/env/\
-         -I ' + archtest_env + ' {1} -o {2} {3}'
+       self.compile_cmd = 'riscv64-unknown-elf-gcc -march={0}'
 
        # add more utility snippets here
 
@@ -101,7 +99,15 @@ class openvm(pluginTemplate):
       if "C" in ispec["ISA"]:
           self.isa += 'c'
 
-      self.compile_cmd = self.compile_cmd+' -mabi='+('lp64 ' if 64 in ispec['supported_xlen'] else 'ilp32 ')
+      # Build complete compile command with correct flag ordering
+      abi = 'lp64' if 64 in ispec['supported_xlen'] else 'ilp32'
+      self.compile_cmd = self.compile_cmd + ' -mabi=' + abi + \
+        ' -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -g -mno-relax' + \
+        ' -Wa,-march={0}' + \
+        ' -T ' + self.pluginpath + '/env/link.ld' + \
+        ' -I ' + self.pluginpath + '/env/' + \
+        ' -I ' + self.archtest_env + \
+        ' {1} -o {2} {3}'
 
     def runTests(self, testList):
 
@@ -145,6 +151,13 @@ class openvm(pluginTemplate):
           # substitute all variables in the compile command that we created in the initialize
           # function
           cmd = self.compile_cmd.format(testentry['isa'].lower(), test, elf, compile_macros)
+
+          # Always link RV32-specific libgcc (pure soft-float, no F extension instructions)
+          # Link float runtime for dispatch table and runtime functions (Architecture A)
+          if 'f' in testentry['isa'].lower():
+              cmd += ' ' + self.pluginpath + '/runtime/float_runtime.o'
+          cmd += ' ' + self.pluginpath + '/runtime/libgcc-rv32.a'
+
           # print(f'build command is {cmd}')
 
           # if the user wants to disable running the tests and only compile the tests, then
