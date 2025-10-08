@@ -48,17 +48,30 @@ if [ ! -f "binaries/${ZKVM}-binary" ]; then
   exit 1
 fi
 
+# Check if test results exist
+if [ ! -d "test-results/${ZKVM}" ] || [ -z "$(find "test-results/${ZKVM}" -type d -path "*/dut" 2>/dev/null)" ]; then
+  echo "❌ No test results found for $ZKVM"
+  echo "   Run tests first: ./run test --${SUITE} $ZKVM"
+  exit 1
+fi
+
 # Find matching test ELF in results
 echo "🔍 Searching for test matching '$TEST_PATH' in ${SUITE} suite..."
 
-TEST_DIR=$(find "test-results/${ZKVM}" -type d -path "*/dut" -path "*${TEST_PATH}*" | head -1)
+# Try exact match first (e.g., "add" matches "add-01" but not "addi-01")
+TEST_DIR=$(find "test-results/${ZKVM}" -type d -path "*/dut" -path "*/${TEST_PATH}-*" 2>/dev/null | head -1)
+
+# Fall back to substring match if exact match fails
+if [ -z "$TEST_DIR" ]; then
+  TEST_DIR=$(find "test-results/${ZKVM}" -type d -path "*/dut" -path "*${TEST_PATH}*" 2>/dev/null | head -1)
+fi
 
 if [ -z "$TEST_DIR" ]; then
   echo "❌ No test found matching '$TEST_PATH'"
   echo ""
   echo "Available tests (showing first 20):"
   find "test-results/${ZKVM}" -type d -path "*/dut" 2>/dev/null | \
-    sed 's|test-results/'"${ZKVM}"'/||' | \
+    sed 's|test-results/'\"${ZKVM}\"'/||' | \
     sed 's|/dut$||' | \
     head -20
   exit 1
@@ -70,8 +83,9 @@ if [ ! -f "$TEST_ELF" ]; then
   exit 1
 fi
 
-# Extract test name for display
-TEST_NAME=$(echo "$TEST_DIR" | sed 's|.*/src/||' | sed 's|/dut$||')
+# Extract test name with directory structure for unique log paths
+# e.g., test-results/openvm/rv32i_m/I/src/add-01.S/dut -> rv32i_m/I/add-01.S
+TEST_NAME=$(echo "$TEST_DIR" | sed "s|test-results/${ZKVM}/||" | sed 's|/src/|/|' | sed 's|/dut$||')
 echo "✓ Found test: $TEST_NAME"
 echo "  ELF: $TEST_ELF"
 echo ""

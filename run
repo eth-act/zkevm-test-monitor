@@ -11,37 +11,40 @@ case "$CMD" in
         echo "🔨 Building ZKVMs: ${@:-all}"
         ./src/build.sh "$@"
         ;;
-    
+
     test)
         # Validate that a suite flag is provided
         if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
             echo "❌ Error: Must specify either --arch or --extra"
-            echo "Usage: ./run test [--arch|--extra] [target1 target2 ...]"
+            echo "Usage: ./run test [--arch|--extra] [--build-only] [target1 target2 ...]"
             exit 1
         fi
         # Extract suite type and targets for display
         SUITE_TYPE=""
         DISPLAY_TARGETS=""
+        BUILD_ONLY_FLAG=""
         for arg in "$@"; do
             if [[ "$arg" == "--arch" ]]; then
                 SUITE_TYPE="arch"
             elif [[ "$arg" == "--extra" ]]; then
                 SUITE_TYPE="extra"
+            elif [[ "$arg" == "--build-only" ]]; then
+                BUILD_ONLY_FLAG=" (build-only)"
             else
                 DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
             fi
         done
         DISPLAY_TARGETS="${DISPLAY_TARGETS:-all}"
-        echo "🧪 Testing ZKVMs (${SUITE_TYPE}): ${DISPLAY_TARGETS# }"
+        echo "🧪 Testing ZKVMs (${SUITE_TYPE})${BUILD_ONLY_FLAG}: ${DISPLAY_TARGETS# }"
         ./src/test.sh "$@"
         python3 src/update.py
         ;;
-    
+
     update)
         echo "📊 Updating dashboard"
         python3 src/update.py
         ;;
-    
+
     all)
         # Validate that a suite flag is provided
         if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
@@ -74,13 +77,13 @@ case "$CMD" in
         ./src/test.sh "$@"
         python3 src/update.py
         ;;
-    
+
     serve)
         echo "🌐 Server at http://localhost:8000"
         echo "   Press Ctrl+C to stop"
         cd docs && python3 -m http.server 8000 --bind 127.0.0.1
         ;;
-    
+
     debug)
         echo "🐛 Debug mode"
         ./src/debug.sh "$@"
@@ -96,26 +99,32 @@ case "$CMD" in
 Usage: ./run COMMAND [OPTIONS]
 
 Commands:
-  build [zkvm]                    - Build ZKVM binaries
-  test [--arch|--extra] [zkvm]    - Run RISCOF tests (suite required)
+  build [zkvm]                         - Build ZKVM binaries
+  test [--arch|--extra] [--build-only] [zkvm]
+                                       - Run RISCOF tests (suite required)
   debug [--arch|--extra] <zkvm> <test-pattern>
-                                  - Re-run specific test with verbose logging
-  update                          - Regenerate dashboard HTML
-  all [--arch|--extra] [zkvm]     - Build + test + update (suite required)
-  serve                           - Start local web server
-  clean                           - Remove build artifacts
+                                       - Re-run specific test with verbose logging
+  update                               - Regenerate dashboard HTML
+  all [--arch|--extra] [zkvm]          - Build + test + update (suite required)
+  serve                                - Start local web server
+  clean                                - Remove build artifacts
 
 Test Suite Options:
-  --arch                          - Run architecture compliance tests
-  --extra                         - Run extended differential tests
+  --arch                               - Run architecture compliance tests
+  --extra                              - Run extended differential tests
+  --build-only                         - Compile tests without running them
 
 Examples:
-  ./run build sp1                 # Build just SP1
-  ./run test --arch sp1 jolt      # Test SP1 and Jolt with arch suite
-  ./run test --extra              # Test all ZKVMs with extra suite
-  ./run all --arch                # Build and test everything with arch suite
-  ./run debug openvm div-01       # Debug specific test with full logging
-  ./run serve                     # View dashboard locally
+  ./run build sp1                      # Build just SP1
+  ./run test --arch sp1 jolt           # Test SP1 and Jolt with arch suite
+  ./run test --arch --build-only       # Compile arch tests for all ZKVMs
+  ./run test --extra                   # Test all ZKVMs with extra suite
+  ./run all --arch                     # Build and test everything with arch suite
+  ./run debug --arch openvm div-01     # Debug specific test with full logging
+  ./run serve                          # View dashboard locally
+
+Additional Scripts:
+  ./src/test_debug.sh [zkvm]           - Validate debug command (run after tests)
 EOF
         ;;
 esac
