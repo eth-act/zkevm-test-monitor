@@ -100,16 +100,28 @@ if [ -d "/riscof/riscof_work" ]; then
   find /riscof/riscof_work -mindepth 1 -name .keep -prune -o -exec rm -rf {} + 2> /dev/null || true
 fi
 
+# Parse compile-only flag
+COMPILE_ONLY_MODE=""
+if [ "${3:-}" = "compile-only" ]; then
+  COMPILE_ONLY_MODE="--no-dut-run --no-ref-run"
+  echo "📋 Compile-only mode enabled"
+fi
+
+# Override TEST_SUITE from argument if provided
+if [ -n "${2:-}" ]; then
+  TEST_SUITE="$2"
+fi
+
 # If command line arguments are provided, run them
 # Otherwise, run the default riscof command
-if [ $# -eq 0 ]; then
+if [ $# -eq 0 ] || [ "${2:-}" = "arch" ] || [ "${2:-}" = "extra" ]; then
   # Check which test suite to run
   if [ "${TEST_SUITE}" = "extra" ]; then
     echo "Running ACT-Extra tests..."
-    exec riscof run --config=/riscof/config.ini --suite=/extra-tests --env=/extra-tests/env --no-clean
+    exec riscof run --config=/riscof/config.ini --suite=/extra-tests --env=/extra-tests/env --no-clean $COMPILE_ONLY_MODE
   elif [ "${TEST_SUITE}" = "arch" ]; then
     echo "Running RISCOF arch tests..."
-    exec riscof run --config=/riscof/config.ini --suite=/riscof/riscv-arch-test/riscv-test-suite/ --env=/riscof/riscv-arch-test/riscv-test-suite/env --no-clean
+    exec riscof run --config=/riscof/config.ini --suite=/riscof/riscv-arch-test/riscv-test-suite/ --env=/riscof/riscv-arch-test/riscv-test-suite/env --no-clean $COMPILE_ONLY_MODE
   else
     echo "Error: TEST_SUITE must be 'arch' or 'extra', got: ${TEST_SUITE}"
     exit 1
