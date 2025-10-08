@@ -16,7 +16,7 @@
 2. Update config.json if new commit found
 3. Build ZKVM binary
 4. Run full RISCOF test suite (`./src/test.sh --arch <zkvm>`)
-5. **Test debug command** (`./run test-debug <zkvm>`) ← validates debug command works
+5. **Test debug command** (`./src/test_debug.sh <zkvm>`) ← validates debug command works
 6. Update dashboard
 7. Commit results to git
 8. Create issue on failure
@@ -40,10 +40,35 @@ Test results are generated during test runs and not tracked in git:
 Before pushing changes:
 
 ```bash
-# Test debug command locally
-./run test-debug
+# Test full suite
+./run test --arch sp1
 
-# Validate workflow syntax (requires act or GitHub CLI)
-act -l  # List workflows
-act pull_request  # Simulate PR
+# Test debug command (requires test results)
+./src/test_debug.sh sp1
+
+# Or build tests without running
+./run test --arch --build-only
 ```
+
+## Debugging Failed Tests
+
+```bash
+# Run specific failing test with verbose output
+./run debug --arch openvm div-01
+
+# Logs saved to: debug-output/openvm/arch/div-01.log
+```
+
+## Validating Debug Command
+
+The `src/test_debug.sh` script validates that the debug command works correctly:
+
+```bash
+# Test specific ZKVM (requires test results from ./run test)
+./src/test_debug.sh sp1
+
+# Test all ZKVMs
+./src/test_debug.sh all
+```
+
+This is automatically run in nightly CI workflows after the full test suite completes.

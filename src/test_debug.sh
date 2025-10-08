@@ -1,11 +1,22 @@
 #!/bin/bash
+# test-debug - Validate debug command functionality
+#
+# Tests that the debug command works correctly for each ZKVM by:
+# - Checking that binaries exist
+# - Checking that test results exist (from ./run test)
+# - Running the debug command on a known test (jal-01)
+# - Validating the output
+#
+# Usage: ./test-debug [zkvm]
+#        ./test-debug all
+
 set -e
 
 # Parse arguments
-TARGET_ZKVM="$1"  # run script shifts args, so $1 is optional zkvm name
+TARGET_ZKVM="${1:-all}"
 
 # Determine which ZKVMs to test
-if [ -z "$TARGET_ZKVM" ] || [ "$TARGET_ZKVM" = "all" ]; then
+if [ "$TARGET_ZKVM" = "all" ]; then
   ZKVMS="openvm sp1 jolt r0vm zisk pico airbender"
   echo "🧪 Testing debug command for all ZKVMs"
 else

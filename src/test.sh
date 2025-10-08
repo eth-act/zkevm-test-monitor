@@ -4,6 +4,7 @@ set -e
 # Parse flags
 TEST_SUITE=""
 TARGETS=""
+BUILD_ONLY=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -13,6 +14,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --extra)
       TEST_SUITE="extra"
+      shift
+      ;;
+    --build-only)
+      BUILD_ONLY=true
       shift
       ;;
     *)
@@ -25,7 +30,7 @@ done
 # Require one of the flags to be specified
 if [ -z "$TEST_SUITE" ]; then
   echo "❌ Error: Must specify either --arch or --extra"
-  echo "Usage: $0 [--arch|--extra] [target1 target2 ...]"
+  echo "Usage: $0 [--arch|--extra] [--build-only] [target1 target2 ...]"
   exit 1
 fi
 
@@ -87,13 +92,20 @@ for ZKVM in $ZKVMS; do
 
   # Run RISCOF tests (allow non-zero exit for test failures)
   mkdir -p test-results/${ZKVM}
+
+  # Prepare compile-only argument if --build-only flag is set
+  COMPILE_ONLY_ARG=""
+  if [ "$BUILD_ONLY" = true ]; then
+    COMPILE_ONLY_ARG="compile-only"
+  fi
+
   docker run --rm \
-    -e "TEST_SUITE=${TEST_SUITE}" \
     -v "$PWD/binaries/${ZKVM}-binary:/dut/bin/dut-exe" \
     -v "$PWD/riscof/plugins/${ZKVM}:/dut/plugin" \
     -v "$PWD/test-results/${ZKVM}:/riscof/riscof_work" \
     -v "$PWD/extra-tests:/extra-tests" \
-    riscof:latest || true
+    riscof:latest \
+    "${ZKVM}" "${TEST_SUITE}" ${COMPILE_ONLY_ARG} || true
 
   # Copy report with suite suffix
   if [ -f "test-results/${ZKVM}/report.html" ]; then

@@ -109,8 +109,8 @@ jobs:
           ZKVM="${{ inputs.zkvm }}"
           echo "🐛 Testing debug command for ${ZKVM}..."
 
-          # Run debug command test against git-tracked artifact
-          ./run test-debug ${ZKVM}
+          # Run debug command test after full test suite completes
+          ./src/test_debug.sh ${ZKVM}
         continue-on-error: true
         id: test-debug
 
