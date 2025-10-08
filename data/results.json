@@ -27,8 +27,8 @@
       "last_run": null
     },
     "jolt": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "1175cf89",
       "isa": "rv32im",
       "has_nightly": true,
@@ -53,18 +53,18 @@
       "last_run": null
     },
     "openvm": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "b5f3f0197",
-      "isa": "rv32im",
+      "isa": "rv32imfzicsr",
       "has_nightly": false,
       "suites": {
         "arch": {
           "passed": 47,
-          "failed": 0,
-          "total": 47,
+          "failed": 357,
+          "total": 404,
           "test_status": "completed",
-          "last_run": "2025-10-03",
+          "last_run": "2025-10-08",
           "has_report": true
         },
         "extra": {
@@ -209,7 +209,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-10-08T03:22:57.688120+00:00",
+  "last_updated": "2025-10-08T21:11:33.842050+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "62d930c1"
+  "test_monitor_commit": "88d79258"
 }

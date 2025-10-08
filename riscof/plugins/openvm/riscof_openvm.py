@@ -170,7 +170,7 @@ class openvm(pluginTemplate):
               # Ensure a signature file exists even if OpenVM panics
               # Use printf to write files directly to avoid Makefile heredoc issues
               # Redirect all output to openvm.log, signature is written to file
-              simcmd = 'printf "[package]\\nname = \\"riscof-test\\"\\nversion = \\"0.1.0\\"\\nedition = \\"2021\\"\\n\\n[dependencies]\\n" > Cargo.toml && printf "app_vm_config = {{ exe = \\"{1}\\" }}\\n" > openvm.toml && ({0} openvm run --exe {1} --signatures {2} || echo "PANIC" > {2}) > openvm.log 2>&1'.format(
+              simcmd = 'printf "[package]\\nname = \\"riscof-test\\"\\nversion = \\"0.1.0\\"\\nedition = \\"2021\\"\\n\\n[dependencies]\\n" > Cargo.toml && printf "[app_vm_config.rv32i]\\n[app_vm_config.rv32m]\\n[app_vm_config.rv32f]\\n[app_vm_config.io]\\n" > openvm.toml && ({0} openvm run --exe {1} --signatures {2} || echo "PANIC" > {2}) > openvm.log 2>&1'.format(
                   self.dut_exe, elf, sig_file)
           else:
               # Create dummy signature file for RISCOF when not running

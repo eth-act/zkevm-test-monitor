@@ -132,9 +132,12 @@ edition = "2021"
 [dependencies]
 CARGO_TOML
 
-    # Create minimal openvm.toml with required app_vm_config
+    # Create openvm.toml with required extensions for RV32IMF
     cat > openvm.toml << 'OPENVM_TOML'
-app_vm_config = { exe = "my.elf" }
+[app_vm_config.rv32i]
+[app_vm_config.rv32m]
+[app_vm_config.rv32f]
+[app_vm_config.io]
 OPENVM_TOML
 
     RUST_LOG=debug RUST_BACKTRACE=full \
