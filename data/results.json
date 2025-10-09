@@ -1,8 +1,8 @@
 {
   "zkvms": {
     "sp1": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "fc98075a",
       "isa": "rv32im",
       "has_nightly": false,
@@ -30,13 +30,13 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "ab2b81f5",
-      "isa": "rv32im",
+      "isa": "rv64imac",
       "has_nightly": true,
       "suites": {
         "arch": {
-          "passed": 47,
+          "passed": 124,
           "failed": 0,
-          "total": 47,
+          "total": 124,
           "test_status": "completed",
           "last_run": "2025-10-09",
           "has_report": true
@@ -53,8 +53,8 @@
       "last_run": null
     },
     "openvm": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "b5f3f0197",
       "isa": "rv32im",
       "has_nightly": false,
@@ -105,8 +105,8 @@
       "last_run": null
     },
     "zisk": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "5104c56c4736f99e1a3e809511e41ed6306a7db5",
       "isa": "rv64ima",
       "has_nightly": true,
@@ -131,8 +131,8 @@
       "last_run": null
     },
     "pico": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
       "isa": "rv32im",
       "has_nightly": false,
@@ -157,8 +157,8 @@
       "last_run": null
     },
     "airbender": {
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "1f52d2e2",
       "isa": "rv32im",
       "has_nightly": false,
@@ -203,13 +203,13 @@
       },
       "isa": "rv32im",
       "has_nightly": false,
-      "has_binary": false,
-      "build_status": "not_built",
+      "has_binary": true,
+      "build_status": "success",
       "commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
       "last_run": null
     }
   },
-  "last_updated": "2025-10-09T03:25:19.202850+00:00",
+  "last_updated": "2025-10-09T15:03:42.986746+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "5463df4b"
+  "test_monitor_commit": "e7a1e303"
 }

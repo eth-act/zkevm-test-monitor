@@ -40,6 +40,10 @@ RUN curl -L https://github.com/riscv/sail-riscv/releases/download/0.7/sail_riscv
 # Clone architectural tests
 RUN riscof arch-test --clone --get-version 3.9.1
 
+# Copy patches directory and apply fixes for C extension alignment tests
+COPY patches/ /tmp/patches/
+RUN patch -d /riscof/riscv-arch-test/ -N -p1 --fuzz=3 < /tmp/patches/fix-c-extension-privilege-tests.patch
+
 # Fix RISCOF bugs in dbgen.py
 # Note: Python path changes with Ubuntu 22.04 (Python 3.10)
 RUN PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])") && \
