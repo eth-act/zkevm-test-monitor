@@ -3,13 +3,12 @@ ENTRY(rvtest_entry_point)
 
 SECTIONS
 {
-  /* Dispatch table at fixed address for OpenVM transpiler */
+  /* Float handler at fixed address for OpenVM transpiler */
   /* MUST be at 0x10000000 to match transpiler expectations */
   /* Must be below OpenVM's MEM_SIZE limit of 0x20000000 (512MB) */
   . = 0x10000000;
-  .float_dispatch_table : {
-    *(.float_dispatch_table)
-    . = . + 96;  /* 24 * 4 bytes */
+  .float_handler : {
+    *(.float_handler)
   }
 
   /* All code (including float runtime) starts at non-zero address */

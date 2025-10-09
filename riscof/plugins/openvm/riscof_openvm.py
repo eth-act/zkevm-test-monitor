@@ -100,7 +100,14 @@ class openvm(pluginTemplate):
           self.isa += 'c'
 
       # Build complete compile command with correct flag ordering
-      abi = 'lp64' if 64 in ispec['supported_xlen'] else 'ilp32'
+      # Use hard-float ABI (ilp32f) for F extension, soft-float (ilp32) otherwise
+      if 64 in ispec['supported_xlen']:
+          abi = 'lp64'
+      elif "F" in ispec["ISA"]:
+          abi = 'ilp32f'
+      else:
+          abi = 'ilp32'
+
       self.compile_cmd = self.compile_cmd + ' -mabi=' + abi + \
         ' -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -g -mno-relax' + \
         ' -Wa,-march={0}' + \
@@ -150,15 +157,20 @@ class openvm(pluginTemplate):
 
           # substitute all variables in the compile command that we created in the initialize
           # function
-          cmd = self.compile_cmd.format(testentry['isa'].lower(), test, elf, compile_macros)
+          # Use self.isa (DUT's full ISA) instead of testentry['isa'] (test's minimum ISA)
+          cmd = self.compile_cmd.format(self.isa.lower(), test, elf, compile_macros)
 
-          # Always link RV32-specific libgcc (pure soft-float, no F extension instructions)
-          # Link float runtime for dispatch table and runtime functions (Architecture A)
+          # Link float runtime handler and FCSR for memory-mapped approach
+          # For F extension: use --no-warn-mismatch to allow linking rv32im handler with rv32imf test
           if 'f' in testentry['isa'].lower():
-              cmd += ' ' + self.pluginpath + '/runtime/float_runtime.o'
-          cmd += ' ' + self.pluginpath + '/runtime/libgcc-rv32.a'
+              cmd += ' -Wl,--no-warn-mismatch'
+              cmd += ' ' + self.pluginpath + '/runtime/handler.o'
+              cmd += ' ' + self.pluginpath + '/runtime/fcsr.o'
+              cmd += ' ' + self.pluginpath + '/runtime/libgcc-rv32.a'
+          else:
+              cmd += ' ' + self.pluginpath + '/runtime/libgcc-rv32.a'
 
-          # print(f'build command is {cmd}')
+          print(f'build command is {cmd}')
 
           # if the user wants to disable running the tests and only compile the tests, then
           # the "else" clause is executed below assigning the sim command to simple no action
