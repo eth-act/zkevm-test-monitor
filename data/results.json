@@ -29,7 +29,7 @@
     "jolt": {
       "has_binary": true,
       "build_status": "success",
-      "commit": "7ea0ebbd",
+      "commit": "b853ad0b",
       "isa": "rv64imac",
       "has_nightly": true,
       "suites": {
@@ -38,7 +38,7 @@
           "failed": 0,
           "total": 124,
           "test_status": "completed",
-          "last_run": "2025-10-14",
+          "last_run": "2025-10-15",
           "has_report": true
         },
         "extra": {
@@ -209,7 +209,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-10-14T03:26:39.917811+00:00",
+  "last_updated": "2025-10-15T03:29:13.902085+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "f6b5997a"
+  "test_monitor_commit": "c0d91e31"
 }
