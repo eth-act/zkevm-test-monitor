@@ -1,3 +1,4 @@
 [app_vm_config.rv32i]
 [app_vm_config.rv32m]
+[app_vm_config.rv32f]
 [app_vm_config.io]
