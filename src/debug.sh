@@ -134,7 +134,9 @@ CARGO_TOML
 
     # Create minimal openvm.toml with required app_vm_config
     cat > openvm.toml << 'OPENVM_TOML'
-app_vm_config = { exe = "my.elf" }
+[app_vm_config.rv32i]
+[app_vm_config.rv32m]
+[app_vm_config.io]
 OPENVM_TOML
 
     RUST_LOG=debug RUST_BACKTRACE=full \
@@ -182,8 +184,9 @@ OPENVM_TOML
   pico)
     # Run pico with verbose output
     RUST_LOG=debug RUST_BACKTRACE=full \
-      "binaries/${ZKVM}-binary" \
-      "$TEST_ELF" \
+      "binaries/${ZKVM}-binary" pico test-emulator \
+      --elf "$TEST_ELF" \
+      --signatures "${DEBUG_DIR}/debug.signature" \
       2>&1 | tee "$LOG_FILE"
     ;;
 

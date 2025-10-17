@@ -153,11 +153,18 @@ class openvm(pluginTemplate):
           if self.target_run:
               # Run the test using cargo-openvm with the --exe flag
               # cargo-openvm is available at self.dut_exe
-              # Create minimal Cargo.toml and openvm.toml to satisfy OpenVM requirements
+              # Copy config files from plugin directory
               # Ensure a signature file exists even if OpenVM panics
-              # Use printf to write files directly to avoid Makefile heredoc issues
-              simcmd = 'printf "[package]\\nname = \\"riscof-test\\"\\nversion = \\"0.1.0\\"\\nedition = \\"2021\\"\\n\\n[dependencies]\\n" > Cargo.toml && printf "app_vm_config = {{ exe = \\"{1}\\" }}\\n" > openvm.toml && ({0} openvm run --exe {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -5 > openvm.log'.format(
-                  self.dut_exe, elf, sig_file)
+              cargo_toml_src = os.path.join(self.pluginpath, 'Cargo.toml')
+              openvm_toml_src = os.path.join(self.pluginpath, 'openvm.toml')
+
+              # Build the command in readable parts
+              copy_cargo = 'cp {3} Cargo.toml'
+              copy_config = 'cp {4} openvm.toml'
+              run_test = '({0} openvm run --exe {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -5 > openvm.log'
+
+              simcmd = f'{copy_cargo} && {copy_config} && {run_test}'.format(
+                  self.dut_exe, elf, sig_file, cargo_toml_src, openvm_toml_src)
           else:
               # Create dummy signature file for RISCOF when not running
               simcmd = 'echo "Tests compiled but not run (--no-dut-run)" > {0}'.format(sig_file)
