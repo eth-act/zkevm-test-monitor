@@ -81,7 +81,7 @@ class pico(pluginTemplate):
             
             if self.target_run:
                 # Create signature file even if Pico panics
-                simcmd = '({0} --elf {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -10 > pico.log'.format(
+                simcmd = '({0} pico test-emulator --elf {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 | tail -10 > pico.log'.format(
                     self.dut_exe, elf, sig_file)
             else:
                 simcmd = 'echo "NO RUN"'
