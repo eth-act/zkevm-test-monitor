@@ -10,8 +10,8 @@ SECTIONS
   . = ALIGN(0x1000);
   .text : { *(.text) }
   . = ALIGN(0x1000);
-  .data : { 
-    *(.data) 
+  .data : {
+    *(.data)
     /* Force 8 bytes padding after signature to match REF (144 bytes total) */
     . = ALIGN(16);
   }

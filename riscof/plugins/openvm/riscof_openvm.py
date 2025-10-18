@@ -101,7 +101,28 @@ class openvm(pluginTemplate):
       if "C" in ispec["ISA"]:
           self.isa += 'c'
 
-      self.compile_cmd = self.compile_cmd+' -mabi='+('lp64 ' if 64 in ispec['supported_xlen'] else 'ilp32 ')
+      # Check if float support is needed
+      self.has_float = "F" in ispec["ISA"]
+
+      # Use ilp32/lp64 (soft-float) for all tests since libziskfloat.a is compiled with rv32im
+      if 64 in ispec['supported_xlen']:
+          abi = 'lp64'
+      else:
+          abi = 'ilp32'
+
+      self.compile_cmd = self.compile_cmd + ' -mabi=' + abi + ' '
+      if self.has_float:
+          # Float library and initialization file
+          float_init_path = os.path.join(self.pluginpath, 'env/float_init.S')
+          float_lib_path = os.path.join(self.pluginpath, 'env/libziskfloat.a')
+          if os.path.exists(float_init_path) and os.path.exists(float_lib_path):
+              logger.info(f"Float support enabled - will link {float_lib_path}")
+              self.float_files = f' {float_init_path} {float_lib_path}'
+          else:
+              logger.warning(f"Float extension enabled but library not found")
+              self.float_files = ''
+      else:
+          self.float_files = ''
 
     def runTests(self, testList):
 
@@ -145,7 +166,10 @@ class openvm(pluginTemplate):
           # substitute all variables in the compile command that we created in the initialize
           # function
           cmd = self.compile_cmd.format(testentry['isa'].lower(), test, elf, compile_macros)
-          # print(f'build command is {cmd}')
+
+          # Add float library files if this test needs float support
+          if self.has_float and self.float_files and 'f' in testentry['isa'].lower():
+              cmd = cmd + self.float_files
 
           # if the user wants to disable running the tests and only compile the tests, then
           # the "else" clause is executed below assigning the sim command to simple no action

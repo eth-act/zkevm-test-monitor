@@ -22,7 +22,12 @@
 #define RVTEST_NO_IDENTY_MAP
 
 #define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I)
-#define RVMODEL_BOOT
+#define RVMODEL_BOOT \
+  .weak _float_init; \
+  la t0, _float_init; \
+  beqz t0, 1f; \
+  call _float_init; \
+1:
 
 #define RVTEST_RV32U                                                    \
   .macro terminate ec;                                                  \
