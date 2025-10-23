@@ -140,15 +140,15 @@ CARGO_TOML
 [app_vm_config.rv32f]
 OPENVM_TOML
 
-        set +e  # Disable exit-on-error to capture exit code
-        RUST_LOG=trace RUST_BACKTRACE=1 \
+        set +e # Disable exit-on-error to capture exit code
+        RUST_BACKTRACE=1 \
             "$ABS_BINARY" openvm run \
             --exe my.elf \
             --signatures "${ABS_DEBUG_DIR}/debug.signature" \
             2>&1 | tee "$ABS_LOG_FILE"
 
-        EXIT_CODE=${PIPESTATUS[0]}  # Get exit code of openvm command, not tee
-        set -e  # Re-enable exit-on-error
+        EXIT_CODE=${PIPESTATUS[0]} # Get exit code of openvm command, not tee
+        set -e                     # Re-enable exit-on-error
         cd - > /dev/null
         ;;
 
@@ -233,7 +233,7 @@ else
     echo "❌ Test failed with exit code: $EXIT_CODE"
 
     # Check if this is a VM exit code failure (OpenVM wraps the exit code in an error)
-    if [ "$ZKVM" = "openvm" ] && grep -q "program exit code" "$ABS_LOG_FILE" 2>/dev/null; then
+    if [ "$ZKVM" = "openvm" ] && grep -q "program exit code" "$ABS_LOG_FILE" 2> /dev/null; then
         # Extract the VM exit code from the error message
         VM_EXIT_CODE=$(grep "program exit code" "$ABS_LOG_FILE" | head -1 | sed -n 's/.*program exit code \([0-9]*\).*/\1/p')
 

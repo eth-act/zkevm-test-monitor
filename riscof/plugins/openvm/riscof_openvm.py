@@ -104,20 +104,24 @@ class openvm(pluginTemplate):
       # Check if float support is needed
       self.has_float = "F" in ispec["ISA"]
 
-      # Use ilp32/lp64 (soft-float) for all tests since libziskfloat.a is compiled with rv32im
+      # Use ilp32f/lp64d for float tests, ilp32/lp64 otherwise
       if 64 in ispec['supported_xlen']:
-          abi = 'lp64'
+          abi = 'lp64d' if self.has_float else 'lp64'
       else:
-          abi = 'ilp32'
+          abi = 'ilp32f' if self.has_float else 'ilp32'
 
       self.compile_cmd = self.compile_cmd + ' -mabi=' + abi + ' '
       if self.has_float:
-          # Float library and initialization file
+          # Float library, initialization file, and handler object files
           float_init_path = os.path.join(self.pluginpath, 'env/float_init.S')
+          float_handler_path = os.path.join(self.pluginpath, 'env/float.o')
+          compiler_builtins_path = os.path.join(self.pluginpath, 'env/compiler_builtins.o')
           float_lib_path = os.path.join(self.pluginpath, 'env/libziskfloat.a')
           if os.path.exists(float_init_path) and os.path.exists(float_lib_path):
               logger.info(f"Float support enabled - will link {float_lib_path}")
-              self.float_files = f' {float_init_path} {float_lib_path}'
+              # Link float.o and compiler_builtins.o as separate objects (not from archive)
+              # to ensure _zisk_float symbol is available for .weak references
+              self.float_files = f' {float_init_path} {float_handler_path} {compiler_builtins_path} {float_lib_path}'
           else:
               logger.warning(f"Float extension enabled but library not found")
               self.float_files = ''

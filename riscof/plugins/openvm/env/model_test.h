@@ -34,6 +34,12 @@
       .insn i 0x0b, 0, x0, x0, \ec;                                     \
   .endm
 
+// Override RVTEST_FP_ENABLE to skip CSR instructions (OpenVM doesn't support CSRs)
+// In a real RISC-V processor, this would set FS bits in mstatus
+// For OpenVM, floating-point is always enabled, so these are no-ops
+#define RVTEST_FP_ENABLE                                                \
+  nop; nop;
+
 
 // Our custom halting logic
 #define RVMODEL_HALT                                              \

@@ -33,13 +33,6 @@ SECTIONS
         *(.rodata*)
     } > RAM : data
 
-    /* Place float library entry pointer at fixed address where OpenVM expects it */
-    . = 0x1F440;
-    .float_lib_entry : {
-        _float_lib_entry = .;
-        . += 4;  /* Reserve 4 bytes for the function pointer */
-    } > RAM : data
-
     .data : {
         *(.data*)
         *(.sdata*)
@@ -53,6 +46,12 @@ SECTIONS
     } > RAM : data
 
     _end = .;
+
+    /* Place float library entry pointer at fixed address where OpenVM expects it */
+    .float_lib_entry 0x00100000 : {
+        _float_lib_entry = .;
+        LONG(0);  /* Reserve 4 bytes, will be initialized by _float_init */
+    } > RAM : data
 
     /DISCARD/ : {
         *(.comment)
