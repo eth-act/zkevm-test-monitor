@@ -23,6 +23,7 @@
 
 #define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I)
 #define RVMODEL_BOOT \
+  lui sp, 0x80; \
   .weak _float_init; \
   la t0, _float_init; \
   beqz t0, 1f; \

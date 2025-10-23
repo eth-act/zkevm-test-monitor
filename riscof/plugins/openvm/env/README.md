@@ -21,16 +21,12 @@ To rebuild the float library artifacts:
 This script:
 1. Compiles `float.o` from the Zisk float handler source
 2. Compiles `compiler_builtins.o` for RV32 support
-3. Copies `libziskfloat.a` from the prebuilt library
+3. Builds `libziskfloat.a` from SoftFloat-3e sources
 
-**Note**: The prebuilt `libziskfloat.a` must exist at:
-`../../../../../extensions/floats/guest/vendor/zisk/lib-float/c/lib/libziskfloat.a`
-
-If it doesn't exist, build it first by running:
-```bash
-cd ../../../../../../examples/floats
-./build.sh
-```
+All artifacts are compiled from source code defined in the OpenVM repository:
+- Float handler: `extensions/floats/guest/vendor/zisk/lib-float/c/src/float/`
+- SoftFloat library: `extensions/floats/guest/vendor/zisk/lib-float/c/SoftFloat-3e/`
+- Compiler builtins: `extensions/floats/guest/vendor/compiler_builtins.c`
 
 ## Files
 

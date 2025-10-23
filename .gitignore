@@ -1,7 +1,8 @@
 # Build artifacts
 binaries/
 
-# RISCOF plugin build artifacts (rebuilt by riscof/plugins/openvm/env/build_float_lib.sh)
+# RISCOF plugin build artifacts (built locally as fallback)
+# Primary source: binaries/float-libs/ (built by cargo-openvm)
 riscof/plugins/openvm/env/*.o
 riscof/plugins/openvm/env/*.a
 

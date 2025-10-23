@@ -112,38 +112,67 @@ class openvm(pluginTemplate):
 
       self.compile_cmd = self.compile_cmd + ' -mabi=' + abi + ' '
       if self.has_float:
-          # Float library, initialization file, and handler object files
-          float_init_path = os.path.join(self.pluginpath, 'env/float_init.S')
-          float_handler_path = os.path.join(self.pluginpath, 'env/float.o')
-          compiler_builtins_path = os.path.join(self.pluginpath, 'env/compiler_builtins.o')
-          float_lib_path = os.path.join(self.pluginpath, 'env/libziskfloat.a')
+          # Float library artifacts - look in binaries/ first (built by cargo-openvm)
+          # Fall back to env/ for local builds
+          # Note: pluginpath is /riscof/plugins/openvm in Docker
+          binaries_dir = '/binaries/float-libs'
+          env_dir = os.path.join(self.pluginpath, 'env')
 
-          # Check that all required files exist
-          missing_files = []
-          if not os.path.exists(float_init_path):
-              missing_files.append(float_init_path)
-          if not os.path.exists(float_handler_path):
-              missing_files.append(float_handler_path)
-          if not os.path.exists(compiler_builtins_path):
-              missing_files.append(compiler_builtins_path)
-          if not os.path.exists(float_lib_path):
-              missing_files.append(float_lib_path)
+          # float_init.S is always in env/ (it's a source file)
+          float_init_path = os.path.join(env_dir, 'float_init.S')
 
-          if missing_files:
-              logger.error("Float extension enabled but required files are missing:")
-              for f in missing_files:
-                  logger.error(f"  - {f}")
-              build_script = os.path.join(self.pluginpath, 'env/build_float_lib.sh')
-              logger.error(f"\nTo build the float library, run:")
-              logger.error(f"  {build_script}")
-              logger.error(f"\nOr from the repository root:")
-              logger.error(f"  zkevm-test-monitor/riscof/plugins/openvm/env/build_float_lib.sh")
+          # Check binaries/ first, then env/
+          if os.path.exists(os.path.join(binaries_dir, 'libziskfloat.a')):
+              # Use artifacts from binaries/ (built by cargo-openvm)
+              float_lib_path = os.path.join(binaries_dir, 'libziskfloat.a')
+              logger.info(f"Float support enabled - using cargo-openvm built library from binaries/")
+              logger.info(f"  Library: {float_lib_path}")
+
+              # For binaries/ artifacts, we only have the .a file
+              # The .o files are included in the .a, so we don't need them separately
+              self.float_files = f' {float_init_path} {float_lib_path} -lgcc'
+          elif os.path.exists(os.path.join(env_dir, 'libziskfloat.a')):
+              # Use artifacts from env/ (built locally)
+              float_handler_path = os.path.join(env_dir, 'float.o')
+              compiler_builtins_path = os.path.join(env_dir, 'compiler_builtins.o')
+              float_lib_path = os.path.join(env_dir, 'libziskfloat.a')
+
+              # Check that all required files exist
+              missing_files = []
+              if not os.path.exists(float_init_path):
+                  missing_files.append(float_init_path)
+              if not os.path.exists(float_handler_path):
+                  missing_files.append(float_handler_path)
+              if not os.path.exists(compiler_builtins_path):
+                  missing_files.append(compiler_builtins_path)
+
+              if missing_files:
+                  logger.error("Float extension enabled but required files are missing:")
+                  for f in missing_files:
+                      logger.error(f"  - {f}")
+                  build_script = os.path.join(env_dir, 'build_float_lib.sh')
+                  logger.error(f"\nTo build the float library, run:")
+                  logger.error(f"  {build_script}")
+                  raise SystemExit(1)
+
+              logger.info(f"Float support enabled - using locally built library from env/")
+              logger.info(f"  Library: {float_lib_path}")
+              # Link float.o and compiler_builtins.o as separate objects (not from archive)
+              # to ensure _zisk_float symbol is available for .weak references
+              self.float_files = f' {float_init_path} {float_handler_path} {compiler_builtins_path} {float_lib_path}'
+          else:
+              logger.error("Float extension enabled but float library not found")
+              logger.error("Expected library in one of:")
+              logger.error(f"  - {binaries_dir}/libziskfloat.a (built by cargo-openvm)")
+              logger.error(f"  - {env_dir}/libziskfloat.a (built locally)")
+              logger.error("")
+              logger.error("To build with cargo-openvm:")
+              logger.error("  1. cargo build -p cargo-openvm")
+              logger.error("  2. scripts/copy-float-libs.sh")
+              logger.error("")
+              logger.error("Or build locally:")
+              logger.error(f"  {env_dir}/build_float_lib.sh")
               raise SystemExit(1)
-
-          logger.info(f"Float support enabled - will link {float_lib_path}")
-          # Link float.o and compiler_builtins.o as separate objects (not from archive)
-          # to ensure _zisk_float symbol is available for .weak references
-          self.float_files = f' {float_init_path} {float_handler_path} {compiler_builtins_path} {float_lib_path}'
       else:
           self.float_files = ''
 
