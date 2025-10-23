@@ -101,16 +101,12 @@ class openvm(pluginTemplate):
       if "C" in ispec["ISA"]:
           self.isa += 'c'
 
-      # Check if float support is needed
+      # Check if float support is available in the ISA
       self.has_float = "F" in ispec["ISA"]
 
-      # Use ilp32f/lp64d for float tests, ilp32/lp64 otherwise
-      if 64 in ispec['supported_xlen']:
-          abi = 'lp64d' if self.has_float else 'lp64'
-      else:
-          abi = 'ilp32f' if self.has_float else 'ilp32'
+      # Don't set ABI here - it will be set per-test based on whether the test uses floats
+      # The compile_cmd will have the ABI appended in runTests()
 
-      self.compile_cmd = self.compile_cmd + ' -mabi=' + abi + ' '
       if self.has_float:
           # Float library artifacts - look in binaries/ first (built by cargo-openvm)
           # Fall back to env/ for local builds
@@ -215,12 +211,22 @@ class openvm(pluginTemplate):
           # prefix with "-D". The following does precisely that.
           compile_macros= ' -D' + " -D".join(testentry['macros'])
 
+          # Check if this specific test uses floats
+          test_uses_float = 'f' in testentry['isa'].lower()
+
+          # Set ABI based on whether this test uses floats
+          if test_uses_float:
+              abi = 'ilp32f' if self.xlen == '32' else 'lp64d'
+          else:
+              abi = 'ilp32' if self.xlen == '32' else 'lp64'
+
           # substitute all variables in the compile command that we created in the initialize
           # function
           cmd = self.compile_cmd.format(testentry['isa'].lower(), test, elf, compile_macros)
+          cmd = cmd + ' -mabi=' + abi + ' '
 
           # Add float library files if this test needs float support
-          if self.has_float and self.float_files and 'f' in testentry['isa'].lower():
+          if self.has_float and self.float_files and test_uses_float:
               cmd = cmd + self.float_files
 
           # if the user wants to disable running the tests and only compile the tests, then
