@@ -117,14 +117,33 @@ class openvm(pluginTemplate):
           float_handler_path = os.path.join(self.pluginpath, 'env/float.o')
           compiler_builtins_path = os.path.join(self.pluginpath, 'env/compiler_builtins.o')
           float_lib_path = os.path.join(self.pluginpath, 'env/libziskfloat.a')
-          if os.path.exists(float_init_path) and os.path.exists(float_lib_path):
-              logger.info(f"Float support enabled - will link {float_lib_path}")
-              # Link float.o and compiler_builtins.o as separate objects (not from archive)
-              # to ensure _zisk_float symbol is available for .weak references
-              self.float_files = f' {float_init_path} {float_handler_path} {compiler_builtins_path} {float_lib_path}'
-          else:
-              logger.warning(f"Float extension enabled but library not found")
-              self.float_files = ''
+
+          # Check that all required files exist
+          missing_files = []
+          if not os.path.exists(float_init_path):
+              missing_files.append(float_init_path)
+          if not os.path.exists(float_handler_path):
+              missing_files.append(float_handler_path)
+          if not os.path.exists(compiler_builtins_path):
+              missing_files.append(compiler_builtins_path)
+          if not os.path.exists(float_lib_path):
+              missing_files.append(float_lib_path)
+
+          if missing_files:
+              logger.error("Float extension enabled but required files are missing:")
+              for f in missing_files:
+                  logger.error(f"  - {f}")
+              build_script = os.path.join(self.pluginpath, 'env/build_float_lib.sh')
+              logger.error(f"\nTo build the float library, run:")
+              logger.error(f"  {build_script}")
+              logger.error(f"\nOr from the repository root:")
+              logger.error(f"  zkevm-test-monitor/riscof/plugins/openvm/env/build_float_lib.sh")
+              raise SystemExit(1)
+
+          logger.info(f"Float support enabled - will link {float_lib_path}")
+          # Link float.o and compiler_builtins.o as separate objects (not from archive)
+          # to ensure _zisk_float symbol is available for .weak references
+          self.float_files = f' {float_init_path} {float_handler_path} {compiler_builtins_path} {float_lib_path}'
       else:
           self.float_files = ''
 
