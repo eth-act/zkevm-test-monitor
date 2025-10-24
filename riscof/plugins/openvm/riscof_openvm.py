@@ -246,7 +246,8 @@ class openvm(pluginTemplate):
               # Build the command in readable parts
               copy_cargo = 'cp {3} Cargo.toml'
               copy_config = 'cp {4} openvm.toml'
-              run_test = '({0} openvm run --exe {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 > openvm.log'
+              # Disable verbose logging to speed up execution
+              run_test = '(RUST_LOG=error {0} openvm run --exe {1} --signatures {2} || echo "PANIC" > {2}) 2>&1 > openvm.log'
 
               simcmd = f'{copy_cargo} && {copy_config} && {run_test}'.format(
                   self.dut_exe, elf, sig_file, cargo_toml_src, openvm_toml_src)
