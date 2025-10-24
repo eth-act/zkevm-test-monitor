@@ -46,6 +46,11 @@ echo "Compiling compiler_builtins.c..."
 COMPILER_BUILTINS="$OPENVM_ROOT/extensions/floats/guest/vendor/compiler_builtins.c"
 riscv64-elf-gcc $CFLAGS -c "$COMPILER_BUILTINS" -o "$OUT_DIR/compiler_builtins.o"
 
+# Compile softfloat_fcsr (provides RISC-V FCSR state and exception handling)
+echo "Compiling softfloat_fcsr.c..."
+SOFTFLOAT_FCSR="$OUT_DIR/softfloat_fcsr.c"
+riscv64-elf-gcc $CFLAGS -c "$SOFTFLOAT_FCSR" -o "$OUT_DIR/softfloat_fcsr.o"
+
 # Build libziskfloat.a from source
 echo "Building libziskfloat.a from SoftFloat sources..."
 

@@ -71,6 +71,20 @@ cp "$DUT_EXECUTABLE" "/riscof/dut-bin/"
 chmod +x "/riscof/dut-bin/$DUT_NAME"
 export PATH="/riscof/dut-bin:/riscof/toolchains/riscv64/bin:/riscof/emulators/sail-riscv:$PATH"
 
+# Parse compile-only flag (MUST come before config generation)
+COMPILE_ONLY_MODE=""
+TARGET_RUN_VALUE="1"
+if [ "${3:-}" = "compile-only" ]; then
+  COMPILE_ONLY_MODE="--no-dut-run --no-ref-run"
+  TARGET_RUN_VALUE="0"
+  echo "📋 Compile-only mode enabled"
+fi
+
+# Override TEST_SUITE from argument if provided
+if [ -n "${2:-}" ]; then
+  TEST_SUITE="$2"
+fi
+
 # Generate config.ini dynamically
 echo "Generating config.ini for $PLUGIN_NAME..."
 cat > /riscof/config.ini << EOF
@@ -84,7 +98,7 @@ DUTPluginPath=plugins/$PLUGIN_NAME
 pluginpath=plugins/$PLUGIN_NAME
 ispec=plugins/$PLUGIN_NAME/${PLUGIN_NAME}_isa.yaml
 pspec=plugins/$PLUGIN_NAME/${PLUGIN_NAME}_platform.yaml
-target_run=1
+target_run=${TARGET_RUN_VALUE}
 PATH=/riscof/dut-bin/
 jobs=48
 
@@ -98,18 +112,6 @@ EOF
 if [ -d "/riscof/riscof_work" ]; then
   echo "Clearing previous results..."
   find /riscof/riscof_work -mindepth 1 -name .keep -prune -o -exec rm -rf {} + 2> /dev/null || true
-fi
-
-# Parse compile-only flag
-COMPILE_ONLY_MODE=""
-if [ "${3:-}" = "compile-only" ]; then
-  COMPILE_ONLY_MODE="--no-dut-run --no-ref-run"
-  echo "📋 Compile-only mode enabled"
-fi
-
-# Override TEST_SUITE from argument if provided
-if [ -n "${2:-}" ]; then
-  TEST_SUITE="$2"
 fi
 
 # If command line arguments are provided, run them

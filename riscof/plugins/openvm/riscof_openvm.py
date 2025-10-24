@@ -131,6 +131,7 @@ class openvm(pluginTemplate):
               # Use artifacts from env/ (built locally)
               float_handler_path = os.path.join(env_dir, 'float.o')
               compiler_builtins_path = os.path.join(env_dir, 'compiler_builtins.o')
+              softfloat_fcsr_path = os.path.join(env_dir, 'softfloat_fcsr.o')
               float_lib_path = os.path.join(env_dir, 'libziskfloat.a')
 
               # Check that all required files exist
@@ -141,6 +142,8 @@ class openvm(pluginTemplate):
                   missing_files.append(float_handler_path)
               if not os.path.exists(compiler_builtins_path):
                   missing_files.append(compiler_builtins_path)
+              if not os.path.exists(softfloat_fcsr_path):
+                  missing_files.append(softfloat_fcsr_path)
 
               if missing_files:
                   logger.error("Float extension enabled but required files are missing:")
@@ -153,9 +156,9 @@ class openvm(pluginTemplate):
 
               logger.info(f"Float support enabled - using locally built library from env/")
               logger.info(f"  Library: {float_lib_path}")
-              # Link float.o and compiler_builtins.o as separate objects (not from archive)
-              # to ensure _zisk_float symbol is available for .weak references
-              self.float_files = f' {float_init_path} {float_handler_path} {compiler_builtins_path} {float_lib_path}'
+              # Link float.o, compiler_builtins.o, and softfloat_fcsr.o as separate objects (not from archive)
+              # to ensure _zisk_float symbol is available for .weak references and FCSR state is properly initialized
+              self.float_files = f' {float_init_path} {float_handler_path} {compiler_builtins_path} {softfloat_fcsr_path} {float_lib_path}'
           else:
               logger.error("Float extension enabled but float library not found")
               logger.error("Expected library in one of:")
