@@ -22,6 +22,8 @@
 #define RVTEST_NO_IDENTY_MAP
 
 #define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I)
+#define RVMODEL_IO_WRITE_STR(_R, _STR)
+#define rvmodel_io_write_str(_R, _STR)
 #define RVMODEL_BOOT \
   lui sp, 0x80; \
   .weak _float_init; \
