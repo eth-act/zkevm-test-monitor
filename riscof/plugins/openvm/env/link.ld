@@ -48,7 +48,8 @@ SECTIONS
     _end = .;
 
     /* Place float library entry pointer at fixed address where OpenVM expects it */
-    .float_lib_entry 0x00100000 : {
+    /* Moved to 0x1F0000 (just before float registers at 0x200000) to avoid conflicts with large .text sections */
+    .float_lib_entry 0x001F0000 : {
         _float_lib_entry = .;
         LONG(0);  /* Reserve 4 bytes, will be initialized by _float_init */
     } > RAM : data

@@ -256,7 +256,12 @@ class openvm(pluginTemplate):
               simcmd = 'echo "Tests compiled but not run (--no-dut-run)" > {0}'.format(sig_file)
 
           # concatenate all commands that need to be executed within a make-target.
-          execute = '@cd {0}; {1}; {2};'.format(testentry['work_dir'], cmd, simcmd)
+          # Log the compilation command and redirect compilation output to compilation.log
+          log_cmd = 'echo "Compilation command:" > compilation.log'
+          log_cmd += ' && echo "{1}" >> compilation.log'
+          log_cmd += ' && echo "" >> compilation.log'
+          log_cmd += ' && echo "Compilation output:" >> compilation.log'
+          execute = '@cd {0}; {1}; {2} >> compilation.log 2>&1; {3};'.format(testentry['work_dir'], log_cmd.format(testentry['work_dir'], cmd.replace('"', '\\"')), cmd, simcmd)
 
           # create a target. The makeutil will create a target with the name "TARGET<num>" where num
           # starts from 0 and increments automatically for each new target that is added
