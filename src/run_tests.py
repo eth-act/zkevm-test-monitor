@@ -132,10 +132,23 @@ def run_riscof_tests(zkvm, test_suite):
     test_results_dir = Path(f'test-results/{zkvm}')
     test_results_dir.mkdir(parents=True, exist_ok=True)
 
-    # Run Docker container
-    docker_cmd = [
-        'docker', 'run', '--rm',
+    # Get number of jobs from JOBS environment variable or use default
+    riscof_jobs = os.environ.get('JOBS', '48')
+
+    # Build docker command
+    docker_cmd = ['docker', 'run', '--rm']
+
+    # Add CPU pinning if JOBS is set
+    if 'JOBS' in os.environ:
+        jobs = int(riscof_jobs)
+        last_core = jobs - 1
+        docker_cmd.extend(['--cpuset-cpus', f'0-{last_core}'])
+        print(f'  📌 Limiting to cores 0-{last_core} ({jobs} cores total)')
+
+    # Add remaining docker arguments
+    docker_cmd.extend([
         '-e', f'TEST_SUITE={test_suite}',
+        '-e', f'RISCOF_JOBS={riscof_jobs}',
         '-v', f'{Path.cwd()}/binaries/{zkvm}-binary:/dut/bin/dut-exe',
         '-v', f'{Path.cwd()}/riscof/plugins/{zkvm}:/dut/plugin',
         '-v', f'{Path.cwd()}/test-results/{zkvm}:/riscof/riscof_work',

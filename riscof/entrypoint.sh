@@ -72,7 +72,9 @@ chmod +x "/riscof/dut-bin/$DUT_NAME"
 export PATH="/riscof/dut-bin:/riscof/toolchains/riscv64/bin:/riscof/emulators/sail-riscv:$PATH"
 
 # Generate config.ini dynamically
-echo "Generating config.ini for $PLUGIN_NAME..."
+# Use RISCOF_JOBS environment variable if set, otherwise default to 48
+JOBS=${RISCOF_JOBS:-48}
+echo "Generating config.ini for $PLUGIN_NAME with jobs=$JOBS..."
 cat > /riscof/config.ini << EOF
 [RISCOF]
 ReferencePlugin=sail_cSim
@@ -86,12 +88,12 @@ ispec=plugins/$PLUGIN_NAME/${PLUGIN_NAME}_isa.yaml
 pspec=plugins/$PLUGIN_NAME/${PLUGIN_NAME}_platform.yaml
 target_run=1
 PATH=/riscof/dut-bin/
-jobs=48
+jobs=$JOBS
 
 [sail_cSim]
 pluginpath=plugins/sail_cSim
 PATH=/riscof/emulators/sail-riscv/bin/
-jobs=48
+jobs=$JOBS
 EOF
 
 # Clear results directory except .keep file

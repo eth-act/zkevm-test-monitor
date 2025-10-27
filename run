@@ -114,11 +114,16 @@ Test Suite Options:
   --extra                              - Run extended differential tests
   --build-only                         - Compile tests without running them
 
+Environment Variables:
+  JOBS=N                               - Limit to N CPU cores (pins container to cores 0 to N-1)
+                                         Example: JOBS=8 ./run test --arch zisk (uses cores 0-7)
+
 Examples:
   ./run build sp1                      # Build just SP1
   ./run test --arch sp1 jolt           # Test SP1 and Jolt with arch suite
   ./run test --arch --build-only       # Compile arch tests for all ZKVMs
   ./run test --extra                   # Test all ZKVMs with extra suite
+  JOBS=8 ./run test --arch zisk        # Test zisk using only 8 cores
   ./run all --arch                     # Build and test everything with arch suite
   ./run debug --arch openvm div-01     # Debug specific test with full logging
   ./run serve                          # View dashboard locally

@@ -99,7 +99,21 @@ for ZKVM in $ZKVMS; do
     COMPILE_ONLY_ARG="compile-only"
   fi
 
+  # Use JOBS environment variable if set, otherwise default to 48
+  RISCOF_JOBS=${JOBS:-48}
+
+  # Build cpuset argument to pin container to specific cores
+  # If JOBS=8, use cores 0-7; if JOBS=48, use cores 0-47
+  CPUSET_ARG=""
+  if [ -n "$JOBS" ]; then
+    LAST_CORE=$((JOBS - 1))
+    CPUSET_ARG="--cpuset-cpus=0-${LAST_CORE}"
+    echo "  📌 Limiting to cores 0-${LAST_CORE} (${JOBS} cores total)"
+  fi
+
   docker run --rm \
+    ${CPUSET_ARG} \
+    -e RISCOF_JOBS=${RISCOF_JOBS} \
     -v "$PWD/binaries/${ZKVM}-binary:/dut/bin/dut-exe" \
     -v "$PWD/riscof/plugins/${ZKVM}:/dut/plugin" \
     -v "$PWD/test-results/${ZKVM}:/riscof/riscof_work" \
