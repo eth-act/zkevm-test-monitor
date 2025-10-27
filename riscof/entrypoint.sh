@@ -85,6 +85,11 @@ if [ -n "${2:-}" ]; then
   TEST_SUITE="$2"
 fi
 
+# Configure git to trust mounted volumes (fixes "dubious ownership" error)
+# This is needed because mounted volumes may have different ownership than container user
+git config --global --add safe.directory /extra-tests
+git config --global --add safe.directory /riscof/riscv-arch-test
+
 # Generate config.ini dynamically
 echo "Generating config.ini for $PLUGIN_NAME..."
 cat > /riscof/config.ini << EOF

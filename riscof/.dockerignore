@@ -17,6 +17,9 @@ toolchains/risc0-riscv32im/
 # Test outputs
 riscof_work/
 
+# Architecture test suite (cloned fresh during Docker build)
+riscv-arch-test/
+
 # Documentation
 *.md
 README*
