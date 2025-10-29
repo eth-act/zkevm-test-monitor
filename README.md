@@ -41,17 +41,6 @@ FORCE=1 ./run build sp1  # FORCE=1 rebuilds even if binary exists
 
 Each ZKVM's history page shows the exact commit, ISA, and results for every past run, as well as the particular test monitor commit, so the above workflow allows for reproducing historical results. 
 
-## Supported ZKVMs
-
-Currently testing:
-- **Airbender** - zkSync's zkVM
-- **Jolt** - a16z's lookup-based zkVM
-- **OpenVM** - Modular zkVM framework
-- **Pico** - Experimental zkVM
-- **r0vm** - RISC Zero's zkVM
-- **SP1** - Succinct Labs' zkVM
-- **Zisk** - Polygon's zkVM (RV64IMA)
-
 Configuration for each ZKVM is in `config.json`.
 
 ## Test Suites
