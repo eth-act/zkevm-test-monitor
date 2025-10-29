@@ -77,7 +77,7 @@ class zisk(pluginTemplate):
        # test. Similarly the output elf name and compile macros will be assigned later in the
        # runTests function
        self.compile_cmd = 'riscv{1}-unknown-elf-gcc -march={0} \
-         -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -g -mno-relax\
+         -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -mno-relax\
          -Wa,-march={0}\
          -T '+self.pluginpath+'/env/link.ld\
          -I '+self.pluginpath+'/env/\
@@ -112,6 +112,8 @@ class zisk(pluginTemplate):
 
       #TODO: The following assumes you are using the riscv-gcc toolchain. If
       #      not please change appropriately
+      # Use integer-only ABI (lp64/ilp32) for all tests to ensure compatibility
+      # Each test compiles with its own -march, so we need an ABI that works for all
       self.compile_cmd = self.compile_cmd+' -mabi='+('lp64 ' if 64 in ispec['supported_xlen'] else 'ilp32 ')
 
     def runTests(self, testList):
@@ -153,15 +155,21 @@ class zisk(pluginTemplate):
           # prefix with "-D". The following does precisely that.
           compile_macros= ' -D' + " -D".join(testentry['macros'])
 
+          # Ensure Zicsr extension is included since model_test.h uses csrr instruction
+          test_isa = testentry['isa'].lower()
+          if '_zicsr' not in test_isa and 'zicsr' not in test_isa:
+              test_isa += '_zicsr'
+
           # substitute all variables in the compile command that we created in the initialize
           # function
-          cmd = self.compile_cmd.format(testentry['isa'].lower(), self.xlen, test, elf, compile_macros)
+          cmd = self.compile_cmd.format(test_isa, self.xlen, test, elf, compile_macros)
 
 	  # if the user wants to disable running the tests and only compile the tests, then
 	  # the "else" clause is executed below assigning the sim command to simple no action
 	  # echo statement.
           if self.target_run:
             # Run Zisk and ensure a signature file exists even if it panics
+            # Console output is enabled by default in ziskemu
             simcmd = '({0} -e {2} >{1} || echo "PANIC" > {1}) 2>&1 | tail -10 > zisk.log'.format(
                 self.dut_exe, sig_file, elf)
           else:

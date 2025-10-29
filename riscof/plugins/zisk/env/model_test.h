@@ -32,8 +32,7 @@
     addi t0, t0, 4;    \
     j next;   \
   end: \
-    li t1, 0xa0008f12; \
-    lw t0, (t1); \
+    csrr t0, 0xf12; \
     li   t1, ARCH_ID_ZISK; \
     beq t0, t1, zisk_exit; \
   qemu_exit: \
