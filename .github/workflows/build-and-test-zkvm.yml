@@ -98,8 +98,18 @@ jobs:
           ZKVM="${{ inputs.zkvm }}"
           echo "🧪 Testing ${ZKVM} ZKVM..."
 
-          # Run tests with limited parallelism in CI to prevent resource exhaustion
-          JOBS=4 ./src/test.sh --arch ${ZKVM}
+          # Show available memory before tests
+          echo "📊 Memory before tests:"
+          free -h
+
+          # Run tests with limited parallelism in CI to prevent OOM (exit code 137)
+          # GitHub Actions runners: 2 cores, 7GB RAM
+          # Reducing to JOBS=2 to prevent memory exhaustion
+          JOBS=2 ./src/test.sh --arch ${ZKVM}
+
+          # Show memory after tests
+          echo "📊 Memory after tests:"
+          free -h
         continue-on-error: true
         id: test-zkvm
 
