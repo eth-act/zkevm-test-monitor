@@ -102,10 +102,11 @@ jobs:
           echo "📊 Memory before tests:"
           free -h
 
-          # Run tests with limited parallelism in CI to prevent OOM (exit code 137)
+          # Run tests with parallelism tuned for GitHub Actions runners
           # GitHub Actions runners: 2 cores, 7GB RAM
-          # Reducing to JOBS=2 to prevent memory exhaustion
-          JOBS=2 ./src/test.sh --arch ${ZKVM}
+          # JOBS=3 balances speed and memory usage
+          # Timeout set to 30 minutes in plugin (riscof_*.py: execute_all timeout=1800)
+          JOBS=3 ./src/test.sh --arch ${ZKVM}
 
           # Show memory after tests
           echo "📊 Memory after tests:"
