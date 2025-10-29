@@ -99,7 +99,7 @@ jobs:
           echo "🧪 Testing ${ZKVM} ZKVM..."
 
           # Run tests with limited parallelism in CI to prevent resource exhaustion
-          JOBS=8 ./src/test.sh --arch ${ZKVM}
+          JOBS=4 ./src/test.sh --arch ${ZKVM}
         continue-on-error: true
         id: test-zkvm
 
