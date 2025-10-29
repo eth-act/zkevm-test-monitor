@@ -230,7 +230,7 @@ esac
 
 echo ""
 if [ $EXIT_CODE -eq 0 ]; then
-    echo "✅ Test completed successfully"
+    echo "✅ Exit code zero; test did not crash"
 else
     echo "❌ Test failed with exit code: $EXIT_CODE"
 
