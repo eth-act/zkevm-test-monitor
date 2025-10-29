@@ -98,8 +98,8 @@ jobs:
           ZKVM="${{ inputs.zkvm }}"
           echo "🧪 Testing ${ZKVM} ZKVM..."
 
-          # Run tests
-          ./src/test.sh --arch ${ZKVM}
+          # Run tests with limited parallelism in CI to prevent resource exhaustion
+          JOBS=8 ./src/test.sh --arch ${ZKVM}
         continue-on-error: true
         id: test-zkvm
 
