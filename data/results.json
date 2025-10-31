@@ -53,16 +53,16 @@
       "last_run": null
     },
     "openvm": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "b5f3f0197",
       "isa": "rv32im",
       "has_nightly": false,
       "suites": {
         "arch": {
-          "passed": 49,
-          "failed": 347,
-          "total": 396,
+          "passed": 47,
+          "failed": 0,
+          "total": 47,
           "test_status": "completed",
           "last_run": "2025-10-03",
           "has_report": true
