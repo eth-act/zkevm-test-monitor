@@ -97,9 +97,10 @@ jobs:
         run: |
           ZKVM="${{ inputs.zkvm }}"
           echo "🧪 Testing ${ZKVM} ZKVM..."
-
+          
           # Run tests
-          ./src/test.sh --arch ${ZKVM}
+          JOBS=2 ./src/test.sh --arch ${ZKVM}
+
         continue-on-error: true
         id: test-zkvm
 
