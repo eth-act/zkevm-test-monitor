@@ -44,7 +44,7 @@
       "date": "2025-10-31",
       "test_monitor_commit": "d72cea02",
       "zkvm_commit": "5104c56c4736f99e1a3e809511e41ed6306a7db5",
-      "isa": "rv64imafdczicsr",
+      "isa": "rv64imafdc_zicsr",
       "suite": "arch",
       "passed": 654,
       "total": 673,

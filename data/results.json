@@ -108,7 +108,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "5104c56c4736f99e1a3e809511e41ed6306a7db5",
-      "isa": "rv64imafdczicsr",
+      "isa": "rv64imafdc_zicsr",
       "has_nightly": true,
       "suites": {
         "arch": {
