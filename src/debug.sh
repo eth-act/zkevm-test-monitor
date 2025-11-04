@@ -145,9 +145,9 @@ OPENVM_TOML
             "$ABS_BINARY" openvm run \
             --exe my.elf \
             --signatures "${ABS_DEBUG_DIR}/debug.signature" \
-            2>&1 | tee "$ABS_LOG_FILE"
+            2>&1 | tee latest.log
 
-        cp "$ABS_LOG_FILE" latest.log
+        cp latest.log "$ABS_LOG_FILE"
 
         EXIT_CODE=${PIPESTATUS[0]} # Get exit code of openvm command, not tee
         set -e                     # Re-enable exit-on-error
