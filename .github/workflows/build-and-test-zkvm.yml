@@ -91,8 +91,8 @@ jobs:
         continue-on-error: true
         id: build-zkvm
 
+      - runs-on: [self-hosted-ghr, size-xl-x64]
       - name: Test ZKVM
-        runs-on: [self-hosted-ghr, size-xl-x64]
         if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
         run: |
           ZKVM="${{ inputs.zkvm }}"
