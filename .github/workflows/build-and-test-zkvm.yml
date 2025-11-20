@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted-ghr, size-xl-x64]
 
     steps:
       - name: Checkout repository
