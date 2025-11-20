@@ -175,8 +175,7 @@ class openvm(pluginTemplate):
 
       # once the make-targets are done and the makefile has been created, run all the targets in
       # parallel using the make command set above.
-      # Set timeout to 30 minutes (1800s) instead of default 300s to prevent timeouts in CI
-      make.execute_all(self.work_dir, timeout=1800)
+      make.execute_all(self.work_dir)
 
       # if target runs are not required then we simply exit as this point after running all
       # the makefile targets.

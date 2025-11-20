@@ -98,15 +98,9 @@ jobs:
           ZKVM="${{ inputs.zkvm }}"
           echo "🧪 Testing ${ZKVM} ZKVM..."
 
-          # Show available memory before tests
-          echo "📊 Memory before tests:"
-          free -h
-
-          # Run tests with parallelism tuned for GitHub Actions runners
-          # GitHub Actions runners: 2 cores, 7GB RAM
-          # JOBS=3 balances speed and memory usage
-          # Timeout set to 30 minutes in plugin (riscof_*.py: execute_all timeout=1800)
-          JOBS=3 ./src/test.sh --arch ${ZKVM}
+          # Run tests
+          # Timeout set in plugin (riscof_*.py: execute_all timeout=1800)
+          JOBS=2 ./src/test.sh --arch ${ZKVM}
 
           # Show memory after tests
           echo "📊 Memory after tests:"
