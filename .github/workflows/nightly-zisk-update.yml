@@ -20,3 +20,5 @@ jobs:
     uses: ./.github/workflows/build-and-test-zkvm.yml
     with:
       zkvm: zisk
+  build:
+    runs-on: [self-hosted-ghr, size-xl-x64]
