@@ -229,6 +229,156 @@
       "passed": 124,
       "total": 124,
       "notes": ""
+    },
+    {
+      "date": "2025-10-30",
+      "test_monitor_commit": "4e6450da",
+      "zkvm_commit": "2b71181f",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-10-31",
+      "test_monitor_commit": "bb4f6665",
+      "zkvm_commit": "02ad095c",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-01",
+      "test_monitor_commit": "8535d28d",
+      "zkvm_commit": "e54e30db",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-04",
+      "test_monitor_commit": "a90a433e",
+      "zkvm_commit": "71778605",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-05",
+      "test_monitor_commit": "6f8bd969",
+      "zkvm_commit": "dbc011e2",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-07",
+      "test_monitor_commit": "0a84f154",
+      "zkvm_commit": "6047ad91",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-08",
+      "test_monitor_commit": "b8b3684e",
+      "zkvm_commit": "1ca07369",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-10",
+      "test_monitor_commit": "f1116bbd",
+      "zkvm_commit": "0bc7e8fd",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-11",
+      "test_monitor_commit": "52a36788",
+      "zkvm_commit": "88821842",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-12",
+      "test_monitor_commit": "41b65a19",
+      "zkvm_commit": "8bb365da",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-13",
+      "test_monitor_commit": "17a1d6ff",
+      "zkvm_commit": "e52b2f2b",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-14",
+      "test_monitor_commit": "b194df3f",
+      "zkvm_commit": "43bbe3ae",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-15",
+      "test_monitor_commit": "8a6af045",
+      "zkvm_commit": "ec0b7b80",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-18",
+      "test_monitor_commit": "12e824a0",
+      "zkvm_commit": "21897b2b",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
+    },
+    {
+      "date": "2025-11-19",
+      "test_monitor_commit": "348ead70",
+      "zkvm_commit": "df30fe4e",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
     }
   ]
 }

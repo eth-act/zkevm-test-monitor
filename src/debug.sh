@@ -149,9 +149,17 @@ OPENVM_TOML
 
     sp1)
         # Run SP1 with verbose output
+        # Create empty stdin file
+        EMPTY_STDIN="${DEBUG_DIR}/empty_stdin.bin"
+        dd if=/dev/zero of="$EMPTY_STDIN" bs=24 count=1 2>/dev/null
+
+        SIG_FILE="${DEBUG_DIR}/debug.signature"
         RUST_LOG=debug RUST_BACKTRACE=full \
             "binaries/${ZKVM}-binary" \
-            --elf "$TEST_ELF" \
+            --program "$TEST_ELF" \
+            --stdin "$EMPTY_STDIN" \
+            --executor-mode simple \
+            --signatures "$SIG_FILE" \
             2>&1 | tee "$LOG_FILE"
         ;;
 
