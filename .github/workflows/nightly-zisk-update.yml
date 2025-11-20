@@ -18,6 +18,5 @@ concurrency:
 jobs:
   update-zisk:
     uses: ./.github/workflows/build-and-test-zkvm.yml
-    runs-on: [self-hosted-ghr, size-xl-x64]
     with:
       zkvm: zisk
