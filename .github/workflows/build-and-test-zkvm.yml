@@ -99,7 +99,7 @@ jobs:
 
           # Run tests
           # More than two jobs kills the free Github runners
-          JOBS=2 ./src/test.sh --arch ${ZKVM}
+          JOBS=1 ./src/test.sh --arch ${ZKVM}
         continue-on-error: true
         id: test-zkvm
 
