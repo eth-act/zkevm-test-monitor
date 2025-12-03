@@ -162,7 +162,8 @@ class airbender(pluginTemplate):
             # Pass both binary and ELF - binary for execution, ELF for signature extraction
             # Touch the signature file first to ensure it exists with proper permissions
             # Then run Airbender which will overwrite it if successful
-            simcmd = '{0} && touch {4} && {1} run --bin {2} --elf {3} --signatures {4} --cycles 100000 2>&1 | tail -10 > airbender.log'.format(
+            # Note: Using 'run-for-riscof' instead of 'run' - it's a hidden command for RISCOF integration
+            simcmd = '{0} && touch {4} && {1} run-for-riscof --bin {2} --elf {3} --signatures {4} --cycles 100000 2>&1 | tail -10 > airbender.log'.format(
                 objcopy_cmd, self.airbender_cli, bin_file, elf, sig_file)
           else:
             simcmd = 'echo "NO RUN"'
