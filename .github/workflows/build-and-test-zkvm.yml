@@ -7,6 +7,11 @@ on:
         required: true
         type: string
         description: 'Name of the ZKVM to update (e.g., jolt, zisk)'
+      runner:
+        type: string
+        required: false
+        default: '["ubuntu-latest"]'
+        description: 'Runner labels as JSON array (e.g., ["ubuntu-latest"] or ["self-hosted-ghr", "size-xl-x64"])'
 
 permissions:
   contents: write
@@ -15,7 +20,7 @@ permissions:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runner) }}
 
     steps:
       - name: Checkout repository
@@ -98,7 +103,7 @@ jobs:
           echo "🧪 Testing ${ZKVM} ZKVM..."
 
           # Run tests
-          # More than two jobs kills the free Github runners
+          # A handful of float tests takes >20GB RAM to compile
           JOBS=1 ./src/test.sh --arch ${ZKVM}
         continue-on-error: true
         id: test-zkvm
