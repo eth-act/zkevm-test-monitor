@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
   xz-utils \
   zsh \
   vim \
+  libomp5 \
+  libopenmpi3 \
   && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
