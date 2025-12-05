@@ -49,6 +49,16 @@
       "passed": 654,
       "total": 673,
       "notes": ""
+    },
+    {
+      "date": "2025-12-05",
+      "test_monitor_commit": "df7af9e3",
+      "zkvm_commit": "2f791ffd070d024ba350f054c349c8d6bd98d629",
+      "isa": "rv64imafdczicsr",
+      "suite": "arch",
+      "passed": 661,
+      "total": 673,
+      "notes": ""
     }
   ]
 }
