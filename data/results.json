@@ -27,9 +27,9 @@
       "last_run": null
     },
     "jolt": {
-      "has_binary": false,
-      "build_status": "not_built",
-      "commit": "7ceb34cb",
+      "has_binary": true,
+      "build_status": "success",
+      "commit": "f1ab099a",
       "isa": "rv64imac",
       "has_nightly": true,
       "suites": {
@@ -38,7 +38,7 @@
           "failed": 0,
           "total": 124,
           "test_status": "completed",
-          "last_run": "2025-12-04",
+          "last_run": "2025-12-06",
           "has_report": true
         },
         "extra": {
@@ -105,8 +105,8 @@
       "last_run": null
     },
     "zisk": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "2f791ffd070d024ba350f054c349c8d6bd98d629",
       "isa": "rv64imafdczicsr",
       "has_nightly": true,
@@ -209,7 +209,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2025-12-05T06:04:59.267849+00:00",
+  "last_updated": "2025-12-06T03:37:36.954043+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "df7af9e3"
+  "test_monitor_commit": "7bca850c"
 }
