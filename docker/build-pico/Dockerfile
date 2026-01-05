@@ -25,8 +25,8 @@ RUN rustup default 1.75.0
 WORKDIR /workspace
 
 # Clone and checkout specific commit
-ARG REPO_URL=https://github.com/codygunton/pico
-ARG COMMIT_HASH=571dc543c4a73df2c34e86f8e36b529efb1b84b0
+ARG REPO_URL=https://github.com/brevis-network/pico
+ARG COMMIT_HASH=v1.1.10
 RUN git clone "$REPO_URL" pico && \
     cd pico && \
     git checkout "$COMMIT_HASH" && \
@@ -34,7 +34,7 @@ RUN git clone "$REPO_URL" pico && \
 
 # Build the ZKVM
 WORKDIR /workspace/pico
-RUN cargo build --package pico-vm --release --bin pico-riscof
+RUN cargo build --release -p pico-cli
 
 # Runtime stage
 FROM ubuntu:24.04
@@ -46,8 +46,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy binary and commit info
-COPY --from=builder /workspace/pico/target/release/pico-riscof /usr/local/bin/pico-binary
+COPY --from=builder /workspace/pico/target/release/cargo-pico /usr/local/bin/cargo-pico
 COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Entrypoint to extract binary
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/pico-binary /output/pico-binary"]
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/cargo-pico /output/cargo-pico"]
