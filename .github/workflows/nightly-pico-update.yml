@@ -1,0 +1,22 @@
+name: Nightly Pico ZKVM Update
+
+on:
+  schedule:
+    # Run daily at 4:00 AM UTC (30 minutes after Zisk to avoid conflicts)
+    - cron: '0 4 * * *'
+  workflow_dispatch:  # Allow manual trigger for testing
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+concurrency:
+  group: pico-update
+  cancel-in-progress: true
+
+jobs:
+  update-pico:
+    uses: ./.github/workflows/build-and-test-zkvm.yml
+    with:
+      zkvm: pico

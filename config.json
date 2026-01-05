@@ -36,11 +36,11 @@
       "binary_path": "target/release/ziskemu"
     },
     "pico": {
-      "repo_url": "https://github.com/codygunton/pico",
-      "commit": "571dc543c4a73df2c34e86f8e36b529efb1b84b0",
-      "build_cmd": "cargo build --package pico-vm --release --bin pico-riscof",
-      "binary_name": "pico-riscof",
-      "binary_path": "target/release/pico-riscof"
+      "repo_url": "https://github.com/brevis-network/pico",
+      "commit": "v1.1.10",
+      "build_cmd": "cargo build --release -p pico-cli",
+      "binary_name": "cargo-pico",
+      "binary_path": "target/release/cargo-pico"
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",
