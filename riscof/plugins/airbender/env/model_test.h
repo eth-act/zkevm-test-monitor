@@ -8,6 +8,9 @@
 #define RVTEST_NO_IDENTY_MAP
 
 #define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I)
+#define RVMODEL_IO_INIT
+#define RVMODEL_IO_WRITE_STR(_R, _STR)
+#define RVMODEL_IO_CHECK()
 #define RVMODEL_BOOT
 
 // Our custom halting logic for Airbender - infinite loop instead of ecall

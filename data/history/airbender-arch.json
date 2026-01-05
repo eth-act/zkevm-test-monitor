@@ -9,6 +9,36 @@
       "passed": 46,
       "total": 47,
       "suite": "arch"
+    },
+    {
+      "date": "2025-12-08",
+      "test_monitor_commit": "4ae27dd8",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32imzicsr",
+      "suite": "arch",
+      "passed": 0,
+      "total": 54,
+      "notes": ""
+    },
+    {
+      "date": "2025-12-08",
+      "test_monitor_commit": "4ae27dd8",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32imzicsr",
+      "suite": "arch",
+      "passed": 0,
+      "total": 54,
+      "notes": ""
+    },
+    {
+      "date": "2025-12-08",
+      "test_monitor_commit": "4ae27dd8",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32imzicsr",
+      "suite": "arch",
+      "passed": 46,
+      "total": 54,
+      "notes": ""
     }
   ]
 }

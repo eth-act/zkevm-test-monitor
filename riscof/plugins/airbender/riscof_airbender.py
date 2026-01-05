@@ -144,9 +144,14 @@ class airbender(pluginTemplate):
           # prefix with "-D". The following does precisely that.
           compile_macros= ' -D' + " -D".join(testentry['macros'])
 
+          # Ensure Zicsr extension is included since model_test.h uses csrr instruction
+          test_isa = testentry['isa'].lower()
+          if '_zicsr' not in test_isa and 'zicsr' not in test_isa:
+              test_isa += '_zicsr'
+
           # substitute all variables in the compile command that we created in the initialize
           # function
-          cmd = self.compile_cmd.format('rv32im', test, elf, compile_macros)
+          cmd = self.compile_cmd.format(test_isa, test, elf, compile_macros)
 
 	  # if the user wants to disable running the tests and only compile the tests, then
 	  # the "else" clause is executed below assigning the sim command to simple no action
@@ -155,15 +160,10 @@ class airbender(pluginTemplate):
             # Convert ELF to binary format that Airbender expects
             bin_file = os.path.join(testentry['work_dir'], 'my.bin')
             objcopy_cmd = 'riscv64-unknown-elf-objcopy -O binary {0} {1}'.format(elf, bin_file)
-            
-            # Run Airbender with the binary file and ensure a signature file exists even if it panics
-            # This allows RISCOF to complete and show which tests failed
-            # We add --cycles 100000 to limit execution (tests will infinite loop on completion)
-            # Pass both binary and ELF - binary for execution, ELF for signature extraction
-            # Touch the signature file first to ensure it exists with proper permissions
-            # Then run Airbender which will overwrite it if successful
-            # Note: Using 'run-for-riscof' instead of 'run' - it's a hidden command for RISCOF integration
-            simcmd = '{0} && touch {4} && {1} run-for-riscof --bin {2} --elf {3} --signatures {4} --cycles 100000 2>&1 | tail -10 > airbender.log'.format(
+
+            # Check if compilation succeeded, if not write PANIC to signature
+            # This ensures RISCOF can continue even if some tests fail to compile
+            simcmd = 'if [ -f {3} ]; then {0} && touch {4} && {1} run-for-riscof --bin {2} --elf {3} --signatures {4} --cycles 100000 2>&1 | tail -10 > airbender.log; else echo "PANIC" > {4}; fi'.format(
                 objcopy_cmd, self.airbender_cli, bin_file, elf, sig_file)
           else:
             simcmd = 'echo "NO RUN"'

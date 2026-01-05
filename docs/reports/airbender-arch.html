@@ -311,7 +311,7 @@ function filter_table(elem) {
 
 </script>
     <h1></h1>
-    <p>Report generated on 2025-10-02 17:24 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
+    <p>Report generated on 2025-12-08 03:34 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
     <h2>Environment</h2>
     <table id="environment">
       <tr>
@@ -328,7 +328,7 @@ function filter_table(elem) {
         <td>sail c simulator</td></tr>
       <tr>
         <td>ISA</td>
-        <td>RV32IM</td></tr>
+        <td>RV32IMZicsr</td></tr>
       <tr>
         <td>User Spec Version</td>
         <td>2.3</td></tr>
@@ -350,7 +350,7 @@ function filter_table(elem) {
             <td class="extra" colspan="1">
               <div class="log">hart_ids: [0]
 hart0:
-    ISA: RV32IM
+    ISA: RV32IMZicsr
     physical_addr_sz: 32
     User_Spec_Version: '2.3'
     supported_xlen:
@@ -4588,7 +4588,7 @@ zicbo_cache_block_sz:
     <p>Please visit <a href="https://riscv-config.readthedocs.io/en/latest/yaml-specs.html">YAML specifications</a> for more information. </p>
 
     <h2>Summary</h2>
-    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">46Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">1Failed</span>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">46Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">8Failed</span>
     <h2>Results</h2>
     <table id="results-table">
       <thead id="results-table-head">
@@ -5212,6 +5212,132 @@ XLEN=32</br></div></td>
 MACROS:
 TEST_CASE_1=True
 XLEN=32</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "failed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/ebreak.S</td>
+          <td class="col-result">Failed</td>
+          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/ebreak.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=32
+File1 Path:/riscof/riscof_work/rv32i_m/privilege/src/ebreak.S/dut/DUT-airbender.signature
+File2 Path:/riscof/riscof_work/rv32i_m/privilege/src/ebreak.S/ref/Reference-sail_c_simulator.signature
+Match  Line#    File1    File2
+</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "failed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/ecall.S</td>
+          <td class="col-result">Failed</td>
+          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/ecall.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=32
+File1 Path:/riscof/riscof_work/rv32i_m/privilege/src/ecall.S/dut/DUT-airbender.signature
+File2 Path:/riscof/riscof_work/rv32i_m/privilege/src/ecall.S/ref/Reference-sail_c_simulator.signature
+Match  Line#    File1    File2
+</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "failed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-lh-01.S</td>
+          <td class="col-result">Failed</td>
+          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-lh-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=32
+File1 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-lh-01.S/dut/DUT-airbender.signature
+File2 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-lh-01.S/ref/Reference-sail_c_simulator.signature
+Match  Line#    File1    File2
+</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "failed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-lhu-01.S</td>
+          <td class="col-result">Failed</td>
+          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-lhu-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=32
+File1 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-lhu-01.S/dut/DUT-airbender.signature
+File2 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-lhu-01.S/ref/Reference-sail_c_simulator.signature
+Match  Line#    File1    File2
+</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "failed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-lw-01.S</td>
+          <td class="col-result">Failed</td>
+          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-lw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=32
+File1 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-lw-01.S/dut/DUT-airbender.signature
+File2 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-lw-01.S/ref/Reference-sail_c_simulator.signature
+Match  Line#    File1    File2
+</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "failed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-sh-01.S</td>
+          <td class="col-result">Failed</td>
+          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-sh-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=32
+File1 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-sh-01.S/dut/DUT-airbender.signature
+File2 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-sh-01.S/ref/Reference-sail_c_simulator.signature
+Match  Line#    File1    File2
+</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "failed  results-table-row" >
+        <tr>
+          <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv32i_m/privilege/src/misalign-sw-01.S</td>
+          <td class="col-result">Failed</td>
+          <td class="col-path">/riscof/riscof_work/rv32i_m/privilege/src/misalign-sw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:bb74a4aefaa8c89fb28b876484cfdf9ca020cec1
+MACROS:
+rvtest_mtrap_routine=True
+TEST_CASE_1=True
+XLEN=32
+File1 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-sw-01.S/dut/DUT-airbender.signature
+File2 Path:/riscof/riscof_work/rv32i_m/privilege/src/misalign-sw-01.S/ref/Reference-sail_c_simulator.signature
+Match  Line#    File1    File2
+</br></div></td>
         </tr></tbody>
         
       </table>
