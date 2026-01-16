@@ -42,7 +42,13 @@ for ZKVM in $ZKVMS; do
   fi
 
   # Docker build using ZKVM-specific Dockerfile
+  # Use --no-cache when FORCE=1 to ensure fresh build
+  CACHE_FLAG=""
+  if [ "$FORCE" = "1" ]; then
+    CACHE_FLAG="--no-cache"
+  fi
   docker build \
+    $CACHE_FLAG \
     --build-arg REPO_URL="$REPO_URL" \
     --build-arg COMMIT_HASH="$COMMIT" \
     --cache-from zkvm-${ZKVM}:latest \
