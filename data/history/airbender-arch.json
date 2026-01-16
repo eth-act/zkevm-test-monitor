@@ -9,6 +9,46 @@
       "passed": 46,
       "total": 47,
       "suite": "arch"
+    },
+    {
+      "date": "2026-01-16",
+      "test_monitor_commit": "cd596161",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "arch",
+      "passed": 0,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-01-16",
+      "test_monitor_commit": "c349d9d8",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "arch",
+      "passed": 0,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-01-16",
+      "test_monitor_commit": "c349d9d8",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "arch",
+      "passed": 42,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-01-16",
+      "test_monitor_commit": "c349d9d8",
+      "zkvm_commit": "3479b2ac",
+      "isa": "rv32im",
+      "suite": "arch",
+      "passed": 42,
+      "total": 47,
+      "notes": ""
     }
   ]
 }
