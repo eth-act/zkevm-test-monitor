@@ -44,7 +44,7 @@
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",
-      "commit": "1f52d2e2",
+      "commit": "riscof-dev",
       "build_cmd": "cargo build --profile test-release --bin cli",
       "binary_name": "cli",
       "binary_path": "target/test-release/cli"
