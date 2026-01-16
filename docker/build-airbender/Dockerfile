@@ -65,8 +65,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the built binary from builder stage
-COPY --from=builder /tmp/airbender-cli-binary /usr/local/bin/airbender-binary
+COPY --from=builder /tmp/airbender-cli-binary /usr/local/bin/cli
 COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/airbender-binary /output/airbender-binary"]
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/cli /output/cli"]

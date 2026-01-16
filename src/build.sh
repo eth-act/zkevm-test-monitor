@@ -92,6 +92,9 @@ for ZKVM in $ZKVMS; do
   if [ "$ZKVM" = "jolt" ] && [ -f "binaries/jolt-emu" ]; then
     mv "binaries/jolt-emu" "binaries/jolt-binary"
   fi
+  if [ "$ZKVM" = "airbender" ] && [ -f "binaries/cli" ]; then
+    mv "binaries/cli" "binaries/airbender-binary"
+  fi
 
   echo "  ✅ Built ${ZKVM}"
 done
