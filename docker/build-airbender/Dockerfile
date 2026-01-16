@@ -34,7 +34,7 @@ ENV CARGO_INCREMENTAL=1
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/codygunton/zksync-airbender
-ARG COMMIT_HASH=riscof
+ARG COMMIT_HASH=riscof-dev
 
 # Clone the repository at the specific commit
 RUN git clone "$REPO_URL" airbender && \
@@ -47,11 +47,12 @@ WORKDIR /workspace/airbender
 
 # Build the CLI binary with optimizations but without GPU support for compatibility
 # Use the test-release profile for moderate optimization with faster compilation
+# RUST_MIN_STACK is needed to avoid stack overflow during compilation on nightly
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.rustup \
     --mount=type=cache,target=/workspace/airbender/target \
-    cargo build --profile test-release -p cli && \
+    RUST_MIN_STACK=33554432 cargo build --profile test-release -p cli --no-default-features && \
     cp target/test-release/cli /tmp/airbender-cli-binary
 
 # Final stage - just the binary
