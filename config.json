@@ -37,7 +37,7 @@
     },
     "pico": {
       "repo_url": "https://github.com/brevis-network/pico",
-      "commit": "57ff6c5c",
+      "commit": "f8617c9c",
       "build_cmd": "cargo build --release -p pico-cli",
       "binary_name": "cargo-pico",
       "binary_path": "target/release/cargo-pico"

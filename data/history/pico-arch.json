@@ -19,6 +19,16 @@
       "passed": 46,
       "total": 47,
       "notes": ""
+    },
+    {
+      "date": "2026-02-13",
+      "test_monitor_commit": "0f430320",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
+      "isa": "rv32im",
+      "suite": "arch",
+      "passed": 46,
+      "total": 47,
+      "notes": ""
     }
   ]
 }
