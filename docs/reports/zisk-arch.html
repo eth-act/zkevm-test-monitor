@@ -311,7 +311,7 @@ function filter_table(elem) {
 
 </script>
     <h1></h1>
-    <p>Report generated on 2025-12-20 03:59 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
+    <p>Report generated on 2026-01-28 15:09 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
     <h2>Environment</h2>
     <table id="environment">
       <tr>
@@ -355,6 +355,7 @@ hart0:
     User_Spec_Version: '2.3'
     supported_xlen:
       - 64
+    hw_data_misaligned_support: true
     misa:
         reset-val: 0x8000112d
         rv64:
@@ -402,7 +403,6 @@ hart0:
         address: 769
         priv_mode: M
     Privilege_Spec_Version: '1.10'
-    hw_data_misaligned_support: false
     pmp_granularity: 0
     custom_exceptions:
     custom_interrupts:
@@ -4446,7 +4446,7 @@ zicbo_cache_block_sz:
     <p>Please visit <a href="https://riscv-config.readthedocs.io/en/latest/yaml-specs.html">YAML specifications</a> for more information. </p>
 
     <h2>Summary</h2>
-    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">661Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">12Failed</span>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">662Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">11Failed</span>
     <h2>Results</h2>
     <table id="results-table">
       <thead id="results-table-head">
@@ -13687,76 +13687,11 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-ld-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-ld-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 febabeca 00000000
-*          3 febabeca 00000000
-*          4 cafebabe 00000000
-*          5 cafebabe 00000000
-*          6 becafeba 00000000
-*          7 becafeba 00000000
-*          8 babecafe 00000000
-*          9 babecafe 00000000
-*         10 febabeca 00000000
-*         11 febabeca 00000000
-*         12 cafebabe 00000000
-*         13 cafebabe 00000000
-*         14 becafeba 00000000
-*         15 becafeba 00000000
-          16 e7d4b281 e7d4b281
-*         20 00000000 00000004
-          21 00000000 00000000
-*         22 deadbeef 00000044
-*         23 deadbeef 00000000
-*         24 deadbeef 00000009
-*         25 deadbeef 00000000
-*         26 deadbeef 000010e3
-*         27 deadbeef 00000000
-*         28 deadbeef 00000004
-*         29 deadbeef 00000000
-*         30 deadbeef 00000084
-*         31 deadbeef 00000000
-*         32 deadbeef 0000000a
-*         33 deadbeef 00000000
-*         34 deadbeef 000010e3
-*         35 deadbeef 00000000
-*         36 deadbeef 00000004
-*         37 deadbeef 00000000
-*         38 deadbeef 000000c4
-*         39 deadbeef 00000000
-*         40 deadbeef 0000000b
-*         41 deadbeef 00000000
-*         42 deadbeef 000010e3
-*         43 deadbeef 00000000
-*         44 deadbeef 00000004
-*         45 deadbeef 00000000
-*         46 deadbeef 00000104
-*         47 deadbeef 00000000
-*         48 deadbeef 0000000c
-*         49 deadbeef 00000000
-*         50 deadbeef 000010e3
-*         51 deadbeef 00000000
-*         52 deadbeef 00000004
-*         53 deadbeef 00000000
-*         54 deadbeef 00000144
-*         55 deadbeef 00000000
-*         56 deadbeef 0000000d
-*         57 deadbeef 00000000
-*         58 deadbeef 000010e3
-*         59 deadbeef 00000000
-*         60 deadbeef 00000004
-*         61 deadbeef 00000000
-*         62 deadbeef 00000184
-*         63 deadbeef 00000000
-*         64 deadbeef 0000000e
-*         65 deadbeef 00000000
-*         66 deadbeef 000010e3
-*         67 deadbeef 00000000
-*         68 deadbeef 00000004
-*         69 deadbeef 00000000
-*         70 deadbeef 000001c4
-*         71 deadbeef 00000000
-*         72 deadbeef 0000000f
-*         73 deadbeef 00000000
-          74 deadbeef deadbeef
+*         18 000010e3 deadbeef
+*         19 00000000 deadbeef
+*         20 00000000 deadbeef
+*         21 00000000 deadbeef
+          22 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
@@ -13775,16 +13710,11 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lh-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lh-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 ffffbeca 00000000
-*          3 ffffffff 00000000
-           4 e7d4b281 e7d4b281
-*          8 00000000 00000004
-           9 00000000 00000000
-*         10 deadbeef 00000044
-*         11 deadbeef 00000000
-*         12 deadbeef 00000009
-*         13 deadbeef 00000000
-          14 deadbeef deadbeef
+*          6 000010e3 deadbeef
+*          7 00000000 deadbeef
+*          8 00000000 deadbeef
+*          9 00000000 deadbeef
+          10 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
@@ -13803,15 +13733,11 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lhu-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lhu-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 0000beca 00000000
-           3 00000000 00000000
-*          8 00000000 00000004
-           9 00000000 00000000
-*         10 deadbeef 00000044
-*         11 deadbeef 00000000
-*         12 deadbeef 00000009
-*         13 deadbeef 00000000
-          14 deadbeef deadbeef
+*          6 000010e3 deadbeef
+*          7 00000000 deadbeef
+*          8 00000000 deadbeef
+*          9 00000000 deadbeef
+          10 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
@@ -13830,36 +13756,11 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lw-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lw-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 febabeca 00000000
-*          3 ffffffff 00000000
-*          4 cafebabe 00000000
-*          5 ffffffff 00000000
-*          6 becafeba 00000000
-*          7 ffffffff 00000000
-           8 e7d4b281 e7d4b281
-*         12 00000000 00000004
-          13 00000000 00000000
-*         14 deadbeef 00000044
-*         15 deadbeef 00000000
-*         16 deadbeef 00000009
-*         17 deadbeef 00000000
-*         18 deadbeef 000010e3
-*         19 deadbeef 00000000
-*         20 deadbeef 00000004
-*         21 deadbeef 00000000
-*         22 deadbeef 00000084
-*         23 deadbeef 00000000
-*         24 deadbeef 0000000a
-*         25 deadbeef 00000000
-*         26 deadbeef 000010e3
-*         27 deadbeef 00000000
-*         28 deadbeef 00000004
-*         29 deadbeef 00000000
-*         30 deadbeef 000000c4
-*         31 deadbeef 00000000
-*         32 deadbeef 0000000b
-*         33 deadbeef 00000000
-          34 deadbeef deadbeef
+*         10 000010e3 deadbeef
+*         11 00000000 deadbeef
+*         12 00000000 deadbeef
+*         13 00000000 deadbeef
+          14 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
@@ -13878,35 +13779,11 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lwu-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-lwu-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 febabeca 00000000
-           3 00000000 00000000
-*          4 cafebabe 00000000
-           5 00000000 00000000
-*          6 becafeba 00000000
-           7 00000000 00000000
-*         12 00000000 00000004
-          13 00000000 00000000
-*         14 deadbeef 00000044
-*         15 deadbeef 00000000
-*         16 deadbeef 00000009
-*         17 deadbeef 00000000
-*         18 deadbeef 000010e3
-*         19 deadbeef 00000000
-*         20 deadbeef 00000004
-*         21 deadbeef 00000000
-*         22 deadbeef 00000084
-*         23 deadbeef 00000000
-*         24 deadbeef 0000000a
-*         25 deadbeef 00000000
-*         26 deadbeef 000010e3
-*         27 deadbeef 00000000
-*         28 deadbeef 00000004
-*         29 deadbeef 00000000
-*         30 deadbeef 000000c4
-*         31 deadbeef 00000000
-*         32 deadbeef 0000000b
-*         33 deadbeef 00000000
-          34 deadbeef deadbeef
+*         10 000010e3 deadbeef
+*         11 00000000 deadbeef
+*         12 00000000 deadbeef
+*         13 00000000 deadbeef
+          14 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
@@ -13925,78 +13802,11 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-sd-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-sd-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 ffffffef deadbeef
-*          3 fffffbff deadbeef
-*          4 0000beff deadbeef
-*          5 10000000 deadbeef
-*          6 00ad0000 deadbeef
-*          7 00800000 deadbeef
-*          8 de000000 deadbeef
-*          9 55555555 deadbeef
-*         10 55555555 deadbeef
-*         11 fffeffef deadbeef
-*         12 ffffffff deadbeef
-*         13 fffdbeff deadbeef
-*         14 ffffffff deadbeef
-*         15 04adffff deadbeef
-*         16 00000000 e7d4b281
-*         17 6f000000 6f5ca309
-          18 000010e3 000010e3
-*         20 00000000 00000006
-          21 00000000 00000000
-*         22 deadbeef 0000003c
-*         23 deadbeef 00000000
-*         24 deadbeef 00000009
-*         25 deadbeef 00000000
-*         26 deadbeef 000010e3
-*         27 deadbeef 00000000
-*         28 deadbeef 00000006
-*         29 deadbeef 00000000
-*         30 deadbeef 0000005c
-*         31 deadbeef 00000000
-*         32 deadbeef 00000012
-*         33 deadbeef 00000000
-*         34 deadbeef 000010e3
-*         35 deadbeef 00000000
-*         36 deadbeef 00000006
-*         37 deadbeef 00000000
-*         38 deadbeef 0000007c
-*         39 deadbeef 00000000
-*         40 deadbeef 0000001b
-*         41 deadbeef 00000000
-*         42 deadbeef 000010e3
-*         43 deadbeef 00000000
-*         44 deadbeef 00000006
-*         45 deadbeef 00000000
-*         46 deadbeef 000000b4
-*         47 deadbeef 00000000
-*         48 deadbeef 00000024
-*         49 deadbeef 00000000
-*         50 deadbeef 000010e3
-*         51 deadbeef 00000000
-*         52 deadbeef 00000006
-*         53 deadbeef 00000000
-*         54 deadbeef 000000d0
-*         55 deadbeef 00000000
-*         56 deadbeef 0000002d
-*         57 deadbeef 00000000
-*         58 deadbeef 000010e3
-*         59 deadbeef 00000000
-*         60 deadbeef 00000006
-*         61 deadbeef 00000000
-*         62 deadbeef 000000ec
-*         63 deadbeef 00000000
-*         64 deadbeef 00000036
-*         65 deadbeef 00000000
-*         66 deadbeef 000010e3
-*         67 deadbeef 00000000
-*         68 deadbeef 00000006
-*         69 deadbeef 00000000
-*         70 deadbeef 00000108
-*         71 deadbeef 00000000
-*         72 deadbeef 0000003f
-*         73 deadbeef 00000000
-          74 deadbeef deadbeef
+*         18 000010e3 deadbeef
+*         19 00000000 deadbeef
+*         20 00000000 deadbeef
+*         21 00000000 deadbeef
+          22 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
@@ -14015,15 +13825,11 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-sh-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-sh-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 de0006ef deadbeef
-           3 deadbeef deadbeef
-*          8 00000000 00000006
-           9 00000000 00000000
-*         10 deadbeef 00000034
-*         11 deadbeef 00000000
-*         12 deadbeef 00000009
-*         13 deadbeef 00000000
-          14 deadbeef deadbeef
+*          6 000010e3 deadbeef
+*          7 00000000 deadbeef
+*          8 00000000 deadbeef
+*          9 00000000 deadbeef
+          10 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
@@ -14042,43 +13848,18 @@ XLEN=64
 File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-sw-01.S/dut/DUT-zisk.signature
 File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign-sw-01.S/ref/Reference-sail_c_simulator.signature
 Match  Line#    File1    File2
-*          2 000000ef deadbeef
-*          3 deadbe00 deadbeef
-*          4 ffffbeef deadbeef
-*          5 deadffef deadbeef
-*          6 faadbeef deadbeef
-*          7 deffffff deadbeef
-           8 e7d4b281 e7d4b281
-*         12 00000000 00000006
-          13 00000000 00000000
-*         14 deadbeef 00000038
-*         15 deadbeef 00000000
-*         16 deadbeef 00000009
-*         17 deadbeef 00000000
-*         18 deadbeef 000010e3
-*         19 deadbeef 00000000
-*         20 deadbeef 00000006
-*         21 deadbeef 00000000
-*         22 deadbeef 0000005c
-*         23 deadbeef 00000000
-*         24 deadbeef 00000012
-*         25 deadbeef 00000000
-*         26 deadbeef 000010e3
-*         27 deadbeef 00000000
-*         28 deadbeef 00000006
-*         29 deadbeef 00000000
-*         30 deadbeef 00000078
-*         31 deadbeef 00000000
-*         32 deadbeef 0000001b
-*         33 deadbeef 00000000
-          34 deadbeef deadbeef
+*         10 000010e3 deadbeef
+*         11 00000000 deadbeef
+*         12 00000000 deadbeef
+*         13 00000000 deadbeef
+          14 deadbeef deadbeef
 </br></div></td>
         </tr></tbody>
         
-        <tbody class= "failed  results-table-row" >
+        <tbody class= "passed  results-table-row" >
         <tr>
           <td class="col-name">/riscof/riscv-arch-test/riscv-test-suite/rv64i_m/privilege/src/misalign2-jalr-01.S</td>
-          <td class="col-result">Failed</td>
+          <td class="col-result">Passed</td>
           <td class="col-path">/riscof/riscof_work/rv64i_m/privilege/src/misalign2-jalr-01.S</td></tr>
         <tr>
           <td class="extra" colspan="4">
@@ -14086,11 +13867,7 @@ Match  Line#    File1    File2
 MACROS:
 TEST_CASE_1=True
 TEST_CASE_1=True
-XLEN=64
-File1 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign2-jalr-01.S/dut/DUT-zisk.signature
-File2 Path:/riscof/riscof_work/rv64i_m/privilege/src/misalign2-jalr-01.S/ref/Reference-sail_c_simulator.signature
-Match  Line#    File1    File2
-</br></div></td>
+XLEN=64</br></div></td>
         </tr></tbody>
         
       </table>
