@@ -51,7 +51,7 @@ RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.rustup \
     --mount=type=cache,target=/workspace/airbender/target \
-    cargo build --profile test-release -p cli && \
+    RUST_MIN_STACK=33554432 cargo build --profile test-release -p cli && \
     cp target/test-release/cli /tmp/airbender-cli-binary
 
 # Final stage - just the binary
