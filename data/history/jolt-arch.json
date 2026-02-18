@@ -799,6 +799,16 @@
       "passed": 124,
       "total": 124,
       "notes": ""
+    },
+    {
+      "date": "2026-02-18",
+      "test_monitor_commit": "f06801f1",
+      "zkvm_commit": "91899c0d",
+      "isa": "rv64imac",
+      "suite": "arch",
+      "passed": 124,
+      "total": 124,
+      "notes": ""
     }
   ]
 }
