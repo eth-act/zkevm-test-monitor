@@ -94,12 +94,15 @@ run_act4_suite() {
 }
 EOF
 
-    # Generate per-test results JSON (enumerate ELFs, mark failed ones)
+    # Generate per-test results JSON (enumerate ELFs, mark failed ones).
+    # Pass authoritative PASSED count so tests that failed silently (timeout/kill)
+    # are not incorrectly marked as passed.
     python3 -c "
 import json, os, re
 
 elf_dir = '$ELF_DIR'
 run_output = '''$RUN_OUTPUT'''
+expected_passed = $PASSED
 
 # Parse failed test names from run_tests.py output
 failed_names = set()
@@ -123,6 +126,14 @@ for root, dirs, files in os.walk(elf_dir):
         })
 
 tests.sort(key=lambda t: (t['extension'], t['name']))
+
+# Cross-check: if parsed pass count doesn't match the authoritative count,
+# some tests failed silently (timeout/OOM). Mark all as failed since we
+# can't reliably distinguish which ones truly passed.
+parsed_passed = sum(1 for t in tests if t['passed'])
+if parsed_passed != expected_passed:
+    for t in tests:
+        t['passed'] = False
 
 with open('$RESULTS/results-act4${SUFFIX}.json', 'w') as out:
     json.dump({

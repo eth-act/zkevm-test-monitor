@@ -503,7 +503,7 @@
             {
               "name": "I-addiw-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-addw-00",
@@ -538,12 +538,12 @@
             {
               "name": "I-bgeu-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-blt-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-bltu-00",
@@ -568,7 +568,7 @@
             {
               "name": "I-jalr-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-lb-00",
@@ -623,12 +623,12 @@
             {
               "name": "I-ori-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-sb-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-sd-00",
@@ -828,7 +828,7 @@
             {
               "name": "Misalign-lw-00",
               "extension": "Misalign",
-              "passed": true
+              "passed": false
             },
             {
               "name": "Misalign-lwu-00",
@@ -848,7 +848,7 @@
             {
               "name": "Misalign-sw-00",
               "extension": "Misalign",
-              "passed": true
+              "passed": false
             }
           ]
         }
@@ -894,7 +894,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-19T20:35:55.525214+00:00",
+  "last_updated": "2026-02-19T20:37:40.681568+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "07eb5aed"
+  "test_monitor_commit": "887553a6"
 }
