@@ -10,7 +10,6 @@ set -eu
 
 DUT=/dut/airbender-binary
 RESULTS=/results
-CONFIG=config/airbender/airbender-rv32im/test_config.yaml
 WORKDIR=/act4/work
 
 if [ ! -x "$DUT" ]; then
@@ -18,67 +17,76 @@ if [ ! -x "$DUT" ]; then
     exit 1
 fi
 
-if [ ! -f "/act4/$CONFIG" ]; then
-    echo "Error: Config not found at /act4/$CONFIG"
-    echo "Mount the config directory: -v \"\$PWD/riscv-arch-test/config/airbender:/act4/config/airbender\""
-    exit 1
-fi
-
 cd /act4
-
-# Pre-generate extensions.txt to skip UDB validation (which requires Podman/Docker
-# inside the container). The ACT framework skips UDB calls when this file exists
-# and is newer than the UDB config. The extensions must match airbender-rv32im.yaml.
-mkdir -p "$WORKDIR/airbender-rv32im"
-cat > "$WORKDIR/airbender-rv32im/extensions.txt" << 'EXTLIST'
-I
-M
-Zicsr
-Sm
-EXTLIST
-# Touch with future timestamp to ensure it's always newer than the mounted config
-touch -t 209901010000 "$WORKDIR/airbender-rv32im/extensions.txt"
-
-# Step 1: Generate Makefiles and compile self-checking ELFs for Airbender.
-# The 'act' tool reads the DUT config, generates a Makefile, then invokes Sail
-# to compute expected register values which are baked directly into the ELFs.
-echo "=== Generating Makefiles for airbender-rv32im ==="
-uv run act "$CONFIG" \
-    --workdir "$WORKDIR" \
-    --test-dir tests \
-    --extensions I,M
-
-echo "=== Compiling self-checking ELFs ==="
-make -C "$WORKDIR" compile
-
-ELF_DIR="$WORKDIR/airbender-rv32im/elfs"
-ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
-if [ "$ELF_COUNT" -eq 0 ]; then
-    echo "Error: No ELFs found in $ELF_DIR after compilation"
-    exit 1
-fi
-echo "=== Running $ELF_COUNT tests with Airbender ==="
-
+mkdir -p "$RESULTS"
 JOBS="${ACT4_JOBS:-$(nproc)}"
 
-# run_tests.py exits 0 if all pass, 1 if any fail.
-# Capture output for parsing; allow non-zero exit.
-RUN_OUTPUT=$(python3 /act4/run_tests.py "$DUT run-for-act" "$ELF_DIR" -j "$JOBS" 2>&1) || true
-echo "$RUN_OUTPUT"
+# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
+#
+# Generates Makefiles, compiles ELFs, runs them, and writes summary + per-test JSON.
+# summary-suffix: "" for native, "-target" for ETH-ACT target
+run_act4_suite() {
+    local CONFIG="$1"
+    local CONFIG_NAME="$2"
+    local EXTENSIONS="$3"
+    local EXT_TXT="$4"
+    local SUFFIX="$5"
 
-# Parse results from run_tests.py output.
-# Possible formats:
-#   "\tX out of N tests failed."  → X failures, N total
-#   "\tAll N tests passed."       → 0 failures, N total
-FAILED=$(echo "$RUN_OUTPUT" | grep -oE '[0-9]+ out of [0-9]+ tests failed' | grep -oE '^[0-9]+' || echo "0")
-TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
-PASSED=$((TOTAL - FAILED))
+    if [ ! -f "/act4/$CONFIG" ]; then
+        echo "⚠️  Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
+        return
+    fi
 
-mkdir -p "$RESULTS"
-cat > "$RESULTS/summary-act4.json" << EOF
+    # Pre-generate extensions.txt to skip UDB validation (which requires Podman/Docker
+    # inside the container). The ACT framework skips UDB calls when this file exists
+    # and is newer than the UDB config.
+    mkdir -p "$WORKDIR/$CONFIG_NAME"
+    echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
+    # Touch with future timestamp to ensure it's always newer than the mounted config
+    touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
+
+    # Generate Makefiles and compile self-checking ELFs.
+    # The 'act' tool reads the DUT config, generates a Makefile, then invokes Sail
+    # to compute expected register values which are baked directly into the ELFs.
+    echo ""
+    echo "=== Generating Makefiles for $CONFIG_NAME ==="
+    uv run act "$CONFIG" \
+        --workdir "$WORKDIR" \
+        --test-dir tests \
+        --extensions "$EXTENSIONS"
+
+    echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
+    # Must compile from top-level workdir so common ELF dependencies are built first.
+    make -C "$WORKDIR" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
+
+    local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
+    local ELF_COUNT
+    ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
+    if [ "$ELF_COUNT" -eq 0 ]; then
+        echo "Error: No ELFs found in $ELF_DIR after compilation"
+        return
+    fi
+    echo "=== Running $ELF_COUNT tests with Airbender ($CONFIG_NAME) ==="
+
+    # run_tests.py exits 0 if all pass, 1 if any fail.
+    # Capture output for parsing; allow non-zero exit.
+    local RUN_OUTPUT
+    RUN_OUTPUT=$(python3 /act4/run_tests.py "$DUT run-for-act" "$ELF_DIR" -j "$JOBS" 2>&1) || true
+    echo "$RUN_OUTPUT"
+
+    # Parse results from run_tests.py output.
+    # Possible formats:
+    #   "\tX out of N tests failed."  → X failures, N total
+    #   "\tAll N tests passed."       → 0 failures, N total
+    local FAILED TOTAL PASSED
+    FAILED=$(echo "$RUN_OUTPUT" | grep -oE '[0-9]+ out of [0-9]+ tests failed' | grep -oE '^[0-9]+' || echo "0")
+    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
+    PASSED=$((TOTAL - FAILED))
+
+    cat > "$RESULTS/summary-act4${SUFFIX}.json" << EOF
 {
   "zkvm": "airbender",
-  "suite": "act4",
+  "suite": "act4${SUFFIX}",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "passed": $PASSED,
   "failed": $FAILED,
@@ -86,8 +94,8 @@ cat > "$RESULTS/summary-act4.json" << EOF
 }
 EOF
 
-# Generate per-test results JSON (enumerate ELFs, mark failed ones)
-python3 -c "
+    # Generate per-test results JSON (enumerate ELFs, mark failed ones)
+    python3 -c "
 import json, os, re
 
 elf_dir = '$ELF_DIR'
@@ -106,7 +114,6 @@ for root, dirs, files in os.walk(elf_dir):
     for f in sorted(files):
         if not f.endswith('.elf'):
             continue
-        # Extension is the subdirectory name (I, M, etc.)
         ext = os.path.basename(root)
         name = f.removesuffix('.elf')
         tests.append({
@@ -117,16 +124,36 @@ for root, dirs, files in os.walk(elf_dir):
 
 tests.sort(key=lambda t: (t['extension'], t['name']))
 
-with open('$RESULTS/results-act4.json', 'w') as out:
+with open('$RESULTS/results-act4${SUFFIX}.json', 'w') as out:
     json.dump({
         'zkvm': 'airbender',
-        'suite': 'act4',
+        'suite': 'act4${SUFFIX}',
         'tests': tests
     }, out, indent=2)
 
-print(f'Per-test results: {len(tests)} tests written to results-act4.json')
+print(f'Per-test results: {len(tests)} tests written to results-act4${SUFFIX}.json')
 "
 
+    echo ""
+    echo "=== $CONFIG_NAME: $PASSED/$TOTAL passed ==="
+}
+
+# Run each suite; allow failures without aborting (set -e is active globally)
+# ─── Run 1: Native ISA (rv32im) ───
+run_act4_suite \
+    "config/airbender/airbender-rv32im/test_config.yaml" \
+    "airbender-rv32im" \
+    "I,M" \
+    "$(printf 'I\nM\nZicsr\nSm')" \
+    "" || true
+
+# ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
+run_act4_suite \
+    "config/airbender/airbender-rv64im-zicclsm/test_config.yaml" \
+    "airbender-rv64im-zicclsm" \
+    "I,M,Misalign" \
+    "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
+    "-target" || true
+
 echo ""
-echo "=== Results: $PASSED/$TOTAL passed ==="
-echo "Summary written to $RESULTS/summary-act4.json"
+echo "=== All ACT4 suites complete ==="

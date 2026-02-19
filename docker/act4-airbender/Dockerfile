@@ -46,9 +46,10 @@ RUN git clone --branch act4 --single-branch \
 # Initialize the UDB submodule (required for config schema validation during make elfs)
 RUN git submodule update --init external/riscv-unified-db
 
-# Pre-generate assembly test sources for I and M extensions.
+# Pre-generate assembly test sources for I, M, and Misalign extensions.
 # This is the slow deterministic step; baking it in avoids re-running it on every test run.
-RUN uv run make tests EXTENSIONS=I,M
+# Misalign is needed for the RV64IM_Zicclsm target profile.
+RUN uv run make tests EXTENSIONS=I,M,Misalign
 
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results

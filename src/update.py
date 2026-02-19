@@ -257,12 +257,14 @@ for zkvm in config['zkvms']:
         results['zkvms'][zkvm]['suites'] = {
             'arch': {},
             'extra': {},
-            'act4': {}
+            'act4': {},
+            'act4-target': {}
         }
 
-    # Ensure act4 suite exists for existing results
-    if 'act4' not in results['zkvms'][zkvm]['suites']:
-        results['zkvms'][zkvm]['suites']['act4'] = {}
+    # Ensure act4 suites exist for existing results
+    for s in ['act4', 'act4-target']:
+        if s not in results['zkvms'][zkvm]['suites']:
+            results['zkvms'][zkvm]['suites'][s] = {}
 
     # Clean up any leftover fields that shouldn't be at base level
     for field in ['last_run', 'has_report']:
@@ -296,7 +298,7 @@ for zkvm in config['zkvms']:
         results['zkvms'][zkvm]['commit'] = config['zkvms'][zkvm].get('commit', 'unknown')
 
     # Check test results for all suites
-    for suite in ['arch', 'extra', 'act4']:
+    for suite in ['arch', 'extra', 'act4', 'act4-target']:
         summary_file = Path(f'test-results/{zkvm}/summary-{suite}.json')
 
         # Fallback to old summary.json for arch suite
@@ -372,15 +374,16 @@ for zkvm in config['zkvms']:
                     suite_data['total'] = 0
                     suite_data['test_status'] = 'not_tested'
 
-    # Load per-test ACT4 results if available
-    act4_results_file = Path(f'test-results/{zkvm}/results-act4.json')
-    if act4_results_file.exists():
-        try:
-            with open(act4_results_file) as f:
-                act4_data = json.load(f)
-                results['zkvms'][zkvm]['suites']['act4']['tests'] = act4_data.get('tests', [])
-        except:
-            pass
+    # Load per-test ACT4 results if available (native and target)
+    for suffix, suite_key in [('', 'act4'), ('-target', 'act4-target')]:
+        act4_results_file = Path(f'test-results/{zkvm}/results-act4{suffix}.json')
+        if act4_results_file.exists():
+            try:
+                with open(act4_results_file) as f:
+                    act4_data = json.load(f)
+                    results['zkvms'][zkvm]['suites'][suite_key]['tests'] = act4_data.get('tests', [])
+            except:
+                pass
 
     # Copy report and CSS if exists for arch/extra suites
     for suite in ['arch', 'extra']:
@@ -594,6 +597,7 @@ def generate_act4_dashboard_html(results, config):
     for zkvm in sorted(config['zkvms'].keys()):
         base_data = results['zkvms'].get(zkvm, {})
         act4_data = base_data.get('suites', {}).get('act4', {})
+        target_data = base_data.get('suites', {}).get('act4-target', {})
 
         # Commit link
         commit = base_data.get('commit', 'unknown')
@@ -617,12 +621,23 @@ def generate_act4_dashboard_html(results, config):
         else:
             results_text = '<span class="none">&mdash;</span>'
 
+        # ETH-ACT Target results
+        t_passed = target_data.get('passed', 0)
+        t_failed = target_data.get('failed', 0)
+        t_total = target_data.get('total', 0)
+
+        if t_total > 0:
+            t_class = "pass" if t_failed == 0 else "fail"
+            target_text = f'<a href="act4/{zkvm}-target.html" class="{t_class}">{t_passed}/{t_total}</a>'
+        else:
+            target_text = '<span class="none">&mdash;</span>'
+
         # Nightly status
         has_nightly = base_data.get('has_nightly', False)
         nightly_text = '&#x2713;' if has_nightly else '&minus;'
 
-        # Last run
-        last_run = act4_data.get('last_run')
+        # Last run (use most recent of native or target)
+        last_run = act4_data.get('last_run') or target_data.get('last_run')
         last_run_text = last_run if last_run else '&mdash;'
 
         html += f"""
@@ -633,7 +648,7 @@ def generate_act4_dashboard_html(results, config):
                     <td><code>{isa}</code></td>
                     <td>{results_text}</td>
                     <td><code>RV64IM_Zicclsm</code></td>
-                    <td><span class="none">&mdash;</span></td>
+                    <td>{target_text}</td>
                     <td>{last_run_text}</td>
                 </tr>"""
 
@@ -647,10 +662,13 @@ def generate_act4_dashboard_html(results, config):
     return html
 
 
-def generate_act4_detail_html(zkvm, results, config):
+def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
     """Generate per-ZKVM ACT4 detail page showing per-test results"""
+    is_target = suite_key == 'act4-target'
+    label = 'ACT4 Target (RV64IM_Zicclsm)' if is_target else 'ACT4'
+
     base_data = results['zkvms'].get(zkvm, {})
-    act4_data = base_data.get('suites', {}).get('act4', {})
+    act4_data = base_data.get('suites', {}).get(suite_key, {})
     tests = act4_data.get('tests', [])
 
     repo_url = config['zkvms'][zkvm].get('repo_url', '#')
@@ -664,7 +682,7 @@ def generate_act4_detail_html(zkvm, results, config):
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{zkvm.upper()} ACT4 Results - ZKVM Test Monitor</title>
+    <title>{zkvm.upper()} {label} Results - ZKVM Test Monitor</title>
     <style>
 {DASHBOARD_CSS}
         h1 {{
@@ -704,7 +722,7 @@ def generate_act4_detail_html(zkvm, results, config):
             </nav>
         </div>
         <h1>
-            {zkvm.upper()} &mdash; ACT4 Results
+            {zkvm.upper()} &mdash; {label} Results
             <a href="{repo_url}" target="_blank">View Repository &rarr;</a>
         </h1>
         <div class="metadata">
@@ -794,12 +812,13 @@ with open('docs/index-extra.html', 'w') as f:
 with open('docs/index-act4.html', 'w') as f:
     f.write(act4_html)
 
-# Generate ACT4 detail pages
+# Generate ACT4 detail pages (native and target)
 Path('docs/act4').mkdir(parents=True, exist_ok=True)
 for zkvm in config['zkvms']:
-    act4_detail = generate_act4_detail_html(zkvm, results, config)
-    with open(f'docs/act4/{zkvm}.html', 'w') as f:
-        f.write(act4_detail)
+    for suite_key, suffix in [('act4', ''), ('act4-target', '-target')]:
+        detail = generate_act4_detail_html(zkvm, results, config, suite_key=suite_key)
+        with open(f'docs/act4/{zkvm}{suffix}.html', 'w') as f:
+            f.write(detail)
 
 # Generate individual ZKVM pages
 Path('docs/zkvms').mkdir(parents=True, exist_ok=True)
@@ -831,12 +850,13 @@ for zkvm in config['zkvms']:
             extra_data = json.load(f)
             history_runs.extend(extra_data.get('runs', []))
 
-    # Load act4 history
-    act4_history_file = Path(f'data/history/{zkvm}-act4.json')
-    if act4_history_file.exists():
-        with open(act4_history_file) as f:
-            act4_data = json.load(f)
-            history_runs.extend(act4_data.get('runs', []))
+    # Load act4 history (native and target)
+    for act4_suite in ['act4', 'act4-target']:
+        act4_history_file = Path(f'data/history/{zkvm}-{act4_suite}.json')
+        if act4_history_file.exists():
+            with open(act4_history_file) as f:
+                act4_data = json.load(f)
+                history_runs.extend(act4_data.get('runs', []))
 
     # Get repo URL
     repo_url = config['zkvms'][zkvm].get('repo_url', '#')

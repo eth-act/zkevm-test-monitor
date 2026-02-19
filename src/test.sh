@@ -90,45 +90,65 @@ if [ "$TEST_SUITE" = "act4" ]; then
       -v "$PWD/test-results/${ZKVM}:/results" \
       act4-airbender:latest || true
 
-    if [ -f "test-results/${ZKVM}/summary-act4.json" ]; then
-      PASSED=$(jq '.passed' "test-results/${ZKVM}/summary-act4.json")
-      FAILED=$(jq '.failed' "test-results/${ZKVM}/summary-act4.json")
-      TOTAL=$(jq '.total' "test-results/${ZKVM}/summary-act4.json")
-      if [ -f "test-results/${ZKVM}/results-act4.json" ]; then
-        TEST_COUNT=$(jq '.tests | length' "test-results/${ZKVM}/results-act4.json")
-        echo "  📋 Per-test results captured: ${TEST_COUNT} tests in results-act4.json"
+    mkdir -p data/history
+    TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
+    ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
+    RUN_DATE=$(date -u +"%Y-%m-%d")
+
+    # Process results for both native and target suites
+    for ACT4_SUFFIX in "" "-target"; do
+      SUMMARY_FILE="test-results/${ZKVM}/summary-act4${ACT4_SUFFIX}.json"
+      RESULTS_FILE="test-results/${ZKVM}/results-act4${ACT4_SUFFIX}.json"
+      LABEL="ACT4${ACT4_SUFFIX:+ (target)}"
+      ISA="rv32im"
+      SUITE="act4"
+      if [ "$ACT4_SUFFIX" = "-target" ]; then
+        ISA="rv64im_zicclsm"
+        SUITE="act4-target"
       fi
-      echo "  ✅ ACT4 ${ZKVM}: ${PASSED}/${TOTAL} passed"
 
-      mkdir -p data/history
-      HISTORY_FILE="data/history/${ZKVM}-act4.json"
-      TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
-      ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
-      RUN_DATE=$(date -u +"%Y-%m-%d")
+      if [ ! -f "$SUMMARY_FILE" ]; then
+        if [ -z "$ACT4_SUFFIX" ]; then
+          echo "  ⚠️  No summary generated for $ZKVM (container may have failed)"
+        fi
+        continue
+      fi
 
+      PASSED=$(jq '.passed' "$SUMMARY_FILE")
+      FAILED=$(jq '.failed' "$SUMMARY_FILE")
+      TOTAL=$(jq '.total' "$SUMMARY_FILE")
+      if [ -f "$RESULTS_FILE" ]; then
+        TEST_COUNT=$(jq '.tests | length' "$RESULTS_FILE")
+        echo "  📋 ${LABEL} per-test results: ${TEST_COUNT} tests in results-act4${ACT4_SUFFIX}.json"
+      fi
+      echo "  ✅ ${LABEL} ${ZKVM}: ${PASSED}/${TOTAL} passed"
+
+      HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
       if [ -f "$HISTORY_FILE" ]; then
         jq --arg date "$RUN_DATE" \
           --arg monitor "$TEST_MONITOR_COMMIT" \
           --arg zkvm "$ZKVM_COMMIT" \
+          --arg isa "$ISA" \
+          --arg suite "$SUITE" \
           --argjson passed "$PASSED" \
           --argjson failed "$FAILED" \
           --argjson total "$TOTAL" \
           '.runs += [{"date": $date, "test_monitor_commit": $monitor,
-                      "zkvm_commit": $zkvm, "isa": "rv32im", "suite": "act4",
+                      "zkvm_commit": $zkvm, "isa": $isa, "suite": $suite,
                       "passed": $passed, "failed": $failed, "total": $total, "notes": ""}]' \
           "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
       else
         cat > "$HISTORY_FILE" << HISTORY
 {
   "zkvm": "${ZKVM}",
-  "suite": "act4",
+  "suite": "${SUITE}",
   "runs": [
     {
       "date": "${RUN_DATE}",
       "test_monitor_commit": "${TEST_MONITOR_COMMIT}",
       "zkvm_commit": "${ZKVM_COMMIT}",
-      "isa": "rv32im",
-      "suite": "act4",
+      "isa": "${ISA}",
+      "suite": "${SUITE}",
       "passed": ${PASSED},
       "failed": ${FAILED},
       "total": ${TOTAL},
@@ -138,9 +158,7 @@ if [ "$TEST_SUITE" = "act4" ]; then
 }
 HISTORY
       fi
-    else
-      echo "  ⚠️  No summary generated for $ZKVM (container may have failed)"
-    fi
+    done
   done
   exit 0
 fi
