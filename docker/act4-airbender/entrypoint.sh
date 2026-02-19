@@ -86,6 +86,47 @@ cat > "$RESULTS/summary-act4.json" << EOF
 }
 EOF
 
+# Generate per-test results JSON (enumerate ELFs, mark failed ones)
+python3 -c "
+import json, os, re
+
+elf_dir = '$ELF_DIR'
+run_output = '''$RUN_OUTPUT'''
+
+# Parse failed test names from run_tests.py output
+failed_names = set()
+for line in run_output.splitlines():
+    m = re.match(r'\tTest (\S+\.elf) failed', line)
+    if m:
+        failed_names.add(m.group(1))
+
+# Enumerate all ELFs and build per-test results
+tests = []
+for root, dirs, files in os.walk(elf_dir):
+    for f in sorted(files):
+        if not f.endswith('.elf'):
+            continue
+        # Extension is the subdirectory name (I, M, etc.)
+        ext = os.path.basename(root)
+        name = f.removesuffix('.elf')
+        tests.append({
+            'name': name,
+            'extension': ext,
+            'passed': f not in failed_names
+        })
+
+tests.sort(key=lambda t: (t['extension'], t['name']))
+
+with open('$RESULTS/results-act4.json', 'w') as out:
+    json.dump({
+        'zkvm': 'airbender',
+        'suite': 'act4',
+        'tests': tests
+    }, out, indent=2)
+
+print(f'Per-test results: {len(tests)} tests written to results-act4.json')
+"
+
 echo ""
 echo "=== Results: $PASSED/$TOTAL passed ==="
 echo "Summary written to $RESULTS/summary-act4.json"

@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>R0VM - ZKVM Test Monitor</title>
+    <title>OPENVM ACT4 Results - ZKVM Test Monitor</title>
     <style>
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -117,13 +117,20 @@
             font-size: 0.8em;
             font-weight: normal;
         }
+        h2 {
+            margin-top: 30px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .summary {
+            font-size: 1.1em;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
         .back-link {
             margin-bottom: 20px;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6c757d;
         }
     </style>
 </head>
@@ -131,67 +138,28 @@
     <div class="container">
         <div class="nav-header">
             <div class="back-link">
-                <a href="../index.html">&larr; Back to Dashboard</a>
+                <a href="../index-act4.html">&larr; Back to ACT4 Dashboard</a>
             </div>
             <nav class="nav-links">
                 <a href="../index.html" class="nav-link">Architecture Tests</a>
                 <a href="../index-extra.html" class="nav-link">Extra Tests</a>
-                <a href="../index-act4.html" class="nav-link">ACT4 Tests</a>
+                <a href="../index-act4.html" class="nav-link active">ACT4 Tests</a>
             </nav>
         </div>
         <h1>
-            R0VM
-            <a href="https://github.com/codygunton/risc0" target="_blank">View Repository &rarr;</a>
+            OPENVM &mdash; ACT4 Results
+            <a href="https://github.com/codygunton/openvm" target="_blank">View Repository &rarr;</a>
         </h1>
         <div class="metadata">
-            <strong>Source:</strong> <a href="https://github.com/codygunton/risc0">codygunton/risc0</a>
+            <strong>Source:</strong> <a href="https://github.com/codygunton/openvm">codygunton/openvm</a>
         </div>
 
-        <h2>Test Run History</h2>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Run Date</th>
-                    <th>Suite</th>
-                    <th>ZKVM Commit</th>
-                    <th>ISA</th>
-                    <th>Results</th>
-                    <th>Notes</th>
-                </tr>
-            </thead>
-            <tbody>
-
-                <tr>
-                    <td>2025-09-25</td>
-                    <td>Extra</td>
-                    <td><a href="https://github.com/codygunton/risc0/commit/e9a6b28579f700b56b1e9dc12cec0df68be47a96" class="commit-link">e9a6b285</a></td>
-                    <td><code>rv32im</code></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td></td>
-                </tr>
-
-                <tr>
-                    <td>2025-09-23</td>
-                    <td>Arch</td>
-                    <td><a href="https://github.com/codygunton/risc0/commit/e9a6b28579f700b56b1e9dc12cec0df68be47a96" class="commit-link">e9a6b285</a></td>
-                    <td><code>rv32im</code></td>
-                    <td><span class="pass">47/47</span></td>
-                    <td></td>
-                </tr>
-
-                <tr>
-                    <td>2025-09-04</td>
-                    <td>Arch</td>
-                    <td><a href="https://github.com/codygunton/risc0/commit/e9a6b28579f700b56b1e9dc12cec0df68be47a96" class="commit-link">e9a6b285</a></td>
-                    <td><code>rv32im</code></td>
-                    <td><span class="fail">45/47</span></td>
-                    <td></td>
-                </tr>
-
-            </tbody>
-        </table>
-
+        <div class="summary">No ACT4 test results available.
+        </div>
+        <div style="text-align: center; padding: 60px 20px; color: #6c757d;">
+            <p>No per-test results available.</p>
+            <p>Run ACT4 tests to see individual test results.</p>
+        </div>
     </div>
 </body>
 </html>

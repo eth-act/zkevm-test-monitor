@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Extra Tests - ZKVM Test Monitor</title>
+    <title>ACT4 Tests - ZKVM Test Monitor</title>
     <style>
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -108,6 +108,16 @@
             cursor: not-allowed;
         }
 
+        .col-group {
+            text-align: center;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .col-group-native {
+            background: #e8f4fd;
+        }
+        .col-group-target {
+            background: #f0e8fd;
+        }
     </style>
 </head>
 <body>
@@ -116,93 +126,105 @@
             <h1>RISC-V ZKVM Compliance Test Monitor</h1>
             <nav class="nav-links">
                 <a href="index.html" class="nav-link">Architecture Tests</a>
-                <a href="index-extra.html" class="nav-link active">Extra Tests</a>
-                <a href="index-act4.html" class="nav-link">ACT4 Tests</a>
+                <a href="index-extra.html" class="nav-link">Extra Tests</a>
+                <a href="index-act4.html" class="nav-link active">ACT4 Tests</a>
             </nav>
         </div>
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
-            <strong>Test Suite:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor/tree/main/extra-tests">ACT Extra Tests</a>
+            <strong>Test Suite:</strong> <a href="https://github.com/riscv-non-isa/riscv-arch-test/tree/act4">RISC-V ACT4 Self-Checking Tests</a>
             <br><br><em style="color: #155724; background-color: #d4edda; padding: 10px; display: block; border-radius: 4px; border: 1px solid #c3e6cb;">
-            &#x1f6a7; <strong>Note:</strong> This suite is currently only used for experimentation.
+            ACT4 uses self-checking ELFs with expected values baked in at compile time. Pass/fail is determined by exit code, not signature comparison.
             </em>
         </div>
 
         <table>
             <thead>
                 <tr>
-                    <th>ZKVM</th>
-                    <th>ISA</th>
-                    <th>CI?</th>
-                    <th>Commit</th>
-                    <th>Results</th>
-                    <th>Last Run</th>
-                    <th>Full Report</th>
+                    <th rowspan="2">ZKVM</th>
+                    <th rowspan="2">CI?</th>
+                    <th rowspan="2">Commit</th>
+                    <th colspan="2" class="col-group col-group-native">Native ISA</th>
+                    <th colspan="2" class="col-group col-group-target">ETH-ACT Target</th>
+                    <th rowspan="2">Last Run</th>
+                </tr>
+                <tr>
+                    <th class="col-group-native">ISA</th>
+                    <th class="col-group-native">Results</th>
+                    <th class="col-group-target">RV64IM_Zicclsm</th>
+                    <th class="col-group-target">Results</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td><strong><a href="zkvms/airbender.html">AIRBENDER</a></strong></td>
-                    <td><code>rv32im</code></td>
                     <td>&minus;</td>
                     <td><a href="https://github.com/codygunton/zksync-airbender/commit/1f52d2e2" class="commit-link">1f52d2e2</a></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td>2025-09-25</td>
-                    <td><a href="reports/airbender-extra.html" class="report-btn">View Report</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><a href="act4/airbender.html" class="fail">42/47</a></td>
+                    <td><code>RV64IM_Zicclsm</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>2026-02-19</td>
                 </tr>
                 <tr>
                     <td><strong><a href="zkvms/jolt.html">JOLT</a></strong></td>
-                    <td><code>rv64imac</code></td>
-                    <td>&minus;</td>
+                    <td>&#x2713;</td>
                     <td><a href="https://github.com/a16z/jolt/commit/0156f771" class="commit-link">0156f771</a></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td>2025-09-25</td>
-                    <td><a href="reports/jolt-extra.html" class="report-btn">View Report</a></td>
+                    <td><code>rv64imac</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><code>RV64IM_Zicclsm</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>&mdash;</td>
                 </tr>
                 <tr>
                     <td><strong><a href="zkvms/openvm.html">OPENVM</a></strong></td>
-                    <td><code>rv32im</code></td>
                     <td>&minus;</td>
                     <td><a href="https://github.com/codygunton/openvm/commit/b5f3f0197" class="commit-link">b5f3f019</a></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td>2025-09-25</td>
-                    <td><a href="reports/openvm-extra.html" class="report-btn">View Report</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><code>RV64IM_Zicclsm</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>&mdash;</td>
                 </tr>
                 <tr>
                     <td><strong><a href="zkvms/pico.html">PICO</a></strong></td>
-                    <td><code>rv32im</code></td>
-                    <td>&minus;</td>
+                    <td>&#x2713;</td>
                     <td><a href="https://github.com/brevis-network/pico/commit/f8617c9c4b540cf31f8b07f6144c93d04799f0f4" class="commit-link">f8617c9c</a></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td>2025-09-25</td>
-                    <td><a href="reports/pico-extra.html" class="report-btn">View Report</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><code>RV64IM_Zicclsm</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>&mdash;</td>
                 </tr>
                 <tr>
                     <td><strong><a href="zkvms/r0vm.html">R0VM</a></strong></td>
-                    <td><code>rv32im</code></td>
                     <td>&minus;</td>
                     <td><a href="https://github.com/codygunton/risc0/commit/e9a6b28579f700b56b1e9dc12cec0df68be47a96" class="commit-link">e9a6b285</a></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td>2025-09-25</td>
-                    <td><a href="reports/r0vm-extra.html" class="report-btn">View Report</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><code>RV64IM_Zicclsm</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>&mdash;</td>
                 </tr>
                 <tr>
                     <td><strong><a href="zkvms/sp1.html">SP1</a></strong></td>
-                    <td><code>rv32im</code></td>
                     <td>&minus;</td>
                     <td><a href="https://github.com/codygunton/sp1/commit/eb86c1dee" class="commit-link">eb86c1de</a></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td>2025-09-25</td>
-                    <td><a href="reports/sp1-extra.html" class="report-btn">View Report</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><code>RV64IM_Zicclsm</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>&mdash;</td>
                 </tr>
                 <tr>
                     <td><strong><a href="zkvms/zisk.html">ZISK</a></strong></td>
-                    <td><code>rv64imafdczicsr</code></td>
-                    <td>&minus;</td>
+                    <td>&#x2713;</td>
                     <td><a href="https://github.com/0xPolygonHermez/zisk/commit/b3ca745b80423c8123dc24f19039865a5bc8b074" class="commit-link">b3ca745b</a></td>
-                    <td><span class="pass">1/1</span></td>
-                    <td>2025-09-25</td>
-                    <td><a href="reports/zisk-extra.html" class="report-btn">View Report</a></td>
+                    <td><code>rv64imafdczicsr</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><code>RV64IM_Zicclsm</code></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>&mdash;</td>
                 </tr>
             </tbody>
         </table>

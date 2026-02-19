@@ -83,7 +83,14 @@ case "$CMD" in
         ;;
 
     serve)
-        echo "🌐 Server at http://localhost:8000"
+        # Check for --act4 flag to hint at ACT4 dashboard URL
+        SERVE_PAGE="index.html"
+        for arg in "$@"; do
+            if [[ "$arg" == "--act4" ]]; then
+                SERVE_PAGE="index-act4.html"
+            fi
+        done
+        echo "🌐 Server at http://localhost:8000/${SERVE_PAGE}"
         echo "   Press Ctrl+C to stop"
         cd docs && python3 -m http.server 8000 --bind 127.0.0.1
         ;;

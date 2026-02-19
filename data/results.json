@@ -22,6 +22,12 @@
           "test_status": "completed",
           "has_report": true,
           "last_run": "2025-09-25"
+        },
+        "act4": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested"
         }
       },
       "last_run": null
@@ -48,6 +54,12 @@
           "test_status": "completed",
           "has_report": true,
           "last_run": "2025-09-25"
+        },
+        "act4": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested"
         }
       },
       "last_run": null
@@ -74,6 +86,12 @@
           "test_status": "completed",
           "has_report": true,
           "last_run": "2025-09-25"
+        },
+        "act4": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested"
         }
       },
       "last_run": null
@@ -126,6 +144,12 @@
           "test_status": "completed",
           "last_run": "2025-09-25",
           "has_report": true
+        },
+        "act4": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested"
         }
       },
       "last_run": null
@@ -152,6 +176,12 @@
           "test_status": "completed",
           "has_report": true,
           "last_run": "2025-09-25"
+        },
+        "act4": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested"
         }
       },
       "last_run": null
@@ -178,6 +208,250 @@
           "test_status": "completed",
           "has_report": true,
           "last_run": "2025-09-25"
+        },
+        "act4": {
+          "passed": 42,
+          "failed": 5,
+          "total": 47,
+          "test_status": "completed",
+          "last_run": "2026-02-19",
+          "tests": [
+            {
+              "name": "I-add-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-addi-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-and-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-andi-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-auipc-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-beq-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-bge-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-bgeu-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-blt-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-bltu-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-bne-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-fence-00",
+              "extension": "I",
+              "passed": false
+            },
+            {
+              "name": "I-jal-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-jalr-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-lb-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-lbu-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-lh-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-lhu-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-lui-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-lw-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-nop-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-or-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-ori-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sb-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sh-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sll-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-slli-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-slt-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-slti-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sltiu-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sltu-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sra-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-srai-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-srl-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-srli-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sub-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-sw-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-xor-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "I-xori-00",
+              "extension": "I",
+              "passed": true
+            },
+            {
+              "name": "M-div-00",
+              "extension": "M",
+              "passed": false
+            },
+            {
+              "name": "M-divu-00",
+              "extension": "M",
+              "passed": true
+            },
+            {
+              "name": "M-mul-00",
+              "extension": "M",
+              "passed": true
+            },
+            {
+              "name": "M-mulh-00",
+              "extension": "M",
+              "passed": false
+            },
+            {
+              "name": "M-mulhsu-00",
+              "extension": "M",
+              "passed": false
+            },
+            {
+              "name": "M-mulhu-00",
+              "extension": "M",
+              "passed": true
+            },
+            {
+              "name": "M-rem-00",
+              "extension": "M",
+              "passed": false
+            },
+            {
+              "name": "M-remu-00",
+              "extension": "M",
+              "passed": true
+            }
+          ]
         }
       },
       "last_run": null
@@ -199,6 +473,12 @@
           "test_status": "completed",
           "last_run": "2025-09-25",
           "has_report": true
+        },
+        "act4": {
+          "passed": 0,
+          "failed": 0,
+          "total": 0,
+          "test_status": "not_tested"
         }
       },
       "isa": "rv32im",
@@ -209,7 +489,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-19T19:33:12.742507+00:00",
+  "last_updated": "2026-02-19T20:15:11.474587+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "f06801f1"
+  "test_monitor_commit": "04fddb7c"
 }

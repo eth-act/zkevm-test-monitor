@@ -94,6 +94,10 @@ if [ "$TEST_SUITE" = "act4" ]; then
       PASSED=$(jq '.passed' "test-results/${ZKVM}/summary-act4.json")
       FAILED=$(jq '.failed' "test-results/${ZKVM}/summary-act4.json")
       TOTAL=$(jq '.total' "test-results/${ZKVM}/summary-act4.json")
+      if [ -f "test-results/${ZKVM}/results-act4.json" ]; then
+        TEST_COUNT=$(jq '.tests | length' "test-results/${ZKVM}/results-act4.json")
+        echo "  📋 Per-test results captured: ${TEST_COUNT} tests in results-act4.json"
+      fi
       echo "  ✅ ACT4 ${ZKVM}: ${PASSED}/${TOTAL} passed"
 
       mkdir -p data/history
