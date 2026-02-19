@@ -591,7 +591,7 @@ def generate_act4_dashboard_html(results, config):
                     <th rowspan="2">CI?</th>
                     <th rowspan="2">Commit</th>
                     <th colspan="2" class="col-group col-group-native">Full ISA</th>
-                    <th class="col-group col-group-target">RV64IM_Zicclsm Results</th>
+                    <th class="col-group col-group-target">RV64IM_Zicclsm</th>
                     <th rowspan="2">Last Run</th>
                 </tr>
                 <tr>
@@ -671,7 +671,7 @@ def generate_act4_dashboard_html(results, config):
 def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
     """Generate per-ZKVM ACT4 detail page showing per-test results"""
     is_target = suite_key == 'act4-target'
-    label = 'ACT4 — RV64IM_Zicclsm Results' if is_target else 'ACT4 — Full ISA'
+    label = 'ACT4 — RV64IM_Zicclsm' if is_target else 'ACT4 — Full ISA'
 
     base_data = results['zkvms'].get(zkvm, {})
     act4_data = base_data.get('suites', {}).get(suite_key, {})
