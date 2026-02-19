@@ -3,20 +3,14 @@ set -eu
 
 # ACT4 Airbender test runner
 #
-# Uses airbender's normal `run --bin` command with a wrapper that:
-#   1. objcopy ELF → flat binary (linked at address 0)
-#   2. Runs `airbender run --bin` for N cycles
-#   3. Parses register x10 from output: 0 = PASS, non-zero = FAIL
-#
 # Expected mounts:
-#   /dut/airbender-binary          — the Airbender CLI binary
+#   /dut/airbender-binary          — the Airbender CLI binary (with run-for-act command)
 #   /act4/config/airbender         — Airbender ACT4 config directory (host riscv-arch-test/config/airbender)
 #   /results/                      — output directory for summary JSON
 
 DUT=/dut/airbender-binary
 RESULTS=/results
 WORKDIR=/act4/work
-CYCLES="${ACT4_CYCLES:-1000000}"
 
 if [ ! -x "$DUT" ]; then
     echo "Error: No executable found at $DUT"
@@ -26,41 +20,6 @@ fi
 cd /act4
 mkdir -p "$RESULTS"
 JOBS="${ACT4_JOBS:-$(nproc)}"
-
-# Generate wrapper script that bridges ELF → flat binary → airbender run.
-# RVMODEL_HALT_PASS sets x10=0, RVMODEL_HALT_FAIL sets x10=1.
-# The wrapper reads x10 from the "Result:" output line.
-cat > /tmp/run_wrapper.sh << 'WRAPPER'
-#!/bin/bash
-set -e
-ELF="$1"
-FLAT="/tmp/test_$$.bin"
-trap 'rm -f "$FLAT"' EXIT
-
-# Convert ELF to flat binary (linked at address 0, matching `run` entry_point)
-riscv64-unknown-elf-objcopy -O binary "$ELF" "$FLAT"
-
-# Run with airbender's normal run command
-OUTPUT=$(__DUT__ run --bin "$FLAT" --cycles __CYCLES__ 2>&1) || {
-    # Non-zero exit = VM panic or crash → test failure
-    echo "$OUTPUT"
-    exit 1
-}
-
-# Parse x10 (first value in "Result: x10, x11, ...")
-X10=$(echo "$OUTPUT" | grep '^Result:' | head -1 | sed 's/Result: *//;s/,.*//')
-
-if [ "$X10" = "0" ]; then
-    exit 0  # PASS
-else
-    echo "FAIL: x10=$X10"
-    exit 1
-fi
-WRAPPER
-
-# Substitute DUT path and cycle count into the wrapper
-sed -i "s|__DUT__|$DUT|g;s|__CYCLES__|$CYCLES|g" /tmp/run_wrapper.sh
-chmod +x /tmp/run_wrapper.sh
 
 # run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
 #
@@ -112,7 +71,7 @@ run_act4_suite() {
     # run_tests.py exits 0 if all pass, 1 if any fail.
     # Capture output for parsing; allow non-zero exit.
     local RUN_OUTPUT
-    RUN_OUTPUT=$(python3 /act4/run_tests.py "/tmp/run_wrapper.sh" "$ELF_DIR" -j "$JOBS" 2>&1) || true
+    RUN_OUTPUT=$(python3 /act4/run_tests.py "$DUT run-for-act" "$ELF_DIR" -j "$JOBS" 2>&1) || true
     echo "$RUN_OUTPUT"
 
     # Parse results from run_tests.py output.

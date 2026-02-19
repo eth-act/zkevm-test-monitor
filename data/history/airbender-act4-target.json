@@ -4,18 +4,7 @@
   "runs": [
     {
       "date": "2026-02-19",
-      "test_monitor_commit": "a60ad6ec",
-      "zkvm_commit": "1f52d2e2",
-      "isa": "rv64im_zicclsm",
-      "suite": "act4-target",
-      "passed": 0,
-      "failed": 72,
-      "total": 72,
-      "notes": ""
-    },
-    {
-      "date": "2026-02-19",
-      "test_monitor_commit": "a60ad6ec",
+      "test_monitor_commit": "2a9e03a2",
       "zkvm_commit": "1f52d2e2",
       "isa": "rv64im_zicclsm",
       "suite": "act4-target",

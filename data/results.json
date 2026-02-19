@@ -240,8 +240,8 @@
           "last_run": "2025-09-25"
         },
         "act4": {
-          "passed": 46,
-          "failed": 1,
+          "passed": 42,
+          "failed": 5,
           "total": 47,
           "test_status": "completed",
           "last_run": "2026-02-19",
@@ -444,7 +444,7 @@
             {
               "name": "M-div-00",
               "extension": "M",
-              "passed": true
+              "passed": false
             },
             {
               "name": "M-divu-00",
@@ -459,12 +459,12 @@
             {
               "name": "M-mulh-00",
               "extension": "M",
-              "passed": true
+              "passed": false
             },
             {
               "name": "M-mulhsu-00",
               "extension": "M",
-              "passed": true
+              "passed": false
             },
             {
               "name": "M-mulhu-00",
@@ -474,7 +474,7 @@
             {
               "name": "M-rem-00",
               "extension": "M",
-              "passed": true
+              "passed": false
             },
             {
               "name": "M-remu-00",
@@ -894,7 +894,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-19T21:06:56.813248+00:00",
+  "last_updated": "2026-02-19T22:40:25.523887+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "a60ad6ec"
+  "test_monitor_commit": "2a9e03a2"
 }
