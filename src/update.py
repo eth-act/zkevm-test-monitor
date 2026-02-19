@@ -135,6 +135,18 @@ def nav_links(active_suite, prefix=""):
     return '\n                '.join(links)
 
 
+def format_isa(isa_str):
+    """Format ISA string with _ before multi-letter extensions (e.g. RV64IMAFDCZicsr → RV64IMAFDC_Zicsr)"""
+    # Match the base (RV32/64 + single-letter extensions) then multi-letter extensions
+    m = re.match(r'^(RV\d+[A-Z]*?)(Z.*)$', isa_str, re.IGNORECASE)
+    if m:
+        base, rest = m.group(1), m.group(2)
+        # Split multi-letter extensions (each starts with uppercase)
+        parts = re.findall(r'[A-Z][a-z0-9]*[a-z][a-z0-9]*', rest)
+        if parts:
+            return base + '_' + '_'.join(parts)
+    return isa_str
+
 def get_zkvm_isa(zkvm):
     """Extract ISA definition from RISCOF plugin YAML"""
     try:
@@ -142,12 +154,9 @@ def get_zkvm_isa(zkvm):
         if yaml_path.exists():
             with open(yaml_path) as f:
                 data = yaml.safe_load(f)
-                # The ISA is typically under hart0 or hart_0
                 for key in ['hart0', 'hart_0']:
                     if key in data and 'ISA' in data[key]:
-                        isa = data[key]['ISA']
-                        # Format as lowercase with extensions (e.g., RV32IM -> rv32im)
-                        return isa
+                        return format_isa(data[key]['ISA'])
         return "unknown"
     except:
         return "unknown"
@@ -582,7 +591,7 @@ def generate_act4_dashboard_html(results, config):
                     <th rowspan="2">CI?</th>
                     <th rowspan="2">Commit</th>
                     <th colspan="2" class="col-group col-group-native">Full ISA</th>
-                    <th class="col-group col-group-target">ETH-ACT Target (RV64IM_Zicclsm)</th>
+                    <th class="col-group col-group-target">ETH-ACT RV64IM_Zicclsm</th>
                     <th rowspan="2">Last Run</th>
                 </tr>
                 <tr>
@@ -631,9 +640,8 @@ def generate_act4_dashboard_html(results, config):
         else:
             target_text = '<span class="none">&mdash;</span>'
 
-        # Nightly status
-        has_nightly = base_data.get('has_nightly', False)
-        nightly_text = '&#x2713;' if has_nightly else '&minus;'
+        # ACT4 has no CI workflows yet — always show minus
+        nightly_text = '&minus;'
 
         # Last run (use most recent of native or target)
         last_run = act4_data.get('last_run') or target_data.get('last_run')
@@ -663,7 +671,7 @@ def generate_act4_dashboard_html(results, config):
 def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
     """Generate per-ZKVM ACT4 detail page showing per-test results"""
     is_target = suite_key == 'act4-target'
-    label = 'ACT4 — ETH-ACT Target (RV64IM_Zicclsm)' if is_target else 'ACT4 — Full ISA'
+    label = 'ACT4 — ETH-ACT RV64IM_Zicclsm' if is_target else 'ACT4 — Full ISA'
 
     base_data = results['zkvms'].get(zkvm, {})
     act4_data = base_data.get('suites', {}).get(suite_key, {})

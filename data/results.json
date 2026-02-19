@@ -144,7 +144,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
-      "isa": "RV64IMAFDCZicsr",
+      "isa": "RV64IMAFDC_Zicsr",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -894,7 +894,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-19T20:37:40.681568+00:00",
+  "last_updated": "2026-02-19T20:46:29.009959+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "887553a6"
+  "test_monitor_commit": "1a644abb"
 }
