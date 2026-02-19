@@ -14,9 +14,9 @@ case "$CMD" in
 
     test)
         # Validate that a suite flag is provided
-        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
-            echo "❌ Error: Must specify either --arch or --extra"
-            echo "Usage: ./run test [--arch|--extra] [--build-only] [target1 target2 ...]"
+        if ! echo "$@" | grep -E '(--(arch|extra|act4))' > /dev/null; then
+            echo "❌ Error: Must specify --arch, --extra, or --act4"
+            echo "Usage: ./run test [--arch|--extra|--act4] [--build-only] [target1 target2 ...]"
             exit 1
         fi
         # Extract suite type and targets for display
@@ -28,6 +28,8 @@ case "$CMD" in
                 SUITE_TYPE="arch"
             elif [[ "$arg" == "--extra" ]]; then
                 SUITE_TYPE="extra"
+            elif [[ "$arg" == "--act4" ]]; then
+                SUITE_TYPE="act4"
             elif [[ "$arg" == "--build-only" ]]; then
                 BUILD_ONLY_FLAG=" (build-only)"
             else
@@ -47,9 +49,9 @@ case "$CMD" in
 
     all)
         # Validate that a suite flag is provided
-        if ! echo "$@" | grep -E '(--(arch|extra))' > /dev/null; then
-            echo "❌ Error: Must specify either --arch or --extra"
-            echo "Usage: ./run all [--arch|--extra] [target1 target2 ...]"
+        if ! echo "$@" | grep -E '(--(arch|extra|act4))' > /dev/null; then
+            echo "❌ Error: Must specify --arch, --extra, or --act4"
+            echo "Usage: ./run all [--arch|--extra|--act4] [target1 target2 ...]"
             exit 1
         fi
         # Extract suite type and targets for display
@@ -60,6 +62,8 @@ case "$CMD" in
                 SUITE_TYPE="arch"
             elif [[ "$arg" == "--extra" ]]; then
                 SUITE_TYPE="extra"
+            elif [[ "$arg" == "--act4" ]]; then
+                SUITE_TYPE="act4"
             else
                 DISPLAY_TARGETS="$DISPLAY_TARGETS $arg"
             fi
@@ -69,7 +73,7 @@ case "$CMD" in
         # Extract non-flag arguments for build.sh
         BUILD_TARGETS=""
         for arg in "$@"; do
-            if [[ "$arg" != "--arch" && "$arg" != "--extra" ]]; then
+            if [[ "$arg" != "--arch" && "$arg" != "--extra" && "$arg" != "--act4" ]]; then
                 BUILD_TARGETS="$BUILD_TARGETS $arg"
             fi
         done
@@ -100,19 +104,20 @@ Usage: ./run COMMAND [OPTIONS]
 
 Commands:
   build [zkvm]                         - Build ZKVM binaries
-  test [--arch|--extra] [--build-only] [zkvm]
-                                       - Run RISCOF tests (suite required)
+  test [--arch|--extra|--act4] [--build-only] [zkvm]
+                                       - Run tests (suite required)
   debug [--arch|--extra] <zkvm> <test-pattern>
                                        - Re-run specific test with verbose logging
   update                               - Regenerate dashboard HTML
-  all [--arch|--extra] [zkvm]          - Build + test + update (suite required)
+  all [--arch|--extra|--act4] [zkvm]   - Build + test + update (suite required)
   serve                                - Start local web server
   clean                                - Remove build artifacts
 
 Test Suite Options:
-  --arch                               - Run architecture compliance tests
+  --arch                               - Run RISCOF architecture compliance tests
   --extra                              - Run extended differential tests
-  --build-only                         - Compile tests without running them
+  --act4                               - Run ACT4 self-checking compliance tests (airbender only)
+  --build-only                         - Compile tests without running them (--arch/--extra only)
 
 Environment Variables:
   JOBS=N                               - Limit to N CPU cores (pins container to cores 0 to N-1)
@@ -123,8 +128,10 @@ Examples:
   ./run test --arch sp1 jolt           # Test SP1 and Jolt with arch suite
   ./run test --arch --build-only       # Compile arch tests for all ZKVMs
   ./run test --extra                   # Test all ZKVMs with extra suite
+  ./run test --act4 airbender          # Test airbender with ACT4 self-checking suite
   JOBS=8 ./run test --arch zisk        # Test zisk using only 8 cores
   ./run all --arch                     # Build and test everything with arch suite
+  ./run all --act4 airbender           # Build and test airbender with ACT4
   ./run debug --arch openvm div-01     # Debug specific test with full logging
   ./run serve                          # View dashboard locally
 
