@@ -12,6 +12,28 @@
       "failed": 5,
       "total": 47,
       "notes": "5 expected failures: fence, mulh, mulhsu, div, rem"
+    },
+    {
+      "date": "2026-02-19",
+      "test_monitor_commit": "a60ad6ec",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 0,
+      "failed": 47,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-19",
+      "test_monitor_commit": "a60ad6ec",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 46,
+      "failed": 1,
+      "total": 47,
+      "notes": ""
     }
   ]
 }
