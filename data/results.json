@@ -4,7 +4,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "eb86c1dee",
-      "isa": "rv32im",
+      "isa": "RV32IM",
       "has_nightly": false,
       "suites": {
         "arch": {
@@ -42,7 +42,7 @@
       "has_binary": false,
       "build_status": "not_built",
       "commit": "0156f771",
-      "isa": "rv64imac",
+      "isa": "RV64IMAC",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -80,7 +80,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "b5f3f0197",
-      "isa": "rv32im",
+      "isa": "RV32IM",
       "has_nightly": false,
       "suites": {
         "arch": {
@@ -144,7 +144,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
-      "isa": "rv64imafdczicsr",
+      "isa": "RV64IMAFDCZicsr",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -182,7 +182,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
-      "isa": "rv32im",
+      "isa": "RV32IM",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -220,7 +220,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "1f52d2e2",
-      "isa": "rv32im",
+      "isa": "RV32IM",
       "has_nightly": false,
       "suites": {
         "arch": {
@@ -886,7 +886,7 @@
           "test_status": "not_tested"
         }
       },
-      "isa": "rv32im",
+      "isa": "RV32IM",
       "has_nightly": false,
       "has_binary": false,
       "build_status": "not_built",
@@ -894,7 +894,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-19T20:30:29.976086+00:00",
+  "last_updated": "2026-02-19T20:35:55.525214+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "31fed60d"
+  "test_monitor_commit": "07eb5aed"
 }
