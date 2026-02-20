@@ -20,9 +20,20 @@ fi
 
 cd /act4
 mkdir -p "$RESULTS"
-# Zisk emulator uses ~4-6 GB per instance; default to 24 parallel jobs
-# to stay within typical server memory. CI already caps at 2.
-JOBS="${ACT4_JOBS:-24}"
+# Compute safe parallelism from available RAM. Each ziskemu instance
+# pre-allocates ~8 GB (6.2 GB emulation arena + 1 GB threads/buffers),
+# so we divide available memory by 8 and leave a 20% headroom buffer.
+# Cap at 24 to avoid diminishing returns, floor at 1.
+if [ -n "${ACT4_JOBS:-}" ]; then
+    JOBS="$ACT4_JOBS"
+else
+    AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+    SAFE_JOBS=$(( AVAIL_MB * 80 / 100 / 8192 ))
+    [ "$SAFE_JOBS" -lt 1 ] && SAFE_JOBS=1
+    [ "$SAFE_JOBS" -gt 24 ] && SAFE_JOBS=24
+    JOBS="$SAFE_JOBS"
+    echo "Auto-scaled to $JOBS parallel jobs (${AVAIL_MB} MB available, ~8 GB per ziskemu)"
+fi
 
 # Create a wrapper script for Zisk that redirects stdout to /dev/null.
 # Zisk uses ecall-based exit (a7=93), so pass/fail is determined by exit code.

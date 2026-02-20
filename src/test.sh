@@ -87,10 +87,19 @@ if [ "$TEST_SUITE" = "act4" ]; then
       echo "  📌 Limiting to cores 0-${LAST_CORE} (${JOBS} cores total)"
     fi
 
+    # Only pass ACT4_JOBS if explicitly set; otherwise let the container
+    # entrypoint decide (e.g. Zisk auto-scales based on available RAM).
+    JOBS_ARG=""
+    if [ -n "${ACT4_JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
+    elif [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    fi
+
     echo "Running ACT4 tests for $ZKVM..."
     docker run --rm \
       ${CPUSET_ARG} \
-      -e ACT4_JOBS="${ACT4_JOBS:-${JOBS:-$(nproc)}}" \
+      ${JOBS_ARG} \
       -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \
       -v "$PWD/riscv-arch-test/config/${ZKVM}:/act4/config/${ZKVM}" \
       -v "$PWD/test-results/${ZKVM}:/results" \
