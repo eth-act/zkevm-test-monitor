@@ -34,7 +34,7 @@ ENV CARGO_INCREMENTAL=1
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/codygunton/zksync-airbender
-ARG COMMIT_HASH=riscof
+ARG COMMIT_HASH=riscof-dev
 
 # Clone the repository at the specific commit
 RUN git clone "$REPO_URL" airbender && \

@@ -49,29 +49,35 @@ export TEST_SUITE
 if [ "$TEST_SUITE" = "act4" ]; then
   # Determine which ZKVMs to test
   if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ]; then
-    ZKVMS="airbender"
+    ZKVMS=""
+    for dir in docker/act4-*/; do
+      [ -d "$dir" ] && ZKVMS="$ZKVMS $(basename "$dir" | sed 's/^act4-//')"
+    done
+    ZKVMS="${ZKVMS# }"
   else
     ZKVMS="$TARGETS"
   fi
 
-  echo "🔨 Building ACT4 Docker image..."
-  docker build -t act4-airbender:latest docker/act4-airbender/ || {
-    echo "❌ Failed to build ACT4 Docker image"
-    exit 1
-  }
-
   for ZKVM in $ZKVMS; do
-    if [ "$ZKVM" != "airbender" ]; then
-      echo "  ⚠️  ACT4 suite currently only supports airbender, skipping $ZKVM"
-      continue
-    fi
-
     if [ ! -f "binaries/${ZKVM}-binary" ]; then
       echo "  ⚠️  No binary found for $ZKVM at binaries/${ZKVM}-binary, skipping"
       continue
     fi
 
     chmod +x "binaries/${ZKVM}-binary" 2>/dev/null || true
+
+    DOCKER_DIR="docker/act4-${ZKVM}"
+    if [ ! -d "$DOCKER_DIR" ]; then
+      echo "  ⚠️  No ACT4 Docker config at $DOCKER_DIR, skipping $ZKVM"
+      continue
+    fi
+
+    echo "🔨 Building ACT4 Docker image for $ZKVM..."
+    docker build -t "act4-${ZKVM}:latest" "$DOCKER_DIR" || {
+      echo "❌ Failed to build ACT4 Docker image for $ZKVM"
+      continue
+    }
+
     mkdir -p "test-results/${ZKVM}"
 
     CPUSET_ARG=""
@@ -85,10 +91,10 @@ if [ "$TEST_SUITE" = "act4" ]; then
     docker run --rm \
       ${CPUSET_ARG} \
       -e ACT4_JOBS="${ACT4_JOBS:-${JOBS:-$(nproc)}}" \
-      -v "$PWD/binaries/${ZKVM}-binary:/dut/airbender-binary" \
-      -v "$PWD/riscv-arch-test/config/airbender:/act4/config/airbender" \
+      -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \
+      -v "$PWD/riscv-arch-test/config/${ZKVM}:/act4/config/${ZKVM}" \
       -v "$PWD/test-results/${ZKVM}:/results" \
-      act4-airbender:latest || true
+      "act4-${ZKVM}:latest" || true
 
     mkdir -p data/history
     TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
