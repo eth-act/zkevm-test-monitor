@@ -23,12 +23,18 @@ mkdir -p "$RESULTS"
 JOBS="${ACT4_JOBS:-$(nproc)}"
 
 # Create wrapper script for running OpenVM
-# OpenVM needs `openvm run --exe <elf>` invocation style
+# OpenVM requires Cargo.toml + openvm.toml in CWD to function.
+# We create a temp directory with these files for each invocation.
 cat > /act4/run-dut.sh << 'WRAPPER'
 #!/bin/bash
+ELF_PATH="$(realpath "$1")"
 TMPDIR=$(mktemp -d)
-/dut/openvm-binary openvm run --exe "$1" --signatures "$TMPDIR/sig"
+printf '[package]\nname = "act4-test"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n' > "$TMPDIR/Cargo.toml"
+printf 'app_vm_config = { exe = "%s" }\n' "$ELF_PATH" > "$TMPDIR/openvm.toml"
+cd "$TMPDIR"
+/dut/openvm-binary openvm run --exe "$ELF_PATH"
 EC=$?
+cd /
 rm -rf "$TMPDIR"
 exit $EC
 WRAPPER
@@ -79,6 +85,9 @@ run_act4_suite() {
         echo "Error: No ELFs found in $ELF_DIR after compilation"
         return
     fi
+    # Post-process ELFs: strip RVC flag, replace non-instruction data words and CSR
+    # instructions with NOPs so OpenVM's transpiler doesn't panic. See patch_elfs.py.
+    python3 /act4/patch_elfs.py "$ELF_DIR"
     echo "=== Running $ELF_COUNT tests with OpenVM ($CONFIG_NAME) ==="
 
     # run_tests.py exits 0 if all pass, 1 if any fail.

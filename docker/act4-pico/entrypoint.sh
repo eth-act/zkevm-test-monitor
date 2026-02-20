@@ -78,6 +78,9 @@ run_act4_suite() {
         echo "Error: No ELFs found in $ELF_DIR after compilation"
         return
     fi
+    # Post-process ELFs: strip RVC flag and replace non-instruction data words
+    # with NOPs so Pico's transpiler doesn't panic. See patch_elfs.py for details.
+    python3 /act4/patch_elfs.py "$ELF_DIR"
     echo "=== Running $ELF_COUNT tests with Pico ($CONFIG_NAME) ==="
 
     # run_tests.py exits 0 if all pass, 1 if any fail.

@@ -20,7 +20,9 @@ fi
 
 cd /act4
 mkdir -p "$RESULTS"
-JOBS="${ACT4_JOBS:-$(nproc)}"
+# Zisk emulator uses ~4-6 GB per instance; default to 24 parallel jobs
+# to stay within typical server memory. CI already caps at 2.
+JOBS="${ACT4_JOBS:-24}"
 
 # Create a wrapper script for Zisk that redirects stdout to /dev/null.
 # Zisk uses ecall-based exit (a7=93), so pass/fail is determined by exit code.
