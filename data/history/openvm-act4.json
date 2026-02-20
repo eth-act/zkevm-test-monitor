@@ -1,0 +1,39 @@
+{
+  "zkvm": "openvm",
+  "suite": "act4",
+  "runs": [
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "1e8eab40",
+      "zkvm_commit": "b5f3f0197",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 0,
+      "failed": 47,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "1e8eab40",
+      "zkvm_commit": "b5f3f0197",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 0,
+      "failed": 47,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "1e8eab40",
+      "zkvm_commit": "b5f3f0197",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 47,
+      "failed": 0,
+      "total": 47,
+      "notes": ""
+    }
+  ]
+}

@@ -2,7 +2,9 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# System dependencies
+# System dependencies + Zisk runtime libraries
+# The zisk-binary (ziskemu) links against libsodium, libgmp, libomp, libopenmpi.
+# These must be present at runtime for the mounted binary to execute.
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -13,6 +15,10 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     jq \
+    libsodium23 \
+    libgmp10 \
+    libomp5 \
+    libopenmpi3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv (Python package manager used by riscv-arch-test)

@@ -1,11 +1,11 @@
 {
-  "zkvm": "airbender",
+  "zkvm": "pico",
   "suite": "act4-target",
   "runs": [
     {
-      "date": "2026-02-19",
-      "test_monitor_commit": "2a9e03a2",
-      "zkvm_commit": "1f52d2e2",
+      "date": "2026-02-20",
+      "test_monitor_commit": "1e8eab40",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
       "isa": "rv64im_zicclsm",
       "suite": "act4-target",
       "passed": 0,
@@ -16,18 +16,7 @@
     {
       "date": "2026-02-20",
       "test_monitor_commit": "1e8eab40",
-      "zkvm_commit": "1f52d2e2",
-      "isa": "rv64im_zicclsm",
-      "suite": "act4-target",
-      "passed": 0,
-      "failed": 72,
-      "total": 72,
-      "notes": ""
-    },
-    {
-      "date": "2026-02-20",
-      "test_monitor_commit": "1e8eab40",
-      "zkvm_commit": "1f52d2e2",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
       "isa": "rv64im_zicclsm",
       "suite": "act4-target",
       "passed": 0,

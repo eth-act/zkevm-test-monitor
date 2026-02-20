@@ -1,0 +1,17 @@
+{
+  "zkvm": "jolt",
+  "suite": "act4-target",
+  "runs": [
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "1e8eab40",
+      "zkvm_commit": "0156f771",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 64,
+      "failed": 8,
+      "total": 72,
+      "notes": ""
+    }
+  ]
+}
