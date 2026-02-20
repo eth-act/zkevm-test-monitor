@@ -32,13 +32,14 @@ ENV RUST_LOG=info
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/codygunton/sp1
-ARG COMMIT_HASH=fc98075a
+ARG COMMIT_HASH=eb86c1dee
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
 RUN git clone "$REPO_URL" sp1 && \
     cd sp1 && \
-    git checkout "$COMMIT_HASH"
+    git checkout "$COMMIT_HASH" && \
+    git rev-parse HEAD | head -c8 > /workspace/commit.txt
 
 # Build SP1
 # This layer will be cached as long as the source code doesn't change
@@ -56,6 +57,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy the built binary from builder stage
 COPY --from=builder /workspace/sp1/target/debug/sp1-perf-executor /usr/local/bin/sp1-perf-executor
+COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
 ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/sp1-perf-executor /output/sp1-perf-executor"]

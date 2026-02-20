@@ -30,13 +30,14 @@ ENV RUST_LOG=info
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/codygunton/openvm
-ARG COMMIT_HASH=a6f77215f
+ARG COMMIT_HASH=b5f3f0197
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
 RUN git clone "$REPO_URL" openvm && \
     cd openvm && \
-    git checkout "$COMMIT_HASH"
+    git checkout "$COMMIT_HASH" && \
+    git rev-parse HEAD | head -c8 > /workspace/commit.txt
 
 # Build OpenVM
 # This layer will be cached as long as the source code doesn't change
@@ -54,6 +55,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy the built binary from builder stage
 COPY --from=builder /workspace/openvm/target/release/cargo-openvm /usr/local/bin/cargo-openvm
+COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
 ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/cargo-openvm /output/cargo-openvm"]
