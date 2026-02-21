@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>JOLT - ZKVM Test Monitor</title>
     <style>
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
@@ -50,16 +51,6 @@
         h1 {
             margin-bottom: 10px;
             color: #333;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        h1 a {
-            font-size: 0.8em;
-            font-weight: normal;
-        }
-        .back-link {
-            margin-bottom: 20px;
         }
         .metadata {
             color: #666;
@@ -86,9 +77,49 @@
         tr:hover { background: #f8f9fa; }
         .pass { color: #28a745; font-weight: 600; }
         .fail { color: #dc3545; font-weight: 600; }
-        .commit-link { font-family: monospace; }
+        .none { color: #6c757d; }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-error { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
         a { color: #007bff; text-decoration: none; }
         a:hover { text-decoration: underline; }
+        .commit-link { font-family: monospace; }
+        .report-btn {
+            padding: 4px 12px;
+            background: #007bff;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.85em;
+            display: inline-block;
+        }
+        .report-btn:hover {
+            background: #0056b3;
+            text-decoration: none;
+        }
+        .report-btn.disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        h1 {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        h1 a {
+            font-size: 0.8em;
+            font-weight: normal;
+        }
+        .back-link {
+            margin-bottom: 20px;
+        }
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -100,16 +131,17 @@
     <div class="container">
         <div class="nav-header">
             <div class="back-link">
-                <a href="../index.html">← Back to Dashboard</a>
+                <a href="../index.html">&larr; Back to Dashboard</a>
             </div>
             <nav class="nav-links">
                 <a href="../index.html" class="nav-link">Architecture Tests</a>
                 <a href="../index-extra.html" class="nav-link">Extra Tests</a>
+                <a href="../index-act4.html" class="nav-link">ACT4 Tests</a>
             </nav>
         </div>
         <h1>
             JOLT
-            <a href="https://github.com/a16z/jolt" target="_blank">View Repository →</a>
+            <a href="https://github.com/a16z/jolt" target="_blank">View Repository &rarr;</a>
         </h1>
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/a16z/jolt">a16z/jolt</a>
@@ -140,11 +172,65 @@
                 </tr>
 
                 <tr>
+                    <td>2026-02-21</td>
+                    <td>ACT4</td>
+                    <td><a href="https://github.com/a16z/jolt/commit/0156f771" class="commit-link">0156f771</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><span class="pass">64/64</span></td>
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-21</td>
+                    <td>ACT4</td>
+                    <td><a href="https://github.com/a16z/jolt/commit/0156f771" class="commit-link">0156f771</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><span class="pass">64/64</span></td>
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-21</td>
+                    <td>Act4-target</td>
+                    <td><a href="https://github.com/a16z/jolt/commit/0156f771" class="commit-link">0156f771</a></td>
+                    <td><code>rv64im_zicclsm</code></td>
+                    <td><span class="fail">64/72</span></td>
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-21</td>
+                    <td>Act4-target</td>
+                    <td><a href="https://github.com/a16z/jolt/commit/0156f771" class="commit-link">0156f771</a></td>
+                    <td><code>rv64im_zicclsm</code></td>
+                    <td><span class="fail">64/72</span></td>
+                    <td></td>
+                </tr>
+
+                <tr>
                     <td>2026-02-20</td>
                     <td>Arch</td>
                     <td><a href="https://github.com/a16z/jolt/commit/b6be1c99" class="commit-link">b6be1c99</a></td>
                     <td><code>rv64imac</code></td>
                     <td><span class="pass">124/124</span></td>
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-20</td>
+                    <td>ACT4</td>
+                    <td><a href="https://github.com/a16z/jolt/commit/0156f771" class="commit-link">0156f771</a></td>
+                    <td><code>rv32im</code></td>
+                    <td><span class="pass">64/64</span></td>
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-20</td>
+                    <td>Act4-target</td>
+                    <td><a href="https://github.com/a16z/jolt/commit/0156f771" class="commit-link">0156f771</a></td>
+                    <td><code>rv64im_zicclsm</code></td>
+                    <td><span class="fail">64/72</span></td>
                     <td></td>
                 </tr>
 

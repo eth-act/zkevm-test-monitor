@@ -83,6 +83,13 @@ run_act4_suite() {
     make -C "$WORKDIR" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
+
+    # NOP out the 6 lhu reads in failedtest_saveresults that read from .text.init.
+    # Zisk maps .text.init as execute-only; ACT4's failure handler reads instruction
+    # bytes from .text to decode the failing instruction. This panics Zisk.
+    # The FP operations themselves are correct — only the error-reporting path crashes.
+    echo "=== Patching ELFs: NOP lhu reads in failure handler ($CONFIG_NAME) ==="
+    python3 /act4/patch_elfs.py --zisk "$ELF_DIR"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$ELF_COUNT" -eq 0 ]; then

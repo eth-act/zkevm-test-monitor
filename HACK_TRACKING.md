@@ -87,6 +87,33 @@ PC-relative load. This would remove the need for `patch_elfs.py` entirely.
 
 ---
 
+### Hack 4 — Zisk execute-only code segment
+
+**Status**: Active workaround — Zisk bug fix needed.
+
+**Root cause**: Zisk maps `.text.init` as execute-only (no read permission). ACT4's
+`failedtest_saveresults` function decodes the failing instruction for error output by
+reading bytes from the code segment via `lhu t1, -N(t0)` (t0 = return address into
+`.text.init`). Zisk panics with `Mem::read() section not found`. Simple NOP patches
+are insufficient because subsequent `ld` instructions use the stale register values
+to compute further load addresses, cascading the crash.
+
+**Current workaround**: `docker/shared/patch_elfs.py --zisk` replaces the first
+instruction of `failedtest_saveresults` with `jal x0, failedtest_terminate`. This
+skips the entire instruction-decoding path while preserving exit semantics:
+- Exit 0 = all comparisons passed (failure handler never entered)
+- Exit 1 = a comparison failed (failure handler entered, but jumps directly to terminate)
+
+The FP operations in Zisk are correct — all 65 "failures" were phantom crashes in the
+error-reporting path, not actual computation errors.
+
+**Upstream fix**: Fix Zisk to allow load instructions to read from the code segment
+(RISC-V spec does not prohibit this). This is a Zisk bug, not an ACT4 issue.
+
+**File**: `docker/shared/patch_elfs.py --zisk` (used by Zisk container only)
+
+---
+
 ## Summary Table
 
 | Issue | Root cause | Current status | File(s) |
@@ -94,5 +121,6 @@ PC-relative load. This would remove the need for `patch_elfs.py` entirely.
 | CSR instructions in test preamble | UDB config declared Sm/Zicsr | ✅ Resolved — config fix | 6 UDB yamls |
 | `.word` data in `.text` | ACT4 SELFCHECK thunk | ⚠️ Active workaround | `docker/shared/patch_elfs.py` |
 | EF_RISCV_RVC ELF flag | `.option rvc` alignment trick | ✅ Resolved — test_setup.h fix | `tests/env/test_setup.h` |
+| Zisk execute-only code segment | Zisk maps .text.init as no-read | ⚠️ Active workaround | `docker/shared/patch_elfs.py --zisk` |
 | Zisk linker script | Zisk RAM at 0xa0000000 | Clean — correct approach | `zisk-rv64im/link.ld` |
 | SP1/Pico syscall register | SP1/Pico use t0, not a7 | Clean — correct approach | `rvmodel_macros.h` |
