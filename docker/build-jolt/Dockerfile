@@ -30,7 +30,7 @@ ENV RUST_LOG=info
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/a16z/jolt
-ARG COMMIT_HASH=c4b9b060
+ARG COMMIT_HASH=0156f771
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes

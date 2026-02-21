@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ZISK ACT4 — RV64IM_Zicclsm Results - ZKVM Test Monitor</title>
+    <style>
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        .nav-link {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            color: #495057;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background: #e9ecef;
+            text-decoration: none;
+        }
+        .nav-link.active {
+            background: #007bff;
+            color: white;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .metadata {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        tr:hover { background: #f8f9fa; }
+        .pass { color: #28a745; font-weight: 600; }
+        .fail { color: #dc3545; font-weight: 600; }
+        .none { color: #6c757d; }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-error { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .commit-link { font-family: monospace; }
+        .report-btn {
+            padding: 4px 12px;
+            background: #007bff;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.85em;
+            display: inline-block;
+        }
+        .report-btn:hover {
+            background: #0056b3;
+            text-decoration: none;
+        }
+        .report-btn.disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        h1 {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        h1 a {
+            font-size: 0.8em;
+            font-weight: normal;
+        }
+        h2 {
+            margin-top: 30px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .summary {
+            font-size: 1.1em;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .back-link {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-header">
+            <div class="back-link">
+                <a href="../index-act4.html">&larr; Back to ACT4 Dashboard</a>
+            </div>
+            <nav class="nav-links">
+                <a href="../index.html" class="nav-link">Architecture Tests</a>
+                <a href="../index-extra.html" class="nav-link">Extra Tests</a>
+                <a href="../index-act4.html" class="nav-link active">ACT4 Tests</a>
+            </nav>
+        </div>
+        <h1>
+            ZISK &mdash; ACT4 — RV64IM_Zicclsm Results
+            <a href="https://github.com/0xPolygonHermez/zisk" target="_blank">View Repository &rarr;</a>
+        </h1>
+        <div class="metadata">
+            <strong>Source:</strong> <a href="https://github.com/0xPolygonHermez/zisk">0xPolygonHermez/zisk</a>
+        </div>
+
+        <div class="summary"><span class="fail">123 passed</span>, <span class="fail">65 failed</span> out of 188 tests
+        </div>
+        <h2><span class="fail">Failed (65)</span></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Test Name</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>D-fadd.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fadd.d-01</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fadd.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fclass.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.d.l-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.d.lu-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.d.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.l.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.l.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.lu.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.s.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.s.l-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.s.lu-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.s.w-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.s.wu-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.w.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.w.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.wu.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fdiv.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fdiv.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fle.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-flt.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-flw-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmadd.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmadd.d-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmadd.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmax.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmin.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmsub.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmsub.d-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmsub.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmul.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmul.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmv.w.x-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmv.x.w-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmadd.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmadd.d-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmadd.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmsub.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmsub.d-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmsub.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsgnj.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsgnjn.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsgnjx.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsqrt.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsqrt.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsub.d-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsub.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fadd.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.s.l-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.s.lu-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.s.w-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.s.wu-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fdiv.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmadd.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmadd.s-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmsub.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmsub.s-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmul.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fnmadd.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fnmadd.s-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fnmsub.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fnmsub.s-02</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fsqrt.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fsub.s-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+            </tbody>
+        </table>
+        <h2><span class="pass">Passed (123)</span></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Test Name</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>D-fclass.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.d.w-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.d.wu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.lu.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fcvt.wu.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fdiv.d-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-feq.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-feq.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fld-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fle.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-flt.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmadd.d-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmax.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmin.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmsub.d-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmul.d-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmv.d.x-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fmv.x.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmadd.d-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fnmsub.d-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsd-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsgnj.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsgnjn.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsgnjx.d-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsub.d-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>D-fsw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fadd.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fclass.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.l.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.lu.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.w.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fcvt.wu.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fdiv.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-feq.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fle.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-flt.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-flw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmadd.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmax.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmin.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmsub.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmul.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmv.w.x-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fmv.x.w-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fnmadd.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fnmsub.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fsgnj.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fsgnjn.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fsgnjx.s-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fsub.s-01</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>F-fsw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-add-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-addi-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-addiw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-addw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-and-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-andi-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-auipc-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-beq-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-bge-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-bgeu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-blt-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-bltu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-bne-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-fence-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-jal-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-jalr-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-lb-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-lbu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-ld-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-lh-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-lhu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-lui-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-lw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-lwu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-nop-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-or-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-ori-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sb-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sd-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sh-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sll-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-slli-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-slliw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sllw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-slt-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-slti-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sltiu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sltu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sra-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-srai-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sraiw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sraw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-srl-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-srli-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-srliw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-srlw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sub-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-subw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-sw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-xor-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>I-xori-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-div-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-divu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-divuw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-divw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-mul-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-mulh-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-mulhsu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-mulhu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-mulw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-rem-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-remu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-remuw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>M-remw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-ld-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-lh-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-lhu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-lw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-lwu-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-sd-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-sh-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td><code>Misalign-sw-00</code></td>
+                    <td><span class="pass">PASS</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

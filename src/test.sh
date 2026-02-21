@@ -16,6 +16,10 @@ while [[ $# -gt 0 ]]; do
       TEST_SUITE="extra"
       shift
       ;;
+    --act4)
+      TEST_SUITE="act4"
+      shift
+      ;;
     --build-only)
       BUILD_ONLY=true
       shift
@@ -29,8 +33,8 @@ done
 
 # Require one of the flags to be specified
 if [ -z "$TEST_SUITE" ]; then
-  echo "❌ Error: Must specify either --arch or --extra"
-  echo "Usage: $0 [--arch|--extra] [--build-only] [target1 target2 ...]"
+  echo "❌ Error: Must specify --arch, --extra, or --act4"
+  echo "Usage: $0 [--arch|--extra|--act4] [--build-only] [target1 target2 ...]"
   exit 1
 fi
 
@@ -40,6 +44,139 @@ TARGETS="${TARGETS:-all}"
 TARGETS="${TARGETS# }"
 
 export TEST_SUITE
+
+# Handle ACT4 test suite (self-checking ELFs, no signature comparison)
+if [ "$TEST_SUITE" = "act4" ]; then
+  # Determine which ZKVMs to test
+  if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ]; then
+    ZKVMS=""
+    for dir in docker/act4-*/; do
+      [ -d "$dir" ] && ZKVMS="$ZKVMS $(basename "$dir" | sed 's/^act4-//')"
+    done
+    ZKVMS="${ZKVMS# }"
+  else
+    ZKVMS="$TARGETS"
+  fi
+
+  for ZKVM in $ZKVMS; do
+    if [ ! -f "binaries/${ZKVM}-binary" ]; then
+      echo "  ⚠️  No binary found for $ZKVM at binaries/${ZKVM}-binary, skipping"
+      continue
+    fi
+
+    chmod +x "binaries/${ZKVM}-binary" 2>/dev/null || true
+
+    DOCKER_DIR="docker/act4-${ZKVM}"
+    if [ ! -d "$DOCKER_DIR" ]; then
+      echo "  ⚠️  No ACT4 Docker config at $DOCKER_DIR, skipping $ZKVM"
+      continue
+    fi
+
+    echo "🔨 Building ACT4 Docker image for $ZKVM..."
+    docker build -t "act4-${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+      echo "❌ Failed to build ACT4 Docker image for $ZKVM"
+      continue
+    }
+
+    mkdir -p "test-results/${ZKVM}"
+
+    CPUSET_ARG=""
+    if [ -n "${JOBS:-}" ]; then
+      LAST_CORE=$((JOBS - 1))
+      CPUSET_ARG="--cpuset-cpus=0-${LAST_CORE}"
+      echo "  📌 Limiting to cores 0-${LAST_CORE} (${JOBS} cores total)"
+    fi
+
+    # Only pass ACT4_JOBS if explicitly set; otherwise let the container
+    # entrypoint decide (e.g. Zisk auto-scales based on available RAM).
+    JOBS_ARG=""
+    if [ -n "${ACT4_JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
+    elif [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    fi
+
+    echo "Running ACT4 tests for $ZKVM..."
+    docker run --rm \
+      ${CPUSET_ARG} \
+      ${JOBS_ARG} \
+      -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \
+      -v "$PWD/riscv-arch-test/config/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/test-results/${ZKVM}:/results" \
+      "act4-${ZKVM}:latest" || true
+
+    mkdir -p data/history
+    TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
+    ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
+    RUN_DATE=$(date -u +"%Y-%m-%d")
+
+    # Process results for both native and target suites
+    for ACT4_SUFFIX in "" "-target"; do
+      SUMMARY_FILE="test-results/${ZKVM}/summary-act4${ACT4_SUFFIX}.json"
+      RESULTS_FILE="test-results/${ZKVM}/results-act4${ACT4_SUFFIX}.json"
+      LABEL="ACT4${ACT4_SUFFIX:+ (target)}"
+      ISA="rv32im"
+      SUITE="act4"
+      if [ "$ACT4_SUFFIX" = "-target" ]; then
+        ISA="rv64im_zicclsm"
+        SUITE="act4-target"
+      fi
+
+      if [ ! -f "$SUMMARY_FILE" ]; then
+        if [ -z "$ACT4_SUFFIX" ]; then
+          echo "  ⚠️  No summary generated for $ZKVM (container may have failed)"
+        fi
+        continue
+      fi
+
+      PASSED=$(jq '.passed' "$SUMMARY_FILE")
+      FAILED=$(jq '.failed' "$SUMMARY_FILE")
+      TOTAL=$(jq '.total' "$SUMMARY_FILE")
+      if [ -f "$RESULTS_FILE" ]; then
+        TEST_COUNT=$(jq '.tests | length' "$RESULTS_FILE")
+        echo "  📋 ${LABEL} per-test results: ${TEST_COUNT} tests in results-act4${ACT4_SUFFIX}.json"
+      fi
+      echo "  ✅ ${LABEL} ${ZKVM}: ${PASSED}/${TOTAL} passed"
+
+      HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
+      if [ -f "$HISTORY_FILE" ]; then
+        jq --arg date "$RUN_DATE" \
+          --arg monitor "$TEST_MONITOR_COMMIT" \
+          --arg zkvm "$ZKVM_COMMIT" \
+          --arg isa "$ISA" \
+          --arg suite "$SUITE" \
+          --argjson passed "$PASSED" \
+          --argjson failed "$FAILED" \
+          --argjson total "$TOTAL" \
+          '.runs += [{"date": $date, "test_monitor_commit": $monitor,
+                      "zkvm_commit": $zkvm, "isa": $isa, "suite": $suite,
+                      "passed": $passed, "failed": $failed, "total": $total, "notes": ""}]' \
+          "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
+      else
+        cat > "$HISTORY_FILE" << HISTORY
+{
+  "zkvm": "${ZKVM}",
+  "suite": "${SUITE}",
+  "runs": [
+    {
+      "date": "${RUN_DATE}",
+      "test_monitor_commit": "${TEST_MONITOR_COMMIT}",
+      "zkvm_commit": "${ZKVM_COMMIT}",
+      "isa": "${ISA}",
+      "suite": "${SUITE}",
+      "passed": ${PASSED},
+      "failed": ${FAILED},
+      "total": ${TOTAL},
+      "notes": ""
+    }
+  ]
+}
+HISTORY
+      fi
+    done
+  done
+  exit 0
+fi
 
 # Load config
 if [ ! -f config.json ]; then

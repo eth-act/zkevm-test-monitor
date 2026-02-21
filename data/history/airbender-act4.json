@@ -1,0 +1,50 @@
+{
+  "zkvm": "airbender",
+  "suite": "act4",
+  "runs": [
+    {
+      "date": "2026-02-19",
+      "test_monitor_commit": "f06801f1",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 42,
+      "failed": 5,
+      "total": 47,
+      "notes": "5 expected failures: fence, mulh, mulhsu, div, rem"
+    },
+    {
+      "date": "2026-02-19",
+      "test_monitor_commit": "2a9e03a2",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 42,
+      "failed": 5,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "1e8eab40",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 42,
+      "failed": 5,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "1e8eab40",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 42,
+      "failed": 5,
+      "total": 47,
+      "notes": ""
+    }
+  ]
+}
