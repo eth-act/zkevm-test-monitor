@@ -189,12 +189,15 @@ run_act4_suite \
     "$(printf 'I\nM\nA\nF\nD\nC\nZicsr\nSm')" \
     "" || true
 
-# ─── Run 2: ETH-ACT Target (rv64imafdc-zicclsm) ───
+# ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
+# Target is a fixed common baseline: I + M + Misalign only.
+# Same for all ZKVMs — tests the shared RV64IM_Zicclsm profile.
+# Full ISA extensions (F, D, C, A) are tested in the native suite above.
 run_act4_suite \
     "config/zisk/zisk-rv64im-zicclsm/test_config.yaml" \
     "zisk-rv64im-zicclsm" \
-    "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign" \
-    "$(printf 'I\nM\nA\nF\nD\nC\nZicsr\nZicclsm\nSm\nMisalign')" \
+    "I,M,Misalign" \
+    "$(printf 'I\nM\nZicclsm\nMisalign')" \
     "-target" || true
 
 echo ""
