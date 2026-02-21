@@ -73,7 +73,7 @@ if [ "$TEST_SUITE" = "act4" ]; then
     fi
 
     echo "🔨 Building ACT4 Docker image for $ZKVM..."
-    docker build -t "act4-${ZKVM}:latest" "$DOCKER_DIR" || {
+    docker build -t "act4-${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "❌ Failed to build ACT4 Docker image for $ZKVM"
       continue
     }

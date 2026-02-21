@@ -12,6 +12,28 @@
       "failed": 8,
       "total": 72,
       "notes": ""
+    },
+    {
+      "date": "2026-02-21",
+      "test_monitor_commit": "ae229c25",
+      "zkvm_commit": "0156f771",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 64,
+      "failed": 8,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-21",
+      "test_monitor_commit": "ae229c25",
+      "zkvm_commit": "0156f771",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 64,
+      "failed": 8,
+      "total": 72,
+      "notes": ""
     }
   ]
 }

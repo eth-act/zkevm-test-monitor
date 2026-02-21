@@ -52,15 +52,16 @@ RUN git clone --branch act4 --single-branch \
 # Initialize the UDB submodule (required for config schema validation during make elfs)
 RUN git submodule update --init external/riscv-unified-db
 
-# Pre-generate assembly test sources for I, M, and Misalign extensions.
-# This is the slow deterministic step; baking it in avoids re-running it on every test run.
+# Pre-generate assembly test sources for all extensions Zisk supports.
+# Matches RISCOF ISA declaration: RV64IMAFDCZicsr.
+# ACT4 uses fine-grained extension names: Zaamo/Zalrsc (A), Zca/Zcf/Zcd (C).
 # Misalign is needed for the RV64IM_Zicclsm target profile.
-RUN uv run make tests EXTENSIONS=I,M,Misalign
+RUN uv run make tests EXTENSIONS=I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign
 
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results
 
-COPY entrypoint.sh /act4/entrypoint.sh
+COPY docker/act4-zisk/entrypoint.sh /act4/entrypoint.sh
 RUN chmod +x /act4/entrypoint.sh
 
 ENTRYPOINT ["/act4/entrypoint.sh"]

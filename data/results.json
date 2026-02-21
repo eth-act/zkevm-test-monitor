@@ -28,7 +28,7 @@
           "failed": 0,
           "total": 47,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -272,7 +272,7 @@
           "failed": 72,
           "total": 72,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -667,7 +667,7 @@
           "failed": 0,
           "total": 64,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -996,7 +996,7 @@
           "failed": 8,
           "total": 72,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -1391,7 +1391,7 @@
           "failed": 0,
           "total": 47,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -1635,7 +1635,7 @@
           "failed": 72,
           "total": 72,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -2052,12 +2052,592 @@
           "has_report": true
         },
         "act4": {
-          "passed": 64,
-          "failed": 0,
-          "total": 64,
+          "passed": 115,
+          "failed": 65,
+          "total": 180,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
+            {
+              "name": "D-fadd.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fadd.d-01",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fadd.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fclass.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fclass.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.l-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.lu-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.w-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.d.wu-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.l.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.l.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.lu.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.lu.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.l-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.lu-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.w-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.wu-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.w.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.w.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.wu.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.wu.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fdiv.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fdiv.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fdiv.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-feq.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-feq.s-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fld-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fle.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fle.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-flt.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-flt.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-flw-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmadd.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmadd.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmadd.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmadd.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmax.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmax.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmin.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmin.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmsub.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmsub.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmsub.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmsub.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmul.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmul.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmul.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmv.d.x-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmv.w.x-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmv.x.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmv.x.w-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmadd.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmadd.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fnmadd.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmadd.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmsub.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmsub.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fnmsub.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmsub.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsd-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnj.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnj.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsgnjn.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnjn.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsgnjx.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnjx.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsqrt.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsqrt.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsub.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsub.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsub.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsw-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "F-fadd.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fadd.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fclass.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.l.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.lu.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.s.l-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.s.lu-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.s.w-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.s.wu-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.w.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.wu.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fdiv.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fdiv.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-feq.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fle.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-flt.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-flw-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmadd.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmadd.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmadd.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmax.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmin.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmsub.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmsub.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmsub.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmul.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmul.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmv.w.x-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmv.x.w-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fnmadd.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fnmadd.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fnmadd.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fnmsub.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fnmsub.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fnmsub.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fsgnj.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsgnjn.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsgnjx.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsqrt.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fsub.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fsub.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsw-00",
+              "extension": "F",
+              "passed": true
+            },
             {
               "name": "I-add-00",
               "extension": "I",
@@ -2381,12 +2961,592 @@
           ]
         },
         "act4-target": {
-          "passed": 72,
-          "failed": 0,
-          "total": 72,
+          "passed": 123,
+          "failed": 65,
+          "total": 188,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
+            {
+              "name": "D-fadd.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fadd.d-01",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fadd.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fclass.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fclass.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.l-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.lu-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.d.w-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.d.wu-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.l.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.l.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.lu.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.lu.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.l-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.lu-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.w-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.s.wu-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.w.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.w.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fcvt.wu.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fcvt.wu.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fdiv.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fdiv.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fdiv.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-feq.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-feq.s-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fld-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fle.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fle.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-flt.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-flt.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-flw-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmadd.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmadd.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmadd.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmadd.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmax.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmax.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmin.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmin.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmsub.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmsub.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmsub.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmsub.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmul.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmul.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmul.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmv.d.x-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmv.w.x-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fmv.x.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fmv.x.w-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmadd.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmadd.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fnmadd.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmadd.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmsub.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmsub.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fnmsub.d-02",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fnmsub.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsd-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnj.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnj.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsgnjn.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnjn.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsgnjx.d-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsgnjx.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsqrt.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsqrt.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsub.d-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsub.d-01",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "D-fsub.s-00",
+              "extension": "D",
+              "passed": false
+            },
+            {
+              "name": "D-fsw-00",
+              "extension": "D",
+              "passed": true
+            },
+            {
+              "name": "F-fadd.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fadd.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fclass.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.l.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.lu.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.s.l-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.s.lu-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.s.w-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.s.wu-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fcvt.w.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fcvt.wu.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fdiv.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fdiv.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-feq.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fle.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-flt.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-flw-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmadd.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmadd.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmadd.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmax.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmin.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmsub.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmsub.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmsub.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmul.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fmul.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmv.w.x-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fmv.x.w-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fnmadd.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fnmadd.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fnmadd.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fnmsub.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fnmsub.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fnmsub.s-02",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fsgnj.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsgnjn.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsgnjx.s-00",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsqrt.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fsub.s-00",
+              "extension": "F",
+              "passed": false
+            },
+            {
+              "name": "F-fsub.s-01",
+              "extension": "F",
+              "passed": true
+            },
+            {
+              "name": "F-fsw-00",
+              "extension": "F",
+              "passed": true
+            },
             {
               "name": "I-add-00",
               "extension": "I",
@@ -2780,7 +3940,7 @@
           "failed": 0,
           "total": 47,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -3024,7 +4184,7 @@
           "failed": 72,
           "total": 72,
           "test_status": "completed",
-          "last_run": "2026-02-20",
+          "last_run": "2026-02-21",
           "tests": [
             {
               "name": "I-add-00",
@@ -4069,7 +5229,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-20T18:28:05.354325+00:00",
+  "last_updated": "2026-02-21T07:23:35.361700+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "84589f16"
+  "test_monitor_commit": "ae229c25"
 }

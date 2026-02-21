@@ -155,6 +155,39 @@
       "failed": 0,
       "total": 72,
       "notes": ""
+    },
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "ae229c25",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 123,
+      "failed": 65,
+      "total": 188,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-20",
+      "test_monitor_commit": "ae229c25",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 123,
+      "failed": 65,
+      "total": 188,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-21",
+      "test_monitor_commit": "ae229c25",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 123,
+      "failed": 65,
+      "total": 188,
+      "notes": ""
     }
   ]
 }

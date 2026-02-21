@@ -174,20 +174,20 @@ print(f'Per-test results: {len(tests)} tests written to results-act4${SUFFIX}.js
 }
 
 # Run each suite; allow failures without aborting (set -e is active globally)
-# ─── Run 1: Native ISA (rv64im) ───
+# ─── Run 1: Native ISA (rv64imafdc) ───
 run_act4_suite \
     "config/zisk/zisk-rv64im/test_config.yaml" \
     "zisk-rv64im" \
-    "I,M" \
-    "$(printf 'I\nM\nZicsr\nSm')" \
+    "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc" \
+    "$(printf 'I\nM\nA\nF\nD\nC\nZicsr\nSm')" \
     "" || true
 
-# ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
+# ─── Run 2: ETH-ACT Target (rv64imafdc-zicclsm) ───
 run_act4_suite \
     "config/zisk/zisk-rv64im-zicclsm/test_config.yaml" \
     "zisk-rv64im-zicclsm" \
-    "I,M,Misalign" \
-    "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
+    "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign" \
+    "$(printf 'I\nM\nA\nF\nD\nC\nZicsr\nZicclsm\nSm\nMisalign')" \
     "-target" || true
 
 echo ""
