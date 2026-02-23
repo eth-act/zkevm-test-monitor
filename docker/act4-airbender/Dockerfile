@@ -54,7 +54,7 @@ RUN uv run make tests EXTENSIONS=I,M,Misalign
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results
 
-COPY entrypoint.sh /act4/entrypoint.sh
+COPY docker/act4-airbender/entrypoint.sh /act4/entrypoint.sh
 RUN chmod +x /act4/entrypoint.sh
 
 ENTRYPOINT ["/act4/entrypoint.sh"]

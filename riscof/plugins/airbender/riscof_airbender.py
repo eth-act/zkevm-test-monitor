@@ -152,18 +152,14 @@ class airbender(pluginTemplate):
 	  # the "else" clause is executed below assigning the sim command to simple no action
 	  # echo statement.
           if self.target_run:
-            # Convert ELF to binary format that Airbender expects
-            bin_file = os.path.join(testentry['work_dir'], 'my.bin')
-            objcopy_cmd = 'riscv64-unknown-elf-objcopy -O binary {0} {1}'.format(elf, bin_file)
-            
-            # Run Airbender with the binary file and ensure a signature file exists even if it panics
-            # This allows RISCOF to complete and show which tests failed
-            # We add --cycles 100000 to limit execution (tests will infinite loop on completion)
-            # Pass both binary and ELF - binary for execution, ELF for signature extraction
-            # Touch the signature file first to ensure it exists with proper permissions
-            # Then run Airbender which will overwrite it if successful
-            simcmd = '{0} && touch {4} && {1} run-for-riscof --bin {2} --elf {3} --signatures {4} --cycles 100000 2>&1 | tail -10 > airbender.log'.format(
-                objcopy_cmd, self.airbender_cli, bin_file, elf, sig_file)
+            # RISCOF testing is not supported for Airbender.
+            # The run-for-riscof command has been removed from the Airbender CLI.
+            # Use ACT4 instead: ./run test --act4 airbender
+            raise NotImplementedError(
+                "RISCOF testing is not supported for Airbender. "
+                "Use ACT4 instead: ./run test --act4 airbender"
+            )
+            simcmd = 'echo "RISCOF not supported for Airbender"'
           else:
             simcmd = 'echo "NO RUN"'
 

@@ -110,16 +110,19 @@ if [ "$TEST_SUITE" = "act4" ]; then
     ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
     RUN_DATE=$(date -u +"%Y-%m-%d")
 
-    # Process results for both native and target suites
-    for ACT4_SUFFIX in "" "-target"; do
+    # Process results for native, target, and rvi20 suites
+    for ACT4_SUFFIX in "" "-target" "-rvi20"; do
       SUMMARY_FILE="test-results/${ZKVM}/summary-act4${ACT4_SUFFIX}.json"
       RESULTS_FILE="test-results/${ZKVM}/results-act4${ACT4_SUFFIX}.json"
-      LABEL="ACT4${ACT4_SUFFIX:+ (target)}"
+      LABEL="ACT4${ACT4_SUFFIX:+ (${ACT4_SUFFIX#-})}"
       ISA="rv32im"
       SUITE="act4"
       if [ "$ACT4_SUFFIX" = "-target" ]; then
         ISA="rv64im_zicclsm"
         SUITE="act4-target"
+      elif [ "$ACT4_SUFFIX" = "-rvi20" ]; then
+        ISA="rv64imafdc_rvi20"
+        SUITE="act4-rvi20"
       fi
 
       if [ ! -f "$SUMMARY_FILE" ]; then

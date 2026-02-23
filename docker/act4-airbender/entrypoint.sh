@@ -4,7 +4,7 @@ set -eu
 # ACT4 Airbender test runner
 #
 # Expected mounts:
-#   /dut/airbender-binary          — the Airbender CLI binary (with run-for-act command)
+#   /dut/airbender-binary          — the Airbender CLI binary (with run-with-transpiler command)
 #   /act4/config/airbender         — Airbender ACT4 config directory (host riscv-arch-test/config/airbender)
 #   /results/                      — output directory for summary JSON
 
@@ -68,10 +68,42 @@ run_act4_suite() {
     fi
     echo "=== Running $ELF_COUNT tests with Airbender ($CONFIG_NAME) ==="
 
+    # Create a wrapper that converts each ELF to a flat binary and extracts the
+    # entry point and tohost address before invoking run-with-transpiler.
+    # run_tests.py passes the ELF path as $1 to this wrapper.
+    cat > /act4/run-dut.sh << 'WRAPPER'
+#!/bin/bash
+ELF="$1"
+BIN="${ELF%.elf}.bin"
+
+# Convert ELF to flat binary (file starts at lowest load VMA)
+riscv64-unknown-elf-objcopy -O binary "$ELF" "$BIN"
+
+# Extract entry point address from ELF header (hex → decimal for CLI)
+ENTRY=$(riscv64-unknown-elf-readelf -h "$ELF" \
+    | grep "Entry point" | grep -oE '0x[0-9a-f]+')
+ENTRY_DEC=$(printf '%d' "$ENTRY")
+
+# Extract tohost symbol address (nm outputs hex without 0x prefix → decimal for CLI)
+TOHOST_HEX=$(riscv64-unknown-elf-nm "$ELF" \
+    | awk '$3 == "tohost" {print $1; exit}')
+TOHOST_DEC=$(printf '%d' "0x${TOHOST_HEX}")
+
+/dut/airbender-binary run-with-transpiler \
+    --bin "$BIN" \
+    --entry-point "$ENTRY_DEC" \
+    --tohost-addr "$TOHOST_DEC" \
+    --cycles 10000000
+EC=$?
+rm -f "$BIN"
+exit $EC
+WRAPPER
+    chmod +x /act4/run-dut.sh
+
     # run_tests.py exits 0 if all pass, 1 if any fail.
     # Capture output for parsing; allow non-zero exit.
     local RUN_OUTPUT
-    RUN_OUTPUT=$(python3 /act4/run_tests.py "$DUT run-for-act" "$ELF_DIR" -j "$JOBS" 2>&1) || true
+    RUN_OUTPUT=$(python3 /act4/run_tests.py "/act4/run-dut.sh" "$ELF_DIR" -j "$JOBS" 2>&1) || true
     echo "$RUN_OUTPUT"
 
     # Parse results from run_tests.py output.
