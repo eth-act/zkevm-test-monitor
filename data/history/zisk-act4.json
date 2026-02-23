@@ -221,6 +221,83 @@
       "failed": 0,
       "total": 180,
       "notes": ""
+    },
+    {
+      "date": "2026-02-21",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 180,
+      "failed": 0,
+      "total": 180,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-21",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 180,
+      "failed": 0,
+      "total": 180,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 180,
+      "failed": 0,
+      "total": 180,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 180,
+      "failed": 0,
+      "total": 180,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 180,
+      "failed": 0,
+      "total": 180,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 231,
+      "failed": 4,
+      "total": 235,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 235,
+      "failed": 4,
+      "total": 239,
+      "notes": ""
     }
   ]
 }

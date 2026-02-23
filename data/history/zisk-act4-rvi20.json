@@ -1,0 +1,83 @@
+{
+  "zkvm": "zisk",
+  "suite": "act4-rvi20",
+  "runs": [
+    {
+      "date": "2026-02-21",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64imafdc_rvi20",
+      "suite": "act4-rvi20",
+      "passed": 192,
+      "failed": 0,
+      "total": 192,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-21",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64imafdc_rvi20",
+      "suite": "act4-rvi20",
+      "passed": 192,
+      "failed": 0,
+      "total": 192,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64imafdc_rvi20",
+      "suite": "act4-rvi20",
+      "passed": 192,
+      "failed": 0,
+      "total": 192,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64imafdc_rvi20",
+      "suite": "act4-rvi20",
+      "passed": 192,
+      "failed": 0,
+      "total": 192,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64imafdc_rvi20",
+      "suite": "act4-rvi20",
+      "passed": 192,
+      "failed": 0,
+      "total": 192,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64imafdc_rvi20",
+      "suite": "act4-rvi20",
+      "passed": 251,
+      "failed": 4,
+      "total": 255,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "5f4c52ad",
+      "zkvm_commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
+      "isa": "rv64imafdc_rvi20",
+      "suite": "act4-rvi20",
+      "passed": 255,
+      "failed": 4,
+      "total": 259,
+      "notes": ""
+    }
+  ]
+}
