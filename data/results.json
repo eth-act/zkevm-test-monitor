@@ -663,11 +663,11 @@
           "last_run": "2025-09-25"
         },
         "act4": {
-          "passed": 64,
-          "failed": 0,
-          "total": 64,
+          "passed": 116,
+          "failed": 3,
+          "total": 119,
           "test_status": "completed",
-          "last_run": "2026-02-21",
+          "last_run": "2026-02-23",
           "tests": [
             {
               "name": "I-add-00",
@@ -988,6 +988,281 @@
               "name": "M-remw-00",
               "extension": "M",
               "passed": true
+            },
+            {
+              "name": "Zaamo-amoadd.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoadd.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoand.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoand.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amomax.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amomax.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amomaxu.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amomaxu.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amomin.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amomin.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amominu.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amominu.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoor.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoor.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoswap.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoswap.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoxor.d-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zaamo-amoxor.w-00",
+              "extension": "Zaamo",
+              "passed": true
+            },
+            {
+              "name": "Zalrsc-lr.d-00",
+              "extension": "Zalrsc",
+              "passed": true
+            },
+            {
+              "name": "Zalrsc-lr.w-00",
+              "extension": "Zalrsc",
+              "passed": true
+            },
+            {
+              "name": "Zalrsc-sc.d-00",
+              "extension": "Zalrsc",
+              "passed": false
+            },
+            {
+              "name": "Zalrsc-sc.w-00",
+              "extension": "Zalrsc",
+              "passed": false
+            },
+            {
+              "name": "Zca-c.add-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.addi-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.addi16sp-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.addi4spn-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.addiw-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.addw-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.and-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.andi-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.beqz-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.bnez-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.hint-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.j-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.jalr-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.jr-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.ld-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.ldsp-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.li-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.lui-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.lw-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.lwsp-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.mv-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.nop-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.or-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.sd-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.sdsp-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.slli-00",
+              "extension": "Zca",
+              "passed": false
+            },
+            {
+              "name": "Zca-c.srai-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.srli-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.sub-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.subw-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.sw-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.swsp-00",
+              "extension": "Zca",
+              "passed": true
+            },
+            {
+              "name": "Zca-c.xor-00",
+              "extension": "Zca",
+              "passed": true
             }
           ]
         },
@@ -996,7 +1271,7 @@
           "failed": 8,
           "total": 72,
           "test_status": "completed",
-          "last_run": "2026-02-21",
+          "last_run": "2026-02-23",
           "tests": [
             {
               "name": "I-add-00",
@@ -4944,7 +5219,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-23T17:01:59.974448+00:00",
+  "last_updated": "2026-02-23T18:39:06.946382+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "5f4c52ad"
+  "test_monitor_commit": "40b2cd8e"
 }

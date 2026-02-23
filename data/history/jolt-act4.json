@@ -34,6 +34,17 @@
       "failed": 0,
       "total": 64,
       "notes": ""
+    },
+    {
+      "date": "2026-02-23",
+      "test_monitor_commit": "40b2cd8e",
+      "zkvm_commit": "8f2ec364",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 116,
+      "failed": 3,
+      "total": 119,
+      "notes": ""
     }
   ]
 }
