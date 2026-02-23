@@ -58,7 +58,7 @@ run_act4_suite() {
 
     echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
     # Must compile from top-level workdir so common ELF dependencies are built first.
-    make -C "$WORKDIR" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
+    make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
@@ -155,8 +155,8 @@ print(f'Per-test results: {len(tests)} tests written to results-act4${SUFFIX}.js
 run_act4_suite \
     "config/jolt/jolt-rv64im/test_config.yaml" \
     "jolt-rv64im" \
-    "I,M" \
-    "$(printf 'I\nM\nZicsr\nSm')" \
+    "I,M,Zaamo,Zalrsc,Zca" \
+    "$(printf 'I\nM\nZaamo\nZalrsc\nZca\nZicsr\nSm')" \
     "" || true
 
 # ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
