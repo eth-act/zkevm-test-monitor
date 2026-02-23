@@ -80,7 +80,7 @@ run_act4_suite() {
 
     echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
     # Must compile from top-level workdir so common ELF dependencies are built first.
-    make -C "$WORKDIR" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
+    make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
@@ -186,7 +186,7 @@ run_act4_suite \
     "config/zisk/zisk-rv64im/test_config.yaml" \
     "zisk-rv64im" \
     "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc" \
-    "$(printf 'I\nM\nA\nF\nD\nC\nZicsr\nSm')" \
+    "$(printf 'I\nM\nZaamo\nZalrsc\nF\nD\nZca\nZcd\nZicsr\nSm')" \
     "" || true
 
 # ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
@@ -199,6 +199,18 @@ run_act4_suite \
     "I,M,Misalign" \
     "$(printf 'I\nM\nZicclsm\nMisalign')" \
     "-target" || true
+
+# ─── Run 3: RVI20-scoped (rv64imafdc + misaligned FP/compressed) ───
+# Tests the RVI20 optional extensions that the native suite doesn't cover:
+# hardware-handled misaligned FP (MisalignF, MisalignD) and misaligned
+# compressed (MisalignZca). Everything else (I,M,F,D,Zca,Zcd,A) repeats
+# the native run to give a self-contained RVI20 picture.
+run_act4_suite \
+    "config/zisk/zisk-rv64im-rvi20/test_config.yaml" \
+    "zisk-rv64im-rvi20" \
+    "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign,MisalignF,MisalignD,MisalignZca" \
+    "$(printf 'I\nM\nZaamo\nZalrsc\nF\nD\nZca\nZcd\nZicsr\nMisalign\nMisalignF\nMisalignD\nMisalignZca')" \
+    "-rvi20" || true
 
 echo ""
 echo "=== All ACT4 suites complete ==="

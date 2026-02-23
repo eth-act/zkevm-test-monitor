@@ -56,7 +56,8 @@ RUN git submodule update --init external/riscv-unified-db
 # Matches RISCOF ISA declaration: RV64IMAFDCZicsr.
 # ACT4 uses fine-grained extension names: Zaamo/Zalrsc (A), Zca/Zcf/Zcd (C).
 # Misalign is needed for the RV64IM_Zicclsm target profile.
-RUN uv run make tests EXTENSIONS=I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign
+# MisalignF/MisalignD/MisalignZca are needed for the RVI20-scoped run.
+RUN uv run make tests EXTENSIONS=I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign,MisalignF,MisalignD,MisalignZca
 
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results
