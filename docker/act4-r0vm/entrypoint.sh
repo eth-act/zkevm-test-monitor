@@ -151,5 +151,13 @@ run_act4_suite \
     "$(printf 'I\nM\nZicsr\nSm')" \
     "" || true
 
+# ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
+run_act4_suite \
+    "config/r0vm/r0vm-rv64im-zicclsm/test_config.yaml" \
+    "r0vm-rv64im-zicclsm" \
+    "I,M,Misalign" \
+    "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
+    "-target" || true
+
 echo ""
 echo "=== All ACT4 suites complete ==="
