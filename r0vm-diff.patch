@@ -1,0 +1,54 @@
+commit a4eed0fa805dc492d88c88f242ecefe26a6175b8
+Author: Cody Gunton <codygunton@gmail.com>
+Date:   Mon Feb 23 19:21:11 2026 -0500
+
+    feat: add --execute-only flag for ACT4 compliance testing
+    
+    Adds a new CLI flag that skips ZK proof generation and exits with
+    the guest's exit code directly (0=pass, 1=fail, 2=session limit).
+    Intended for RISC-V architectural compliance test runners that
+    determine pass/fail from the process exit code.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+diff --git a/risc0/r0vm/src/lib.rs b/risc0/r0vm/src/lib.rs
+index fd3a4fb3c..c61970185 100644
+--- a/risc0/r0vm/src/lib.rs
++++ b/risc0/r0vm/src/lib.rs
+@@ -19,7 +19,7 @@ mod api;
+ use clap::{Args, Parser, ValueEnum};
+ use risc0_circuit_rv32im::execute::Segment;
+ use risc0_zkvm::{
+-    ApiServer, ExecutorEnv, ExecutorImpl, ProverOpts, ProverServer, VerifierContext,
++    ApiServer, ExecutorEnv, ExecutorImpl, ExitCode, ProverOpts, ProverServer, VerifierContext,
+     compute_image_id, compute_kernel_id, get_prover_server,
+ };
+ use std::fs;
+@@ -105,6 +105,11 @@ struct Cli {
+     /// Test signatures output file.
+     #[arg(long)]
+     signatures: Option<PathBuf>,
++
++    /// Execute without proving; exit with guest exit code (0=pass, 1=fail, 2=timeout).
++    /// Intended for compliance test runners that check the process exit code.
++    #[arg(long)]
++    execute_only: bool,
+ }
+ 
+ #[derive(Args)]
+@@ -248,6 +253,15 @@ pub fn main() {
+         }
+     };
+ 
++    if args.execute_only {
++        let code = match session.exit_code {
++            ExitCode::Halted(code) => code as i32,
++            ExitCode::SessionLimit => 2,
++            _ => 1,
++        };
++        std::process::exit(code);
++    }
++
+     let prover = args.get_prover();
+     let ctx = VerifierContext::default();
+     let receipt = prover.prove_session(&ctx, &session).unwrap().receipt;

@@ -1,0 +1,57 @@
+diff --git a/crates/core/executor/src/disassembler/elf.rs b/crates/core/executor/src/disassembler/elf.rs
+index d6e872d5..5dc4f19b 100644
+--- a/crates/core/executor/src/disassembler/elf.rs
++++ b/crates/core/executor/src/disassembler/elf.rs
+@@ -199,6 +199,14 @@ impl Elf {
+             eyre::bail!("base address is not found");
+         }
+ 
++        // Remove trailing zeros from instructions
++        let instructions = instructions.into_iter()
++            .rev()
++            .skip_while(|&x| x == 0)
++            .collect::<Vec<_>>()
++            .into_iter()
++            .rev()
++            .collect();
+         Ok(Elf::new(instructions, entry, base_address.unwrap(), image))
+     }
+ }
+diff --git a/crates/core/executor/src/program.rs b/crates/core/executor/src/program.rs
+index 77ee92ab..d5592c78 100644
+--- a/crates/core/executor/src/program.rs
++++ b/crates/core/executor/src/program.rs
+@@ -61,6 +61,7 @@ impl Program {
+         let elf = Elf::decode(input)?;
+ 
+         // Transpile the RV32IM instructions.
++        // this fails without stripping of padding
+         let instructions = transpile(&elf.instructions);
+ 
+         // Return the program.
+diff --git a/crates/perf/Cargo.toml b/crates/perf/Cargo.toml
+index 703c10c3..1195f151 100644
+--- a/crates/perf/Cargo.toml
++++ b/crates/perf/Cargo.toml
+@@ -19,7 +19,7 @@ sp1-sdk = { workspace = true }
+ p3-baby-bear = { workspace = true }
+ sp1-stark = { workspace = true }
+ sp1-cuda = { workspace = true }
+-test-artifacts = { workspace = true }
++# test-artifacts = { workspace = true }
+ tracing = { workspace = true }
+ serde_json = { workspace = true }
+ rand = "0.8.5"
+diff --git a/crates/perf/src/main.rs b/crates/perf/src/main.rs
+index 1944db77..4f8e4e22 100644
+--- a/crates/perf/src/main.rs
++++ b/crates/perf/src/main.rs
+@@ -6,7 +6,7 @@ use sp1_cuda::{MoongateServer, SP1CudaProver};
+ use sp1_prover::{components::CpuProverComponents, HashableKey, ProverMode};
+ use sp1_sdk::{self, Prover, ProverClient, SP1Context, SP1Prover, SP1Stdin};
+ use sp1_stark::SP1ProverOpts;
+-use test_artifacts::VERIFY_PROOF_ELF;
++// use test_artifacts::VERIFY_PROOF_ELF;
+ 
+ #[derive(Parser, Clone)]
+ #[command(about = "Evaluate the performance of SP1 on programs.")]

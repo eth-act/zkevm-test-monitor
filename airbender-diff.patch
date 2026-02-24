@@ -1,0 +1,1405 @@
+From 89552d835d8be5acf2499b14e10ca324f79b2a81 Mon Sep 17 00:00:00 2001
+From: codygunton
+Date: Mon Jan 19 13:35:19 2026 -0500
+Subject: feat: Add RISCOF compliance test integration for riscv_transpiler
+
+Add support for running RISC-V architectural compliance tests (RISCOF)
+using the new riscv_transpiler VM instead of the legacy risc_v_simulator.
+
+Changes:
+- Add riscv_transpiler/src/riscof.rs with self-contained RISCOF execution
+  - Execute binaries at configurable entry points (default 0x0100_0000)
+  - Extract begin_signature/end_signature symbols from ELF
+  - Write signature files in RISCOF format (hex words, one per line)
+- Add CLI run-for-riscof command with required --cycles argument
+- Pin nightly toolchain to 2026-01-10 for reproducible builds
+- Update feature flags for nightly compatibility (add const_cmp)
+- Follow codebase idioms: panic/expect instead of anyhow, as_chunks
+
+Test results: 42/47 RISCOF tests pass (expected failures: fence, div,
+rem, mulh, mulhsu - these instructions are not implemented in the zkVM)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+
+diff --git a/riscv_transpiler/Cargo.toml b/riscv_transpiler/Cargo.toml
+index e73b0ee7..8b35c223 100644
+--- a/riscv_transpiler/Cargo.toml
++++ b/riscv_transpiler/Cargo.toml
+@@ -21,6 +21,8 @@ seq-macro = { workspace = true }
+ serde-big-array = "*"
+ keccak = "*"
+ 
++object = "*"
++
+ dynasmrt = { version = "4", optional = true }
+ riscv-decode = {version = "0.2", optional = true }
+ capstone = {version = "0.13", optional = true }
+diff --git a/riscv_transpiler/src/lib.rs b/riscv_transpiler/src/lib.rs
+index a71d5d39..e98cef86 100644
+--- a/riscv_transpiler/src/lib.rs
++++ b/riscv_transpiler/src/lib.rs
+@@ -19,6 +19,7 @@
+ pub mod ir;
+ pub mod jit;
+ pub mod replayer;
++pub mod riscof;
+ pub mod vm;
+ pub mod witness;
+ 
+diff --git a/riscv_transpiler/src/riscof.rs b/riscv_transpiler/src/riscof.rs
+new file mode 100644
+index 00000000..fa9a17d2
+--- /dev/null
++++ b/riscv_transpiler/src/riscof.rs
+@@ -0,0 +1,181 @@
++//! RISCOF (RISC-V Compliance Framework) integration for running compliance tests.
++
++use std::path::Path;
++
++use object::{Object, ObjectSymbol};
++
++use crate::ir::{preprocess_bytecode, FullMachineDecoderConfig, Instruction};
++use crate::vm::{DelegationsCounters, RamPeek, RamWithRomRegion, Register, SimpleTape, State, VM};
++
++/// Default entry point for RISCOF tests.
++pub const DEFAULT_ENTRY_POINT: u32 = 0x0100_0000;
++
++const ROM_SECOND_WORD_BITS: usize = common_constants::rom::ROM_SECOND_WORD_BITS;
++const MEMORY_SIZE: usize = 1 << 30;
++
++/// Run a RISCOF compliance test binary and extract signatures to the given path.
++pub fn run_with_riscof_signature_extraction(
++    binary: &[u8],
++    elf_data: &[u8],
++    signature_path: &Path,
++    max_cycles: usize,
++    entry_point: u32,
++) {
++    let ram = execute_binary(binary, max_cycles, entry_point);
++
++    match find_signature_bounds(elf_data) {
++        Some((begin, end)) => {
++            let signatures = collect_signatures(&ram, begin, end);
++            write_signatures(&signatures, signature_path);
++        }
++        None => {
++            use std::io::Write;
++            let mut file =
++                std::fs::File::create(signature_path).expect("must create signature file");
++            writeln!(file, "begin_signature or end_signature symbol not found in ELF")
++                .expect("must write to signature file");
++        }
++    }
++}
++
++fn execute_binary(
++    binary: &[u8],
++    max_cycles: usize,
++    entry_point: u32,
++) -> RamWithRomRegion<ROM_SECOND_WORD_BITS> {
++    let binary_words = bytes_to_words(binary);
++    let entry_offset = (entry_point / 4) as usize;
++    let total_words = entry_offset + binary_words.len();
++
++    let mut padded_instructions = vec![0u32; total_words];
++    padded_instructions[entry_offset..].copy_from_slice(&binary_words);
++
++    let instructions: Vec<Instruction> =
++        preprocess_bytecode::<FullMachineDecoderConfig>(&padded_instructions);
++    let tape = SimpleTape::new(&instructions);
++
++    let ram_words = MEMORY_SIZE / core::mem::size_of::<u32>();
++    let mut backing = vec![
++        Register {
++            value: 0,
++            timestamp: 0
++        };
++        ram_words
++    ];
++    for (i, &word) in binary_words.iter().enumerate() {
++        backing[entry_offset + i].value = word;
++    }
++    let mut ram = RamWithRomRegion::<ROM_SECOND_WORD_BITS> { backing };
++
++    let mut state = State::initial_with_counters(DelegationsCounters::default());
++    state.pc = entry_point;
++
++    VM::<DelegationsCounters>::run_basic_unrolled(
++        &mut state,
++        &mut ram,
++        &mut (),
++        &tape,
++        max_cycles,
++        &mut (),
++    );
++
++    ram
++}
++
++fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {
++    let padded_len = (bytes.len() + 3) / 4 * 4;
++    let mut padded = bytes.to_vec();
++    padded.resize(padded_len, 0);
++
++    padded
++        .as_chunks::<4>()
++        .0
++        .iter()
++        .map(|el| u32::from_le_bytes(*el))
++        .collect()
++}
++
++fn find_signature_bounds(elf_data: &[u8]) -> Option<(u64, u64)> {
++    let elf = object::File::parse(elf_data).expect("must parse ELF file");
++
++    let mut begin = None;
++    let mut end = None;
++
++    for symbol in elf.symbols() {
++        if let Ok(name) = symbol.name() {
++            if name == "begin_signature" {
++                begin = Some(symbol.address());
++            } else if name == "end_signature" {
++                end = Some(symbol.address());
++            }
++            if begin.is_some() && end.is_some() {
++                break;
++            }
++        }
++    }
++
++    match (begin, end) {
++        (Some(b), Some(e)) => Some((b, e)),
++        _ => None,
++    }
++}
++
++fn collect_signatures(
++    ram: &RamWithRomRegion<ROM_SECOND_WORD_BITS>,
++    begin: u64,
++    end: u64,
++) -> Vec<u32> {
++    assert!(begin <= end, "begin_signature > end_signature");
++    assert!(begin % 4 == 0, "begin_signature not 4-byte aligned");
++    assert!(end % 4 == 0, "end_signature not 4-byte aligned");
++
++    let word_count = ((end - begin) / 4) as usize;
++    let mut signatures = Vec::with_capacity(word_count);
++
++    let mut addr = begin as u32;
++    let end_addr = end as u32;
++
++    while addr < end_addr {
++        let word = ram.peek_word(addr);
++        signatures.push(word);
++        addr += 4;
++    }
++
++    signatures
++}
++
++fn write_signatures(signatures: &[u32], path: &Path) {
++    use std::io::Write;
++
++    let mut file = std::fs::File::create(path).expect("must create signature file");
++
++    for &sig in signatures {
++        writeln!(file, "{:08x}", sig).expect("must write to signature file");
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn test_write_signatures() {
++        use std::io::Read;
++
++        let signatures = vec![0xdeadbeef, 0x12345678, 0x00000001];
++        let temp_dir = std::env::temp_dir();
++        let path = temp_dir.join("test_signatures.txt");
++
++        write_signatures(&signatures, &path);
++
++        let mut content = String::new();
++        std::fs::File::open(&path)
++            .expect("open should succeed")
++            .read_to_string(&mut content)
++            .expect("read should succeed");
++
++        assert_eq!(content, "deadbeef\n12345678\n00000001\n");
++
++        std::fs::remove_file(&path).ok();
++    }
++}
+diff --git a/rust-toolchain.toml b/rust-toolchain.toml
+index a25e7e06..dc6d9391 100644
+--- a/rust-toolchain.toml
++++ b/rust-toolchain.toml
+@@ -1,3 +1,2 @@
+ [toolchain]
+-channel = "nightly"
+-
++channel = "nightly-2026-01-10"
+diff --git a/tools/cli/src/main.rs b/tools/cli/src/main.rs
+index e1d69162..87cfaff1 100644
+--- a/tools/cli/src/main.rs
++++ b/tools/cli/src/main.rs
+@@ -14,7 +14,7 @@ use cli_lib::vk::generate_vk;
+ use execution_utils::{Machine, ProgramProof, RecursionStrategy, VerifierCircuitsIdentifiers};
+ use reqwest::blocking::Client;
+ use serde_json::Value;
+-use std::path::Path;
++use std::path::{Path, PathBuf};
+ use std::{fs, io::Write, iter};
+ 
+ use prover::{
+@@ -153,6 +153,22 @@ enum Commands {
+         machine: Machine,
+     },
+ 
++    /// Run a binary for RISCOF compliance testing (extracts begin_signature/end_signature).
++    RunForRiscof {
++        /// Binary file to execute
++        #[arg(short, long)]
++        bin: String,
++        /// ELF file for extracting signature symbols
++        #[arg(long)]
++        elf: String,
++        /// Output path for signature file
++        #[arg(long)]
++        signatures: PathBuf,
++        /// Number of riscV cycles to run.
++        #[arg(long)]
++        cycles: usize,
++    },
++
+     /// Generates verification key hash, for a given binary.
+     /// This way you can compare it with the one inside the proof, to make sure that
+     /// the proof is really checking the execution of a given code.
+@@ -387,6 +403,14 @@ fn main() {
+ 
+             run_binary(bin, cycles, input_data, expected_results, machine);
+         }
++        Commands::RunForRiscof {
++            bin,
++            elf,
++            signatures,
++            cycles,
++        } => {
++            run_for_riscof_binary(&bin, &elf, &signatures, *cycles);
++        }
+         Commands::GenerateVk {
+             bin,
+             machine,
+@@ -673,6 +697,27 @@ fn u32_to_file(output_file: &String, numbers: &[u32]) {
+     println!("Successfully wrote to file: {}", output_file);
+ }
+ 
++fn run_for_riscof_binary(
++    bin_path: &String,
++    elf_path: &String,
++    signatures: &Path,
++    cycles: usize,
++) {
++    use riscv_transpiler::riscof;
++
++    let binary = fs::read(bin_path).expect("Failed to read binary file");
++    let elf_data = fs::read(elf_path).expect("Failed to read ELF file");
++
++    riscof::run_with_riscof_signature_extraction(
++        &binary,
++        &elf_data,
++        signatures,
++        cycles,
++        riscof::DEFAULT_ENTRY_POINT,
++    );
++    println!("Signature file written to: {}", signatures.display());
++}
++
+ fn run_binary(
+     bin_path: &String,
+     cycles: &Option<usize>,
+
+From 117e8e876b92522cb4cd84ea28dcc70caf5aa18a Mon Sep 17 00:00:00 2001
+From: codygunton
+Date: Thu Feb 19 14:43:20 2026 -0500
+Subject: feat: add ACT4 compliance test support
+
+Add `run-for-act` CLI command that loads self-checking ACT4 ELFs and
+determines pass/fail via HTIF tohost. Replace panics in the instruction
+decoder with Illegal markers so inline test metadata (non-instruction
+data embedded in code sections) is handled gracefully. The VM still
+panics if an Illegal instruction is actually executed at runtime.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+diff --git a/riscv_transpiler/src/act.rs b/riscv_transpiler/src/act.rs
+new file mode 100644
+index 00000000..5adb3417
+--- /dev/null
++++ b/riscv_transpiler/src/act.rs
+@@ -0,0 +1,150 @@
++//! ACT4 (RISC-V Architecture Compliance Tests, 4th generation) integration.
++//!
++//! Runs self-checking ELFs produced by the ACT4 framework and returns an exit code based on
++//! whether the test passed or failed. Tests signal pass/fail via the HTIF tohost mechanism:
++//! writing `1` to the `tohost` symbol means pass; any other nonzero value means fail.
++
++use object::{Object, ObjectSegment, ObjectSymbol, SegmentFlags};
++
++use crate::ir::{preprocess_bytecode, FullMachineDecoderConfig, Instruction};
++use crate::vm::{DelegationsCounters, RamPeek, RamWithRomRegion, Register, SimpleTape, State, VM};
++
++const ROM_SECOND_WORD_BITS: usize = common_constants::rom::ROM_SECOND_WORD_BITS;
++const MEMORY_SIZE: usize = 1 << 30;
++
++/// ELF segment flag: segment is executable.
++const PF_X: u32 = 1;
++
++/// Check if an ELF segment has the executable flag set.
++fn is_executable(segment: &object::Segment<'_, '_>) -> bool {
++    matches!(segment.flags(), SegmentFlags::Elf { p_flags } if p_flags & PF_X != 0)
++}
++
++/// Run a self-checking ACT4 ELF and return an exit code.
++///
++/// Returns:
++/// - `0` if the test passed (HTIF `tohost` == 1, `RVMODEL_HALT_PASS`)
++/// - `1` if the test failed (HTIF `tohost` is nonzero and != 1, `RVMODEL_HALT_FAIL`)
++/// - `2` if the cycle limit was exhausted before `tohost` was written
++pub fn run_elf_for_act(elf_data: &[u8], max_cycles: usize) -> i32 {
++    let elf = object::File::parse(elf_data).expect("act: failed to parse ELF");
++
++    // Find the span of ALL loadable segments to size the RAM population
++    let max_seg_end = elf
++        .segments()
++        .filter_map(|s| s.data().ok().filter(|d| !d.is_empty()).map(|_| s.address() + s.size()))
++        .max()
++        .unwrap_or(0) as usize;
++
++    // Find the span of only EXECUTABLE segments for the instruction tape.
++    // Data segments (.tohost, .data, .bss) must not be decoded as instructions.
++    let max_exec_end = elf
++        .segments()
++        .filter(|s| is_executable(s))
++        .filter_map(|s| s.data().ok().filter(|d| !d.is_empty()).map(|_| s.address() + s.size()))
++        .max()
++        .unwrap_or(0) as usize;
++    let tape_words = (max_exec_end + 3) / 4;
++
++    // Build instruction tape from executable segments only
++    let mut tape_data = vec![0u32; tape_words];
++    load_segments_into(&elf, &mut tape_data, true);
++
++    // Decode executable segments into the instruction tape. Unknown opcodes (e.g. inline
++    // test metadata from ACT4's failure_code.h) are decoded as Illegal instructions.
++    let instructions: Vec<Instruction> =
++        preprocess_bytecode::<FullMachineDecoderConfig>(&tape_data);
++    let tape = SimpleTape::new(&instructions);
++
++    // Allocate 1 GB RAM backing and populate from ALL segments (code + data)
++    let all_words = (max_seg_end + 3) / 4;
++    let ram_words = MEMORY_SIZE / core::mem::size_of::<u32>();
++    let mut backing = vec![Register { value: 0, timestamp: 0 }; ram_words];
++    // Load all segments (including data) into RAM
++    let mut all_data = vec![0u32; all_words];
++    load_segments_into(&elf, &mut all_data, false);
++    for (i, &word) in all_data.iter().enumerate() {
++        backing[i].value = word;
++    }
++    let mut ram = RamWithRomRegion::<ROM_SECOND_WORD_BITS> { backing };
++
++    let entry_point = elf.entry() as u32;
++    let tohost_addr = elf
++        .symbols()
++        .find(|s| s.name() == Ok("tohost"))
++        .map(|s| s.address() as u32)
++        .expect("act: ELF has no 'tohost' symbol — check linker script");
++
++    let mut state = State::initial_with_counters(DelegationsCounters::default());
++    state.pc = entry_point;
++
++    const POLL_CHUNK: usize = 100_000;
++    let mut remaining = max_cycles;
++
++    // Wrap the execution loop in catch_unwind to handle panics from unsupported
++    // instructions (e.g., DIV, FENCE) that Airbender encounters during execution.
++    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
++        loop {
++            let chunk = remaining.min(POLL_CHUNK);
++            VM::<DelegationsCounters>::run_basic_unrolled(
++                &mut state,
++                &mut ram,
++                &mut (),
++                &tape,
++                chunk,
++                &mut (),
++            );
++            remaining = remaining.saturating_sub(chunk);
++
++            let tohost_val = ram.peek_word(tohost_addr);
++            if tohost_val == 1 {
++                return 0; // RVMODEL_HALT_PASS
++            } else if tohost_val != 0 {
++                return 1; // RVMODEL_HALT_FAIL
++            }
++            if remaining == 0 {
++                eprintln!("act: cycle limit ({max_cycles}) exhausted without tohost signal");
++                return 2;
++            }
++        }
++    }));
++
++    match result {
++        Ok(code) => code,
++        Err(_) => {
++            eprintln!("act: VM panicked (unsupported instruction encountered during execution)");
++            1
++        }
++    }
++}
++
++/// Load ELF PT_LOAD segments into a flat word array.
++///
++/// If `exec_only` is true, only executable segments are loaded (for the instruction tape).
++/// If false, all loadable segments are loaded (for RAM).
++///
++/// The array must be large enough to hold all relevant segments. Words are stored at `addr / 4`.
++fn load_segments_into(elf: &object::File<'_>, words: &mut [u32], exec_only: bool) {
++    for segment in elf.segments() {
++        if exec_only && !is_executable(&segment) {
++            continue;
++        }
++        let Ok(data) = segment.data() else { continue };
++        if data.is_empty() {
++            continue;
++        }
++        let addr = segment.address() as usize;
++        let word_start = addr / 4;
++
++        let padded_len = (data.len() + 3) / 4 * 4;
++        let mut padded = data.to_vec();
++        padded.resize(padded_len, 0);
++
++        for (i, chunk) in padded.chunks_exact(4).enumerate() {
++            let idx = word_start + i;
++            if idx < words.len() {
++                words[idx] = u32::from_le_bytes(chunk.try_into().unwrap());
++            }
++        }
++    }
++}
+diff --git a/riscv_transpiler/src/ir/mod.rs b/riscv_transpiler/src/ir/mod.rs
+index ad6840b3..98a7f277 100644
+--- a/riscv_transpiler/src/ir/mod.rs
++++ b/riscv_transpiler/src/ir/mod.rs
+@@ -107,11 +107,7 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                 match funct3 {
+                     0 | 1 | 4 | 5 | 6 | 7 => {}
+                     _ => {
+-                        panic!(
+-                            "Unknown BRANCH-like opcode 0x{:08x} at PC = 0x{:08x}",
+-                            opcode,
+-                            i * 4
+-                        );
++                        // Unknown BRANCH funct3 — treat as illegal (may be inline data)
+                     }
+                 };
+ 
+@@ -138,15 +134,8 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                         Instruction::from_imm(InstructionName::Srai, formal_rs1, 0, rd, imm & 0x1f)
+                     }
+                     0b101 if funct7 == ROT_FUNCT7 => {
+-                        panic!("not supporting rotate family")
+-                        // Arithmetic shift right
+-                        // shift is encoded in lowest 5 bits
+-
+-                        // if Config::SUPPORT_ROT {
+-                        //     operand_1.rotate_right(operand_2 & 0x1f)
+-                        // } else {
+-                        //     panic!("Unknown opcode 0x{:08x}", opcode);
+-                        // }
++                        // Rotate family not supported — treat as illegal
++                        illegal_instr
+                     }
+                     GROUP_IMM_SLT => {
+                         Instruction::from_imm(InstructionName::Slti, formal_rs1, 0, rd, imm)
+@@ -163,9 +152,7 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                     GROUP_IMM_AND => {
+                         Instruction::from_imm(InstructionName::Andi, formal_rs1, 0, rd, imm)
+                     }
+-                    _ => {
+-                        panic!("Unknown opcode 0x{:08x}", opcode);
+-                    }
++                    _ => illegal_instr,
+                 };
+ 
+                 instr
+@@ -306,8 +293,8 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                             0,
+                         ),
+                         0b001 if funct7 == ROT_FUNCT7 => {
+-                            panic!("ROL is not supported");
+-                            // Instruction::from_imm(InstructionName::Rol, formal_rs1, formal_rs2, rd, 0)
++                            // ROL not supported — treat as illegal
++                            illegal_instr
+                         }
+                         0b101 if funct7 == SRL_FUNCT7 => Instruction::from_imm(
+                             InstructionName::Srl,
+@@ -324,8 +311,8 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                             0,
+                         ),
+                         0b101 if funct7 == ROT_FUNCT7 => {
+-                            panic!("ROR is not supported");
+-                            // Instruction::from_imm(InstructionName::Ror, formal_rs1, formal_rs2, rd, 0)
++                            // ROR not supported — treat as illegal
++                            illegal_instr
+                         }
+                         0b010 => Instruction::from_imm(
+                             InstructionName::Slt,
+@@ -362,9 +349,7 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                             rd,
+                             0,
+                         ),
+-                        _ => {
+-                            panic!("Unknown opcode 0x{:08x}", opcode);
+-                        }
++                        _ => illegal_instr,
+                     }
+                 }
+             }
+@@ -433,9 +418,7 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+ 
+                         instr
+                     }
+-                    _ => {
+-                        panic!("Unknown opcode 0x{:08x}", opcode);
+-                    }
++                    _ => illegal_instr,
+                 }
+             }
+             OPCODE_STORE => {
+@@ -487,9 +470,7 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                             _ => unsafe { core::hint::unreachable_unchecked() },
+                         }
+                     }
+-                    _ => {
+-                        panic!("Unknown opcode 0x{:08x}", opcode);
+-                    }
++                    _ => illegal_instr,
+                 }
+             }
+             OPCODE_SYSTEM => {
+@@ -543,12 +524,10 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                                     illegal_instr
+                                 }
+                             }
+-                            _ => {
+-                                panic!("Unknown MOP number {}", mop_number);
+-                            }
++                            _ => illegal_instr,
+                         }
+                     } else {
+-                        panic!();
++                        illegal_instr
+                     }
+                 } else if funct3 & ZICSR_MASK != 0 {
+                     let csr_number = ITypeOpcode::imm(opcode);
+@@ -652,19 +631,17 @@ pub fn preprocess_bytecode<OPT: DecodingOptions>(bytecode: &[u32]) -> Vec<Instru
+                             // It is canonical CSR to encode UNIMP instruction
+                             illegal_instr
+                         }
+-                        _ => {
+-                            panic!("Unknown CSR number 0x{:04x}", csr_number);
+-                        }
++                        _ => illegal_instr,
+                     };
+ 
+                     if funct3 != 0b001 {
+-                        // not CSRRW
+-                        panic!("Unknown opcode 0x{:08x}", opcode);
++                        // not CSRRW — treat as illegal
++                        illegal_instr
++                    } else {
++                        instr
+                     }
+-
+-                    instr
+                 } else {
+-                    panic!("Unknown system funct3 enc 0x{:08x}", funct3);
++                    illegal_instr
+                 };
+ 
+                 instr
+@@ -718,3 +695,61 @@ impl DecodingOptions for DebugReducedMachineDecoderConfig {
+     const SUPPORT_SIGNED_MUL_DIV: bool = false;
+     const SUPPORT_SUBWORD_MEM_ACCESS: bool = true;
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// Unknown opcodes should decode as Illegal instructions, not panic.
++    #[test]
++    fn unknown_opcode_decodes_as_illegal() {
++        // 0xDEADBEEF has opcode bits 0b1101111 which is JAL, but with a garbage
++        // immediate. Use a truly invalid opcode: lowest 2 bits = 0b00 is a
++        // compressed instruction (not supported), and 0x00000000 is also invalid.
++        // A word with opcode bits 0b1111111 is not assigned in RV32.
++        let garbage: &[u32] = &[0xFFFFFFFF, 0x00000000, 0xDEAD_D633];
++        // Should not panic
++        let instructions = preprocess_bytecode::<FullMachineDecoderConfig>(garbage);
++        assert_eq!(instructions.len(), 3);
++        for instr in &instructions {
++            assert_eq!(
++                instr.name,
++                InstructionName::Illegal,
++                "Expected unknown opcode to decode as Illegal"
++            );
++        }
++    }
++
++    /// Executing an Illegal instruction must panic at runtime.
++    #[test]
++    #[should_panic(expected = "Illegal instruction")]
++    fn executing_illegal_instruction_panics() {
++        use crate::vm::{
++            DelegationsCounters, RamWithRomRegion, SimpleTape, State, VM,
++        };
++
++        // Build a tape with a single Illegal instruction
++        let illegal = Instruction::from_imm(InstructionName::Illegal, 0, 0, 0, 0);
++        let instructions = vec![illegal];
++        let tape = SimpleTape::new(&instructions);
++
++        // Minimal 4 KB RAM
++        use crate::vm::Register;
++        let ram_words = 4096 / core::mem::size_of::<u32>();
++        let backing = vec![Register { value: 0, timestamp: 0 }; ram_words];
++        let mut ram = RamWithRomRegion::<5> { backing };
++
++        let mut state = State::initial_with_counters(DelegationsCounters::default());
++        state.pc = 0;
++
++        // This should panic with "Illegal instruction encounteted"
++        VM::<DelegationsCounters>::run_basic_unrolled(
++            &mut state,
++            &mut ram,
++            &mut (),
++            &tape,
++            1,
++            &mut (),
++        );
++    }
++}
+diff --git a/riscv_transpiler/src/lib.rs b/riscv_transpiler/src/lib.rs
+index 6465b599..74635f5f 100644
+--- a/riscv_transpiler/src/lib.rs
++++ b/riscv_transpiler/src/lib.rs
+@@ -16,6 +16,7 @@
+ // preprocess the bytecode into fixed-width format, and then will do very simple and execution loop
+ // that just dispatches a function pointer
+ 
++pub mod act;
+ pub mod ir;
+ pub mod jit;
+ pub mod replayer;
+diff --git a/tools/cli/src/main.rs b/tools/cli/src/main.rs
+index 87cfaff1..fd7c33b2 100644
+--- a/tools/cli/src/main.rs
++++ b/tools/cli/src/main.rs
+@@ -153,6 +153,17 @@ enum Commands {
+         machine: Machine,
+     },
+ 
++    /// Run a self-checking ACT4 ELF and exit with its pass/fail code.
++    /// The ELF path is a positional argument for compatibility with run_tests.py
++    /// (which appends ELF paths directly to the command string).
++    RunForAct {
++        /// Path to self-checking ELF produced by the ACT4 framework
++        elf: String,
++        /// Maximum number of RISC-V cycles before timeout (exit code 2)
++        #[arg(long, default_value = "10000000")]
++        cycles: usize,
++    },
++
+     /// Run a binary for RISCOF compliance testing (extracts begin_signature/end_signature).
+     RunForRiscof {
+         /// Binary file to execute
+@@ -403,6 +414,11 @@ fn main() {
+ 
+             run_binary(bin, cycles, input_data, expected_results, machine);
+         }
++        Commands::RunForAct { elf, cycles } => {
++            let elf_data = fs::read(elf).expect("Failed to read ELF file");
++            let exit_code = riscv_transpiler::act::run_elf_for_act(&elf_data, *cycles);
++            std::process::exit(exit_code);
++        }
+         Commands::RunForRiscof {
+             bin,
+             elf,
+
+From 6353d63db17a95180b43bc8bfc6952b8ff50ae42 Mon Sep 17 00:00:00 2001
+From: codygunton
+Date: Mon Feb 23 16:24:50 2026 -0500
+Subject: feat: replace run-for-act/run-for-riscof with generic run-with-transpiler
+
+Add `run-with-transpiler` command that runs a flat binary through the
+transpiler VM (preprocess_bytecode + VM::run_basic_unrolled — the actual
+prover execution path). Optionally polls an HTIF tohost address and exits
+0 (pass), 1 (fail), or 2 (timeout) for compliance testing.
+
+Remove `run-for-act` and `run-for-riscof` commands. All test-specific
+logic (ELF-to-binary conversion, address extraction) now lives in the
+test infrastructure, not in the ZK-VM binary.
+
+Also remove the `object` crate dependency from riscv_transpiler — no
+more ELF parsing in the prover crate.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+
+diff --git a/riscv_transpiler/Cargo.toml b/riscv_transpiler/Cargo.toml
+index 8b35c223..80398b70 100644
+--- a/riscv_transpiler/Cargo.toml
++++ b/riscv_transpiler/Cargo.toml
+@@ -21,7 +21,6 @@ seq-macro = { workspace = true }
+ serde-big-array = "*"
+ keccak = "*"
+ 
+-object = "*"
+ 
+ dynasmrt = { version = "4", optional = true }
+ riscv-decode = {version = "0.2", optional = true }
+diff --git a/riscv_transpiler/src/act.rs b/riscv_transpiler/src/act.rs
+deleted file mode 100644
+index 5adb3417..00000000
+--- a/riscv_transpiler/src/act.rs
++++ /dev/null
+@@ -1,150 +0,0 @@
+-//! ACT4 (RISC-V Architecture Compliance Tests, 4th generation) integration.
+-//!
+-//! Runs self-checking ELFs produced by the ACT4 framework and returns an exit code based on
+-//! whether the test passed or failed. Tests signal pass/fail via the HTIF tohost mechanism:
+-//! writing `1` to the `tohost` symbol means pass; any other nonzero value means fail.
+-
+-use object::{Object, ObjectSegment, ObjectSymbol, SegmentFlags};
+-
+-use crate::ir::{preprocess_bytecode, FullMachineDecoderConfig, Instruction};
+-use crate::vm::{DelegationsCounters, RamPeek, RamWithRomRegion, Register, SimpleTape, State, VM};
+-
+-const ROM_SECOND_WORD_BITS: usize = common_constants::rom::ROM_SECOND_WORD_BITS;
+-const MEMORY_SIZE: usize = 1 << 30;
+-
+-/// ELF segment flag: segment is executable.
+-const PF_X: u32 = 1;
+-
+-/// Check if an ELF segment has the executable flag set.
+-fn is_executable(segment: &object::Segment<'_, '_>) -> bool {
+-    matches!(segment.flags(), SegmentFlags::Elf { p_flags } if p_flags & PF_X != 0)
+-}
+-
+-/// Run a self-checking ACT4 ELF and return an exit code.
+-///
+-/// Returns:
+-/// - `0` if the test passed (HTIF `tohost` == 1, `RVMODEL_HALT_PASS`)
+-/// - `1` if the test failed (HTIF `tohost` is nonzero and != 1, `RVMODEL_HALT_FAIL`)
+-/// - `2` if the cycle limit was exhausted before `tohost` was written
+-pub fn run_elf_for_act(elf_data: &[u8], max_cycles: usize) -> i32 {
+-    let elf = object::File::parse(elf_data).expect("act: failed to parse ELF");
+-
+-    // Find the span of ALL loadable segments to size the RAM population
+-    let max_seg_end = elf
+-        .segments()
+-        .filter_map(|s| s.data().ok().filter(|d| !d.is_empty()).map(|_| s.address() + s.size()))
+-        .max()
+-        .unwrap_or(0) as usize;
+-
+-    // Find the span of only EXECUTABLE segments for the instruction tape.
+-    // Data segments (.tohost, .data, .bss) must not be decoded as instructions.
+-    let max_exec_end = elf
+-        .segments()
+-        .filter(|s| is_executable(s))
+-        .filter_map(|s| s.data().ok().filter(|d| !d.is_empty()).map(|_| s.address() + s.size()))
+-        .max()
+-        .unwrap_or(0) as usize;
+-    let tape_words = (max_exec_end + 3) / 4;
+-
+-    // Build instruction tape from executable segments only
+-    let mut tape_data = vec![0u32; tape_words];
+-    load_segments_into(&elf, &mut tape_data, true);
+-
+-    // Decode executable segments into the instruction tape. Unknown opcodes (e.g. inline
+-    // test metadata from ACT4's failure_code.h) are decoded as Illegal instructions.
+-    let instructions: Vec<Instruction> =
+-        preprocess_bytecode::<FullMachineDecoderConfig>(&tape_data);
+-    let tape = SimpleTape::new(&instructions);
+-
+-    // Allocate 1 GB RAM backing and populate from ALL segments (code + data)
+-    let all_words = (max_seg_end + 3) / 4;
+-    let ram_words = MEMORY_SIZE / core::mem::size_of::<u32>();
+-    let mut backing = vec![Register { value: 0, timestamp: 0 }; ram_words];
+-    // Load all segments (including data) into RAM
+-    let mut all_data = vec![0u32; all_words];
+-    load_segments_into(&elf, &mut all_data, false);
+-    for (i, &word) in all_data.iter().enumerate() {
+-        backing[i].value = word;
+-    }
+-    let mut ram = RamWithRomRegion::<ROM_SECOND_WORD_BITS> { backing };
+-
+-    let entry_point = elf.entry() as u32;
+-    let tohost_addr = elf
+-        .symbols()
+-        .find(|s| s.name() == Ok("tohost"))
+-        .map(|s| s.address() as u32)
+-        .expect("act: ELF has no 'tohost' symbol — check linker script");
+-
+-    let mut state = State::initial_with_counters(DelegationsCounters::default());
+-    state.pc = entry_point;
+-
+-    const POLL_CHUNK: usize = 100_000;
+-    let mut remaining = max_cycles;
+-
+-    // Wrap the execution loop in catch_unwind to handle panics from unsupported
+-    // instructions (e.g., DIV, FENCE) that Airbender encounters during execution.
+-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+-        loop {
+-            let chunk = remaining.min(POLL_CHUNK);
+-            VM::<DelegationsCounters>::run_basic_unrolled(
+-                &mut state,
+-                &mut ram,
+-                &mut (),
+-                &tape,
+-                chunk,
+-                &mut (),
+-            );
+-            remaining = remaining.saturating_sub(chunk);
+-
+-            let tohost_val = ram.peek_word(tohost_addr);
+-            if tohost_val == 1 {
+-                return 0; // RVMODEL_HALT_PASS
+-            } else if tohost_val != 0 {
+-                return 1; // RVMODEL_HALT_FAIL
+-            }
+-            if remaining == 0 {
+-                eprintln!("act: cycle limit ({max_cycles}) exhausted without tohost signal");
+-                return 2;
+-            }
+-        }
+-    }));
+-
+-    match result {
+-        Ok(code) => code,
+-        Err(_) => {
+-            eprintln!("act: VM panicked (unsupported instruction encountered during execution)");
+-            1
+-        }
+-    }
+-}
+-
+-/// Load ELF PT_LOAD segments into a flat word array.
+-///
+-/// If `exec_only` is true, only executable segments are loaded (for the instruction tape).
+-/// If false, all loadable segments are loaded (for RAM).
+-///
+-/// The array must be large enough to hold all relevant segments. Words are stored at `addr / 4`.
+-fn load_segments_into(elf: &object::File<'_>, words: &mut [u32], exec_only: bool) {
+-    for segment in elf.segments() {
+-        if exec_only && !is_executable(&segment) {
+-            continue;
+-        }
+-        let Ok(data) = segment.data() else { continue };
+-        if data.is_empty() {
+-            continue;
+-        }
+-        let addr = segment.address() as usize;
+-        let word_start = addr / 4;
+-
+-        let padded_len = (data.len() + 3) / 4 * 4;
+-        let mut padded = data.to_vec();
+-        padded.resize(padded_len, 0);
+-
+-        for (i, chunk) in padded.chunks_exact(4).enumerate() {
+-            let idx = word_start + i;
+-            if idx < words.len() {
+-                words[idx] = u32::from_le_bytes(chunk.try_into().unwrap());
+-            }
+-        }
+-    }
+-}
+diff --git a/riscv_transpiler/src/lib.rs b/riscv_transpiler/src/lib.rs
+index 74635f5f..0d250b03 100644
+--- a/riscv_transpiler/src/lib.rs
++++ b/riscv_transpiler/src/lib.rs
+@@ -16,11 +16,10 @@
+ // preprocess the bytecode into fixed-width format, and then will do very simple and execution loop
+ // that just dispatches a function pointer
+ 
+-pub mod act;
+ pub mod ir;
+ pub mod jit;
+ pub mod replayer;
+-pub mod riscof;
++pub mod run;
+ pub mod vm;
+ pub mod witness;
+ 
+diff --git a/riscv_transpiler/src/riscof.rs b/riscv_transpiler/src/riscof.rs
+deleted file mode 100644
+index fa9a17d2..00000000
+--- a/riscv_transpiler/src/riscof.rs
++++ /dev/null
+@@ -1,181 +0,0 @@
+-//! RISCOF (RISC-V Compliance Framework) integration for running compliance tests.
+-
+-use std::path::Path;
+-
+-use object::{Object, ObjectSymbol};
+-
+-use crate::ir::{preprocess_bytecode, FullMachineDecoderConfig, Instruction};
+-use crate::vm::{DelegationsCounters, RamPeek, RamWithRomRegion, Register, SimpleTape, State, VM};
+-
+-/// Default entry point for RISCOF tests.
+-pub const DEFAULT_ENTRY_POINT: u32 = 0x0100_0000;
+-
+-const ROM_SECOND_WORD_BITS: usize = common_constants::rom::ROM_SECOND_WORD_BITS;
+-const MEMORY_SIZE: usize = 1 << 30;
+-
+-/// Run a RISCOF compliance test binary and extract signatures to the given path.
+-pub fn run_with_riscof_signature_extraction(
+-    binary: &[u8],
+-    elf_data: &[u8],
+-    signature_path: &Path,
+-    max_cycles: usize,
+-    entry_point: u32,
+-) {
+-    let ram = execute_binary(binary, max_cycles, entry_point);
+-
+-    match find_signature_bounds(elf_data) {
+-        Some((begin, end)) => {
+-            let signatures = collect_signatures(&ram, begin, end);
+-            write_signatures(&signatures, signature_path);
+-        }
+-        None => {
+-            use std::io::Write;
+-            let mut file =
+-                std::fs::File::create(signature_path).expect("must create signature file");
+-            writeln!(file, "begin_signature or end_signature symbol not found in ELF")
+-                .expect("must write to signature file");
+-        }
+-    }
+-}
+-
+-fn execute_binary(
+-    binary: &[u8],
+-    max_cycles: usize,
+-    entry_point: u32,
+-) -> RamWithRomRegion<ROM_SECOND_WORD_BITS> {
+-    let binary_words = bytes_to_words(binary);
+-    let entry_offset = (entry_point / 4) as usize;
+-    let total_words = entry_offset + binary_words.len();
+-
+-    let mut padded_instructions = vec![0u32; total_words];
+-    padded_instructions[entry_offset..].copy_from_slice(&binary_words);
+-
+-    let instructions: Vec<Instruction> =
+-        preprocess_bytecode::<FullMachineDecoderConfig>(&padded_instructions);
+-    let tape = SimpleTape::new(&instructions);
+-
+-    let ram_words = MEMORY_SIZE / core::mem::size_of::<u32>();
+-    let mut backing = vec![
+-        Register {
+-            value: 0,
+-            timestamp: 0
+-        };
+-        ram_words
+-    ];
+-    for (i, &word) in binary_words.iter().enumerate() {
+-        backing[entry_offset + i].value = word;
+-    }
+-    let mut ram = RamWithRomRegion::<ROM_SECOND_WORD_BITS> { backing };
+-
+-    let mut state = State::initial_with_counters(DelegationsCounters::default());
+-    state.pc = entry_point;
+-
+-    VM::<DelegationsCounters>::run_basic_unrolled(
+-        &mut state,
+-        &mut ram,
+-        &mut (),
+-        &tape,
+-        max_cycles,
+-        &mut (),
+-    );
+-
+-    ram
+-}
+-
+-fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {
+-    let padded_len = (bytes.len() + 3) / 4 * 4;
+-    let mut padded = bytes.to_vec();
+-    padded.resize(padded_len, 0);
+-
+-    padded
+-        .as_chunks::<4>()
+-        .0
+-        .iter()
+-        .map(|el| u32::from_le_bytes(*el))
+-        .collect()
+-}
+-
+-fn find_signature_bounds(elf_data: &[u8]) -> Option<(u64, u64)> {
+-    let elf = object::File::parse(elf_data).expect("must parse ELF file");
+-
+-    let mut begin = None;
+-    let mut end = None;
+-
+-    for symbol in elf.symbols() {
+-        if let Ok(name) = symbol.name() {
+-            if name == "begin_signature" {
+-                begin = Some(symbol.address());
+-            } else if name == "end_signature" {
+-                end = Some(symbol.address());
+-            }
+-            if begin.is_some() && end.is_some() {
+-                break;
+-            }
+-        }
+-    }
+-
+-    match (begin, end) {
+-        (Some(b), Some(e)) => Some((b, e)),
+-        _ => None,
+-    }
+-}
+-
+-fn collect_signatures(
+-    ram: &RamWithRomRegion<ROM_SECOND_WORD_BITS>,
+-    begin: u64,
+-    end: u64,
+-) -> Vec<u32> {
+-    assert!(begin <= end, "begin_signature > end_signature");
+-    assert!(begin % 4 == 0, "begin_signature not 4-byte aligned");
+-    assert!(end % 4 == 0, "end_signature not 4-byte aligned");
+-
+-    let word_count = ((end - begin) / 4) as usize;
+-    let mut signatures = Vec::with_capacity(word_count);
+-
+-    let mut addr = begin as u32;
+-    let end_addr = end as u32;
+-
+-    while addr < end_addr {
+-        let word = ram.peek_word(addr);
+-        signatures.push(word);
+-        addr += 4;
+-    }
+-
+-    signatures
+-}
+-
+-fn write_signatures(signatures: &[u32], path: &Path) {
+-    use std::io::Write;
+-
+-    let mut file = std::fs::File::create(path).expect("must create signature file");
+-
+-    for &sig in signatures {
+-        writeln!(file, "{:08x}", sig).expect("must write to signature file");
+-    }
+-}
+-
+-#[cfg(test)]
+-mod tests {
+-    use super::*;
+-
+-    #[test]
+-    fn test_write_signatures() {
+-        use std::io::Read;
+-
+-        let signatures = vec![0xdeadbeef, 0x12345678, 0x00000001];
+-        let temp_dir = std::env::temp_dir();
+-        let path = temp_dir.join("test_signatures.txt");
+-
+-        write_signatures(&signatures, &path);
+-
+-        let mut content = String::new();
+-        std::fs::File::open(&path)
+-            .expect("open should succeed")
+-            .read_to_string(&mut content)
+-            .expect("read should succeed");
+-
+-        assert_eq!(content, "deadbeef\n12345678\n00000001\n");
+-
+-        std::fs::remove_file(&path).ok();
+-    }
+-}
+diff --git a/riscv_transpiler/src/run.rs b/riscv_transpiler/src/run.rs
+new file mode 100644
+index 00000000..0adf0e9b
+--- /dev/null
++++ b/riscv_transpiler/src/run.rs
+@@ -0,0 +1,129 @@
++//! Generic transpiler-based binary runner.
++//!
++//! Loads a flat binary into the VM at a given entry point, runs it through the transpiler
++//! execution path (`preprocess_bytecode` + `VM::run_basic_unrolled`), and optionally polls
++//! an HTIF `tohost` address to detect program termination.
++//!
++//! This is the same execution path used by the prover, making it suitable for compliance
++//! testing and general simulation.
++
++use crate::ir::{preprocess_bytecode, FullMachineDecoderConfig, Instruction};
++use crate::vm::{DelegationsCounters, RamPeek, RamWithRomRegion, Register, SimpleTape, State, VM};
++
++const ROM_SECOND_WORD_BITS: usize = common_constants::rom::ROM_SECOND_WORD_BITS;
++const MEMORY_SIZE: usize = 1 << 30;
++const POLL_CHUNK: usize = 100_000;
++
++/// Result of running a binary through the transpiler VM.
++pub struct RunResult {
++    /// Final register values x0..x31 (index i = register xi).
++    pub registers: [u32; 32],
++    /// The value written to the tohost address when the program terminated.
++    /// `Some(v)` if `tohost_addr` was provided and the program wrote a nonzero value.
++    /// `None` if `tohost_addr` was not provided, or if the cycle limit was exhausted
++    /// before tohost was written.
++    pub tohost_value: Option<u32>,
++    /// `true` iff the cycle limit was exhausted before tohost fired.
++    /// Only meaningful when `tohost_addr` was `Some`.
++    pub timed_out: bool,
++}
++
++/// Run a flat binary through the transpiler VM.
++///
++/// The binary is placed at `entry_point` in the address space (same address as initial PC).
++/// This matches the output of `riscv64-unknown-elf-objcopy -O binary`, where the file
++/// content begins at the lowest load VMA of the ELF.
++///
++/// # Arguments
++/// * `binary` - Raw bytes of the flat binary.
++/// * `entry_point` - Load address and initial program counter.
++/// * `max_cycles` - Hard cycle ceiling. Execution stops after this many cycles.
++/// * `tohost_addr` - If `Some`, poll this word address every `POLL_CHUNK` cycles.
++///   Returns when the value becomes nonzero. If `None`, runs for `max_cycles` and returns.
++pub fn run_binary(
++    binary: &[u8],
++    entry_point: u32,
++    max_cycles: usize,
++    tohost_addr: Option<u32>,
++) -> RunResult {
++    let binary_words = bytes_to_words(binary);
++    let entry_offset = (entry_point / 4) as usize;
++    let total_words = entry_offset + binary_words.len();
++
++    // Instruction tape: pad to entry_point with zeros, then place binary words
++    let mut padded_instructions = vec![0u32; total_words];
++    padded_instructions[entry_offset..].copy_from_slice(&binary_words);
++
++    let instructions: Vec<Instruction> =
++        preprocess_bytecode::<FullMachineDecoderConfig>(&padded_instructions);
++    let tape = SimpleTape::new(&instructions);
++
++    // RAM: 1 GB backing, binary placed at entry_offset
++    let ram_words = MEMORY_SIZE / core::mem::size_of::<u32>();
++    let mut backing = vec![Register { value: 0, timestamp: 0 }; ram_words];
++    for (i, &word) in binary_words.iter().enumerate() {
++        backing[entry_offset + i].value = word;
++    }
++    let mut ram = RamWithRomRegion::<ROM_SECOND_WORD_BITS> { backing };
++
++    let mut state = State::initial_with_counters(DelegationsCounters::default());
++    state.pc = entry_point;
++
++    if let Some(tohost) = tohost_addr {
++        let mut remaining = max_cycles;
++        while remaining > 0 {
++            let chunk = remaining.min(POLL_CHUNK);
++            VM::<DelegationsCounters>::run_basic_unrolled(
++                &mut state,
++                &mut ram,
++                &mut (),
++                &tape,
++                chunk,
++                &mut (),
++            );
++            remaining -= chunk;
++
++            let tohost_val = ram.peek_word(tohost);
++            if tohost_val != 0 {
++                return RunResult {
++                    registers: state.registers.map(|r| r.value),
++                    tohost_value: Some(tohost_val),
++                    timed_out: false,
++                };
++            }
++        }
++        // Cycle limit exhausted
++        RunResult {
++            registers: state.registers.map(|r| r.value),
++            tohost_value: None,
++            timed_out: true,
++        }
++    } else {
++        VM::<DelegationsCounters>::run_basic_unrolled(
++            &mut state,
++            &mut ram,
++            &mut (),
++            &tape,
++            max_cycles,
++            &mut (),
++        );
++        RunResult {
++            registers: state.registers.map(|r| r.value),
++            tohost_value: None,
++            timed_out: false,
++        }
++    }
++}
++
++fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {
++    let padded_len = (bytes.len() + 3) / 4 * 4;
++    let mut padded = bytes.to_vec();
++    padded.resize(padded_len, 0);
++
++    padded
++        .as_chunks::<4>()
++        .0
++        .iter()
++        .map(|el| u32::from_le_bytes(*el))
++        .collect()
++}
+diff --git a/tools/cli/src/main.rs b/tools/cli/src/main.rs
+index fd7c33b2..6d120139 100644
+--- a/tools/cli/src/main.rs
++++ b/tools/cli/src/main.rs
+@@ -14,7 +14,7 @@ use cli_lib::vk::generate_vk;
+ use execution_utils::{Machine, ProgramProof, RecursionStrategy, VerifierCircuitsIdentifiers};
+ use reqwest::blocking::Client;
+ use serde_json::Value;
+-use std::path::{Path, PathBuf};
++use std::path::Path;
+ use std::{fs, io::Write, iter};
+ 
+ use prover::{
+@@ -153,31 +153,26 @@ enum Commands {
+         machine: Machine,
+     },
+ 
+-    /// Run a self-checking ACT4 ELF and exit with its pass/fail code.
+-    /// The ELF path is a positional argument for compatibility with run_tests.py
+-    /// (which appends ELF paths directly to the command string).
+-    RunForAct {
+-        /// Path to self-checking ELF produced by the ACT4 framework
+-        elf: String,
+-        /// Maximum number of RISC-V cycles before timeout (exit code 2)
+-        #[arg(long, default_value = "10000000")]
+-        cycles: usize,
+-    },
+-
+-    /// Run a binary for RISCOF compliance testing (extracts begin_signature/end_signature).
+-    RunForRiscof {
+-        /// Binary file to execute
++    /// Run a flat binary through the transpiler VM.
++    /// The binary is placed at --entry-point in the address space.
++    /// If --tohost-addr is given, polls that address every 100k cycles and exits
++    /// 0 (tohost==1), 1 (tohost nonzero != 1), or 2 (cycle limit exhausted).
++    /// If --tohost-addr is omitted, runs for --cycles cycles and prints registers.
++    RunWithTranspiler {
++        /// Path to flat binary (e.g. produced by riscv64-unknown-elf-objcopy -O binary)
+         #[arg(short, long)]
+         bin: String,
+-        /// ELF file for extracting signature symbols
+-        #[arg(long)]
+-        elf: String,
+-        /// Output path for signature file
++        /// Address where the binary is loaded and where execution begins
++        #[arg(long, default_value_t = 0)]
++        entry_point: u32,
++        /// Maximum RISC-V cycles to execute. Defaults to 32_000_000.
+         #[arg(long)]
+-        signatures: PathBuf,
+-        /// Number of riscV cycles to run.
++        cycles: Option<usize>,
++        /// If set, poll this word address for HTIF tohost signal.
++        /// Nonzero tohost triggers exit: 1→exit(0), other nonzero→exit(1).
++        /// Cycle exhaustion without tohost signal→exit(2).
+         #[arg(long)]
+-        cycles: usize,
++        tohost_addr: Option<u32>,
+     },
+ 
+     /// Generates verification key hash, for a given binary.
+@@ -414,18 +409,29 @@ fn main() {
+ 
+             run_binary(bin, cycles, input_data, expected_results, machine);
+         }
+-        Commands::RunForAct { elf, cycles } => {
+-            let elf_data = fs::read(elf).expect("Failed to read ELF file");
+-            let exit_code = riscv_transpiler::act::run_elf_for_act(&elf_data, *cycles);
+-            std::process::exit(exit_code);
+-        }
+-        Commands::RunForRiscof {
+-            bin,
+-            elf,
+-            signatures,
+-            cycles,
+-        } => {
+-            run_for_riscof_binary(&bin, &elf, &signatures, *cycles);
++        Commands::RunWithTranspiler { bin, entry_point, cycles, tohost_addr } => {
++            let binary = fs::read(bin).expect("Failed to read binary file");
++            let result = riscv_transpiler::run::run_binary(
++                &binary,
++                *entry_point,
++                cycles.unwrap_or(DEFAULT_CYCLES),
++                *tohost_addr,
++            );
++            if tohost_addr.is_some() {
++                if result.timed_out {
++                    eprintln!("run-with-transpiler: cycle limit exhausted without tohost signal");
++                    std::process::exit(2);
++                }
++                match result.tohost_value {
++                    Some(1) => std::process::exit(0),
++                    Some(_) => std::process::exit(1),
++                    None => std::process::exit(2),
++                }
++            } else {
++                let regs = &result.registers[10..18];
++                let s = regs.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(", ");
++                println!("Result: {}", s);
++            }
+         }
+         Commands::GenerateVk {
+             bin,
+@@ -713,27 +719,6 @@ fn u32_to_file(output_file: &String, numbers: &[u32]) {
+     println!("Successfully wrote to file: {}", output_file);
+ }
+ 
+-fn run_for_riscof_binary(
+-    bin_path: &String,
+-    elf_path: &String,
+-    signatures: &Path,
+-    cycles: usize,
+-) {
+-    use riscv_transpiler::riscof;
+-
+-    let binary = fs::read(bin_path).expect("Failed to read binary file");
+-    let elf_data = fs::read(elf_path).expect("Failed to read ELF file");
+-
+-    riscof::run_with_riscof_signature_extraction(
+-        &binary,
+-        &elf_data,
+-        signatures,
+-        cycles,
+-        riscof::DEFAULT_ENTRY_POINT,
+-    );
+-    println!("Signature file written to: {}", signatures.display());
+-}
+-
+ fn run_binary(
+     bin_path: &String,
+     cycles: &Option<usize>,
+
