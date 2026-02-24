@@ -1,8 +1,8 @@
 {
   "zkvms": {
     "sp1": {
-      "repo_url": "https://github.com/codygunton/sp1",
-      "commit": "76b798fc7",
+      "repo_url": "https://github.com/succinctlabs/sp1",
+      "commit": "927cfc885",
       "build_cmd": "cargo build --bin sp1-perf-executor",
       "binary_name": "sp1-perf-executor",
       "binary_path": "target/debug/sp1-perf-executor"
@@ -15,11 +15,11 @@
       "binary_path": "target/release/jolt-emu"
     },
     "openvm": {
-      "repo_url": "https://github.com/codygunton/openvm",
-      "commit": "6f68e6c9a",
+      "repo_url": "https://github.com/openvm-org/openvm",
+      "commit": "bf11b4a5f",
       "build_cmd": "cargo build --release",
-      "binary_name": "cargo-openvm",
-      "binary_path": "target/release/cargo-openvm"
+      "binary_name": "openvm-binary",
+      "binary_path": "target/release/openvm-binary"
     },
     "r0vm": {
       "repo_url": "https://github.com/risc0/risc0",

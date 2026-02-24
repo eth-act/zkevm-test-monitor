@@ -83,10 +83,7 @@ for ZKVM in $ZKVMS; do
   if [ "$ZKVM" = "zisk" ] && [ -f "binaries/ziskemu" ]; then
     mv "binaries/ziskemu" "binaries/zisk-binary"
   fi
-  if [ "$ZKVM" = "openvm" ] && [ -f "binaries/cargo-openvm" ]; then
-    mv "binaries/cargo-openvm" "binaries/openvm-binary"
-  fi
-  if [ "$ZKVM" = "pico" ] && [ -f "binaries/cargo-pico" ]; then
+if [ "$ZKVM" = "pico" ] && [ -f "binaries/cargo-pico" ]; then
     mv "binaries/cargo-pico" "binaries/pico-binary"
   fi
   if [ "$ZKVM" = "jolt" ] && [ -f "binaries/jolt-emu" ]; then

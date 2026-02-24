@@ -28,20 +28,13 @@ ENV RUST_BACKTRACE=1
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
-# Build arguments for repository and commit
-ARG REPO_URL=https://github.com/codygunton/openvm
-ARG COMMIT_HASH=b5f3f0197
+# Copy standalone runner source (Cargo.toml pins openvm-sdk to a specific upstream commit)
+COPY docker/build-openvm/openvm-elf-runner/ /workspace/openvm-elf-runner/
 
-# Clone the repository at the specific commit
-# This layer will be cached until COMMIT_HASH changes
-RUN git clone "$REPO_URL" openvm && \
-    cd openvm && \
-    git checkout "$COMMIT_HASH" && \
-    git rev-parse HEAD | head -c8 > /workspace/commit.txt
-
-# Build OpenVM
-# This layer will be cached as long as the source code doesn't change
-WORKDIR /workspace/openvm
+# Build the standalone ELF runner
+# Cargo fetches openvm-sdk from upstream git as declared in Cargo.toml
+WORKDIR /workspace/openvm-elf-runner
+RUN echo "bf11b4a5" > /workspace/commit.txt
 RUN cargo build --release
 
 # Final stage - just the binary
@@ -54,8 +47,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the built binary from builder stage
-COPY --from=builder /workspace/openvm/target/release/cargo-openvm /usr/local/bin/cargo-openvm
+COPY --from=builder /workspace/openvm-elf-runner/target/release/openvm-binary /usr/local/bin/openvm-binary
 COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Simple entrypoint to copy the binary out
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/cargo-openvm /output/cargo-openvm"]
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/openvm-binary /output/openvm-binary"]

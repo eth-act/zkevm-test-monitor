@@ -4,7 +4,7 @@ set -eu
 # ACT4 OpenVM test runner
 #
 # Expected mounts:
-#   /dut/openvm-binary              — the OpenVM CLI binary (cargo-openvm)
+#   /dut/openvm-binary              — the OpenVM standalone ELF runner
 #   /act4/config/openvm             — OpenVM ACT4 config directory (host act4-configs/openvm)
 #   /results/                       — output directory for summary JSON
 
@@ -23,20 +23,10 @@ mkdir -p "$RESULTS"
 JOBS="${ACT4_JOBS:-$(nproc)}"
 
 # Create wrapper script for running OpenVM
-# OpenVM requires Cargo.toml + openvm.toml in CWD to function.
-# We create a temp directory with these files for each invocation.
+# The standalone binary accepts a raw ELF path and exits with the guest exit code.
 cat > /act4/run-dut.sh << 'WRAPPER'
 #!/bin/bash
-ELF_PATH="$(realpath "$1")"
-TMPDIR=$(mktemp -d)
-printf '[package]\nname = "act4-test"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n' > "$TMPDIR/Cargo.toml"
-printf 'app_vm_config = { exe = "%s" }\n' "$ELF_PATH" > "$TMPDIR/openvm.toml"
-cd "$TMPDIR"
-/dut/openvm-binary openvm run --exe "$ELF_PATH"
-EC=$?
-cd /
-rm -rf "$TMPDIR"
-exit $EC
+/dut/openvm-binary "$1"
 WRAPPER
 chmod +x /act4/run-dut.sh
 

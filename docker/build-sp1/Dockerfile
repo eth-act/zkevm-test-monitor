@@ -31,8 +31,8 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
 # Build arguments for repository and commit
-ARG REPO_URL=https://github.com/codygunton/sp1
-ARG COMMIT_HASH=eb86c1dee
+ARG REPO_URL=https://github.com/succinctlabs/sp1
+ARG COMMIT_HASH=927cfc885
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
@@ -41,9 +41,14 @@ RUN git clone "$REPO_URL" sp1 && \
     git checkout "$COMMIT_HASH" && \
     git rev-parse HEAD | head -c8 > /workspace/commit.txt
 
+# Patch upstream: comment out test-artifacts which requires the succinct RISC-V toolchain.
+# sp1-perf-executor doesn't use it; this dep exists only for the sp1-perf benchmark binary.
+WORKDIR /workspace/sp1
+RUN sed -i 's/^test-artifacts = { workspace = true }/# test-artifacts = { workspace = true }/' crates/perf/Cargo.toml
+RUN sed -i 's/^use test_artifacts::VERIFY_PROOF_ELF;//' crates/perf/src/main.rs
+
 # Build SP1
 # This layer will be cached as long as the source code doesn't change
-WORKDIR /workspace/sp1
 RUN cargo build --bin sp1-perf-executor
 
 # Final stage - just the binary

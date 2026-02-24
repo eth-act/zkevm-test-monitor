@@ -35,13 +35,11 @@ These three run tests purely with upstream binaries. All that was needed was a D
 **r0vm (risc0) — ~15 lines.**
 Added a single `--execute-only` flag to `r0vm/src/lib.rs`. Without it, r0vm always attempted ZK proving after execution. The flag reads the guest's `ExitCode` and calls `std::process::exit(code)`.
 
-**sp1 — 1 small fix.**
-The `sp1-perf-executor` binary has a dependency on SP1's custom Rust toolchain; commented that out so it builds with standard Rust. That's the entire diff.
+**sp1 — zero VM changes.**
+`sp1-perf-executor` (in the upstream repo) already accepts `--program`, `--stdin`, and `--executor-mode simple` and exits with the guest return code. The only obstacle was that the `sp1-perf` crate lists `test-artifacts` as a dependency — a crate that pre-builds RISC-V benchmark programs and requires SP1's custom `succinct` Rust toolchain. Since `sp1-perf-executor` doesn't actually use it, two `sed` lines in the build Dockerfile comment it out. No fork needed.
 
-Earlier there was also a change to the ELF loader to strip trailing zero words. This turned out to be unnecessary: the test framework's `patch_elfs.py` preprocessing step (called before any VM execution) already replaces zero words in executable sections with NOPs — `objdump -d` renders them as `.word 0x0`, which `patch_elfs.py` catches. The ELF loader change was reverted.
-
-**openvm — one functional change.**
-The only real change was wiring `cargo-openvm run --exe <elf>` to load a RISC-V ELF and return the guest exit code, using a minimal RV32IM config (rv32i + rv32m + io). An earlier version of the fork also included a Zicsr transpiler and RV32F crates from exploratory float extension work. These were removed: all CSR instructions in ACT4 test preambles are gated behind `#ifdef rvtest_mtrap_routine`, which we don't set, so no CSR instructions appear in RV32IM test ELFs.
+**openvm — zero VM changes.**
+Upstream OpenVM SDK already exposes `CpuSdk::riscv32()` (rv32i + rv32m + io — the exact config we need) and accepts raw ELF bytes via `sdk.execute(elf_bytes, StdIn::default())`, returning `Err` on a non-zero guest exit code. A 10-line standalone Rust binary wraps this API and produces an executable that takes an ELF path and exits 0/1. No fork needed.
 
 **airbender — one new command.**
 Added `run-with-transpiler`: loads a flat binary at a given entry point, runs it through the prover execution path (`preprocess_bytecode` + `VM::run_basic_unrolled`), polls the HTIF tohost address, and exits 0/1/2. Also changed the instruction decoder to emit `Illegal` markers instead of panicking when it sees non-instruction words (data sections appear in the flat binary since objcopy concatenates everything). The `Illegal` instruction panics only if the PC actually reaches it at runtime.
