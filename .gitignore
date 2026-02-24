@@ -25,6 +25,9 @@ Thumbs.db
 .cursor/
 .vscode/
 
+# Git worktrees
+.worktrees/
+
 # Symlinks to local repositories
 .roo
 ai_docs
