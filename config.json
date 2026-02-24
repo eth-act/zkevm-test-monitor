@@ -22,8 +22,8 @@
       "binary_path": "target/release/cargo-openvm"
     },
     "r0vm": {
-      "repo_url": "https://github.com/codygunton/risc0",
-      "commit": "riscof",
+      "repo_url": "https://github.com/risc0/risc0",
+      "commit": "main",
       "build_cmd": "cargo build --release -p risc0-r0vm --bin r0vm",
       "binary_name": "r0vm",
       "binary_path": "target/release/r0vm"
