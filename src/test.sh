@@ -101,7 +101,7 @@ if [ "$TEST_SUITE" = "act4" ]; then
       ${CPUSET_ARG} \
       ${JOBS_ARG} \
       -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \
-      -v "$PWD/riscv-arch-test/config/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
       -v "$PWD/test-results/${ZKVM}:/results" \
       "act4-${ZKVM}:latest" || true
 

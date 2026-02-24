@@ -5,7 +5,7 @@ set -eu
 #
 # Expected mounts:
 #   /dut/zisk-binary                — the Zisk CLI binary (ziskemu)
-#   /act4/config/zisk               — Zisk ACT4 config directory (host riscv-arch-test/config/zisk)
+#   /act4/config/zisk               — Zisk ACT4 config directory (host act4-configs/zisk)
 #   /results/                       — output directory for summary JSON
 
 DUT=/dut/zisk-binary

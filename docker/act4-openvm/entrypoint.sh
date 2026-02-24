@@ -5,7 +5,7 @@ set -eu
 #
 # Expected mounts:
 #   /dut/openvm-binary              — the OpenVM CLI binary (cargo-openvm)
-#   /act4/config/openvm             — OpenVM ACT4 config directory (host riscv-arch-test/config/openvm)
+#   /act4/config/openvm             — OpenVM ACT4 config directory (host act4-configs/openvm)
 #   /results/                       — output directory for summary JSON
 
 DUT=/dut/openvm-binary

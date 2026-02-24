@@ -5,7 +5,7 @@ set -eu
 #
 # Expected mounts:
 #   /dut/r0vm-binary               — the r0vm binary (with --execute-only flag)
-#   /act4/config/r0vm              — r0vm ACT4 config directory (host riscv-arch-test/config/r0vm)
+#   /act4/config/r0vm              — r0vm ACT4 config directory (host act4-configs/r0vm)
 #   /results/                      — output directory for summary JSON
 
 DUT=/dut/r0vm-binary

@@ -5,7 +5,7 @@ set -eu
 #
 # Expected mounts:
 #   /dut/pico-binary                — the Pico CLI binary (cargo-pico)
-#   /act4/config/pico               — Pico ACT4 config directory (host riscv-arch-test/config/pico)
+#   /act4/config/pico               — Pico ACT4 config directory (host act4-configs/pico)
 #   /results/                       — output directory for summary JSON
 
 DUT=/dut/pico-binary

@@ -5,7 +5,7 @@ set -eu
 #
 # Expected mounts:
 #   /dut/jolt-binary                — the Jolt CLI binary (ELF is positional arg)
-#   /act4/config/jolt               — Jolt ACT4 config directory (host riscv-arch-test/config/jolt)
+#   /act4/config/jolt               — Jolt ACT4 config directory (host act4-configs/jolt)
 #   /results/                       — output directory for summary JSON
 
 DUT=/dut/jolt-binary

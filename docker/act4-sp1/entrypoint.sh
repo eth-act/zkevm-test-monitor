@@ -5,7 +5,7 @@ set -eu
 #
 # Expected mounts:
 #   /dut/sp1-binary                 — the SP1 executor binary
-#   /act4/config/sp1                — SP1 ACT4 config directory (host riscv-arch-test/config/sp1)
+#   /act4/config/sp1                — SP1 ACT4 config directory (host act4-configs/sp1)
 #   /results/                       — output directory for summary JSON
 
 DUT=/dut/sp1-binary

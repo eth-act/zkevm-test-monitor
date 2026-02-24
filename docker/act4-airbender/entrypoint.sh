@@ -5,7 +5,7 @@ set -eu
 #
 # Expected mounts:
 #   /dut/airbender-binary          — the Airbender CLI binary (with run-with-transpiler command)
-#   /act4/config/airbender         — Airbender ACT4 config directory (host riscv-arch-test/config/airbender)
+#   /act4/config/airbender         — Airbender ACT4 config directory (host act4-configs/airbender)
 #   /results/                      — output directory for summary JSON
 
 DUT=/dut/airbender-binary
