@@ -1,0 +1,17 @@
+{
+  "zkvm": "r0vm",
+  "suite": "act4-target",
+  "runs": [
+    {
+      "date": "2026-02-24",
+      "test_monitor_commit": "95aa021e",
+      "zkvm_commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    }
+  ]
+}
