@@ -9,11 +9,11 @@ The old test suite used **RISCOF**, which works by:
 
 This required each VM to implement signature extraction — a custom `--signatures` flag, ELF symbol parsing for `begin_signature`/`end_signature`, and precise memory readback. It also imposed a specific memory layout on the VM (where the signature region lives). Writing a RISCOF plugin was non-trivial.
 
-**ACT4** replaces this with *self-checking ELFs*. Each test ELF contains its own pass/fail logic and halts with exit code 0 (pass) or 1 (fail). The test runner just runs the ELF and checks the exit code. No signature extraction, no reference model comparison, no special memory layout required from the VM.
+**ACT4** replaces this with *self-checking ELFs*. The key insight is that Sail is run at *compile time*, not test time. When the test suite is built, each test is first run through the Sail RISC-V reference model to compute what the correct output values should be. Those expected values are then compiled directly into the ELF as constant data. At runtime, the ELF runs on the VM under test, computes its own outputs, compares them against the embedded expected values, and calls the pass or fail halt macro itself. The test runner just runs the ELF and checks the exit code: 0 (pass) or 1 (fail). No signature extraction, no reference model at test time, no special memory layout required from the VM.
 
 ---
 
-## Minimum required infrastructure per VM
+## Minimum required infrastructure per VM to just check the emulators
 
 To integrate a VM with ACT4 you need exactly one thing:
 
@@ -22,6 +22,8 @@ To integrate a VM with ACT4 you need exactly one thing:
 That's it. No signature logic, no custom linker script constraints, no memory region requirements.
 
 In practice this usually means adding a flag like `--execute-only` / `--executor-mode simple` / `run --exe <elf>` that skips proof generation and exits with the guest's return code. Every VM we looked at already had an execution-without-proving path — it just needed to be exposed and wired to the process exit code.
+
+Bonus: it'll be easier to upgrade these test to do proving and verification. Maybe I should do that actually before upstreaming.
 
 ---
 
@@ -36,8 +38,10 @@ Added a single `--execute-only` flag to `r0vm/src/lib.rs`. Without it, r0vm alwa
 **sp1 — 2 small fixes.**
 (1) The executor panicked on ELFs with zero-padded code sections (common in GCC-compiled test ELFs). Added a trailing-zero strip in the ELF loader. (2) The `sp1-perf-executor` binary has a dependency on SP1's custom Rust toolchain; commented that out so it builds with standard Rust.
 
-**openvm — larger, but most of it is new functionality.**
-The main work was adding a *minimal Zicsr transpiler* so that CSR instructions in the test preamble (e.g. `csrr a0, mhartid`) don't trap. Also added RV32F transpiler stubs and wired `cargo-openvm run --exe <elf>` to return the guest exit code. The Zicsr work is the only substantive piece.
+Note on (1): the stripping could probably be done externally in the Docker entrypoint (via `objcopy` or a small script) rather than modifying the ELF loader. The current approach touches SP1 internals unnecessarily. This should be revisited.
+
+**openvm — the diff is larger than it needs to be.**
+The only thing actually needed was wiring `cargo-openvm run --exe <elf>` to return the guest exit code. The current fork also includes a *minimal Zicsr transpiler* and RV32F transpiler stubs that were added as exploratory float extension work and are almost certainly not needed for RV32IM compliance tests. Tracing through the test preamble in the ACT4 framework, all CSR instructions are gated behind `#ifdef rvtest_mtrap_routine` which we don't set — so no CSR instructions appear in a standard RV32IM test ELF. The Zicsr transpiler should be stripped from the fork to get the diff back down to the minimum.
 
 **airbender — one new command.**
 Added `run-with-transpiler`: loads a flat binary at a given entry point, runs it through the prover execution path (`preprocess_bytecode` + `VM::run_basic_unrolled`), polls the HTIF tohost address, and exits 0/1/2. Also changed the instruction decoder to emit `Illegal` markers instead of panicking when it sees non-instruction words (data sections appear in the flat binary since objcopy concatenates everything). The `Illegal` instruction panics only if the PC actually reaches it at runtime.
