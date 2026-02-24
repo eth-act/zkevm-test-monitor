@@ -1,0 +1,28 @@
+{
+  "zkvm": "r0vm",
+  "suite": "act4",
+  "runs": [
+    {
+      "date": "2026-02-24",
+      "test_monitor_commit": "23a54315",
+      "zkvm_commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 0,
+      "failed": 47,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-24",
+      "test_monitor_commit": "23a54315",
+      "zkvm_commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 47,
+      "failed": 0,
+      "total": 47,
+      "notes": ""
+    }
+  ]
+}
