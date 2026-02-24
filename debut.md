@@ -85,6 +85,8 @@ Added `run-with-transpiler`: loads a flat binary at a given entry point, runs it
 **Jolt — sc.d / sc.w (store-conditional)**
 LR (load-reserved) passes but SC (store-conditional) fails. This suggests the reservation mechanism isn't implemented correctly — LR sets a reservation but SC doesn't honour it.
 
+These are genuinely new findings: the RISCOF arch test suite (v3.9.1, July 2024) covered the A extension only with AMO instructions — it had no LR/SC tests at all. Zalrsc test generation was added to ACT4 in December 2025 (formatter commit `4ffe77c3`, coverpoints in `89928a9d`), making this suite the first to exercise these instructions against Jolt.
+
 **Jolt — c.slli**
 Compressed shift-left-logical-immediate fails. Either the compressed instruction decoder or the shift itself has a bug.
 
@@ -95,7 +97,9 @@ The ETH-ACT target profile (RV64IM_Zicclsm) requires `Zicclsm` — support for m
 These are compressed indirect-jump instructions. The VM runs and exits cleanly but produces a wrong result, suggesting a bug in the C-extension jump decoding or PC update.
 
 **Zisk — c.fldsp / c.fsdsp (exit 101, crash)**
-These are compressed double-precision float stack-pointer-relative load/store instructions. The crash (exit 101 = Rust panic) suggests these aren't implemented at all.
+These are compressed double-precision float stack-pointer-relative load/store instructions. The crash (exit 101 = Rust panic) indicates the instructions are not implemented.
+
+These are also genuinely new findings: the RISCOF v3.9.1 C-extension tests covered only the integer compressed subset — no Zcd tests existed. Zcd test generation was added to ACT4 in December 2025 (formatter commit `cedefca0`), making this the first test suite to exercise these instructions against Zisk. Zisk's ISA config declared full `RV64IMAFDCZ...` support, so RISCOF would have tested Zcd had the tests existed — the gap was in the test suite, not the config.
 
 **Airbender — fence**
 FENCE instruction not implemented. Probably a single-line fix.
