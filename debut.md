@@ -35,13 +35,13 @@ These three run tests purely with upstream binaries. All that was needed was a D
 **r0vm (risc0) — ~15 lines.**
 Added a single `--execute-only` flag to `r0vm/src/lib.rs`. Without it, r0vm always attempted ZK proving after execution. The flag reads the guest's `ExitCode` and calls `std::process::exit(code)`.
 
-**sp1 — 2 small fixes.**
-(1) The executor panicked on ELFs with zero-padded code sections (common in GCC-compiled test ELFs). Added a trailing-zero strip in the ELF loader. (2) The `sp1-perf-executor` binary has a dependency on SP1's custom Rust toolchain; commented that out so it builds with standard Rust.
+**sp1 — 1 small fix.**
+The `sp1-perf-executor` binary has a dependency on SP1's custom Rust toolchain; commented that out so it builds with standard Rust. That's the entire diff.
 
-Note on (1): the stripping could probably be done externally in the Docker entrypoint (via `objcopy` or a small script) rather than modifying the ELF loader. The current approach touches SP1 internals unnecessarily. This should be revisited.
+Earlier there was also a change to the ELF loader to strip trailing zero words. This turned out to be unnecessary: the test framework's `patch_elfs.py` preprocessing step (called before any VM execution) already replaces zero words in executable sections with NOPs — `objdump -d` renders them as `.word 0x0`, which `patch_elfs.py` catches. The ELF loader change was reverted.
 
-**openvm — the diff is larger than it needs to be.**
-The only thing actually needed was wiring `cargo-openvm run --exe <elf>` to return the guest exit code. The current fork also includes a *minimal Zicsr transpiler* and RV32F transpiler stubs that were added as exploratory float extension work and are almost certainly not needed for RV32IM compliance tests. Tracing through the test preamble in the ACT4 framework, all CSR instructions are gated behind `#ifdef rvtest_mtrap_routine` which we don't set — so no CSR instructions appear in a standard RV32IM test ELF. The Zicsr transpiler should be stripped from the fork to get the diff back down to the minimum.
+**openvm — one functional change.**
+The only real change was wiring `cargo-openvm run --exe <elf>` to load a RISC-V ELF and return the guest exit code, using a minimal RV32IM config (rv32i + rv32m + io). An earlier version of the fork also included a Zicsr transpiler and RV32F crates from exploratory float extension work. These were removed: all CSR instructions in ACT4 test preambles are gated behind `#ifdef rvtest_mtrap_routine`, which we don't set, so no CSR instructions appear in RV32IM test ELFs.
 
 **airbender — one new command.**
 Added `run-with-transpiler`: loads a flat binary at a given entry point, runs it through the prover execution path (`preprocess_bytecode` + `VM::run_basic_unrolled`), polls the HTIF tohost address, and exits 0/1/2. Also changed the instruction decoder to emit `Illegal` markers instead of panicking when it sees non-instruction words (data sections appear in the flat binary since objcopy concatenates everything). The `Illegal` instruction panics only if the PC actually reaches it at runtime.

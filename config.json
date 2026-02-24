@@ -2,7 +2,7 @@
   "zkvms": {
     "sp1": {
       "repo_url": "https://github.com/codygunton/sp1",
-      "commit": "17cf7007b",
+      "commit": "76b798fc7",
       "build_cmd": "cargo build --bin sp1-perf-executor",
       "binary_name": "sp1-perf-executor",
       "binary_path": "target/debug/sp1-perf-executor"
@@ -16,7 +16,7 @@
     },
     "openvm": {
       "repo_url": "https://github.com/codygunton/openvm",
-      "commit": "95dc06220",
+      "commit": "6f68e6c9a",
       "build_cmd": "cargo build --release",
       "binary_name": "cargo-openvm",
       "binary_path": "target/release/cargo-openvm"

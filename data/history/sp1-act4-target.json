@@ -111,6 +111,28 @@
       "failed": 72,
       "total": 72,
       "notes": ""
+    },
+    {
+      "date": "2026-02-24",
+      "test_monitor_commit": "19421769",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-24",
+      "test_monitor_commit": "a6042345",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
     }
   ]
 }

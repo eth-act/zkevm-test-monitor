@@ -1,36 +1,17 @@
-diff --git a/crates/core/executor/src/disassembler/elf.rs b/crates/core/executor/src/disassembler/elf.rs
-index d6e872d5..5dc4f19b 100644
---- a/crates/core/executor/src/disassembler/elf.rs
-+++ b/crates/core/executor/src/disassembler/elf.rs
-@@ -199,6 +199,14 @@ impl Elf {
-             eyre::bail!("base address is not found");
-         }
- 
-+        // Remove trailing zeros from instructions
-+        let instructions = instructions.into_iter()
-+            .rev()
-+            .skip_while(|&x| x == 0)
-+            .collect::<Vec<_>>()
-+            .into_iter()
-+            .rev()
-+            .collect();
-         Ok(Elf::new(instructions, entry, base_address.unwrap(), image))
-     }
- }
-diff --git a/crates/core/executor/src/program.rs b/crates/core/executor/src/program.rs
-index 77ee92ab..d5592c78 100644
---- a/crates/core/executor/src/program.rs
-+++ b/crates/core/executor/src/program.rs
-@@ -61,6 +61,7 @@ impl Program {
-         let elf = Elf::decode(input)?;
- 
-         // Transpile the RV32IM instructions.
-+        // this fails without stripping of padding
-         let instructions = transpile(&elf.instructions);
- 
-         // Return the program.
+diff --git a/Cargo.lock b/Cargo.lock
+index 865e3d1c2..1684ca141 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -7122,7 +7122,6 @@ dependencies = [
+  "sp1-prover",
+  "sp1-sdk",
+  "sp1-stark",
+- "test-artifacts",
+  "time 0.3.41",
+  "tracing",
+ ]
 diff --git a/crates/perf/Cargo.toml b/crates/perf/Cargo.toml
-index 703c10c3..1195f151 100644
+index 703c10c39..1195f1511 100644
 --- a/crates/perf/Cargo.toml
 +++ b/crates/perf/Cargo.toml
 @@ -19,7 +19,7 @@ sp1-sdk = { workspace = true }
@@ -42,8 +23,20 @@ index 703c10c3..1195f151 100644
  tracing = { workspace = true }
  serde_json = { workspace = true }
  rand = "0.8.5"
+diff --git a/crates/perf/src/executor.rs b/crates/perf/src/executor.rs
+index c91c050d9..a3ed5bdd2 100644
+--- a/crates/perf/src/executor.rs
++++ b/crates/perf/src/executor.rs
+@@ -1,6 +1,6 @@
+ use std::time::{Duration, Instant};
+ 
+-use clap::{command, Parser};
++use clap::Parser;
+ use p3_baby_bear::BabyBear;
+ use sp1_core_executor::{Executor, ExecutorMode, Program};
+ use sp1_core_machine::shape::CoreShapeConfig;
 diff --git a/crates/perf/src/main.rs b/crates/perf/src/main.rs
-index 1944db77..4f8e4e22 100644
+index 1944db771..4f8e4e221 100644
 --- a/crates/perf/src/main.rs
 +++ b/crates/perf/src/main.rs
 @@ -6,7 +6,7 @@ use sp1_cuda::{MoongateServer, SP1CudaProver};
