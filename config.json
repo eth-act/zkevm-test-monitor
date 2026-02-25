@@ -9,7 +9,7 @@
     },
     "jolt": {
       "repo_url": "https://github.com/a16z/jolt",
-      "commit": "870acc59",
+      "commit": "dadf86fd",
       "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
       "binary_name": "jolt-emu",
       "binary_path": "target/release/jolt-emu"
