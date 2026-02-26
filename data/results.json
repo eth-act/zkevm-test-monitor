@@ -4,7 +4,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "eb86c1dee",
-      "isa": "RV32IM",
+      "isa": "unknown",
       "has_nightly": false,
       "suites": {
         "arch": {
@@ -24,11 +24,11 @@
           "last_run": "2025-09-25"
         },
         "act4": {
-          "passed": 47,
-          "failed": 0,
+          "passed": 45,
+          "failed": 2,
           "total": 47,
           "test_status": "completed",
-          "last_run": "2026-02-24",
+          "last_run": "2026-02-26",
           "tests": [
             {
               "name": "I-add-00",
@@ -88,7 +88,7 @@
             {
               "name": "I-fence-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-jal-00",
@@ -98,7 +98,7 @@
             {
               "name": "I-jalr-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-lb-00",
@@ -272,7 +272,7 @@
           "failed": 72,
           "total": 72,
           "test_status": "completed",
-          "last_run": "2026-02-24",
+          "last_run": "2026-02-26",
           "tests": [
             {
               "name": "I-add-00",
@@ -643,7 +643,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "8f2ec364",
-      "isa": "RV64IMAC",
+      "isa": "unknown",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -1642,7 +1642,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "b5f3f0197",
-      "isa": "RV32IM",
+      "isa": "unknown",
       "has_nightly": false,
       "suites": {
         "arch": {
@@ -2307,7 +2307,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
-      "isa": "RV64IMAFDC_Zicsr",
+      "isa": "unknown",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -3906,7 +3906,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
-      "isa": "RV32IM",
+      "isa": "unknown",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -3926,11 +3926,11 @@
           "last_run": "2025-09-25"
         },
         "act4": {
-          "passed": 47,
-          "failed": 0,
+          "passed": 45,
+          "failed": 2,
           "total": 47,
           "test_status": "completed",
-          "last_run": "2026-02-21",
+          "last_run": "2026-02-26",
           "tests": [
             {
               "name": "I-add-00",
@@ -3990,7 +3990,7 @@
             {
               "name": "I-fence-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-jal-00",
@@ -4000,7 +4000,7 @@
             {
               "name": "I-jalr-00",
               "extension": "I",
-              "passed": true
+              "passed": false
             },
             {
               "name": "I-lb-00",
@@ -4174,7 +4174,7 @@
           "failed": 72,
           "total": 72,
           "test_status": "completed",
-          "last_run": "2026-02-21",
+          "last_run": "2026-02-26",
           "tests": [
             {
               "name": "I-add-00",
@@ -4545,7 +4545,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "1f52d2e2",
-      "isa": "RV32IM",
+      "isa": "unknown",
       "has_nightly": false,
       "suites": {
         "arch": {
@@ -5812,7 +5812,7 @@
           ]
         }
       },
-      "isa": "RV32IM",
+      "isa": "unknown",
       "has_nightly": false,
       "has_binary": true,
       "build_status": "success",
@@ -5820,7 +5820,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-02-24T22:57:50.388869+00:00",
+  "last_updated": "2026-02-26T16:16:30.843578+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "996c058a"
+  "test_monitor_commit": "ada37764"
 }
