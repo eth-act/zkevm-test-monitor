@@ -57,7 +57,7 @@ Added `run-with-transpiler`: loads a flat binary at a given entry point, runs it
 | r0vm      | 47     | 47    | — |
 | openvm    | 47     | 47    | — |
 | jolt      | 116    | 119   | sc.d, sc.w (store-conditional); c.slli |
-| zisk      | 235    | 239   | c.jalr, c.jr (wrong result); c.fldsp, c.fsdsp (crash) |
+| zisk      | 237    | 239   | c.fldsp, c.fsdsp (crash) — tested against v0.16.0-pre |
 | airbender | 42     | 47    | fence; div, rem, mulh, mulhsu |
 
 ### ETH-ACT target suite (RV64IM_Zicclsm, 72 tests — the Ethereum target profile)
@@ -76,7 +76,7 @@ Added `run-with-transpiler`: loads a flat binary at a given entry point, runs it
 
 | VM   | Passed | Total | Failures |
 |------|--------|-------|----------|
-| zisk | 255    | 259   | same 4 as native: c.jalr, c.jr, c.fldsp, c.fsdsp |
+| zisk | 257    | 259   | same 2 as native: c.fldsp, c.fsdsp — tested against v0.16.0-pre |
 
 ---
 
@@ -93,8 +93,8 @@ Compressed shift-left-logical-immediate fails. Either the compressed instruction
 **Jolt — all 8 Misalign tests**
 The ETH-ACT target profile (RV64IM_Zicclsm) requires `Zicclsm` — support for misaligned loads/stores in hardware. Jolt appears to trap or panic on unaligned accesses rather than handling them transparently.
 
-**Zisk — c.jalr / c.jr (exit 1, wrong result)**
-These are compressed indirect-jump instructions. The VM runs and exits cleanly but produces a wrong result, suggesting a bug in the C-extension jump decoding or PC update.
+**Zisk — c.jalr / c.jr — fixed in v0.16.0**
+These were new findings at the time of testing (v0.15.x). Both are fixed in upstream v0.16.0-pre and pass cleanly.
 
 **Zisk — c.fldsp / c.fsdsp (exit 101, crash)**
 These are compressed double-precision float stack-pointer-relative load/store instructions. The crash (exit 101 = Rust panic) indicates the instructions are not implemented.
@@ -123,3 +123,47 @@ With ACT4, integrating a new VM requires:
 - A linker script and `rvmodel_macros.h` defining the halt convention
 
 The halt convention is the only VM-specific piece. For most VMs it's a single ecall (`ecall` with a7=93, or a custom opcode, or whatever the VM uses to terminate). Once that's right, every test in the suite just works.
+
+---
+
+## Message to Jolt team
+
+Hi — we've been running compliance tests against several ZK-VMs using ACT4, the new arch test framework from riscv-non-isa. The RISCOF tool is [now deprecated](https://github.com/riscv-non-isa/riscv-arch-test/blob/f970fe843c4294837be34804977853ad3cd01f5c/README.md#L5) and the `act4` branch [has become the canonical branch](https://lists.riscv.org/g/sig-arch-test/topic/notice_update/117795984) of riscv-arch-test. The main difference from RISCOF: tests are self-checking ELFs — Sail runs at compile time to embed expected values, so tests just exit 0/1. No signature extraction needed.
+
+To reproduce against Jolt:
+
+```bash
+git clone -b act4 https://github.com/eth-act/zkevm-test-monitor
+cd zkevm-test-monitor
+./run build jolt
+./run test --act4 jolt
+```
+
+Jolt passes 116/119 native tests. Three failures:
+
+sc.d / sc.w: LR executes fine but SC never honours the reservation. Every LR/SC-based mutex or spinlock would spin forever. The tests exercise [`norm:sc_w_success`, `norm:sc_w_failure`, `norm:sc_reservation_invalidate`, `norm:lr_sc_rv64`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/a-st-ext.adoc#L62) in the ISA manual. This is a new finding — RISCOF v3.9.1 covered only AMO instructions; LR/SC test generation was added to ACT4 in December 2025 (commits `4ffe77c3`, `89928a9d` in riscv-non-isa/riscv-arch-test). Jolt passed all 124 RISCOF tests cleanly, so this slipped through.
+
+c.slli: the compressed shift-left-immediate produces a wrong result. Tests [`norm:c-slli_op`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/c-st-ext.adoc#L626).
+
+8 misaligned-access tests (ETH-ACT target profile only): Jolt traps on unaligned loads/stores rather than handling them transparently. Tests [`zicclsm_op`](https://github.com/riscv/riscv-profiles/blob/8dbac1fc2d0d834ed1a31a145bf26114c4c26b56/src/profiles.adoc#L524) from the RVA profiles spec, which requires misaligned scalar loads/stores to main memory be handled in hardware or via a trap to the execution environment.
+
+---
+
+## Message to Zisk team
+
+Hi — we've been running compliance tests against several ZK-VMs using ACT4, the new arch test framework from riscv-non-isa. The RISCOF tool is [now deprecated](https://github.com/riscv-non-isa/riscv-arch-test/blob/f970fe843c4294837be34804977853ad3cd01f5c/README.md#L5) and the `act4` branch [has become the canonical branch](https://lists.riscv.org/g/sig-arch-test/topic/notice_update/117795984) of riscv-arch-test. Tests are self-checking ELFs — Sail runs at compile time, expected values are embedded, tests exit 0/1.
+
+To reproduce against Zisk (tested on pre-develop-0.16.0):
+
+```bash
+git clone -b act4 https://github.com/eth-act/zkevm-test-monitor
+cd zkevm-test-monitor
+./run build zisk
+./run test --act4 zisk
+```
+
+Zisk passes 237/239 native, 72/72 ETH-ACT target, 257/259 RVI20. Two remaining failures, both in Zcd ([ISA manual §Zcd](https://github.com/riscv/riscv-isa-manual/blob/791314b6ae08d95c523e2892e16a9e0c76065726/src/c-st-ext.adoc#L299)):
+
+c.fldsp / c.fsdsp: the compressed double-precision FP load/store relative to the stack pointer — the instructions that appear in every function prologue and epilogue that saves FP registers. Both crash with a Rust panic (exit 101), suggesting they aren't decoded. Tests [`norm:c-fldsp_op`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/c-st-ext.adoc#L324) and [`norm:c-fsdwsp_op`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/c-st-ext.adoc#L351). These are new findings — RISCOF had no Zcd tests at all; that was added to ACT4 in December 2025 (commit `cedefca0` in riscv-non-isa/riscv-arch-test). Your ISA config already declared Zcd; the tests just didn't exist yet.
+
+Worth noting: c.jalr and c.jr were also new failures on v0.15.x (same gap — no Zca jump tests in RISCOF) and are fixed in v0.16.0-pre.

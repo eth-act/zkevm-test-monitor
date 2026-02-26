@@ -31,21 +31,20 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
 # Build arguments for repository and commit
-ARG REPO_URL=https://github.com/succinctlabs/sp1
-ARG COMMIT_HASH=927cfc885
+# Fork includes two patches over upstream v5.2.3 (927cfc885):
+#   1. Remove test-artifacts dep (requires succinct toolchain, not needed for sp1-perf-executor)
+#   2. Propagate run_fast() errors as non-zero exit code in Simple mode
+ARG REPO_URL=https://github.com/codygunton/sp1
+ARG COMMIT_HASH=bbfe671239a7fb92350eb44fb3b27fd382f3659d
 
-# Clone the repository at the specific commit
+# Clone the fork at the specific commit
 # This layer will be cached until COMMIT_HASH changes
 RUN git clone "$REPO_URL" sp1 && \
     cd sp1 && \
     git checkout "$COMMIT_HASH" && \
     git rev-parse HEAD | head -c8 > /workspace/commit.txt
 
-# Patch upstream: comment out test-artifacts which requires the succinct RISC-V toolchain.
-# sp1-perf-executor doesn't use it; this dep exists only for the sp1-perf benchmark binary.
 WORKDIR /workspace/sp1
-RUN sed -i 's/^test-artifacts = { workspace = true }/# test-artifacts = { workspace = true }/' crates/perf/Cargo.toml
-RUN sed -i 's/^use test_artifacts::VERIFY_PROOF_ELF;//' crates/perf/src/main.rs
 
 # Build SP1
 # This layer will be cached as long as the source code doesn't change

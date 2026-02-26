@@ -34,7 +34,15 @@
 
 #define RVMODEL_IO_INIT(_R1, _R2, _R3)
 
-#define RVMODEL_IO_WRITE_STR(_R1, _R2, _R3, _STR_PTR)
+// Zisk has a memory-mapped UART at 0xa0000200: a single sb writes one byte to host stdout.
+#define RVMODEL_IO_WRITE_STR(_R1, _R2, _R3, _STR_PTR) \
+  li _R2, 0xa0000200;                                   \
+  98: lbu _R1, 0(_STR_PTR);                             \
+  beqz _R1, 99f;                                        \
+  sb _R1, 0(_R2);                                       \
+  addi _STR_PTR, _STR_PTR, 1;                           \
+  j 98b;                                                \
+  99:
 
 #define RVMODEL_ACCESS_FAULT_ADDRESS 0x00000000
 
