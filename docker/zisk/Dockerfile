@@ -63,7 +63,7 @@ RUN uv run make tests EXTENSIONS=I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign,Misal
 RUN mkdir -p /dut /results
 
 COPY docker/shared/patch_elfs.py /act4/patch_elfs.py
-COPY docker/act4-zisk/entrypoint.sh /act4/entrypoint.sh
+COPY docker/zisk/entrypoint.sh /act4/entrypoint.sh
 RUN chmod +x /act4/entrypoint.sh
 
 ENTRYPOINT ["/act4/entrypoint.sh"]

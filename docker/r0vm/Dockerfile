@@ -50,7 +50,7 @@ RUN uv run make tests EXTENSIONS=I,M,Misalign
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results
 
-COPY docker/act4-r0vm/entrypoint.sh /act4/entrypoint.sh
+COPY docker/r0vm/entrypoint.sh /act4/entrypoint.sh
 RUN chmod +x /act4/entrypoint.sh
 
 ENTRYPOINT ["/act4/entrypoint.sh"]
