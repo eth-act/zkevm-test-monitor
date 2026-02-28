@@ -63,34 +63,39 @@ for ZKVM in $ZKVMS; do
     JOBS_ARG="-e ACT4_JOBS=${JOBS}"
   fi
 
-  echo "Running tests for $ZKVM..."
+  LOG_FILE="test-results/${ZKVM}/act4.log"
+  echo "Running tests for $ZKVM... (log: $LOG_FILE)"
   docker run --rm \
     ${CPUSET_ARG} \
     ${JOBS_ARG} \
     -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \
     -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
     -v "$PWD/test-results/${ZKVM}:/results" \
-    "${ZKVM}:latest" || true
+    "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+    echo "  ❌ Container failed for $ZKVM — check $LOG_FILE"
+    continue
+  }
 
   mkdir -p data/history
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
   ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
   RUN_DATE=$(date -u +"%Y-%m-%d")
 
-  # Process results for native, target, and rvi20 suites
-  for ACT4_SUFFIX in "" "-target" "-rvi20"; do
-    SUMMARY_FILE="test-results/${ZKVM}/summary-act4${ACT4_SUFFIX}.json"
-    RESULTS_FILE="test-results/${ZKVM}/results-act4${ACT4_SUFFIX}.json"
-    LABEL="ACT4${ACT4_SUFFIX:+ (${ACT4_SUFFIX#-})}"
-    ISA="rv32im"
-    SUITE="act4"
-    if [ "$ACT4_SUFFIX" = "-target" ]; then
+  # Process results for native and target suites
+  for ACT4_SUFFIX in "" "-target"; do
+    if [ -z "$ACT4_SUFFIX" ]; then
+      FILE_LABEL="full-isa"
+      SUITE_LABEL="full ISA"
+      ISA="rv32im"
+      SUITE="act4"
+    else
+      FILE_LABEL="standard-isa"
+      SUITE_LABEL="standard ISA"
       ISA="rv64im_zicclsm"
       SUITE="act4-target"
-    elif [ "$ACT4_SUFFIX" = "-rvi20" ]; then
-      ISA="rv64imafdc_rvi20"
-      SUITE="act4-rvi20"
     fi
+    SUMMARY_FILE="test-results/${ZKVM}/summary-act4-${FILE_LABEL}.json"
+    RESULTS_FILE="test-results/${ZKVM}/results-act4-${FILE_LABEL}.json"
 
     if [ ! -f "$SUMMARY_FILE" ]; then
       if [ -z "$ACT4_SUFFIX" ]; then
@@ -102,11 +107,21 @@ for ZKVM in $ZKVMS; do
     PASSED=$(jq '.passed' "$SUMMARY_FILE")
     FAILED=$(jq '.failed' "$SUMMARY_FILE")
     TOTAL=$(jq '.total' "$SUMMARY_FILE")
+
     if [ -f "$RESULTS_FILE" ]; then
       TEST_COUNT=$(jq '.tests | length' "$RESULTS_FILE")
-      echo "  📋 ${LABEL} per-test results: ${TEST_COUNT} tests in results-act4${ACT4_SUFFIX}.json"
+    else
+      TEST_COUNT="$TOTAL"
     fi
-    echo "  ✅ ${LABEL} ${ZKVM}: ${PASSED}/${TOTAL} passed"
+
+    if [ "$FAILED" -eq 0 ]; then
+      STATUS_EMOJI="✅"
+    else
+      STATUS_EMOJI="❌"
+    fi
+
+    echo "  📋 ACT4 ${ZKVM} (${SUITE_LABEL}): ${TEST_COUNT} tests in results-act4-${FILE_LABEL}.json"
+    echo "     ${STATUS_EMOJI} ${PASSED}/${TOTAL} passed"
 
     HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
     if [ -f "$HISTORY_FILE" ]; then
