@@ -16,12 +16,12 @@ case "$CMD" in
         DISPLAY_TARGETS="${@:-all}"
         echo "🧪 Testing ZKVMs: ${DISPLAY_TARGETS}"
         ./src/test.sh "$@"
-        python3 src/update.py
+        uv run --with pyyaml src/update.py
         ;;
 
     update)
         echo "📊 Updating dashboard"
-        python3 src/update.py
+        uv run --with pyyaml src/update.py
         ;;
 
     all)
@@ -29,7 +29,7 @@ case "$CMD" in
         echo "🚀 Building and testing: ${DISPLAY_TARGETS}"
         ./src/build.sh "$@"
         ./src/test.sh "$@"
-        python3 src/update.py
+        uv run --with pyyaml src/update.py
         ;;
 
     serve)
