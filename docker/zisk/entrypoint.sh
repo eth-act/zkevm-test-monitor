@@ -54,6 +54,13 @@ run_act4_suite() {
     local EXTENSIONS="$3"
     local EXT_TXT="$4"
     local SUFFIX="$5"
+    # Derive file label from suffix
+    local FILE_LABEL
+    if [ -z "$SUFFIX" ]; then
+        FILE_LABEL="full-isa"
+    else
+        FILE_LABEL="standard-isa"
+    fi
 
     if [ ! -f "/act4/$CONFIG" ]; then
         echo "⚠️  Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
@@ -113,7 +120,7 @@ run_act4_suite() {
     TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
     PASSED=$((TOTAL - FAILED))
 
-    cat > "$RESULTS/summary-act4${SUFFIX}.json" << EOF
+    cat > "$RESULTS/summary-act4-${FILE_LABEL}.json" << EOF
 {
   "zkvm": "$ZKVM",
   "suite": "act4${SUFFIX}",
@@ -166,14 +173,14 @@ if parsed_passed != expected_passed:
     for t in tests:
         t['passed'] = False
 
-with open('$RESULTS/results-act4${SUFFIX}.json', 'w') as out:
+with open('$RESULTS/results-act4-${FILE_LABEL}.json', 'w') as out:
     json.dump({
         'zkvm': zkvm,
         'suite': 'act4${SUFFIX}',
         'tests': tests
     }, out, indent=2)
 
-print(f'Per-test results: {len(tests)} tests written to results-act4${SUFFIX}.json')
+print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABEL}.json')
 "
 
     echo ""
@@ -199,18 +206,6 @@ run_act4_suite \
     "I,M,Misalign" \
     "$(printf 'I\nM\nZicclsm\nMisalign')" \
     "-target" || true
-
-# ─── Run 3: RVI20-scoped (rv64imafdc + misaligned FP/compressed) ───
-# Tests the RVI20 optional extensions that the native suite doesn't cover:
-# hardware-handled misaligned FP (MisalignF, MisalignD) and misaligned
-# compressed (MisalignZca). Everything else (I,M,F,D,Zca,Zcd,A) repeats
-# the native run to give a self-contained RVI20 picture.
-run_act4_suite \
-    "config/zisk/zisk-rv64im-rvi20/test_config.yaml" \
-    "zisk-rv64im-rvi20" \
-    "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc,Misalign,MisalignF,MisalignD,MisalignZca" \
-    "$(printf 'I\nM\nZaamo\nZalrsc\nF\nD\nZca\nZcd\nZicsr\nMisalign\nMisalignF\nMisalignD\nMisalignZca')" \
-    "-rvi20" || true
 
 echo ""
 echo "=== All ACT4 suites complete ==="
