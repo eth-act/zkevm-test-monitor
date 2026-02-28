@@ -34,6 +34,28 @@
       "failed": 72,
       "total": 72,
       "notes": ""
+    },
+    {
+      "date": "2026-02-28",
+      "test_monitor_commit": "6a5301fa",
+      "zkvm_commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-28",
+      "test_monitor_commit": "6a5301fa",
+      "zkvm_commit": "e9a6b28579f700b56b1e9dc12cec0df68be47a96",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
     }
   ]
 }
