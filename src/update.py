@@ -307,8 +307,14 @@ for zkvm in config['zkvms']:
         results['zkvms'][zkvm]['commit'] = config['zkvms'][zkvm].get('commit', 'unknown')
 
     # Check test results for all suites
-    for suite in ['arch', 'extra', 'act4', 'act4-target']:
-        summary_file = Path(f'test-results/{zkvm}/summary-{suite}.json')
+    suite_summary_files = {
+        'arch': f'test-results/{zkvm}/summary-arch.json',
+        'extra': f'test-results/{zkvm}/summary-extra.json',
+        'act4': f'test-results/{zkvm}/summary-act4-full-isa.json',
+        'act4-target': f'test-results/{zkvm}/summary-act4-standard-isa.json',
+    }
+    for suite, summary_path in suite_summary_files.items():
+        summary_file = Path(summary_path)
 
         # Fallback to old summary.json for arch suite
         if suite == 'arch' and not summary_file.exists():
@@ -384,8 +390,8 @@ for zkvm in config['zkvms']:
                     suite_data['test_status'] = 'not_tested'
 
     # Load per-test ACT4 results if available (native and target)
-    for suffix, suite_key in [('', 'act4'), ('-target', 'act4-target')]:
-        act4_results_file = Path(f'test-results/{zkvm}/results-act4{suffix}.json')
+    for file_label, suite_key in [('full-isa', 'act4'), ('standard-isa', 'act4-target')]:
+        act4_results_file = Path(f'test-results/{zkvm}/results-act4-{file_label}.json')
         if act4_results_file.exists():
             try:
                 with open(act4_results_file) as f:
