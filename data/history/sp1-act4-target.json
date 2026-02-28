@@ -144,6 +144,83 @@
       "failed": 72,
       "total": 72,
       "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-28",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-28",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-28",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-28",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "eb86c1dee",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
     }
   ]
 }

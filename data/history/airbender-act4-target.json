@@ -89,6 +89,17 @@
       "failed": 72,
       "total": 72,
       "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "1f52d2e2",
+      "isa": "rv64im_zicclsm",
+      "suite": "act4-target",
+      "passed": 0,
+      "failed": 72,
+      "total": 72,
+      "notes": ""
     }
   ]
 }

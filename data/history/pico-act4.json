@@ -45,6 +45,72 @@
       "failed": 2,
       "total": 47,
       "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 45,
+      "failed": 2,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 0,
+      "failed": 47,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 44,
+      "failed": 3,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 45,
+      "failed": 2,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 44,
+      "failed": 3,
+      "total": 47,
+      "notes": ""
+    },
+    {
+      "date": "2026-02-27",
+      "test_monitor_commit": "9974f053",
+      "zkvm_commit": "f8617c9c4b540cf31f8b07f6144c93d04799f0f4",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 45,
+      "failed": 2,
+      "total": 47,
+      "notes": ""
     }
   ]
 }
