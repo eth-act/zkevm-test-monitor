@@ -117,18 +117,18 @@ DASHBOARD_CSS = """
 """
 
 NAV_LINKS_HTML = {
-    'arch': '<a href="index.html" class="nav-link active">Architecture Tests</a>',
+    'act4': '<a href="index-act4.html" class="nav-link active">Architecture Tests</a>',
     'extra': '<a href="index-extra.html" class="nav-link active">Extra Tests</a>',
-    'act4': '<a href="index-act4.html" class="nav-link active">ACT4 Tests</a>',
+    'arch': '<a href="index.html" class="nav-link active">Old RISCOF Tests</a>',
 }
 
 def nav_links(active_suite, prefix=""):
     """Generate navigation links with the active suite highlighted"""
     links = []
     for suite, label, page in [
-        ('arch', 'Architecture Tests', 'index.html'),
+        ('act4', 'Architecture Tests', 'index-act4.html'),
         ('extra', 'Extra Tests', 'index-extra.html'),
-        ('act4', 'ACT4 Tests', 'index-act4.html'),
+        ('arch', 'Old RISCOF Tests', 'index.html'),
     ]:
         cls = ' active' if suite == active_suite else ''
         links.append(f'<a href="{prefix}{page}" class="nav-link{cls}">{label}</a>')

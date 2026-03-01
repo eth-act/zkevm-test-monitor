@@ -22,13 +22,12 @@ mkdir -p "$RESULTS"
 JOBS="${ACT4_JOBS:-$(nproc)}"
 
 # Wrapper: runs r0vm in execute-only mode on the ELF directly.
-# Must use --test-elf (not --elf): --elf expects risc0's custom ProgramBinary format,
-# while --test-elf calls from_kernel_elf() which loads a standard RISC-V ELF.
+# --elf: loads a standard RISC-V ELF via ExecutorImpl::from_kernel_elf().
 # --execute-only: skip ZK proving; exit with guest exit code (0=pass, 1=fail, 2=timeout).
 cat > /act4/run-dut.sh << 'WRAPPER'
 #!/bin/bash
 ELF="$1"
-/dut/r0vm-binary --test-elf "$ELF" --execute-only
+/dut/r0vm-binary --elf "$ELF" --execute-only
 exit $?
 WRAPPER
 chmod +x /act4/run-dut.sh

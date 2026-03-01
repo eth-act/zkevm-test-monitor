@@ -22,10 +22,10 @@
       "binary_path": "target/release/openvm-binary"
     },
     "r0vm": {
-      "repo_url": "https://github.com/risc0/risc0",
-      "commit": "main",
+      "repo_url": "https://github.com/codygunton/risc0",
+      "commit": "act4",
       "build_cmd": "cargo build --release -p risc0-r0vm --bin r0vm",
-      "binary_name": "r0vm",
+      "binary_name": "r0vm-binary",
       "binary_path": "target/release/r0vm"
     },
     "zisk": {
