@@ -27,7 +27,7 @@ cat > /act4/run-dut.sh << 'WRAPPER'
 #!/bin/bash
 TMPDIR=$(mktemp -d)
 printf '\x00%.0s' {1..24} > "$TMPDIR/stdin.bin"
-/dut/sp1-binary --program "$1" --stdin "$TMPDIR/stdin.bin" --executor-mode simple
+/dut/sp1-binary --program "$1" --param "$TMPDIR/stdin.bin" --mode node --local
 EC=$?
 rm -rf "$TMPDIR"
 exit $EC
@@ -77,7 +77,7 @@ run_act4_suite() {
 
     echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
     # Must compile from top-level workdir so common ELF dependencies are built first.
-    make -C "$WORKDIR" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
+    make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
@@ -173,10 +173,11 @@ print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABE
 }
 
 # Run each suite; allow failures without aborting (set -e is active globally)
-# ─── Run 1: Native ISA (rv32im) ───
+# ─── Run 1: Native ISA (rv64im) ───
+# SP1 v6 is natively rv64im; the old rv32im suite no longer applies.
 run_act4_suite \
-    "config/sp1/sp1-rv32im/test_config.yaml" \
-    "sp1-rv32im" \
+    "config/sp1/sp1-rv64im-zicclsm/test_config.yaml" \
+    "sp1-rv64im-zicclsm" \
     "I,M" \
     "$(printf 'I\nM\nZicsr\nSm')" \
     "" || true
