@@ -43,6 +43,11 @@ RUN git clone --branch act4 --single-branch \
 # Initialize the UDB submodule (required for config schema validation during make elfs)
 RUN git submodule update --init external/riscv-unified-db
 
+# Patch test_setup.h: remove .option rvc (sets EF_RISCV_RVC, causes SP1/Pico/OpenVM
+# to mishandle ELFs so tests cannot fail). Fix from codygunton/riscv-arch-test@fb327b09.
+RUN python3 -c "s=open('tests/env/test_setup.h').read();n=s.replace('  .option rvc\n  .align UNROLLSZ\n  .option norvc','  .option norvc\n  .align UNROLLSZ');assert n!=s,'patch did not match';open('tests/env/test_setup.h','w').write(n);print('Patched test_setup.h')"
+
+
 # Pre-generate assembly test sources for I, M, and Misalign extensions.
 # Misalign is needed for the RV64IM_Zicclsm target profile.
 RUN uv run make tests EXTENSIONS=I,M,Misalign
