@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     golang-go \
     libclang-dev \
+    protobuf-compiler \
     python3 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -32,13 +33,13 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
 # Build arguments for repository and commit
-# Fork patches over upstream v5.2.3 (927cfc885):
+# Fork merges upstream v6.0.2 (hypercube prover, rv64im support) with:
 #   1. Remove test-artifacts dep from sp1-perf Cargo.toml
-#   2. Propagate run_fast() errors as non-zero exit code in Simple mode
+#   2. Propagate MinimalExecutor exit code as non-zero process exit
 # Additional Dockerfile patch: stubs out test-artifacts (replaces build.rs + lib.rs with no-ops)
 # since cargo compiles all workspace members and test-artifacts requires the succinct toolchain.
 ARG REPO_URL=https://github.com/codygunton/sp1
-ARG COMMIT_HASH=bbfe671239a7fb92350eb44fb3b27fd382f3659d
+ARG COMMIT_HASH=213fc1ab656390dfcf8b146e2fa59f6f8e1c6e9f
 
 # Clone the fork at the specific commit
 # This layer will be cached until COMMIT_HASH changes

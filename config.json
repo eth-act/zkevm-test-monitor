@@ -1,8 +1,8 @@
 {
   "zkvms": {
     "sp1": {
-      "repo_url": "https://github.com/succinctlabs/sp1",
-      "commit": "927cfc885",
+      "repo_url": "https://github.com/codygunton/sp1",
+      "commit": "213fc1ab656390dfcf8b146e2fa59f6f8e1c6e9f",
       "build_cmd": "cargo build --bin sp1-perf-executor",
       "binary_name": "sp1-perf-executor",
       "binary_path": "target/debug/sp1-perf-executor"
@@ -36,8 +36,8 @@
       "binary_path": "target/release/ziskemu"
     },
     "pico": {
-      "repo_url": "https://github.com/brevis-network/pico",
-      "commit": "f8617c9c",
+      "repo_url": "https://github.com/codygunton/pico",
+      "commit": "e4d8f22d01c200d790b0a90961305ecb7074879a",
       "build_cmd": "cargo build --release -p pico-cli",
       "binary_name": "cargo-pico",
       "binary_path": "target/release/cargo-pico"
