@@ -114,6 +114,24 @@ error-reporting path, not actual computation errors.
 
 ---
 
+## r0vm Notes
+
+### FENCE instruction not supported (I-fence-00 fails)
+
+r0vm scores **46/47** on the native RV32IM suite. The only failure is `I-fence-00`.
+
+**Root cause**: risc0 upstream commit `33d885553` ("remove fence from preflight/executor",
+Jan 2026) removed FENCE handling from the software executor. The circuit now handles FENCE
+at a lower level (post `3019e5f27` / PR #3327). However, the `--execute-only` path used
+for compliance testing bypasses the circuit entirely, so FENCE hits the default arm and
+raises `IllegalInstruction`.
+
+**Status**: Not a workaround — this is an honest test result. r0vm does not support FENCE
+in execute-only mode. Upstream fix would be to handle FENCE in the executor independently
+of the circuit, or expose a dedicated execute-only path that NOP-handles FENCE.
+
+---
+
 ## Summary Table
 
 | Issue | Root cause | Current status | File(s) |
@@ -124,3 +142,4 @@ error-reporting path, not actual computation errors.
 | Zisk execute-only code segment | Zisk maps .text.init as no-read | ⚠️ Active workaround | `docker/shared/patch_elfs.py --zisk` |
 | Zisk linker script | Zisk RAM at 0xa0000000 | Clean — correct approach | `zisk-rv64im/link.ld` |
 | SP1/Pico syscall register | SP1/Pico use t0, not a7 | Clean — correct approach | `rvmodel_macros.h` |
+| r0vm FENCE not supported | Executor FENCE removed in Jan 2026 | ❌ Real failure — not a workaround | `33d885553` in risc0 upstream |
