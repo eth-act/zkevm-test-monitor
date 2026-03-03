@@ -117,18 +117,18 @@ DASHBOARD_CSS = """
 """
 
 NAV_LINKS_HTML = {
-    'act4': '<a href="index-act4.html" class="nav-link active">Architecture Tests</a>',
+    'act4': '<a href="index.html" class="nav-link active">Architecture Tests</a>',
     'extra': '<a href="index-extra.html" class="nav-link active">Extra Tests</a>',
-    'arch': '<a href="index.html" class="nav-link active">Old RISCOF Tests</a>',
+    'arch': '<a href="index-arch.html" class="nav-link active">Old RISCOF Tests</a>',
 }
 
 def nav_links(active_suite, prefix=""):
     """Generate navigation links with the active suite highlighted"""
     links = []
     for suite, label, page in [
-        ('act4', 'Architecture Tests', 'index-act4.html'),
+        ('act4', 'Architecture Tests', 'index.html'),
         ('extra', 'Extra Tests', 'index-extra.html'),
-        ('arch', 'Old RISCOF Tests', 'index.html'),
+        ('arch', 'Old RISCOF Tests', 'index-arch.html'),
     ]:
         cls = ' active' if suite == active_suite else ''
         links.append(f'<a href="{prefix}{page}" class="nav-link{cls}">{label}</a>')
@@ -727,7 +727,7 @@ def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
     <div class="container">
         <div class="nav-header">
             <div class="back-link">
-                <a href="../index-act4.html">&larr; Back to ACT4 Dashboard</a>
+                <a href="../index.html">&larr; Back to Dashboard</a>
             </div>
             <nav class="nav-links">
                 {nav_links('act4', prefix="../")}
@@ -809,6 +809,9 @@ act4_html = generate_act4_dashboard_html(results, config)
 
 # Write HTML files
 with open('index.html', 'w') as f:
+    f.write(act4_html)
+
+with open('index-arch.html', 'w') as f:
     f.write(arch_html)
 
 with open('index-extra.html', 'w') as f:
@@ -816,6 +819,9 @@ with open('index-extra.html', 'w') as f:
 
 Path('docs').mkdir(exist_ok=True)
 with open('docs/index.html', 'w') as f:
+    f.write(act4_html)
+
+with open('docs/index-arch.html', 'w') as f:
     f.write(arch_html)
 
 with open('docs/index-extra.html', 'w') as f:
