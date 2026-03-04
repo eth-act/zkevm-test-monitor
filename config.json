@@ -5,49 +5,56 @@
       "commit": "213fc1ab656390dfcf8b146e2fa59f6f8e1c6e9f",
       "build_cmd": "cargo build --bin sp1-perf-executor",
       "binary_name": "sp1-perf-executor",
-      "binary_path": "target/debug/sp1-perf-executor"
+      "binary_path": "target/debug/sp1-perf-executor",
+      "isa": "RV64IM"
     },
     "jolt": {
       "repo_url": "https://github.com/a16z/jolt",
       "commit": "8f2ec364",
       "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
       "binary_name": "jolt-emu",
-      "binary_path": "target/release/jolt-emu"
+      "binary_path": "target/release/jolt-emu",
+      "isa": "RV64IM_Zaamo_Zalrsc_Zca"
     },
     "openvm": {
       "repo_url": "https://github.com/openvm-org/openvm",
       "commit": "bf11b4a5f",
       "build_cmd": "cargo build --release",
       "binary_name": "openvm-binary",
-      "binary_path": "target/release/openvm-binary"
+      "binary_path": "target/release/openvm-binary",
+      "isa": "RV32IM"
     },
     "r0vm": {
       "repo_url": "https://github.com/codygunton/risc0",
       "commit": "act4",
       "build_cmd": "cargo build --release -p risc0-r0vm --bin r0vm",
       "binary_name": "r0vm-binary",
-      "binary_path": "target/release/r0vm"
+      "binary_path": "target/release/r0vm",
+      "isa": "RV32IM"
     },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",
       "commit": "3a1a8bc71",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
-      "binary_path": "target/release/ziskemu"
+      "binary_path": "target/release/ziskemu",
+      "isa": "RV64IMFD_Zaamo_Zalrsc_Zca_Zcf_Zcd"
     },
     "pico": {
       "repo_url": "https://github.com/codygunton/pico",
       "commit": "e4d8f22d01c200d790b0a90961305ecb7074879a",
       "build_cmd": "cargo build --release -p pico-cli",
       "binary_name": "cargo-pico",
-      "binary_path": "target/release/cargo-pico"
+      "binary_path": "target/release/cargo-pico",
+      "isa": "RV32IM"
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",
       "commit": "riscof-dev",
       "build_cmd": "cargo build --profile test-release --bin cli",
       "binary_name": "airbender-binary",
-      "binary_path": "target/test-release/cli"
+      "binary_path": "target/test-release/cli",
+      "isa": "RV32IM"
     }
   }
 }

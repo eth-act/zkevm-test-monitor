@@ -147,19 +147,9 @@ def format_isa(isa_str):
             return base + '_' + '_'.join(parts)
     return isa_str
 
-def get_zkvm_isa(zkvm):
-    """Extract ISA definition from RISCOF plugin YAML"""
-    try:
-        yaml_path = Path(f'riscof/plugins/{zkvm}/{zkvm}_isa.yaml')
-        if yaml_path.exists():
-            with open(yaml_path) as f:
-                data = yaml.safe_load(f)
-                for key in ['hart0', 'hart_0']:
-                    if key in data and 'ISA' in data[key]:
-                        return format_isa(data[key]['ISA'])
-        return "unknown"
-    except:
-        return "unknown"
+def get_zkvm_isa(zkvm, config):
+    """Get ISA from config.json isa field"""
+    return config['zkvms'].get(zkvm, {}).get('isa', 'unknown')
 
 def get_test_monitor_commit():
     """Get git commit of this test monitor repo for tracking"""
@@ -281,7 +271,7 @@ for zkvm in config['zkvms']:
             del results['zkvms'][zkvm][field]
 
     # Get ISA definition
-    results['zkvms'][zkvm]['isa'] = get_zkvm_isa(zkvm)
+    results['zkvms'][zkvm]['isa'] = get_zkvm_isa(zkvm, config)
 
     # Check if nightly updates are configured
     nightly_workflow = Path(f'.github/workflows/nightly-{zkvm}-update.yml')
@@ -437,7 +427,7 @@ with open('data/results.json', 'w') as f:
 
 def generate_dashboard_html(suite_type, results, config):
     """Generate HTML for either arch or extra test dashboard"""
-    page_title = "Architecture Tests" if suite_type == "arch" else "Extra Tests"
+    page_title = "Old RISCOF Tests" if suite_type == "arch" else "Extra Tests"
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -559,7 +549,7 @@ def generate_act4_dashboard_html(results, config):
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ACT4 Tests - ZKVM Test Monitor</title>
+    <title>Architecture Tests - ZKVM Test Monitor</title>
     <style>
 {DASHBOARD_CSS}
         .col-group {{
