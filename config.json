@@ -14,7 +14,7 @@
       "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
       "binary_name": "jolt-emu",
       "binary_path": "target/release/jolt-emu",
-      "isa": "RV64IM_Zaamo_Zalrsc_Zca"
+      "isa": "RV64IMAC"
     },
     "openvm": {
       "repo_url": "https://github.com/openvm-org/openvm",
@@ -38,7 +38,7 @@
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
-      "isa": "RV64IMFD_Zaamo_Zalrsc_Zca_Zcf_Zcd"
+      "isa": "RV64IMFDAC"
     },
     "pico": {
       "repo_url": "https://github.com/codygunton/pico",

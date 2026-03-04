@@ -728,7 +728,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "8f2ec364",
-      "isa": "RV64IM_Zaamo_Zalrsc_Zca",
+      "isa": "RV64IMAC",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -2392,7 +2392,7 @@
       "has_binary": true,
       "build_status": "success",
       "commit": "b3ca745b80423c8123dc24f19039865a5bc8b074",
-      "isa": "RV64IMFD_Zaamo_Zalrsc_Zca_Zcf_Zcd",
+      "isa": "RV64IMFDAC",
       "has_nightly": true,
       "suites": {
         "arch": {
@@ -5905,7 +5905,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-03-04T00:37:10.802417+00:00",
+  "last_updated": "2026-03-04T01:06:42.391822+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "ba56741a"
+  "test_monitor_commit": "0fbef7e2"
 }
