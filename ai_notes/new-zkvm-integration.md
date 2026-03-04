@@ -5,6 +5,31 @@ run ACT4 compliance tests against it.
 
 ## What the ZKVM Must Provide
 
+
+```
+config.json                                    # Add your ZKVM entry here
+docker/
+  build-myzkvm/
+    Dockerfile                                 # Builds binary from source
+  myzkvm/
+    Dockerfile                                 # Test runner image (toolchain + ACT4)
+    entrypoint.sh                              # Test orchestrator + DUT wrapper
+act4-configs/
+  myzkvm/
+    myzkvm-rv64im/                             # Native ISA config
+      test_config.yaml                         # Points to tools + other configs
+      myzkvm-rv64im.yaml                       # UDB config: declared extensions
+      sail.json                                # Sail simulator: memory, extensions
+      rvmodel_macros.h                         # Halt protocol (assembly macros)
+      link.ld                                  # Linker script (memory layout)
+    myzkvm-rv64im-zicclsm/                     # ETH-ACT target profile config
+      test_config.yaml                         # (same structure, different extensions)
+      myzkvm-rv64im-zicclsm.yaml
+      sail.json
+      rvmodel_macros.h                         # (usually identical to native)
+      link.ld                                  # (usually identical to native)
+```
+
 ### 1. A deterministic executor binary
 
 The binary must:
@@ -13,12 +38,10 @@ The binary must:
 - Execute the program to completion
 - **Exit with the guest program's exit code** (0 = pass, non-zero = fail)
 
-This is the only hard requirement. The binary does not need to generate proofs,
-though testing with the proving pipeline is preferable (see "Execution mode
-considerations" below).
-
 The binary can have any CLI interface — you'll write a small wrapper script to
-adapt it. Examples of how existing ZKVMs are invoked:
+adapt it. Examples of how existing ZKVMs are invoked (see each ZKVM's
+`docker/<zkvm>/entrypoint.sh` for the full wrapper, specifically the
+`cat > /act4/run-dut.sh` section):
 
 ```bash
 # Simple: just takes an ELF
