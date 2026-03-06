@@ -3,8 +3,12 @@
 ## Summary
 
 SP1 and Pico both fail 2 of 47 native ACT4 tests: `I-fence-00` and `I-jalr-00`.
-Both passed `jalr-01.S` and `misalign1-jalr-01.S` in RISCOF. This is new coverage,
-not a regression.
+
+SP1 passed RISCOF's `jalr-01.S` and `misalign1-jalr-01.S` because the RISCOF tests
+were run against an older SP1 (v5) which used the interpreter — the interpreter has
+the correct `& ~1`. The bug is in the x86 JIT backend, a v6-only feature. This is
+not a RISCOF test gap; `misalign1-jalr-01.S` correctly detected the same missing mask
+in r0vm (RISC0) when it was present there.
 
 ---
 
@@ -22,19 +26,54 @@ address, violating the RISC-V specification.
 
 ### SP1 executor bug
 
-`crates/core/executor/src/executor.rs:1686` (in `/tmp/sp1-clean`):
+**Introduced**: The x86 JIT native executor is a v6-only feature (the `crates/core/jit/`
+crate does not exist in v5). The entire JIT was written without `& ~1` from day one:
+
+- `7a541299ad` — "feat: native executor 32bit" by n, 2025-08-11: initial 32-bit JIT,
+  jalr already missing bit-0 clearing (used `Rd`/`DWORD` for 32-bit ops).
+- `a43e7d91ab` — "feat: port Transpiler to 64bit (#699)" by Brandon Wu, 2025-08-14:
+  ported to 64-bit (`Rq`/`QWORD`), jalr code copied verbatim — still no `& ~1`.
+- Merged into upstream `dev` via "chore: merge multilinear_v6 (#2580)", 2026-02-18.
+- Still unfixed on `upstream/dev` as of the latest commit.
+
+This is not a regression — the bug has been present since the JIT's inception.
+
+The bug exists in SP1's **x86 JIT backend**, which is the execution path used by
+`--mode node` (the default for ACT4 tests). Both `execute_node` and `execute_minimal`
+use `MinimalExecutor`, which transpiles RISC-V to x86 JIT code via `TranspilerBackend`.
+
+**Buggy JIT** — `crates/core/jit/src/backends/x86/instruction_impl.rs:809-843` (in `~/sp1`):
 ```rust
-Opcode::JALR => {
-    let (rd, rs1, imm) = instruction.i_type();
-    let (b, c) = (self.rr_cpu(rs1, MemoryAccessPosition::B), imm);
-    let a = self.state.pc + 4;
-    self.rw_cpu(rd, a);
-    let next_pc = b.wrapping_add(c);  // BUG: missing `& !1`
-    (a, b, c, next_pc)
+fn jalr(&mut self, rd: RiscRegister, rs1: RiscRegister, imm: u64) {
+    // ...
+    self.emit_risc_operand_load(rs1.into(), TEMP_A);
+    dynasm! {
+        self;
+        .arch x64;
+        add Rq(TEMP_A), imm as i32;
+        mov QWORD [Rq(CONTEXT) + PC_OFFSET], Rq(TEMP_A)  // BUG: missing & ~1
+    }
+    // ...
 }
 ```
 
-The RISC-V spec requires `next_pc = (rs1 + imm) & ~1`. SP1 omits `& !1`.
+**Correct interpreter** — `crates/core/executor/src/vm.rs:440`:
+```rust
+let next_pc = ((b_record.value as i64).wrapping_add(imm_se) as u64) & !1_u64;  // correct
+```
+
+**Correct portable minimal** — `crates/core/executor/src/minimal/arch/portable/mod.rs:793`:
+```rust
+*next_pc = (base.wrapping_add(imm_offset_se) as u64) & !1_u64;  // correct
+```
+
+The RISC-V spec requires `next_pc = (rs1 + imm) & ~1`. The JIT omits `& ~1`.
+The interpreter and portable minimal implementations are correct, but neither is
+used in the `--mode node` execution path.
+
+**Historical note**: An older SP1 version (in `/tmp/sp1-clean`) also had this bug in
+`crates/core/executor/src/executor.rs:1686` with `b.wrapping_add(c)` missing `& !1`.
+The interpreter has since been fixed, but the JIT backend was not.
 
 ### Triggering test case
 
@@ -85,71 +124,55 @@ LSB clearing would give the same result, so SP1 accidentally passes this one.
 
 ---
 
-## Why RISCOF didn't catch this
+## Why SP1 passed RISCOF but fails ACT4
 
-### `jalr-01.S` — LSB never set in any test case
+The RISCOF jalr tests (`jalr-01.S`, `misalign1-jalr-01.S`) are **not flawed** — they
+correctly detected the same missing `& ~1` bug in r0vm (RISC0) when it was present.
 
-RISCOF's `TEST_JALR_OP` macro with `adj=0` always pre-adjusts rs1 so that
-`rs1 + imm` lands exactly on the 4-byte-aligned label `3f`. Even `inst_2` with `imm=1`
-uses `LA(rs1, 3f - 1)`, making the computed target `3f` (even). The LSB is never set,
-so SP1's missing LSB clearing has no effect.
+SP1 passed RISCOF because the RISCOF tests were run against SP1 v5, which used the
+**interpreter** execution path. The interpreter correctly implements `& !1_u64`
+(see `vm.rs:440` above). The bug is only in the **x86 JIT backend**, which is a
+v6-only feature introduced 2025-08-11. When we upgraded to SP1 v6 for ACT4 testing,
+the default execution path (`--mode node`) switched to the JIT, exposing the bug.
 
-### `misalign1-jalr-01.S` — `andi ~3` accidentally absorbs the bug
+---
 
-The one test case is `TEST_JALR_OP(x2, x11, x10, -0x21, x1, 0, 1)` with `adj=1`.
-The macro expands (for `adj & 1 == 1`) to:
+## Pico: same bug, independent codebase
 
-```asm
-5: auipc x11, 0
-   LA(x10, 3f + 0x21)          ; x10 = 3f + 0x21
-   jalr x11, -0x20(x10)         ; target = (3f + 0x21) - 0x20 = 3f + 1  (ODD)
-   nop / xori ... / j 4f        ; not-taken path
-3: xori x11, x11, 0x3           ; taken path
-   j 4f
-4: LA(x2, 5b)                   ; x2 = &label_5 via auipc+addi
-   andi x2, x2, ~3              ; ← mask lower 2 bits
-   sub x11, x11, x2
-   RVTEST_SIGUPD(x1, x11, 0)
+Pico is **not** derived from SP1 — no SP1 dependency in Cargo.toml/Cargo.lock. The only
+Succinct-related crate is `rrs-succinct` (a RISC-V ISS library, not SP1 itself).
+
+Pico has the same missing `& !1` bug written independently in two places:
+
+**Emulator** — `vm/src/emulator/riscv/emulator/instruction.rs:300`:
+```rust
+next_pc = b.wrapping_add(c);  // BUG: missing `& !1`
 ```
 
-Tracing SP1 through this:
-
-1. JALR sets `next_pc = 3f + 1` (odd, no LSB clearing)
-2. `fetch(3f+1)`: `(3f+1 - base)/4 = (3f - base)/4` (integer division) → fetches
-   instruction **at 3f** (the correct one). Executes normally.
-3. Odd PC propagates: `j 4f` executes at odd PC, jumps to `4f + 1`.
-4. At `4f+1`: LA's `auipc` computes `&5b + 1` (off by 1 because PC is odd).
-5. **`andi x2, x2, ~3`** masks bits 1:0: `(&5b + 1) & ~3 = &5b` (since `&5b` is
-   4-byte aligned, bit 0 = 0, so `+1` then `& ~3` gives back `&5b`).
-6. `sub x11, x11, x2` produces the **exact same result as a conformant implementation**.
-7. Signature matches Sail → **PASS** — but for the wrong reason.
-
-The `andi ~3` is part of RISCOF's position-independence technique (normalising the return
-address relative to the instruction's PC). It accidentally absorbs SP1's off-by-1 error
-whenever the label address is 4-byte aligned.
-
-### ACT4 catches it
-
-ACT4's `cp_offset_lsbs_test_97` uses a direct `beq` comparison against Sail's
-precomputed expected value. There is no `andi ~3` step. The off-by-1 in the normalised
-return address is directly visible:
-
-```asm
-auipc x3, 0          ; x3 = SP1's odd PC (off by 1)
-sub x30, x30, x3     ; x30 is off by 1 from Sail's reference
-RVTEST_SIGUPD(...)   ; beq fails → jal to failedtest → crash
+**AOT codegen** — `aot-codegen/src/instruction_translator.rs:180`:
+```rust
+let target = base.wrapping_add(#imm);  // BUG: missing `& !1`
+emu.pc = target;
 ```
+
+Both present since the initial commit `45e74cc` ("pico init commit") by Alan Li,
+2025-02-11.
+
+---
+
+## Other ZKVMs
+
+Under full-isa, **only SP1 and Pico** fail jalr. All others pass:
+airbender, jolt, openvm, r0vm, zisk — all correctly implement `(rs1 + imm) & ~1`.
+
+OpenVM's standard-isa suite (rv64im) shows 0/72 but that's an infrastructure issue
+(OpenVM is RV32-native; the rv64 suite is unsupported), not a jalr bug.
 
 ---
 
 ## Verdict
 
-SP1/Pico have always had this JALR LSB-clearing bug. RISCOF's test design (signature
-comparison + `andi ~3` normalisation) inadvertently masked it. ACT4's `cp_offset_lsbs`
-tests are genuinely new coverage exposing a real non-conformance.
-
-| | RISCOF | ACT4 |
-|---|---|---|
-| JALR with odd target | Never tested (always pre-aligns to 4-byte boundary) | Explicitly tested (`cp_offset_lsbs` tests 97–99) |
-| `misalign1-jalr` with odd target | Tests it, but `andi ~3` accidentally cancels SP1's off-by-1 PC error | N/A |
-| Check method | Byte-for-byte signature comparison | Direct `beq` against Sail reference |
+SP1 and Pico independently have the same JALR LSB-clearing bug. SP1 passed RISCOF
+because the old version (v5) used the correct interpreter; the buggy JIT is v6-only.
+Pico was not tested under RISCOF. The RISCOF `misalign1-jalr-01.S` test is sound —
+it correctly caught the same bug in r0vm when it was present there.
