@@ -1,0 +1,16 @@
+[package]
+name = "act4-runner"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rayon = "1"
+chrono = "0.4"
+
+# ere dependencies — use path to local checkout (ere/ symlink in repo root)
+ere-zisk = { path = "../ere/crates/zkvm/zisk", default-features = false, features = ["zkvm"] }
+ere-zkvm-interface = { path = "../ere/crates/zkvm-interface" }

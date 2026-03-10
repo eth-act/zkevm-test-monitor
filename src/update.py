@@ -322,6 +322,11 @@ for zkvm in config['zkvms']:
                     suite_data['total'] = summary.get('total', 0)
                     suite_data['test_status'] = 'completed'
 
+                    # Prove/verify aggregates (from act4-runner with ere-zisk)
+                    for key in ('proved', 'prove_failed', 'verified', 'verify_failed', 'total_prove_secs'):
+                        if key in summary:
+                            suite_data[key] = summary[key]
+
                     # Try to get last_run from history file first (more reliable)
                     history_file = Path(f'data/history/{zkvm}-{suite}.json')
                     if history_file.exists():
@@ -545,6 +550,20 @@ def generate_dashboard_html(suite_type, results, config):
 def generate_act4_dashboard_html(results, config):
     """Generate HTML for the ACT4 test dashboard"""
 
+    # Check if any ZKVM has proving data — show columns conditionally
+    any_proving = any(
+        results['zkvms'].get(z, {}).get('suites', {}).get('act4', {}).get('proved') is not None
+        for z in config['zkvms']
+    )
+
+    prove_cols_html = ""
+    prove_header_html = ""
+    if any_proving:
+        prove_cols_html = '<th colspan="2" class="col-group" style="background: #e8fde8;">Proving</th>'
+        prove_header_html = """
+                    <th style="background: #e8fde8;">Proved</th>
+                    <th style="background: #e8fde8;">Verified</th>"""
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -588,12 +607,14 @@ def generate_act4_dashboard_html(results, config):
                     <th rowspan="2">Commit</th>
                     <th colspan="2" class="col-group col-group-native">Full ISA</th>
                     <th class="col-group col-group-target">RV64IM_Zicclsm</th>
+                    {prove_cols_html}
                     <th rowspan="2">Last Run</th>
                 </tr>
                 <tr>
                     <th class="col-group-native">ISA</th>
                     <th class="col-group-native">Results</th>
                     <th class="col-group-target">Results</th>
+                    {prove_header_html}
                 </tr>
             </thead>
             <tbody>"""
@@ -643,6 +664,32 @@ def generate_act4_dashboard_html(results, config):
         last_run = act4_data.get('last_run') or target_data.get('last_run')
         last_run_text = last_run if last_run else '&mdash;'
 
+        # Proving columns
+        prove_cells = ""
+        if any_proving:
+            proved = act4_data.get('proved')
+            prove_failed = act4_data.get('prove_failed', 0)
+            verified = act4_data.get('verified')
+            verify_failed = act4_data.get('verify_failed', 0)
+
+            if proved is not None:
+                prove_total = proved + prove_failed
+                p_class = "pass" if prove_failed == 0 else "fail"
+                proved_text = f'<span class="{p_class}">{proved}/{prove_total}</span>'
+            else:
+                proved_text = '<span class="none">&mdash;</span>'
+
+            if verified is not None:
+                verify_total = verified + verify_failed
+                v_class = "pass" if verify_failed == 0 else "fail"
+                verified_text = f'<span class="{v_class}">{verified}/{verify_total}</span>'
+            else:
+                verified_text = '<span class="none">&mdash;</span>'
+
+            prove_cells = f"""
+                    <td>{proved_text}</td>
+                    <td>{verified_text}</td>"""
+
         html += f"""
                 <tr>
                     <td><strong><a href="zkvms/{zkvm}.html">{zkvm.upper()}</a></strong></td>
@@ -650,7 +697,7 @@ def generate_act4_dashboard_html(results, config):
                     <td>{commit_display}</td>
                     <td><code>{isa}</code></td>
                     <td>{results_text}</td>
-                    <td>{target_text}</td>
+                    <td>{target_text}</td>{prove_cells}
                     <td>{last_run_text}</td>
                 </tr>"""
 
@@ -739,11 +786,43 @@ def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
         if failed > 0:
             html += f'<span class="fail">{failed} failed</span> '
         html += f'out of {total} tests'
+
+        # Prove/verify summary
+        proved = act4_data.get('proved')
+        prove_failed = act4_data.get('prove_failed', 0)
+        verified = act4_data.get('verified')
+        verify_failed = act4_data.get('verify_failed', 0)
+
+        if proved is not None:
+            prove_total = proved + prove_failed
+            p_class = "pass" if prove_failed == 0 else "fail"
+            html += f'<br><span class="{p_class}">{proved} proved</span>'
+            if prove_failed > 0:
+                html += f', <span class="fail">{prove_failed} prove failed</span>'
+            html += f' out of {prove_total}'
+
+        if verified is not None:
+            verify_total = verified + verify_failed
+            v_class = "pass" if verify_failed == 0 else "fail"
+            html += f'<br><span class="{v_class}">{verified} verified</span>'
+            if verify_failed > 0:
+                html += f', <span class="fail">{verify_failed} verify failed</span>'
+            html += f' out of {verify_total}'
+
+        total_prove_secs = act4_data.get('total_prove_secs')
+        if total_prove_secs is not None:
+            mins = int(total_prove_secs // 60)
+            secs = int(total_prove_secs % 60)
+            html += f'<br>Total proving time: {mins}m {secs}s'
     else:
         html += 'No ACT4 test results available.'
 
     html += """
         </div>"""
+
+    # Check if any test has prove/verify status
+    has_proving = any(t.get('prove_status') for t in tests)
+    has_verify = any(t.get('verify_status') for t in tests)
 
     if tests:
         failed_tests = sorted([t for t in tests if not t.get('passed')], key=lambda x: x['name'])
@@ -755,23 +834,50 @@ def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
         ]:
             if not group_tests:
                 continue
+
+            # Build header row with optional prove/verify columns
+            extra_headers = ""
+            if has_proving:
+                extra_headers += "\n                    <th>Proved</th>"
+            if has_verify:
+                extra_headers += "\n                    <th>Verified</th>"
+
             html += f"""
         <h2><span class="{cls}">{group_label}</span></h2>
         <table>
             <thead>
                 <tr>
                     <th>Test Name</th>
-                    <th>Result</th>
+                    <th>Result</th>{extra_headers}
                 </tr>
             </thead>
             <tbody>"""
 
             for t in group_tests:
                 result_html = f'<span class="{cls}">{"PASS" if t.get("passed") else "FAIL"}</span>'
+
+                extra_cells = ""
+                if has_proving:
+                    ps = t.get('prove_status')
+                    if ps == 'success':
+                        extra_cells += '\n                    <td><span class="pass">PASS</span></td>'
+                    elif ps == 'failed':
+                        extra_cells += '\n                    <td><span class="fail">FAIL</span></td>'
+                    else:
+                        extra_cells += '\n                    <td><span class="none">&mdash;</span></td>'
+                if has_verify:
+                    vs = t.get('verify_status')
+                    if vs == 'success':
+                        extra_cells += '\n                    <td><span class="pass">PASS</span></td>'
+                    elif vs == 'failed':
+                        extra_cells += '\n                    <td><span class="fail">FAIL</span></td>'
+                    else:
+                        extra_cells += '\n                    <td><span class="none">&mdash;</span></td>'
+
                 html += f"""
                 <tr>
                     <td><code>{t['name']}</code></td>
-                    <td>{result_html}</td>
+                    <td>{result_html}</td>{extra_cells}
                 </tr>"""
 
             html += """

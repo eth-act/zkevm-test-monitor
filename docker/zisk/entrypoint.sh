@@ -1,29 +1,28 @@
 #!/bin/bash
 set -eu
 
-# ACT4 Zisk test runner
+# ACT4 Zisk ELF generator + optional legacy test runner
+#
+# Modes:
+#   ELF generation (default when /elfs is mounted):
+#     Compiles self-checking ELFs and copies them to /elfs mount.
+#     No DUT binary needed — test execution happens on host via act4-runner.
+#
+#   Legacy test runner (when /dut/zisk-binary exists and /elfs is NOT mounted):
+#     Runs tests inside Docker as before (backward compatible).
 #
 # Expected mounts:
-#   /dut/zisk-binary                — the Zisk CLI binary (ziskemu)
 #   /act4/config/zisk               — Zisk ACT4 config directory (host act4-configs/zisk)
-#   /results/                       — output directory for summary JSON
+#   /elfs/                          — (ELF mode) output directory for compiled ELFs
+#   /dut/zisk-binary                — (legacy mode) the Zisk CLI binary (ziskemu)
+#   /results/                       — (legacy mode) output directory for summary JSON
 
-DUT=/dut/zisk-binary
 ZKVM=zisk
-RESULTS=/results
 WORKDIR=/act4/work
 
-if [ ! -x "$DUT" ]; then
-    echo "Error: No executable found at $DUT"
-    exit 1
-fi
-
 cd /act4
-mkdir -p "$RESULTS"
-# Compute safe parallelism from available RAM. Each ziskemu instance
-# pre-allocates ~8 GB (6.2 GB emulation arena + 1 GB threads/buffers),
-# so we divide available memory by 8 and leave a 20% headroom buffer.
-# Cap at 24 to avoid diminishing returns, floor at 1.
+
+# Determine parallelism for compilation
 if [ -n "${ACT4_JOBS:-}" ]; then
     JOBS="$ACT4_JOBS"
 else
@@ -32,52 +31,29 @@ else
     [ "$SAFE_JOBS" -lt 1 ] && SAFE_JOBS=1
     [ "$SAFE_JOBS" -gt 24 ] && SAFE_JOBS=24
     JOBS="$SAFE_JOBS"
-    echo "Auto-scaled to $JOBS parallel jobs (${AVAIL_MB} MB available, ~8 GB per ziskemu)"
+    echo "Auto-scaled to $JOBS parallel jobs (${AVAIL_MB} MB available)"
 fi
 
-# Create a wrapper script for Zisk that redirects stdout to /dev/null.
-# Zisk uses ecall-based exit (a7=93), so pass/fail is determined by exit code.
-# The wrapper suppresses verbose emulator output while preserving the exit code.
-cat > /act4/run-dut.sh << 'WRAPPER'
-#!/bin/bash
-/dut/zisk-binary -e "$1" > /dev/null
-WRAPPER
-chmod +x /act4/run-dut.sh
-
-# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
+# generate_elfs <config-path> <config-name> <extensions-list> <extensions-txt-entries> <output-subdir>
 #
-# Generates Makefiles, compiles ELFs, runs them, and writes summary + per-test JSON.
-# summary-suffix: "" for native, "-target" for ETH-ACT target
-run_act4_suite() {
+# Generates Makefiles, compiles self-checking ELFs, patches them, and copies to output.
+generate_elfs() {
     local CONFIG="$1"
     local CONFIG_NAME="$2"
     local EXTENSIONS="$3"
     local EXT_TXT="$4"
-    local SUFFIX="$5"
-    # Derive file label from suffix
-    local FILE_LABEL
-    if [ -z "$SUFFIX" ]; then
-        FILE_LABEL="full-isa"
-    else
-        FILE_LABEL="standard-isa"
-    fi
+    local OUTPUT_SUBDIR="$5"
 
     if [ ! -f "/act4/$CONFIG" ]; then
-        echo "⚠️  Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
+        echo "Warning: Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
         return
     fi
 
-    # Pre-generate extensions.txt to skip UDB validation (which requires Podman/Docker
-    # inside the container). The ACT framework skips UDB calls when this file exists
-    # and is newer than the UDB config.
+    # Pre-generate extensions.txt to skip UDB validation
     mkdir -p "$WORKDIR/$CONFIG_NAME"
     echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
-    # Touch with future timestamp to ensure it's always newer than the mounted config
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
 
-    # Generate Makefiles and compile self-checking ELFs.
-    # The 'act' tool reads the DUT config, generates a Makefile, then invokes Sail
-    # to compute expected register values which are baked directly into the ELFs.
     echo ""
     echo "=== Generating Makefiles for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
@@ -86,16 +62,76 @@ run_act4_suite() {
         --extensions "$EXTENSIONS"
 
     echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
-    # Must compile from top-level workdir so common ELF dependencies are built first.
     make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
     # NOP out the 6 lhu reads in failedtest_saveresults that read from .text.init.
-    # Zisk maps .text.init as execute-only; ACT4's failure handler reads instruction
-    # bytes from .text to decode the failing instruction. This panics Zisk.
-    # The FP operations themselves are correct — only the error-reporting path crashes.
-    echo "=== Patching ELFs: NOP lhu reads in failure handler ($CONFIG_NAME) ==="
+    echo "=== Patching ELFs ($CONFIG_NAME) ==="
+    python3 /act4/patch_elfs.py --zisk "$ELF_DIR"
+
+    local ELF_COUNT
+    ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
+    if [ "$ELF_COUNT" -eq 0 ]; then
+        echo "Error: No ELFs found in $ELF_DIR after compilation"
+        return
+    fi
+    echo "=== $ELF_COUNT ELFs compiled for $CONFIG_NAME ==="
+
+    # Copy ELFs to output (use find+cat to dereference symlinks reliably —
+    # cp -rL fails with "same file" when ACT4's common build cache creates
+    # symlinks that resolve to the same inode as the mount destination).
+    if [ -n "$OUTPUT_SUBDIR" ]; then
+        local COPIED=0
+        find "$ELF_DIR" -name "*.elf" | while read -r src; do
+            rel="${src#$ELF_DIR/}"
+            dst="/elfs/$OUTPUT_SUBDIR/$rel"
+            mkdir -p "$(dirname "$dst")"
+            cat "$src" > "$dst"
+        done
+        COPIED=$(find "/elfs/$OUTPUT_SUBDIR" -name "*.elf" 2>/dev/null | wc -l)
+        echo "=== Copied $COPIED ELFs to /elfs/$OUTPUT_SUBDIR/ ==="
+    fi
+}
+
+# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
+#
+# Legacy mode: generates ELFs and runs them with the DUT binary.
+run_act4_suite() {
+    local CONFIG="$1"
+    local CONFIG_NAME="$2"
+    local EXTENSIONS="$3"
+    local EXT_TXT="$4"
+    local SUFFIX="$5"
+    local FILE_LABEL
+    if [ -z "$SUFFIX" ]; then
+        FILE_LABEL="full-isa"
+    else
+        FILE_LABEL="standard-isa"
+    fi
+
+    if [ ! -f "/act4/$CONFIG" ]; then
+        echo "Warning: Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
+        return
+    fi
+
+    mkdir -p "$WORKDIR/$CONFIG_NAME"
+    echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
+    touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
+
+    echo ""
+    echo "=== Generating Makefiles for $CONFIG_NAME ==="
+    uv run act "$CONFIG" \
+        --workdir "$WORKDIR" \
+        --test-dir tests \
+        --extensions "$EXTENSIONS"
+
+    echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
+    make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
+
+    local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
+
+    echo "=== Patching ELFs ($CONFIG_NAME) ==="
     python3 /act4/patch_elfs.py --zisk "$ELF_DIR"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
@@ -105,20 +141,17 @@ run_act4_suite() {
     fi
     echo "=== Running $ELF_COUNT tests with Zisk ($CONFIG_NAME) ==="
 
-    # run_tests.py exits 0 if all pass, 1 if any fail.
-    # Capture output for parsing; allow non-zero exit.
     local RUN_OUTPUT
     RUN_OUTPUT=$(python3 /act4/run_tests.py "/act4/run-dut.sh" "$ELF_DIR" -j "$JOBS" 2>&1) || true
     echo "$RUN_OUTPUT"
 
-    # Parse results from run_tests.py output.
-    # Possible formats:
-    #   "\tX out of N tests failed."  → X failures, N total
-    #   "\tAll N tests passed."       → 0 failures, N total
     local FAILED TOTAL PASSED
     FAILED=$(echo "$RUN_OUTPUT" | grep -oE '[0-9]+ out of [0-9]+ tests failed' | grep -oE '^[0-9]+' || echo "0")
     TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
     PASSED=$((TOTAL - FAILED))
+
+    local RESULTS=/results
+    mkdir -p "$RESULTS"
 
     cat > "$RESULTS/summary-act4-${FILE_LABEL}.json" << EOF
 {
@@ -131,9 +164,6 @@ run_act4_suite() {
 }
 EOF
 
-    # Generate per-test results JSON (enumerate ELFs, mark failed ones).
-    # Pass authoritative PASSED count so tests that failed silently (timeout/kill)
-    # are not incorrectly marked as passed.
     python3 -c "
 import json, os, re
 
@@ -142,14 +172,12 @@ run_output = '''$RUN_OUTPUT'''
 expected_passed = $PASSED
 zkvm = '$ZKVM'
 
-# Parse failed test names from run_tests.py output
 failed_names = set()
 for line in run_output.splitlines():
     m = re.match(r'\tTest (\S+\.elf) failed', line)
     if m:
         failed_names.add(m.group(1))
 
-# Enumerate all ELFs and build per-test results
 tests = []
 for root, dirs, files in os.walk(elf_dir):
     for f in sorted(files):
@@ -165,9 +193,6 @@ for root, dirs, files in os.walk(elf_dir):
 
 tests.sort(key=lambda t: (t['extension'], t['name']))
 
-# Cross-check: if parsed pass count doesn't match the authoritative count,
-# some tests failed silently (timeout/OOM). Mark all as failed since we
-# can't reliably distinguish which ones truly passed.
 parsed_passed = sum(1 for t in tests if t['passed'])
 if parsed_passed != expected_passed:
     for t in tests:
@@ -187,25 +212,62 @@ print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABE
     echo "=== $CONFIG_NAME: $PASSED/$TOTAL passed ==="
 }
 
-# Run each suite; allow failures without aborting (set -e is active globally)
-# ─── Run 1: Native ISA (rv64imafdc) ───
-run_act4_suite \
-    "config/zisk/zisk-rv64im/test_config.yaml" \
-    "zisk-rv64im" \
-    "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc" \
-    "$(printf 'I\nM\nZaamo\nZalrsc\nF\nD\nZca\nZcd\nZicsr\nSm')" \
-    "" || true
+# --- Main ---
 
-# ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
-# Target is a fixed common baseline: I + M + Misalign only.
-# Same for all ZKVMs — tests the shared RV64IM_Zicclsm profile.
-# Full ISA extensions (F, D, C, A) are tested in the native suite above.
-run_act4_suite \
-    "config/zisk/zisk-rv64im-zicclsm/test_config.yaml" \
-    "zisk-rv64im-zicclsm" \
-    "I,M,Misalign" \
-    "$(printf 'I\nM\nZicclsm\nMisalign')" \
-    "-target" || true
+# Detect mode: if /elfs is a mount point, generate ELFs only; otherwise run legacy pipeline.
+# When Docker mounts -v host:/elfs, mountpoint detects it. If no mount, fall back to
+# checking whether the DUT binary is absent (pure ELF-gen mode without Docker mount).
+if mountpoint -q /elfs 2>/dev/null; then
+    echo "=== ELF generation mode ==="
+    mkdir -p /elfs
 
-echo ""
-echo "=== All ACT4 suites complete ==="
+    # Native ISA
+    generate_elfs \
+        "config/zisk/zisk-rv64im/test_config.yaml" \
+        "zisk-rv64im" \
+        "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc" \
+        "$(printf 'I\nM\nZaamo\nZalrsc\nF\nD\nZca\nZcd\nZicsr\nSm')" \
+        "native" || true
+
+    # Target ISA
+    generate_elfs \
+        "config/zisk/zisk-rv64im-zicclsm/test_config.yaml" \
+        "zisk-rv64im-zicclsm" \
+        "I,M,Misalign" \
+        "$(printf 'I\nM\nZicclsm\nMisalign')" \
+        "target" || true
+
+    echo ""
+    echo "=== ELF generation complete ==="
+else
+    # Legacy mode: run tests inside Docker
+    DUT=/dut/zisk-binary
+    if [ ! -x "$DUT" ]; then
+        echo "Error: No executable found at $DUT"
+        exit 1
+    fi
+
+    # Create wrapper script for Zisk
+    cat > /act4/run-dut.sh << 'WRAPPER'
+#!/bin/bash
+/dut/zisk-binary -e "$1" > /dev/null
+WRAPPER
+    chmod +x /act4/run-dut.sh
+
+    run_act4_suite \
+        "config/zisk/zisk-rv64im/test_config.yaml" \
+        "zisk-rv64im" \
+        "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc" \
+        "$(printf 'I\nM\nZaamo\nZalrsc\nF\nD\nZca\nZcd\nZicsr\nSm')" \
+        "" || true
+
+    run_act4_suite \
+        "config/zisk/zisk-rv64im-zicclsm/test_config.yaml" \
+        "zisk-rv64im-zicclsm" \
+        "I,M,Misalign" \
+        "$(printf 'I\nM\nZicclsm\nMisalign')" \
+        "-target" || true
+
+    echo ""
+    echo "=== All ACT4 suites complete ==="
+fi
