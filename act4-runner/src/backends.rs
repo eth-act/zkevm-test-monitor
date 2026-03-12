@@ -10,7 +10,12 @@ pub enum Backend {
     AirbenderProve { binary: PathBuf, gpu: bool, proof_dir: PathBuf },
     OpenVM { binary: PathBuf },
     Zisk { binary: PathBuf },
-    ZiskEre,
+    ZiskProve {
+        ziskemu: PathBuf,
+        cargo_zisk: PathBuf,
+        witness_lib: Option<PathBuf>,
+        gpu: bool,
+    },
 }
 
 /// Execution mode for test runs.
@@ -41,7 +46,7 @@ pub struct RunResult {
 impl Backend {
     /// Execute an ELF test through the backend and return the result.
     ///
-    /// For most backends, `mode` is ignored (execute-only). The `ZiskEre`
+    /// For most backends, `mode` is ignored (execute-only). The `ZiskProve`
     /// backend uses `mode` to control whether to prove and/or verify.
     pub fn run_elf(&self, elf_path: &Path, mode: Mode) -> RunResult {
         let start = Instant::now();
@@ -50,15 +55,15 @@ impl Backend {
             Backend::AirbenderProve { binary, gpu, proof_dir } => {
                 run_airbender_prove(binary, elf_path, *gpu, proof_dir)
             }
-            Backend::ZiskEre => {
-                run_zisk_ere(elf_path, mode, start)
+            Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
+                run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
             _ => {
                 let (passed, exit_code) = match self {
                     Backend::Airbender { binary } => run_airbender(binary, elf_path),
                     Backend::OpenVM { binary } => run_openvm(binary, elf_path),
                     Backend::Zisk { binary } => run_zisk(binary, elf_path),
-                    Backend::AirbenderProve { .. } | Backend::ZiskEre => unreachable!(),
+                    Backend::AirbenderProve { .. } | Backend::ZiskProve { .. } => unreachable!(),
                 };
 
                 RunResult {
@@ -75,30 +80,36 @@ impl Backend {
     }
 }
 
-/// Zisk via ere: use ere-zisk's execute/prove/verify API.
+/// Zisk proving via `cargo-zisk prove` (single command, no server needed).
 ///
-/// - Execute: `ZiskProgram::from_elf()` → `EreZisk::new()` → `zkvm.execute()`.
-///   ere returns Err on non-zero exit, which we interpret as test failure.
-/// - Prove: `zkvm.prove()` → Ok means proof generated, Err means prover failed.
-/// - Verify: `zkvm.verify(&proof)` → Ok means verified.
-fn run_zisk_ere(elf_path: &Path, mode: Mode, start: Instant) -> RunResult {
-    use ere_zisk::program::ZiskProgram;
-    use ere_zisk::EreZisk;
-    use ere_zkvm_interface::zkvm::{Input, ProofKind, ProverResource, zkVM};
-
+/// Lifecycle:
+/// 1. Execute: `ziskemu --elf <path>` — exit code 0 = pass
+/// 2. Prove:   `cargo-zisk prove --elf <path> --emulator --aggregation --verify_proofs`
+fn run_zisk_prove(
+    ziskemu: &Path,
+    cargo_zisk: &Path,
+    witness_lib: Option<&Path>,
+    elf_path: &Path,
+    mode: Mode,
+    _gpu: bool,
+    start: Instant,
+) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
-        let elf_bytes = std::fs::read(elf_path)?;
-        let program = ZiskProgram::from_elf(elf_bytes);
-        let zkvm = EreZisk::new(program, ProverResource::Cpu)?;
-
-        // Execute
-        let exec_result = zkvm.execute(&Input::new());
-        let passed = exec_result.is_ok();
+        // 1. Execute
+        let exec_status = Command::new(ziskemu)
+            .arg("--elf")
+            .arg(elf_path)
+            .arg("--inputs")
+            .arg("/dev/null")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()?;
+        let passed = exec_status.success();
 
         if mode == Mode::Execute || !passed {
             return Ok(RunResult {
                 passed,
-                exit_code: if passed { Some(0) } else { Some(1) },
+                exit_code: exec_status.code(),
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -107,50 +118,81 @@ fn run_zisk_ere(elf_path: &Path, mode: Mode, start: Instant) -> RunResult {
             });
         }
 
-        // Prove
+        // 2. Prove (and optionally verify) via single cargo-zisk prove invocation
+        let tmp_dir = tempfile::tempdir()?;
         let prove_start = Instant::now();
-        let prove_result = zkvm.prove(&Input::new(), ProofKind::Compressed);
+
+        let mut cmd = Command::new(cargo_zisk);
+        cmd.args(["prove", "--elf"]).arg(elf_path);
+        if let Some(wl) = witness_lib {
+            cmd.arg("--witness-lib").arg(wl);
+        }
+        cmd.arg("--emulator");
+        cmd.args(["-o"]).arg(tmp_dir.path());
+
+        if mode == Mode::Full {
+            cmd.arg("--verify-proofs");
+        }
+
+        // Note: --aggregation requires per-ELF rom-setup (assembly JIT compilation)
+        // which needs the full build tree. Without it, basic proofs are still generated
+        // and the exit code indicates success/failure.
+
+        let prove_output = cmd.output()?;
         let prove_duration = prove_start.elapsed();
 
-        let (prove_status, proof) = match prove_result {
-            Ok((_pv, proof, _report)) => ("success".to_string(), Some(proof)),
-            Err(e) => {
-                eprintln!("prove failed for {}: {e}", elf_path.display());
-                ("failed".to_string(), None)
+        // GPU proving via OpenMPI can leave child processes holding GPU memory
+        // after the main process exits. On crash (abort/signal), forcibly kill
+        // any lingering cargo-zisk-cuda processes, then wait for GPU to be free.
+        if cargo_zisk.to_string_lossy().contains("cuda") {
+            if !prove_output.status.success() {
+                // Crashed proves can leave zombie GPU processes; kill them.
+                // Use pkill by exact binary name (not -f which matches arguments
+                // and would kill this runner process too).
+                let _ = Command::new("pkill")
+                    .args(["-9", "cargo-zisk"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+                std::thread::sleep(Duration::from_secs(3));
             }
-        };
+            wait_for_gpu_free(Duration::from_secs(30));
+        }
 
-        if mode == Mode::Prove || proof.is_none() {
+        if !prove_output.status.success() {
+            let stderr = String::from_utf8_lossy(&prove_output.stderr);
+            eprintln!("cargo-zisk prove failed for {}: {}", elf_path.display(), stderr.trim());
             return Ok(RunResult {
-                passed,
+                passed: true, // execution passed, proving failed
                 exit_code: Some(0),
                 duration: start.elapsed(),
                 prove_duration: Some(prove_duration),
-                proof_written: proof.is_some(),
-                prove_status: Some(prove_status),
+                proof_written: false,
+                prove_status: Some("failed".to_string()),
                 verify_status: None,
             });
         }
 
-        // Verify
-        let proof = proof.unwrap();
-        let verify_result = zkvm.verify(&proof);
-        let verify_status = match verify_result {
-            Ok(_pv) => "success".to_string(),
-            Err(e) => {
-                eprintln!("verify failed for {}: {e}", elf_path.display());
-                "failed".to_string()
-            }
+        // Check if proof file was written
+        let proof_path = tmp_dir.path().join("vadcop_final_proof.bin");
+        let proof_written = proof_path.exists();
+
+        let verify_status = if mode == Mode::Full {
+            // --verify_proofs flag handles verification during proving;
+            // if the command succeeded, verification passed.
+            Some("success".to_string())
+        } else {
+            None
         };
 
         Ok(RunResult {
-            passed,
+            passed: true,
             exit_code: Some(0),
             duration: start.elapsed(),
             prove_duration: Some(prove_duration),
-            proof_written: true,
-            prove_status: Some(prove_status),
-            verify_status: Some(verify_status),
+            proof_written,
+            prove_status: Some("success".to_string()),
+            verify_status,
         })
     };
 
@@ -359,5 +401,35 @@ fn run_airbender_prove(binary: &Path, elf_path: &Path, gpu: bool, proof_dir: &Pa
                 verify_status: None,
             }
         }
+    }
+}
+
+/// Wait until no GPU compute processes are running (via nvidia-smi).
+/// This prevents back-to-back GPU proving from failing because the previous
+/// process hasn't fully released GPU memory yet.
+fn wait_for_gpu_free(timeout: Duration) {
+    let start = Instant::now();
+    loop {
+        let output = Command::new("nvidia-smi")
+            .args(["--query-compute-apps=pid", "--format=csv,noheader"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output();
+
+        match output {
+            Ok(o) if o.status.success() => {
+                let stdout = String::from_utf8_lossy(&o.stdout);
+                if stdout.trim().is_empty() {
+                    return; // GPU is free
+                }
+            }
+            _ => return, // nvidia-smi not available, skip wait
+        }
+
+        if start.elapsed() > timeout {
+            eprintln!("warning: GPU not free after {timeout:?}, proceeding anyway");
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(500));
     }
 }

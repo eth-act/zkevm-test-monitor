@@ -39,8 +39,32 @@ case "$CMD" in
         ;;
 
     clean)
-        echo "🧹 Cleaning artifacts"
-        rm -rf binaries/ test-results/*/
+        TARGETS="${@:-all}"
+        if [ "$TARGETS" = "all" ]; then
+            echo "🧹 Cleaning all artifacts"
+            ZKVMS=""
+            for dir in test-results/*/; do
+                [ -d "$dir" ] && ZKVMS="$ZKVMS $(basename "$dir")"
+            done
+        else
+            echo "🧹 Cleaning artifacts for: $TARGETS"
+            ZKVMS="$TARGETS"
+        fi
+        for zkvm in $ZKVMS; do
+            # Docker creates root-owned files; use a container to clean them.
+            if [ -d "test-results/$zkvm/elfs" ]; then
+                docker run --rm -v "$PWD/test-results/$zkvm/elfs:/elfs" ubuntu:24.04 rm -rf /elfs/native /elfs/target 2>/dev/null || true
+            fi
+            rm -rf "test-results/$zkvm"
+            rm -f "binaries/${zkvm}-binary"
+            if [ "$zkvm" = "zisk" ]; then
+                rm -f binaries/cargo-zisk binaries/cargo-zisk-cuda binaries/libzisk_witness.so
+                rm -rf binaries/zisk-lib
+            fi
+        done
+        if [ "$TARGETS" = "all" ]; then
+            rm -f act4-runner/target/release/act4-runner
+        fi
         ;;
 
     *)
@@ -53,19 +77,25 @@ Commands:
   all [zkvm ...]            Build + test + update dashboard
   update                    Regenerate dashboard HTML
   serve                     Start local web server at localhost:8000
-  clean                     Remove build artifacts
+  clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
 
 Environment Variables:
   JOBS=N                    Limit to N CPU cores
   ACT4_JOBS=N               Override parallel test jobs inside container
-  FORCE=1                   Force rebuild of binaries
+  FORCE=1                   Force regeneration of ELFs / rebuild of binaries
+  ZISK_MODE=execute|prove|full   Zisk test mode (default: full)
+  ZISK_GPU=1                    Build/use GPU variants for Zisk proving
 
 Examples:
   ./run build sp1
   ./run test sp1 jolt
-  ./run test                # test all ZKVMs
+  ./run test                          # test all ZKVMs
   ./run all
   JOBS=8 ./run test zisk
+  ZISK_MODE=execute ./run test zisk   # zisk emulation only (no proving)
+  ZISK_GPU=1 ./run build zisk         # build with GPU support
+  ZISK_GPU=1 ./run test zisk          # use GPU for proving
+  FORCE=1 ./run test zisk             # regenerate ELFs from scratch
 EOF
         ;;
 esac

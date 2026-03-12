@@ -48,7 +48,15 @@ struct Cli {
     #[arg(long, default_value = "execute")]
     mode: String,
 
-    /// Enable GPU acceleration (airbender-prove only).
+    /// Path to cargo-zisk binary (for zisk-prove backend).
+    #[arg(long)]
+    cargo_zisk: Option<PathBuf>,
+
+    /// Path to libzisk_witness.so (required for zisk-prove on v0.15.0).
+    #[arg(long)]
+    witness_lib: Option<PathBuf>,
+
+    /// Enable GPU acceleration (airbender-prove, zisk-prove).
     #[arg(long)]
     gpu: bool,
 
@@ -95,9 +103,17 @@ fn main() {
         "zisk" => Backend::Zisk {
             binary: require_binary(&cli),
         },
-        "zisk-ere" => Backend::ZiskEre,
+        "zisk-prove" => Backend::ZiskProve {
+            ziskemu: require_binary(&cli),
+            cargo_zisk: cli.cargo_zisk.clone().unwrap_or_else(|| {
+                eprintln!("error: --cargo-zisk is required for zkvm 'zisk-prove'");
+                process::exit(2);
+            }),
+            witness_lib: cli.witness_lib.clone(),
+            gpu: cli.gpu,
+        },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, openvm, zisk, zisk-ere");
+            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, openvm, zisk, zisk-prove");
             process::exit(2);
         }
     };

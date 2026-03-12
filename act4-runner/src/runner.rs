@@ -55,7 +55,7 @@ fn collect_elfs(dir: &Path, out: &mut Vec<PathBuf>) {
 pub fn default_jobs(zkvm: &str) -> usize {
     match zkvm {
         "airbender-prove" => 1, // GPU: one prove at a time
-        "zisk-ere" | "zisk" => {
+        "zisk-prove" | "zisk" => {
             let mem_bytes = read_available_memory_bytes().unwrap_or(0);
             // Use 80% of available memory, 8 GB per instance
             let by_mem = (mem_bytes as f64 * 0.8 / 8_000_000_000.0) as usize;

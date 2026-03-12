@@ -550,20 +550,6 @@ def generate_dashboard_html(suite_type, results, config):
 def generate_act4_dashboard_html(results, config):
     """Generate HTML for the ACT4 test dashboard"""
 
-    # Check if any ZKVM has proving data — show columns conditionally
-    any_proving = any(
-        results['zkvms'].get(z, {}).get('suites', {}).get('act4', {}).get('proved') is not None
-        for z in config['zkvms']
-    )
-
-    prove_cols_html = ""
-    prove_header_html = ""
-    if any_proving:
-        prove_cols_html = '<th colspan="2" class="col-group" style="background: #e8fde8;">Proving</th>'
-        prove_header_html = """
-                    <th style="background: #e8fde8;">Proved</th>
-                    <th style="background: #e8fde8;">Verified</th>"""
-
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -605,16 +591,16 @@ def generate_act4_dashboard_html(results, config):
                     <th rowspan="2">ZKVM</th>
                     <th rowspan="2">CI?</th>
                     <th rowspan="2">Commit</th>
-                    <th colspan="2" class="col-group col-group-native">Full ISA</th>
-                    <th class="col-group col-group-target">RV64IM_Zicclsm</th>
-                    {prove_cols_html}
+                    <th colspan="2" class="col-group col-group-native">Execution</th>
+                    <th colspan="3" class="col-group col-group-target">Prove Then Verify</th>
                     <th rowspan="2">Last Run</th>
                 </tr>
                 <tr>
                     <th class="col-group-native">ISA</th>
                     <th class="col-group-native">Results</th>
-                    <th class="col-group-target">Results</th>
-                    {prove_header_html}
+                    <th class="col-group-target">Executed</th>
+                    <th class="col-group-target">Proved</th>
+                    <th class="col-group-target">Verified</th>
                 </tr>
             </thead>
             <tbody>"""
@@ -646,16 +632,32 @@ def generate_act4_dashboard_html(results, config):
         else:
             results_text = '<span class="none">&mdash;</span>'
 
-        # ETH-ACT Target results
+        # Prove Then Verify — target suite results
         t_passed = target_data.get('passed', 0)
         t_failed = target_data.get('failed', 0)
         t_total = target_data.get('total', 0)
 
         if t_total > 0:
             t_class = "pass" if t_failed == 0 else "fail"
-            target_text = f'<a href="act4/{zkvm}-target.html" class="{t_class}">{t_passed}/{t_total}</a>'
+            executed_text = f'<a href="act4/{zkvm}-target.html" class="{t_class}">{t_passed}/{t_total}</a>'
         else:
-            target_text = '<span class="none">&mdash;</span>'
+            executed_text = '<span class="none">&mdash;</span>'
+
+        # Proved column (denominator = total target tests)
+        proved = target_data.get('proved')
+        if proved is not None and t_total > 0:
+            p_class = "pass" if proved == t_total else "fail"
+            proved_text = f'<span class="{p_class}">{proved}/{t_total}</span>'
+        else:
+            proved_text = '<span class="none">&mdash;</span>'
+
+        # Verified column (denominator = total target tests)
+        verified = target_data.get('verified')
+        if verified is not None and t_total > 0:
+            v_class = "pass" if verified == t_total else "fail"
+            verified_text = f'<span class="{v_class}">{verified}/{t_total}</span>'
+        else:
+            verified_text = '<span class="none">&mdash;</span>'
 
         # ACT4 has no CI workflows yet — always show minus
         nightly_text = '&minus;'
@@ -664,32 +666,6 @@ def generate_act4_dashboard_html(results, config):
         last_run = act4_data.get('last_run') or target_data.get('last_run')
         last_run_text = last_run if last_run else '&mdash;'
 
-        # Proving columns
-        prove_cells = ""
-        if any_proving:
-            proved = act4_data.get('proved')
-            prove_failed = act4_data.get('prove_failed', 0)
-            verified = act4_data.get('verified')
-            verify_failed = act4_data.get('verify_failed', 0)
-
-            if proved is not None:
-                prove_total = proved + prove_failed
-                p_class = "pass" if prove_failed == 0 else "fail"
-                proved_text = f'<span class="{p_class}">{proved}/{prove_total}</span>'
-            else:
-                proved_text = '<span class="none">&mdash;</span>'
-
-            if verified is not None:
-                verify_total = verified + verify_failed
-                v_class = "pass" if verify_failed == 0 else "fail"
-                verified_text = f'<span class="{v_class}">{verified}/{verify_total}</span>'
-            else:
-                verified_text = '<span class="none">&mdash;</span>'
-
-            prove_cells = f"""
-                    <td>{proved_text}</td>
-                    <td>{verified_text}</td>"""
-
         html += f"""
                 <tr>
                     <td><strong><a href="zkvms/{zkvm}.html">{zkvm.upper()}</a></strong></td>
@@ -697,7 +673,9 @@ def generate_act4_dashboard_html(results, config):
                     <td>{commit_display}</td>
                     <td><code>{isa}</code></td>
                     <td>{results_text}</td>
-                    <td>{target_text}</td>{prove_cells}
+                    <td>{executed_text}</td>
+                    <td>{proved_text}</td>
+                    <td>{verified_text}</td>
                     <td>{last_run_text}</td>
                 </tr>"""
 
@@ -714,7 +692,7 @@ def generate_act4_dashboard_html(results, config):
 def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
     """Generate per-ZKVM ACT4 detail page showing per-test results"""
     is_target = suite_key == 'act4-target'
-    label = 'ACT4 — RV64IM_Zicclsm' if is_target else 'ACT4 — Full ISA'
+    label = 'Prove Then Verify — RV64IM_Zicclsm' if is_target else 'Execution — Full ISA'
 
     base_data = results['zkvms'].get(zkvm, {})
     act4_data = base_data.get('suites', {}).get(suite_key, {})

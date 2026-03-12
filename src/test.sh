@@ -121,8 +121,34 @@ run_zisk_split_pipeline() {
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
 
-  # Zisk mode: execute (default), prove, or full. Set via ZISK_MODE env var.
-  local MODE="${ZISK_MODE:-execute}"
+  # Zisk mode: execute, prove, or full (default). Set via ZISK_MODE env var.
+  local MODE="${ZISK_MODE:-full}"
+
+  # Check required binaries (built by ./run build zisk)
+  if [ ! -f "binaries/zisk-binary" ]; then
+    echo "  Error: binaries/zisk-binary not found. Run './run build zisk' first."
+    return 1
+  fi
+  if [ "$MODE" != "execute" ]; then
+    if [ ! -f "binaries/cargo-zisk" ]; then
+      echo "  Error: binaries/cargo-zisk not found (required for mode=$MODE). Run './run build zisk' first."
+      return 1
+    fi
+    if [ ! -f "binaries/libzisk_witness.so" ]; then
+      echo "  Warning: binaries/libzisk_witness.so not found (may be required for proving)"
+    fi
+  fi
+
+  # GPU binary selection
+  local CARGO_ZISK="binaries/cargo-zisk"
+  if [ -n "${ZISK_GPU:-}" ]; then
+    if [ -f "binaries/cargo-zisk-cuda" ]; then
+      CARGO_ZISK="binaries/cargo-zisk-cuda"
+    else
+      echo "  Error: GPU requested but cargo-zisk-cuda not found. Run 'ZISK_GPU=1 ./run build zisk' first."
+      return 1
+    fi
+  fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
   if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
@@ -164,41 +190,14 @@ run_zisk_split_pipeline() {
     }
   fi
 
-  # Check act4-runner binary exists
+  # Build act4-runner if needed
   local RUNNER="act4-runner/target/release/act4-runner"
   if [ ! -x "$RUNNER" ]; then
     echo "  Building act4-runner..."
-    # ere-zisk links against libiomp5 (Intel OpenMP). On some systems (e.g. Arch)
-    # only libomp.so exists. Create a shim symlink if needed.
-    if ! ldconfig -p 2>/dev/null | grep -q libiomp5 && [ -f /usr/lib/libomp.so ]; then
-      mkdir -p act4-runner/lib-shims
-      ln -sf /usr/lib/libomp.so act4-runner/lib-shims/libiomp5.so
-    fi
-    RUSTFLAGS="-L $PWD/act4-runner/lib-shims" \
-      cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
       echo "  Failed to build act4-runner"
       return 1
     }
-  fi
-
-  # Ensure ziskemu is on PATH (ere-zisk shells out to it).
-  # Prefer local build, fall back to binaries/zisk-binary.
-  if ! command -v ziskemu &>/dev/null; then
-    if [ -x "zisk/target/release/ziskemu" ]; then
-      export PATH="$PWD/zisk/target/release:$PATH"
-    elif [ -x "binaries/zisk-binary" ]; then
-      mkdir -p /tmp/zisk-bin-shim
-      ln -sf "$PWD/binaries/zisk-binary" /tmp/zisk-bin-shim/ziskemu
-      export PATH="/tmp/zisk-bin-shim:$PATH"
-    else
-      echo "  Error: ziskemu not found on PATH, in zisk/target/release/, or binaries/zisk-binary"
-      return 1
-    fi
-  fi
-
-  # ere-zisk also needs libiomp5 at runtime
-  if [ -d "act4-runner/lib-shims" ]; then
-    export LD_LIBRARY_PATH="${PWD}/act4-runner/lib-shims${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
   fi
 
   mkdir -p "test-results/${ZKVM}"
@@ -211,30 +210,60 @@ run_zisk_split_pipeline() {
     RUNNER_JOBS="-j ${JOBS}"
   fi
 
+  # GPU flag for proving
+  local GPU_ARG=""
+  if [ -n "${ZISK_GPU:-}" ]; then
+    GPU_ARG="--gpu"
+  fi
+
+  # Set LD_LIBRARY_PATH for bundled Zisk shared libs (built in Docker).
+  # Host CUDA libs (/usr/local/cuda/lib64) must come first for GPU proving —
+  # the Docker-bundled libcudart may not match the host driver exactly.
+  if [ -d "binaries/zisk-lib" ]; then
+    if [ -d "/usr/local/cuda/lib64" ]; then
+      export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    else
+      export LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    fi
+  fi
+
+  # Build runner args based on mode
+  local ZKVM_ARG PROVE_ARGS
+  if [ "$MODE" = "execute" ]; then
+    ZKVM_ARG="--zkvm zisk --binary binaries/zisk-binary"
+    PROVE_ARGS=""
+  else
+    ZKVM_ARG="--zkvm zisk-prove --binary binaries/zisk-binary --cargo-zisk $CARGO_ZISK"
+    PROVE_ARGS="$GPU_ARG"
+    if [ -f "binaries/libzisk_witness.so" ]; then
+      ZKVM_ARG="$ZKVM_ARG --witness-lib binaries/libzisk_witness.so"
+    fi
+  fi
+
   # Run native suite
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: $MODE)..."
     "$RUNNER" \
-      --zkvm zisk-ere \
+      $ZKVM_ARG \
       --elf-dir "$ELF_DIR/native" \
       --output-dir "test-results/${ZKVM}" \
       --suite act4 \
       --label full-isa \
       --mode "$MODE" \
-      $RUNNER_JOBS || true
+      $PROVE_ARGS $RUNNER_JOBS || true
   fi
 
   # Run target suite
   if [ -d "$ELF_DIR/target" ]; then
     echo "Running $ZKVM target suite (mode: $MODE)..."
     "$RUNNER" \
-      --zkvm zisk-ere \
+      $ZKVM_ARG \
       --elf-dir "$ELF_DIR/target" \
       --output-dir "test-results/${ZKVM}" \
       --suite act4-target \
       --label standard-isa \
       --mode "$MODE" \
-      $RUNNER_JOBS || true
+      $PROVE_ARGS $RUNNER_JOBS || true
   fi
 
   process_results "$ZKVM"

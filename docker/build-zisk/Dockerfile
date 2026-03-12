@@ -1,4 +1,4 @@
-FROM ubuntu:24.04 AS builder
+FROM nvidia/cuda:13.1.1-devel-ubuntu24.04 AS builder
 
 # Prevent interactive prompts during apt install
 ENV DEBIAN_FRONTEND=noninteractive
@@ -55,6 +55,8 @@ ENV CXXFLAGS="-std=c++17"
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/0xPolygonHermez/zisk.git
 ARG COMMIT_HASH=b3ca745b
+ARG GPU=0
+ARG CUDA_ARCH=sm_89
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
@@ -63,26 +65,72 @@ RUN git clone "$REPO_URL" zisk && \
     git checkout "$COMMIT_HASH" && \
     git rev-parse HEAD > /workspace/commit.txt
 
-# Build zisk
-# This layer will be cached as long as the source code doesn't change
+# Build zisk tools: ziskemu (emulator), cargo-zisk (prover CLI),
+# and optionally zisk-witness (witness lib, if it exists at this commit).
 WORKDIR /workspace/zisk
-RUN cargo build --release --bin ziskemu
+RUN cargo build --release --bin ziskemu --bin cargo-zisk
 
-# Final stage - just the binary
-FROM ubuntu:24.04
+# Build witness lib if the crate exists (added in newer commits)
+RUN if cargo metadata --no-deps --format-version 1 2>/dev/null | \
+      grep -q '"name":"zisk-witness"'; then \
+      cargo build --release -p zisk-witness; \
+    fi
+
+# Stage all outputs into /workspace/output/ so the final stage can COPY a single dir.
+# Bundle only the specific shared libs that commonly differ between Docker (Ubuntu 24.04)
+# and host distros (e.g. Arch). System libs (libc, libm, libstdc++) must match the host.
+RUN mkdir -p /workspace/output /workspace/output/lib && \
+    cp target/release/ziskemu /workspace/output/ && \
+    cp target/release/cargo-zisk /workspace/output/ && \
+    if [ -f target/release/libzisk_witness.so ]; then \
+      cp target/release/libzisk_witness.so /workspace/output/; \
+    fi && \
+    for lib in libsodium libomp; do \
+      for bin in target/release/cargo-zisk target/release/libzisk_witness.so; do \
+        [ -f "$bin" ] || continue; \
+        path=$(ldd "$bin" | grep "$lib" | grep -oP '/\S+\.so\S*'); \
+        [ -n "$path" ] && cp -n "$path" /workspace/output/lib/; \
+      done; \
+    done
+
+# Build GPU variants if requested (same binaries with --features gpu, renamed).
+# Bundle CUDA runtime libs needed by the GPU binary.
+# CUDA_ARCH must be set so pil2-proofman's Makefile compiles for the correct GPU.
+# The configure.sh script tries to run deviceQuery which requires a GPU in the container;
+# setting CUDA_ARCH explicitly bypasses that detection.
+RUN if [ "$GPU" = "1" ]; then \
+      export CUDA_ARCH="$CUDA_ARCH" && \
+      cargo build --release --bin cargo-zisk --features gpu && \
+      cp target/release/cargo-zisk /workspace/output/cargo-zisk-cuda && \
+      for lib in libcudart libcublasLt libcublas; do \
+        path=$(ldd target/release/cargo-zisk | grep "$lib" | grep -oP '/\S+\.so\S*'); \
+        [ -n "$path" ] && cp -n "$path" /workspace/output/lib/; \
+      done; \
+      if [ -f target/release/libzisk_witness.so ]; then \
+        cargo build --release -p zisk-witness --features gpu && \
+        cp target/release/libzisk_witness.so /workspace/output/libzisk_witness_cuda.so; \
+      fi; \
+    fi
+
+# Final stage - binaries and libraries
+FROM nvidia/cuda:13.1.1-runtime-ubuntu24.04
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \
     libgmp10 \
-    libgomp1 \
     libomp5 \
-    libclang-cpp18 \
-    libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the built binary from builder stage
-COPY --from=builder /workspace/zisk/target/release/ziskemu /usr/local/bin/ziskemu
+# Copy all built artifacts from staging directory.
+# Glob patterns (cargo-zisk*) allow optional GPU variants without failing.
+COPY --from=builder /workspace/output/ziskemu /usr/local/bin/
+COPY --from=builder /workspace/output/cargo-zisk* /usr/local/bin/
+COPY --from=builder /workspace/output/lib/ /usr/local/bin/lib/
+COPY --from=builder /workspace/output/libzisk_witness* /usr/local/bin/
 COPY --from=builder /workspace/commit.txt /commit.txt
 
-# Simple entrypoint to copy the binary out
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/ziskemu /output/ziskemu"]
+# Entrypoint copies all tools to /output/
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/ziskemu /usr/local/bin/cargo-zisk /output/ && \
+  cp -r /usr/local/bin/lib /output/lib 2>/dev/null || true && \
+  [ -f /usr/local/bin/libzisk_witness.so ] && cp /usr/local/bin/libzisk_witness.so /output/; \
+  [ -f /usr/local/bin/cargo-zisk-cuda ] && cp /usr/local/bin/cargo-zisk-cuda /output/; true"]
