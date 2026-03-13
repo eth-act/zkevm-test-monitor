@@ -27,8 +27,8 @@
       "last_run": null
     },
     "jolt": {
-      "has_binary": true,
-      "build_status": "success",
+      "has_binary": false,
+      "build_status": "not_built",
       "commit": "a0dbd371",
       "isa": "rv64imac",
       "has_nightly": true,
@@ -209,7 +209,7 @@
       "last_run": null
     }
   },
-  "last_updated": "2026-03-13T03:57:13.615108+00:00",
+  "last_updated": "2026-03-13T04:29:25.783419+00:00",
   "framework_version": "785c1fda",
-  "test_monitor_commit": "1e77ebaa"
+  "test_monitor_commit": "54d83b77"
 }
