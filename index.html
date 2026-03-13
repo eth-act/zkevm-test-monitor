@@ -112,6 +112,10 @@
             text-align: center;
             border-bottom: 2px solid #dee2e6;
         }
+        .col-group a {
+            color: inherit;
+            text-decoration: underline;
+        }
         .col-group-native {
             background: #e8f4fd;
         }
@@ -145,13 +149,15 @@
                     <th rowspan="2">CI?</th>
                     <th rowspan="2">Commit</th>
                     <th colspan="2" class="col-group col-group-native">Full ISA</th>
-                    <th class="col-group col-group-target">RV64IM_Zicclsm</th>
+                    <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA</a></th>
                     <th rowspan="2">Last Run</th>
                 </tr>
                 <tr>
                     <th class="col-group-native">ISA</th>
-                    <th class="col-group-native">Results</th>
-                    <th class="col-group-target">Results</th>
+                    <th class="col-group-native">Execution</th>
+                    <th class="col-group-target">Execution</th>
+                    <th class="col-group-target">Prove</th>
+                    <th class="col-group-target">Verify</th>
                 </tr>
             </thead>
             <tbody>
@@ -162,7 +168,9 @@
                     <td><code>RV32IM</code></td>
                     <td><a href="act4/airbender.html" class="fail">42/47</a></td>
                     <td><a href="act4/airbender-target.html" class="fail">0/72</a></td>
-                    <td>2026-03-04</td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td>2026-03-12</td>
                 </tr>
                 <tr>
                     <td><strong><a href="zkvms/jolt.html">JOLT</a></strong></td>
@@ -171,6 +179,8 @@
                     <td><code>RV64IMAC</code></td>
                     <td><a href="act4/jolt.html" class="fail">116/119</a></td>
                     <td><a href="act4/jolt-target.html" class="fail">64/72</a></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><span class="none">&mdash;</span></td>
                     <td>2026-03-04</td>
                 </tr>
                 <tr>
@@ -180,6 +190,8 @@
                     <td><code>RV32IM</code></td>
                     <td><a href="act4/openvm.html" class="pass">47/47</a></td>
                     <td><a href="act4/openvm-target.html" class="fail">0/72</a></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><span class="none">&mdash;</span></td>
                     <td>2026-03-05</td>
                 </tr>
                 <tr>
@@ -189,6 +201,8 @@
                     <td><code>RV32IM</code></td>
                     <td><a href="act4/pico.html" class="fail">45/47</a></td>
                     <td><a href="act4/pico-target.html" class="fail">0/72</a></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><span class="none">&mdash;</span></td>
                     <td>2026-03-04</td>
                 </tr>
                 <tr>
@@ -198,6 +212,8 @@
                     <td><code>RV32IM</code></td>
                     <td><a href="act4/r0vm.html" class="fail">46/47</a></td>
                     <td><a href="act4/r0vm-target.html" class="fail">0/72</a></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><span class="none">&mdash;</span></td>
                     <td>2026-03-04</td>
                 </tr>
                 <tr>
@@ -207,6 +223,8 @@
                     <td><code>RV64IM</code></td>
                     <td><a href="act4/sp1.html" class="fail">62/64</a></td>
                     <td><a href="act4/sp1-target.html" class="fail">62/72</a></td>
+                    <td><span class="none">&mdash;</span></td>
+                    <td><span class="none">&mdash;</span></td>
                     <td>2026-03-04</td>
                 </tr>
                 <tr>
@@ -214,9 +232,11 @@
                     <td>&minus;</td>
                     <td><a href="https://github.com/0xPolygonHermez/zisk/commit/b3ca745b80423c8123dc24f19039865a5bc8b074" class="commit-link">b3ca745b</a></td>
                     <td><code>RV64IMFDAC</code></td>
-                    <td><a href="act4/zisk.html" class="fail">237/239</a></td>
-                    <td><a href="act4/zisk-target.html" class="pass">72/72</a></td>
-                    <td>2026-03-04</td>
+                    <td><a href="act4/zisk.html" class="fail">235/239</a></td>
+                    <td><a href="act4/zisk-target.html" class="fail">71/72</a></td>
+                    <td><a href="act4/zisk-target.html" class="fail">55/72</a></td>
+                    <td><a href="act4/zisk-target.html" class="fail">55/72</a></td>
+                    <td>2026-03-13</td>
                 </tr>
             </tbody>
         </table>

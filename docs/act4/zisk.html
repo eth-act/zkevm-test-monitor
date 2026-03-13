@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ZISK ACT4 — Full ISA Results - ZKVM Test Monitor</title>
+    <title>ZISK Full ISA Results - ZKVM Test Monitor</title>
     <style>
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -147,24 +147,32 @@
             </nav>
         </div>
         <h1>
-            ZISK &mdash; ACT4 — Full ISA Results
+            ZISK &mdash; Full ISA Results
             <a href="https://github.com/0xPolygonHermez/zisk" target="_blank">View Repository &rarr;</a>
         </h1>
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/0xPolygonHermez/zisk">0xPolygonHermez/zisk</a>
         </div>
 
-        <div class="summary"><span class="fail">237 passed</span>, <span class="fail">2 failed</span> out of 239 tests
+        <div class="summary"><span class="fail">235 passed</span>, <span class="fail">4 failed</span> out of 239 tests<br><span class="fail">0 proved</span>, <span class="fail">237 prove failed</span> out of 237<br>Total proving time: 0m 0s
         </div>
-        <h2><span class="fail">Failed (2)</span></h2>
+        <h2><span class="fail">Execution Failed (4)</span></h2>
         <table>
             <thead>
                 <tr>
                     <th>Test Name</th>
-                    <th>Result</th>
+                    <th>Execution</th>
                 </tr>
             </thead>
             <tbody>
+                <tr>
+                    <td><code>Zca-c.jalr-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td><code>Zca-c.jr-00</code></td>
+                    <td><span class="fail">FAIL</span></td>
+                </tr>
                 <tr>
                     <td><code>Zcd-c.fldsp-00</code></td>
                     <td><span class="fail">FAIL</span></td>
@@ -175,12 +183,12 @@
                 </tr>
             </tbody>
         </table>
-        <h2><span class="pass">Passed (237)</span></h2>
+        <h2><span class="pass">All Passed (235)</span></h2>
         <table>
             <thead>
                 <tr>
                     <th>Test Name</th>
-                    <th>Result</th>
+                    <th>Execution</th>
                 </tr>
             </thead>
             <tbody>
@@ -1038,14 +1046,6 @@
                 </tr>
                 <tr>
                     <td><code>Zca-c.j-00</code></td>
-                    <td><span class="pass">PASS</span></td>
-                </tr>
-                <tr>
-                    <td><code>Zca-c.jalr-00</code></td>
-                    <td><span class="pass">PASS</span></td>
-                </tr>
-                <tr>
-                    <td><code>Zca-c.jr-00</code></td>
                     <td><span class="pass">PASS</span></td>
                 </tr>
                 <tr>
