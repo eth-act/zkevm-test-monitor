@@ -561,6 +561,10 @@ def generate_act4_dashboard_html(results, config):
             text-align: center;
             border-bottom: 2px solid #dee2e6;
         }}
+        .col-group a {{
+            color: inherit;
+            text-decoration: underline;
+        }}
         .col-group-native {{
             background: #e8f4fd;
         }}
@@ -591,16 +595,16 @@ def generate_act4_dashboard_html(results, config):
                     <th rowspan="2">ZKVM</th>
                     <th rowspan="2">CI?</th>
                     <th rowspan="2">Commit</th>
-                    <th colspan="2" class="col-group col-group-native">Execution</th>
-                    <th colspan="3" class="col-group col-group-target">Prove Then Verify</th>
+                    <th colspan="2" class="col-group col-group-native">Full ISA</th>
+                    <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA</a></th>
                     <th rowspan="2">Last Run</th>
                 </tr>
                 <tr>
                     <th class="col-group-native">ISA</th>
-                    <th class="col-group-native">Results</th>
-                    <th class="col-group-target">Executed</th>
-                    <th class="col-group-target">Proved</th>
-                    <th class="col-group-target">Verified</th>
+                    <th class="col-group-native">Execution</th>
+                    <th class="col-group-target">Execution</th>
+                    <th class="col-group-target">Prove</th>
+                    <th class="col-group-target">Verify</th>
                 </tr>
             </thead>
             <tbody>"""
@@ -647,7 +651,7 @@ def generate_act4_dashboard_html(results, config):
         proved = target_data.get('proved')
         if proved is not None and t_total > 0:
             p_class = "pass" if proved == t_total else "fail"
-            proved_text = f'<span class="{p_class}">{proved}/{t_total}</span>'
+            proved_text = f'<a href="act4/{zkvm}-target.html" class="{p_class}">{proved}/{t_total}</a>'
         else:
             proved_text = '<span class="none">&mdash;</span>'
 
@@ -655,7 +659,7 @@ def generate_act4_dashboard_html(results, config):
         verified = target_data.get('verified')
         if verified is not None and t_total > 0:
             v_class = "pass" if verified == t_total else "fail"
-            verified_text = f'<span class="{v_class}">{verified}/{t_total}</span>'
+            verified_text = f'<a href="act4/{zkvm}-target.html" class="{v_class}">{verified}/{t_total}</a>'
         else:
             verified_text = '<span class="none">&mdash;</span>'
 
@@ -692,7 +696,7 @@ def generate_act4_dashboard_html(results, config):
 def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
     """Generate per-ZKVM ACT4 detail page showing per-test results"""
     is_target = suite_key == 'act4-target'
-    label = 'Prove Then Verify — RV64IM_Zicclsm' if is_target else 'Execution — Full ISA'
+    label = 'Standard ISA — RV64IM_Zicclsm' if is_target else 'Full ISA'
 
     base_data = results['zkvms'].get(zkvm, {})
     act4_data = base_data.get('suites', {}).get(suite_key, {})
@@ -798,41 +802,60 @@ def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
     html += """
         </div>"""
 
-    # Check if any test has prove/verify status
-    has_proving = any(t.get('prove_status') for t in tests)
-    has_verify = any(t.get('verify_status') for t in tests)
-
     if tests:
-        failed_tests = sorted([t for t in tests if not t.get('passed')], key=lambda x: x['name'])
-        passed_tests = sorted([t for t in tests if t.get('passed')], key=lambda x: x['name'])
+        # Classify each test by the stage where it failed (or all-pass).
+        exec_failed = []   # failed execution
+        prove_failed = []  # passed execution, failed proving
+        verify_failed = [] # passed proving, failed verification
+        all_passed = []    # passed all attempted stages
 
-        for group_label, group_tests, cls in [
-            (f'Failed ({len(failed_tests)})', failed_tests, 'fail'),
-            (f'Passed ({len(passed_tests)})', passed_tests, 'pass'),
-        ]:
+        for t in tests:
+            if not t.get('passed'):
+                exec_failed.append(t)
+            elif t.get('prove_status') == 'failed':
+                prove_failed.append(t)
+            elif t.get('verify_status') == 'failed':
+                verify_failed.append(t)
+            else:
+                all_passed.append(t)
+
+        # Determine which stage columns to show
+        has_proving = any(t.get('prove_status') for t in tests)
+        has_verify = any(t.get('verify_status') for t in tests)
+
+        groups = [
+            ('Execution Failed', exec_failed, 'fail'),
+            ('Prove Failed', prove_failed, 'fail'),
+            ('Verify Failed', verify_failed, 'fail'),
+            ('All Passed', all_passed, 'pass'),
+        ]
+
+        for group_label, group_tests, cls in groups:
             if not group_tests:
                 continue
 
-            # Build header row with optional prove/verify columns
+            group_tests = sorted(group_tests, key=lambda x: x['name'])
+
+            # Build header columns
             extra_headers = ""
             if has_proving:
-                extra_headers += "\n                    <th>Proved</th>"
+                extra_headers += "\n                    <th>Prove</th>"
             if has_verify:
-                extra_headers += "\n                    <th>Verified</th>"
+                extra_headers += "\n                    <th>Verify</th>"
 
             html += f"""
-        <h2><span class="{cls}">{group_label}</span></h2>
+        <h2><span class="{cls}">{group_label} ({len(group_tests)})</span></h2>
         <table>
             <thead>
                 <tr>
                     <th>Test Name</th>
-                    <th>Result</th>{extra_headers}
+                    <th>Execution</th>{extra_headers}
                 </tr>
             </thead>
             <tbody>"""
 
             for t in group_tests:
-                result_html = f'<span class="{cls}">{"PASS" if t.get("passed") else "FAIL"}</span>'
+                exec_html = f'<span class="{"pass" if t.get("passed") else "fail"}">{"PASS" if t.get("passed") else "FAIL"}</span>'
 
                 extra_cells = ""
                 if has_proving:
@@ -855,7 +878,7 @@ def generate_act4_detail_html(zkvm, results, config, suite_key='act4'):
                 html += f"""
                 <tr>
                     <td><code>{t['name']}</code></td>
-                    <td>{result_html}</td>{extra_cells}
+                    <td>{exec_html}</td>{extra_cells}
                 </tr>"""
 
             html += """

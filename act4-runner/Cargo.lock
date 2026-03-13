@@ -9,6 +9,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "libc",
  "rayon",
  "serde",
  "serde_json",

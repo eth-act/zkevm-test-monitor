@@ -1,3 +1,4 @@
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -96,20 +97,24 @@ fn run_zisk_prove(
 ) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
         // 1. Execute
-        let exec_status = Command::new(ziskemu)
+        // Note: ziskemu may exit 0 even when the emulator reports an error
+        // (e.g. "Emu::par_run() finished with error"), so also check stderr.
+        let exec_output = Command::new(ziskemu)
             .arg("--elf")
             .arg(elf_path)
             .arg("--inputs")
             .arg("/dev/null")
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()?;
-        let passed = exec_status.success();
+            .stderr(Stdio::piped())
+            .output()?;
+        let stderr = String::from_utf8_lossy(&exec_output.stderr);
+        let passed = exec_output.status.success()
+            && !stderr.contains("finished with error");
 
         if mode == Mode::Execute || !passed {
             return Ok(RunResult {
                 passed,
-                exit_code: exec_status.code(),
+                exit_code: exec_output.status.code(),
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -123,6 +128,18 @@ fn run_zisk_prove(
         let prove_start = Instant::now();
 
         let mut cmd = Command::new(cargo_zisk);
+        // Isolate in its own process group so MPI signal propagation
+        // (e.g. SIGABRT from a crash) doesn't kill the parent runner.
+        // Also disable core dumps — a crashing 7+ GB process would otherwise
+        // hang for minutes writing a core via systemd-coredump.
+        unsafe {
+            cmd.pre_exec(|| {
+                let zero = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+                libc::setrlimit(libc::RLIMIT_CORE, &zero);
+                Ok(())
+            });
+        }
+        cmd.process_group(0);
         cmd.args(["prove", "--elf"]).arg(elf_path);
         if let Some(wl) = witness_lib {
             cmd.arg("--witness-lib").arg(wl);

@@ -227,43 +227,42 @@ run_zisk_split_pipeline() {
     fi
   fi
 
-  # Build runner args based on mode
-  local ZKVM_ARG PROVE_ARGS
-  if [ "$MODE" = "execute" ]; then
-    ZKVM_ARG="--zkvm zisk --binary binaries/zisk-binary"
-    PROVE_ARGS=""
-  else
-    ZKVM_ARG="--zkvm zisk-prove --binary binaries/zisk-binary --cargo-zisk $CARGO_ZISK"
-    PROVE_ARGS="$GPU_ARG"
-    if [ -f "binaries/libzisk_witness.so" ]; then
-      ZKVM_ARG="$ZKVM_ARG --witness-lib binaries/libzisk_witness.so"
-    fi
-  fi
-
-  # Run native suite
+  # Run native suite — always execute-only (no proving needed for full ISA)
   if [ -d "$ELF_DIR/native" ]; then
-    echo "Running $ZKVM native suite (mode: $MODE)..."
+    echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
-      $ZKVM_ARG \
+      --zkvm zisk --binary binaries/zisk-binary \
       --elf-dir "$ELF_DIR/native" \
       --output-dir "test-results/${ZKVM}" \
       --suite act4 \
       --label full-isa \
-      --mode "$MODE" \
-      $PROVE_ARGS $RUNNER_JOBS || true
+      --mode execute \
+      $RUNNER_JOBS || true
   fi
 
-  # Run target suite
+  # Run target suite — uses requested mode (execute/prove/full)
   if [ -d "$ELF_DIR/target" ]; then
+    local TARGET_ZKVM_ARG TARGET_PROVE_ARGS
+    if [ "$MODE" = "execute" ]; then
+      TARGET_ZKVM_ARG="--zkvm zisk --binary binaries/zisk-binary"
+      TARGET_PROVE_ARGS=""
+    else
+      TARGET_ZKVM_ARG="--zkvm zisk-prove --binary binaries/zisk-binary --cargo-zisk $CARGO_ZISK"
+      TARGET_PROVE_ARGS="$GPU_ARG"
+      if [ -f "binaries/libzisk_witness.so" ]; then
+        TARGET_ZKVM_ARG="$TARGET_ZKVM_ARG --witness-lib binaries/libzisk_witness.so"
+      fi
+    fi
+
     echo "Running $ZKVM target suite (mode: $MODE)..."
     "$RUNNER" \
-      $ZKVM_ARG \
+      $TARGET_ZKVM_ARG \
       --elf-dir "$ELF_DIR/target" \
       --output-dir "test-results/${ZKVM}" \
       --suite act4-target \
       --label standard-isa \
       --mode "$MODE" \
-      $PROVE_ARGS $RUNNER_JOBS || true
+      $TARGET_PROVE_ARGS $RUNNER_JOBS || true
   fi
 
   process_results "$ZKVM"
