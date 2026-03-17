@@ -47,10 +47,10 @@ WORKDIR /workspace/airbender
 
 # Build the CLI binary with optimizations but without GPU support for compatibility
 # Use the test-release profile for moderate optimization with faster compilation
-RUN --mount=type=cache,target=/root/.cargo/registry \
-    --mount=type=cache,target=/root/.cargo/git \
-    --mount=type=cache,target=/root/.rustup \
-    --mount=type=cache,target=/workspace/airbender/target \
+RUN --mount=type=cache,id=airbender-cargo-registry,target=/root/.cargo/registry \
+    --mount=type=cache,id=airbender-cargo-git,target=/root/.cargo/git \
+    --mount=type=cache,id=airbender-rustup,target=/root/.rustup \
+    --mount=type=cache,id=airbender-target,target=/workspace/airbender/target \
     RUST_MIN_STACK=33554432 cargo build --profile test-release -p cli && \
     cp target/test-release/cli /tmp/airbender-cli-binary
 

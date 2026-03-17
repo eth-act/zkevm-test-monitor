@@ -38,14 +38,14 @@ RUN git lfs install && \
     git rev-parse HEAD > /workspace/commit.txt
 
 WORKDIR /workspace/r0vm
-RUN --mount=type=cache,target=/root/.rustup \
+RUN --mount=type=cache,id=r0vm-rustup,target=/root/.rustup \
     rustup show
 
 WORKDIR /workspace/r0vm
-RUN --mount=type=cache,target=/root/.cargo/registry \
-    --mount=type=cache,target=/root/.cargo/git \
-    --mount=type=cache,target=/root/.rustup \
-    --mount=type=cache,target=/workspace/r0vm/target \
+RUN --mount=type=cache,id=r0vm-cargo-registry,target=/root/.cargo/registry \
+    --mount=type=cache,id=r0vm-cargo-git,target=/root/.cargo/git \
+    --mount=type=cache,id=r0vm-rustup,target=/root/.rustup \
+    --mount=type=cache,id=r0vm-target,target=/workspace/r0vm/target \
     cargo build --release -p risc0-r0vm --bin r0vm && \
     cp target/release/r0vm /tmp/r0vm-binary
 

@@ -41,8 +41,11 @@ for ZKVM in $ZKVMS; do
     continue
   fi
 
-  # Extra build args (e.g. GPU=1 for zisk)
+  # Extra build args (e.g. GPU=1 for zisk, NO_CACHE=1 to force full rebuild)
   EXTRA_BUILD_ARGS=""
+  if [ "${NO_CACHE:-}" = "1" ]; then
+    EXTRA_BUILD_ARGS="--no-cache"
+  fi
   if [ "$ZKVM" = "zisk" ] && [ -n "${ZISK_GPU:-}" ]; then
     # Auto-detect GPU compute capability for CUDA arch (e.g. 12.0 → sm_120)
     CUDA_ARCH="${CUDA_ARCH:-}"

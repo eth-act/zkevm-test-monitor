@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Generate static HTML dashboard with embedded data"""
 
+import fcntl
 import json
 import os
 import re
 import shutil
+import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 import subprocess
@@ -238,6 +240,11 @@ def add_navigation_to_report(report_path):
 with open('config.json') as f:
     config = json.load(f)
 
+# Lock to prevent concurrent update.py instances from corrupting results.json
+Path('data').mkdir(exist_ok=True)
+_lock_fd = open('data/.results.lock', 'w')
+fcntl.flock(_lock_fd, fcntl.LOCK_EX)
+
 # Load or create results
 results_file = Path('data/results.json')
 if results_file.exists():
@@ -425,10 +432,15 @@ for zkvm in config['zkvms']:
 results['last_updated'] = datetime.now(timezone.utc).isoformat()
 results['test_monitor_commit'] = get_test_monitor_commit()
 
-# Save results
-Path('data').mkdir(exist_ok=True)
-with open('data/results.json', 'w') as f:
+# Save results atomically (write to temp file, then rename)
+fd, tmp_path = tempfile.mkstemp(dir='data', suffix='.json')
+with os.fdopen(fd, 'w') as f:
     json.dump(results, f, indent=2)
+os.replace(tmp_path, 'data/results.json')
+
+# Release lock
+fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+_lock_fd.close()
 
 def generate_dashboard_html(suite_type, results, config):
     """Generate HTML for either arch or extra test dashboard"""
