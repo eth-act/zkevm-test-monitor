@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RISC-V ZKVM Compliance Test Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .metadata {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        tr:hover { background: #f8f9fa; }
+        .pass { color: #28a745; font-weight: 600; }
+        .fail { color: #dc3545; font-weight: 600; }
+        .none { color: #6c757d; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .commit-link { font-family: monospace; }
+        .col-group {
+            text-align: center;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .col-group a {
+            color: inherit;
+            text-decoration: underline;
+        }
+        .col-group-native { background: #e8f4fd; }
+        .col-group-target { background: #f0e8fd; }
+        #loading { text-align: center; padding: 40px; color: #666; }
+        #error { text-align: center; padding: 40px; color: #dc3545; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-header">
+            <h1>RISC-V ZKVM Compliance Test Monitor</h1>
+        </div>
+        <div class="metadata">
+            <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
+            <strong>Test Suite:</strong> <a href="https://github.com/riscv-non-isa/riscv-arch-test/tree/act4">RISC-V ACT4 Self-Checking Tests</a>
+            <br><br><em style="color: #155724; background-color: #d4edda; padding: 10px; display: block; border-radius: 4px; border: 1px solid #c3e6cb;">
+            ACT4 uses self-checking ELFs with expected values baked in at compile time. Pass/fail is determined by exit code, not signature comparison.
+            </em>
+        </div>
+
+        <div id="loading">Loading dashboard data...</div>
+        <div id="error"></div>
+        <div id="dashboard" style="display: none;"></div>
+    </div>
+
+    <script>
+    function resultClass(passed, total) {
+        if (passed == null || total == null) return 'none';
+        return passed === total ? 'pass' : 'fail';
+    }
+
+    function resultText(passed, total) {
+        if (passed == null || total == null) return '&mdash;';
+        return `${passed}/${total}`;
+    }
+
+    function countProveVerify(tests) {
+        if (!tests || !Array.isArray(tests) || tests.length === 0) return { prove: null, verify: null, total: null };
+        const proved = tests.filter(t => t.prove_status === 'success').length;
+        const verified = tests.filter(t => t.verify_status === 'success').length;
+        const total = tests.length;
+        return { prove: proved, verify: verified, total: total };
+    }
+
+    function commitShort(commit) {
+        if (!commit || commit === 'unknown') return 'unknown';
+        return commit.substring(0, 8);
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '&mdash;';
+        // Handle both ISO datetime and date-only formats
+        if (dateStr.includes('T')) {
+            return dateStr.split('T')[0];
+        }
+        return dateStr;
+    }
+
+    async function loadDashboard() {
+        try {
+            const config = await fetch('../config.json').then(r => r.json());
+            const zkvms = Object.keys(config.zkvms).sort();
+
+            const rows = await Promise.all(zkvms.map(async (name) => {
+                const fullHistory = await fetch(`../data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
+                const stdHistory = await fetch(`../data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+                const fullRun = fullHistory?.runs?.at(-1);
+                const stdRun = stdHistory?.runs?.at(-1);
+                return { name, config: config.zkvms[name], fullRun, stdRun };
+            }));
+
+            const tbody = rows.map(row => {
+                const c = row.config;
+                const full = row.fullRun;
+                const std = row.stdRun;
+                const commit = full?.commit || std?.commit || c.commit;
+                const commitUrl = `${c.repo_url}/commit/${commit}`;
+                const isa = c.isa || full?.isa || 'unknown';
+
+                const pv = countProveVerify(std?.tests);
+
+                // Use most recent date from either suite
+                const lastDate = full?.date || std?.date;
+
+                return `<tr>
+                    <td><strong><a href="zkvm.html?name=${row.name}">${row.name.toUpperCase()}</a></strong></td>
+                    <td><a href="${commitUrl}" class="commit-link">${commitShort(commit)}</a></td>
+                    <td><code>${isa}</code></td>
+                    <td class="${resultClass(full?.passed, full?.total)}">${resultText(full?.passed, full?.total)}</td>
+                    <td class="${resultClass(std?.passed, std?.total)}">${resultText(std?.passed, std?.total)}</td>
+                    <td class="${pv.prove != null ? resultClass(pv.prove, pv.total) : 'none'}">${pv.prove != null ? `${pv.prove}/${pv.total}` : '&mdash;'}</td>
+                    <td class="${pv.verify != null ? resultClass(pv.verify, pv.total) : 'none'}">${pv.verify != null ? `${pv.verify}/${pv.total}` : '&mdash;'}</td>
+                    <td>${formatDate(lastDate)}</td>
+                </tr>`;
+            }).join('\n');
+
+            document.getElementById('dashboard').innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th rowspan="2">ZKVM</th>
+                            <th rowspan="2">Commit</th>
+                            <th colspan="2" class="col-group col-group-native">Full ISA</th>
+                            <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA</a></th>
+                            <th rowspan="2">Last Run</th>
+                        </tr>
+                        <tr>
+                            <th class="col-group-native">ISA</th>
+                            <th class="col-group-native">Execution</th>
+                            <th class="col-group-target">Execution</th>
+                            <th class="col-group-target">Prove</th>
+                            <th class="col-group-target">Verify</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tbody}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+        } catch (e) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = `Failed to load dashboard: ${e.message}`;
+        }
+    }
+
+    loadDashboard();
+    </script>
+</body>
+</html>
