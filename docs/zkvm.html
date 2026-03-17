@@ -220,7 +220,7 @@
                 const cls = stdRun.passed === stdRun.total ? 'pass' : 'fail';
                 const hasProveVerify = stdRun.tests?.some(t => t.prove_status || t.verify_status);
                 html += `<div class="suite-section">
-                    <h3>Standard ISA (act4-standard) <a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md" title="Standard ISA spec">&#x1F517;</a></h3>
+                    <h3>Standard ISA (act4-standard)</h3>
                     <div class="suite-header">
                         <span>Date: ${formatDate(stdRun.date)}</span>
                         <span class="${cls}">${stdRun.passed}/${stdRun.total} passed</span>
@@ -243,7 +243,7 @@
 
             if (stdHistory?.runs) {
                 html += `<div class="suite-section">
-                    <h3>Standard ISA (act4-standard) <a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md" title="Standard ISA spec">&#x1F517;</a></h3>
+                    <h3>Standard ISA (act4-standard)</h3>
                     ${renderHistoryTable(stdHistory.runs, zkvm.repo_url)}
                 </div>`;
             }
