@@ -26,9 +26,9 @@ case "$CMD" in
         ;;
 
     serve)
-        echo "Server at http://localhost:8000/"
+        echo "Server at http://localhost:8000/docs/"
         echo "   Press Ctrl+C to stop"
-        cd docs && python3 -m http.server 8000 --bind 127.0.0.1
+        python3 -m http.server 8000 --bind 127.0.0.1
         ;;
 
     clean)

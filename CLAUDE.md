@@ -27,7 +27,7 @@ data/history/           # Historical pass/fail tracking
 ./run test airbender        # Run ACT4 compliance tests for airbender
 ./run test                  # Run ACT4 tests for all ZKVMs
 ./run all airbender         # Build + test
-./run serve                 # Serve dashboard at localhost:8000
+./run serve                 # Serve dashboard at localhost:8000/docs/
 ./run clean                 # Remove binaries/ and test-results/
 ```
 
