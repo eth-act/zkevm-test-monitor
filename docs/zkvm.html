@@ -205,18 +205,42 @@
                 const suiteBadge = r.suite === 'act4-full'
                     ? '<span style="background:#e8f4fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Full</span>'
                     : '<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard</span>';
+
+                // For standard runs with per-test data, compute prove/verify counts
+                let proveCell = '';
+                let verifyCell = '';
+                if (r.suite === 'act4-standard' && hasTests) {
+                    const hasProving = r.tests.some(t => t.prove_status);
+                    if (hasProving) {
+                        const pOk = r.tests.filter(t => t.prove_status === 'success').length;
+                        const vOk = r.tests.filter(t => t.verify_status === 'success').length;
+                        const tot = r.tests.length;
+                        const pCls = pOk === tot ? 'pass' : 'fail';
+                        const vCls = vOk === tot ? 'pass' : 'fail';
+                        proveCell = `<td class="${pCls}">${pOk}/${tot}</td>`;
+                        verifyCell = `<td class="${vCls}">${vOk}/${tot}</td>`;
+                    } else {
+                        proveCell = '<td class="none">&mdash;</td>';
+                        verifyCell = '<td class="none">&mdash;</td>';
+                    }
+                } else {
+                    proveCell = '<td></td>';
+                    verifyCell = '<td></td>';
+                }
+
                 return `<tr class="${hasTests ? 'clickable-row' : ''}" ${hasTests ? `onclick="location.href='${runUrl}'"` : ''}>
                     <td>${formatDate(r.date)}</td>
                     <td>${suiteBadge}</td>
                     <td><a href="${commitUrl}" class="commit-link" onclick="event.stopPropagation()">${commitShort(commit)}</a></td>
                     <td class="${cls}">${r.passed}/${r.total}</td>
-                    <td class="${r.failed > 0 ? 'fail' : ''}">${r.failed}</td>
+                    ${proveCell}
+                    ${verifyCell}
                     <td>${hasTests ? '<a href="' + runUrl + '" onclick="event.stopPropagation()">View</a>' : '<span class="none">no data</span>'}</td>
                 </tr>`;
             }).join('');
 
             html += `<table>
-                <thead><tr><th>Date</th><th>Suite</th><th>Commit</th><th>Result</th><th>Failed</th><th>Details</th></tr></thead>
+                <thead><tr><th>Date</th><th>Suite</th><th>Commit</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
 
