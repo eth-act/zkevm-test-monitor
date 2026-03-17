@@ -153,14 +153,24 @@
                 // Use most recent date from either suite
                 const lastDate = full?.date || std?.date;
 
+                const fullLink = full ? `zkvm.html?name=${row.name}&suite=act4-full&run=latest` : null;
+                const stdLink = std ? `zkvm.html?name=${row.name}&suite=act4-standard&run=latest` : null;
+
+                function resultCell(passed, total, link) {
+                    if (passed == null || total == null) return '<td class="none">&mdash;</td>';
+                    const cls = passed === total ? 'pass' : 'fail';
+                    if (link) return `<td class="${cls}"><a href="${link}" class="${cls}">${passed}/${total}</a></td>`;
+                    return `<td class="${cls}">${passed}/${total}</td>`;
+                }
+
                 return `<tr>
                     <td><strong><a href="zkvm.html?name=${row.name}">${row.name.toUpperCase()}</a></strong></td>
                     <td><a href="${commitUrl}" class="commit-link">${commitShort(commit)}</a></td>
                     <td><code>${isa}</code></td>
-                    <td class="${resultClass(full?.passed, full?.total)}">${resultText(full?.passed, full?.total)}</td>
-                    <td class="${resultClass(std?.passed, std?.total)}">${resultText(std?.passed, std?.total)}</td>
-                    <td class="${pv.prove != null ? resultClass(pv.prove, pv.total) : 'none'}">${pv.prove != null ? `${pv.prove}/${pv.total}` : '&mdash;'}</td>
-                    <td class="${pv.verify != null ? resultClass(pv.verify, pv.total) : 'none'}">${pv.verify != null ? `${pv.verify}/${pv.total}` : '&mdash;'}</td>
+                    ${resultCell(full?.passed, full?.total, fullLink)}
+                    ${resultCell(std?.passed, std?.total, stdLink)}
+                    ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
+                    ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     <td>${formatDate(lastDate)}</td>
                 </tr>`;
             }).join('\n');
