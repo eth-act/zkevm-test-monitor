@@ -121,7 +121,604 @@
       "passed": 116,
       "failed": 3,
       "total": 119,
-      "notes": ""
+      "notes": "",
+      "tests": [
+        {
+          "name": "I-add-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-addi-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-addiw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-addw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-and-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-andi-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-auipc-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-beq-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bge-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bgeu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-blt-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bltu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bne-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-fence-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-jal-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-jalr-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lb-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lbu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-ld-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lh-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lhu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lui-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lwu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-nop-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-or-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-ori-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sb-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sd-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sh-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sll-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-slli-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-slliw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sllw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-slt-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-slti-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sltiu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sltu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sra-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srai-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sraiw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sraw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srl-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srli-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srliw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srlw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sub-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-subw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-xor-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-xori-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "M-div-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-divu-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-divuw-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-divw-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mul-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mulh-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mulhsu-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mulhu-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mulw-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-rem-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-remu-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-remuw-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-remw-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoadd.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoadd.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoand.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoand.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amomax.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amomax.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amomaxu.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amomaxu.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amomin.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amomin.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amominu.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amominu.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoor.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoor.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoswap.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoswap.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoxor.d-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zaamo-amoxor.w-00",
+          "extension": "Zaamo",
+          "passed": true
+        },
+        {
+          "name": "Zalrsc-lr.d-00",
+          "extension": "Zalrsc",
+          "passed": true
+        },
+        {
+          "name": "Zalrsc-lr.w-00",
+          "extension": "Zalrsc",
+          "passed": true
+        },
+        {
+          "name": "Zalrsc-sc.d-00",
+          "extension": "Zalrsc",
+          "passed": false
+        },
+        {
+          "name": "Zalrsc-sc.w-00",
+          "extension": "Zalrsc",
+          "passed": false
+        },
+        {
+          "name": "Zca-c.add-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.addi-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.addi16sp-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.addi4spn-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.addiw-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.addw-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.and-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.andi-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.beqz-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.bnez-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.hint-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.j-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.jalr-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.jr-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.ld-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.ldsp-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.li-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.lui-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.lw-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.lwsp-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.mv-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.nop-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.or-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.sd-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.sdsp-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.slli-00",
+          "extension": "Zca",
+          "passed": false
+        },
+        {
+          "name": "Zca-c.srai-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.srli-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.sub-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.subw-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.sw-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.swsp-00",
+          "extension": "Zca",
+          "passed": true
+        },
+        {
+          "name": "Zca-c.xor-00",
+          "extension": "Zca",
+          "passed": true
+        }
+      ]
     }
   ]
 }

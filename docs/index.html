@@ -104,6 +104,9 @@
 
     function countProveVerify(tests) {
         if (!tests || !Array.isArray(tests) || tests.length === 0) return { prove: null, verify: null, total: null };
+        // Only show prove/verify if at least one test has prove_status
+        const hasProving = tests.some(t => t.prove_status);
+        if (!hasProving) return { prove: null, verify: null, total: null };
         const proved = tests.filter(t => t.prove_status === 'success').length;
         const verified = tests.filter(t => t.verify_status === 'success').length;
         const total = tests.length;

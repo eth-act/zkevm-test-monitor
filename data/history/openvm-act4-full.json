@@ -187,7 +187,244 @@
       "passed": 47,
       "failed": 0,
       "total": 47,
-      "notes": ""
+      "notes": "",
+      "tests": [
+        {
+          "name": "I-add-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-addi-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-and-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-andi-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-auipc-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-beq-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bge-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bgeu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-blt-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bltu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-bne-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-fence-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-jal-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-jalr-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lb-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lbu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lh-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lhu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lui-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-lw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-nop-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-or-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-ori-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sb-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sh-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sll-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-slli-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-slt-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-slti-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sltiu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sltu-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sra-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srai-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srl-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-srli-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sub-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-sw-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-xor-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "I-xori-00",
+          "extension": "I",
+          "passed": true
+        },
+        {
+          "name": "M-div-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-divu-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mul-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mulh-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mulhsu-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-mulhu-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-rem-00",
+          "extension": "M",
+          "passed": true
+        },
+        {
+          "name": "M-remu-00",
+          "extension": "M",
+          "passed": true
+        }
+      ]
     }
   ]
 }

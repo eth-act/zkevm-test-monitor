@@ -484,7 +484,574 @@
       "passed": 71,
       "failed": 1,
       "total": 72,
-      "notes": ""
+      "notes": "",
+      "tests": [
+        {
+          "name": "I-add-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.935317236,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-addi-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.91186646,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-addiw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.908759452,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-addw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.827684517,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-and-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.80134235,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-andi-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.779743585,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-auipc-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.90962859,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-beq-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.807972197,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-bge-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.828837434,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-bgeu-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.829123098,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-blt-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.69050367,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-bltu-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.821028743,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-bne-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.8261500999999996,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-fence-00",
+          "extension": "I",
+          "passed": false
+        },
+        {
+          "name": "I-jal-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.940029223,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-jalr-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.921425952,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-lb-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.909461872,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-lbu-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.809825165,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-ld-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.781107573,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-lh-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.821534029,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-lhu-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.602735659,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-lui-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.697304159,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-lw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.712309385,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-lwu-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.70593666,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-nop-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.911321406,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-or-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.889981458,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-ori-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.925523326,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sb-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.690895563,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sd-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.81916983,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sh-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.721129228,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sll-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.813966428,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-slli-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.9150214,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-slliw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.807884144,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sllw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.618488373,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-slt-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.8095779,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-slti-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.826356506,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sltiu-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.928141507,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sltu-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.923957183,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sra-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.908456404,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-srai-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.816162003,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sraiw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.912490417,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sraw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.907607158,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-srl-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.937065877,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-srli-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.830590094,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-srliw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.815594077,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-srlw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.923201264,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sub-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 7.003183218,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-subw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.859286986,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-sw-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.701761204,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-xor-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.830182577,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "I-xori-00",
+          "extension": "I",
+          "passed": true,
+          "prove_duration_secs": 6.824355144,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-div-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.134011276,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-divu-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.118205259,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-divuw-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.19814063,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-divw-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.232456301,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-mul-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.135098728,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-mulh-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.270426204,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-mulhsu-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.230764006,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-mulhu-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.1533993670000005,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-mulw-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.163083621,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-rem-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.245411333,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-remu-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.244700819,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-remuw-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.149711494,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "M-remw-00",
+          "extension": "M",
+          "passed": true,
+          "prove_duration_secs": 7.225855292,
+          "prove_status": "success",
+          "verify_status": "success"
+        },
+        {
+          "name": "Misalign-ld-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.592196293,
+          "prove_status": "failed"
+        },
+        {
+          "name": "Misalign-lh-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.76821691,
+          "prove_status": "failed"
+        },
+        {
+          "name": "Misalign-lhu-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.767826112,
+          "prove_status": "failed"
+        },
+        {
+          "name": "Misalign-lw-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.782665691,
+          "prove_status": "failed"
+        },
+        {
+          "name": "Misalign-lwu-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.573191775,
+          "prove_status": "failed"
+        },
+        {
+          "name": "Misalign-sd-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.566746131,
+          "prove_status": "failed"
+        },
+        {
+          "name": "Misalign-sh-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.692546795,
+          "prove_status": "failed"
+        },
+        {
+          "name": "Misalign-sw-00",
+          "extension": "Misalign",
+          "passed": true,
+          "prove_duration_secs": 13.554206276,
+          "prove_status": "failed"
+        }
+      ]
     }
   ]
 }
