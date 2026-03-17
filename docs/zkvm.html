@@ -179,12 +179,12 @@
 
     async function loadDetail() {
         try {
-            const config = await fetch('../config.json').then(r => r.json());
+            const config = await fetch('config.json').then(r => r.json());
             const zkvm = config.zkvms[name];
             if (!zkvm) throw new Error(`Unknown ZKVM: ${name}`);
 
-            const fullHistory = await fetch(`../data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
-            const stdHistory = await fetch(`../data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+            const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
+            const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
 
             const fullRun = fullHistory?.runs?.at(-1);
             const stdRun = stdHistory?.runs?.at(-1);
@@ -195,7 +195,7 @@
             html += `<div class="metadata">
                 <strong>Repository:</strong> <a href="${zkvm.repo_url}">${zkvm.repo_url}</a><br>
                 <strong>ISA:</strong> <code>${zkvm.isa}</code><br>
-                <strong>Commit:</strong> <a href="${zkvm.repo_url}/commit/${fullRun?.commit || stdRun?.commit || zkvm.commit}" class="commit-link">${commitShort(fullRun?.commit || stdRun?.commit || zkvm.commit)}</a>
+                <strong>Commit:</strong> <a href="${zkvm.repo_url}/commit/${fullRun?.commit || fullRun?.zkvm_commit || stdRun?.commit || stdRun?.zkvm_commit || zkvm.commit}" class="commit-link">${commitShort(fullRun?.commit || fullRun?.zkvm_commit || stdRun?.commit || stdRun?.zkvm_commit || zkvm.commit)}</a>
             </div>`;
 
             // Latest Run — Full ISA

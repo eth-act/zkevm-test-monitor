@@ -129,12 +129,12 @@
 
     async function loadDashboard() {
         try {
-            const config = await fetch('../config.json').then(r => r.json());
+            const config = await fetch('config.json').then(r => r.json());
             const zkvms = Object.keys(config.zkvms).sort();
 
             const rows = await Promise.all(zkvms.map(async (name) => {
-                const fullHistory = await fetch(`../data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
-                const stdHistory = await fetch(`../data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+                const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
+                const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
                 const fullRun = fullHistory?.runs?.at(-1);
                 const stdRun = stdHistory?.runs?.at(-1);
                 return { name, config: config.zkvms[name], fullRun, stdRun };
@@ -144,7 +144,7 @@
                 const c = row.config;
                 const full = row.fullRun;
                 const std = row.stdRun;
-                const commit = full?.commit || std?.commit || c.commit;
+                const commit = full?.commit || full?.zkvm_commit || std?.commit || std?.zkvm_commit || c.commit;
                 const commitUrl = `${c.repo_url}/commit/${commit}`;
                 const isa = c.isa || full?.isa || 'unknown';
 
