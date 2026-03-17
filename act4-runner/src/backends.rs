@@ -155,39 +155,87 @@ fn run_zisk_prove(
         // which needs the full build tree. Without it, basic proofs are still generated
         // and the exit code indicates success/failure.
 
+        let is_gpu = cargo_zisk.to_string_lossy().contains("cuda");
+
         let prove_output = cmd.output()?;
         let prove_duration = prove_start.elapsed();
 
-        // GPU proving via OpenMPI can leave child processes holding GPU memory
-        // after the main process exits. On crash (abort/signal), forcibly kill
-        // any lingering cargo-zisk-cuda processes, then wait for GPU to be free.
-        if cargo_zisk.to_string_lossy().contains("cuda") {
+        // Clean up after every prove (success or failure). cargo-zisk uses
+        // OpenMP and MPI which leave shared memory files (__KMP_REGISTERED_LIB_*,
+        // sem.mp-*) from child processes. If these accumulate from dead PIDs,
+        // subsequent proves can fail or hang.
+        cleanup_stale_shm();
+
+        // GPU-specific cleanup: kill zombie processes and wait for GPU memory
+        // to be released. This runs after every GPU prove, not just failures —
+        // a "successful" prove can still leave child processes behind.
+        if is_gpu {
             if !prove_output.status.success() {
-                // Crashed proves can leave zombie GPU processes; kill them.
-                // Use pkill by exact binary name (not -f which matches arguments
-                // and would kill this runner process too).
-                let _ = Command::new("pkill")
-                    .args(["-9", "cargo-zisk"])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .status();
-                std::thread::sleep(Duration::from_secs(3));
+                kill_cargo_zisk_processes();
             }
             wait_for_gpu_free(Duration::from_secs(30));
         }
 
+        // Retry once on failure — cascading failures from stale GPU/shm state
+        // are common, and the cleanup above usually fixes them.
         if !prove_output.status.success() {
             let stderr = String::from_utf8_lossy(&prove_output.stderr);
-            eprintln!("cargo-zisk prove failed for {}: {}", elf_path.display(), stderr.trim());
-            return Ok(RunResult {
-                passed: true, // execution passed, proving failed
-                exit_code: Some(0),
-                duration: start.elapsed(),
-                prove_duration: Some(prove_duration),
-                proof_written: false,
-                prove_status: Some("failed".to_string()),
-                verify_status: None,
-            });
+            eprintln!(
+                "cargo-zisk prove failed for {} (retrying): {}",
+                elf_path.display(),
+                stderr.lines().last().unwrap_or("(no output)"),
+            );
+
+            let mut retry_cmd = Command::new(cargo_zisk);
+            unsafe {
+                retry_cmd.pre_exec(|| {
+                    let zero = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+                    libc::setrlimit(libc::RLIMIT_CORE, &zero);
+                    Ok(())
+                });
+            }
+            retry_cmd.process_group(0);
+            retry_cmd.args(["prove", "--elf"]).arg(elf_path);
+            if let Some(wl) = witness_lib {
+                retry_cmd.arg("--witness-lib").arg(wl);
+            }
+            retry_cmd.arg("--emulator");
+            retry_cmd.args(["-o"]).arg(tmp_dir.path());
+            if mode == Mode::Full {
+                retry_cmd.arg("--verify-proofs");
+            }
+
+            let retry_start = Instant::now();
+            let retry_output = retry_cmd.output()?;
+            let retry_duration = retry_start.elapsed();
+
+            cleanup_stale_shm();
+            if is_gpu {
+                if !retry_output.status.success() {
+                    kill_cargo_zisk_processes();
+                }
+                wait_for_gpu_free(Duration::from_secs(30));
+            }
+
+            if !retry_output.status.success() {
+                let retry_stderr = String::from_utf8_lossy(&retry_output.stderr);
+                eprintln!(
+                    "cargo-zisk prove failed for {} (retry also failed): {}",
+                    elf_path.display(),
+                    retry_stderr.lines().last().unwrap_or("(no output)"),
+                );
+                return Ok(RunResult {
+                    passed: true, // execution passed, proving failed
+                    exit_code: Some(0),
+                    duration: start.elapsed(),
+                    prove_duration: Some(prove_duration + retry_duration),
+                    proof_written: false,
+                    prove_status: Some("failed".to_string()),
+                    verify_status: None,
+                });
+            }
+            // Retry succeeded — fall through to success handling
+            eprintln!("cargo-zisk prove retry succeeded for {}", elf_path.display());
         }
 
         // Check if proof file was written
@@ -416,6 +464,61 @@ fn run_airbender_prove(binary: &Path, elf_path: &Path, gpu: bool, proof_dir: &Pa
                 proof_written: false,
                 prove_status: None,
                 verify_status: None,
+            }
+        }
+    }
+}
+
+/// Kill any lingering cargo-zisk processes that may be holding GPU memory.
+fn kill_cargo_zisk_processes() {
+    let _ = Command::new("pkill")
+        .args(["-9", "cargo-zisk"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    std::thread::sleep(Duration::from_secs(3));
+}
+
+/// Remove stale shared memory files left by dead cargo-zisk child processes.
+///
+/// OpenMP leaves `__KMP_REGISTERED_LIB_<pid>_*` and MPI leaves `sem.mp-*` files
+/// in /dev/shm. If the owning process crashed, these persist and can cause
+/// subsequent proves to fail or hang. We only remove files whose owning PID
+/// is no longer running.
+fn cleanup_stale_shm() {
+    let entries = match std::fs::read_dir("/dev/shm") {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+
+        // Only clean up files from cargo-zisk: OpenMP KMP libs and MPI semaphores
+        if name.starts_with("__KMP_REGISTERED_LIB_") {
+            // Format: __KMP_REGISTERED_LIB_<pid>_<uid>
+            if let Some(pid_str) = name.strip_prefix("__KMP_REGISTERED_LIB_") {
+                if let Some(pid_str) = pid_str.split('_').next() {
+                    if let Ok(pid) = pid_str.parse::<i32>() {
+                        // Check if PID is still alive
+                        if unsafe { libc::kill(pid, 0) } != 0 {
+                            let _ = std::fs::remove_file(entry.path());
+                        }
+                    }
+                }
+            }
+        } else if name.starts_with("sem.mp-") {
+            // MPI semaphores don't encode PID — remove if no cargo-zisk is running
+            let has_cargo_zisk = Command::new("pgrep")
+                .arg("cargo-zisk")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+            if !has_cargo_zisk {
+                let _ = std::fs::remove_file(entry.path());
             }
         }
     }

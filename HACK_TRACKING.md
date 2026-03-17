@@ -43,24 +43,27 @@ instructions appear in the test preamble.
 
 ---
 
-### ~~Hack 3~~ — EF_RISCV_RVC ELF header flag ✅ RESOLVED
+---
 
-**Root cause**: `test_setup.h` used `.option rvc` / `.align UNROLLSZ` / `.option norvc`
+## Active Workarounds
+
+### Hack 3 — EF_RISCV_RVC ELF header flag
+
+**Status**: Active workaround — upstream ACT4 fix needed.
+
+**Root cause**: `test_setup.h` uses `.option rvc` / `.align UNROLLSZ` / `.option norvc`
 as an alignment trick, causing GAS to set the `EF_RISCV_RVC` flag in the ELF header
 even though no compressed instructions are emitted. SP1/Pico/OpenVM reject ELFs with
 this flag.
 
-**Fix applied**: Removed `.option rvc` from the alignment block in `RVTEST_BEGIN`
-(line 31 of `test_setup.h`). The `.option norelax` (already present two lines earlier)
-supersedes the purpose of this trick. Replaced with explicit `.option norvc` +
-`.align UNROLLSZ`.
+**Fix exists**: `codygunton/riscv-arch-test@fb327b09` removes `.option rvc` from
+`test_setup.h`. However, this fix is only in our fork — upstream
+`riscv-non-isa/riscv-arch-test` act4 branch does not have it.
 
-**Files changed**:
-- `riscv-arch-test/tests/env/test_setup.h`
+**Current workaround**: All 7 Dockerfiles patch `test_setup.h` at build time via
+inline Python, replacing the `.option rvc` block. Added in commit `5b0dda3f`.
 
----
-
-## Active Workarounds
+**Files**: All `docker/*/Dockerfile` (7 files)
 
 ### Hack 2 — `.word` data embedded in `.text`
 
@@ -138,7 +141,7 @@ of the circuit, or expose a dedicated execute-only path that NOP-handles FENCE.
 |-------|-----------|----------------|---------|
 | CSR instructions in test preamble | UDB config declared Sm/Zicsr | ✅ Resolved — config fix | 6 UDB yamls |
 | `.word` data in `.text` | ACT4 SELFCHECK thunk | ⚠️ Active workaround | `docker/shared/patch_elfs.py` |
-| EF_RISCV_RVC ELF flag | `.option rvc` alignment trick | ✅ Resolved — test_setup.h fix | `tests/env/test_setup.h` |
+| EF_RISCV_RVC ELF flag | `.option rvc` alignment trick | ⚠️ Active workaround (Dockerfile patch) | All `docker/*/Dockerfile` |
 | Zisk execute-only code segment | Zisk maps .text.init as no-read | ⚠️ Active workaround | `docker/shared/patch_elfs.py --zisk` |
 | Zisk linker script | Zisk RAM at 0xa0000000 | Clean — correct approach | `zisk-rv64im/link.ld` |
 | SP1/Pico syscall register | SP1/Pico use t0, not a7 | Clean — correct approach | `rvmodel_macros.h` |
