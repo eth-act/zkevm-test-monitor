@@ -33,26 +33,26 @@ process_results() {
 
   mkdir -p data/history
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
-  ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
-  RUN_DATE=$(date -u +"%Y-%m-%d")
+  RUN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  for ACT4_SUFFIX in "" "-target"; do
-    if [ -z "$ACT4_SUFFIX" ]; then
+  # Resolve commit: check Docker image first, then config.json
+  ZKVM_COMMIT=$(docker run --rm --entrypoint cat "zkvm-${ZKVM}:latest" /commit.txt 2>/dev/null || \
+    jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
+
+  for SUITE_TYPE in full standard; do
+    if [ "$SUITE_TYPE" = "full" ]; then
       FILE_LABEL="full-isa"
-      SUITE_LABEL="full ISA"
-      ISA="rv32im"
-      SUITE="act4"
+      SUITE="act4-full"
     else
       FILE_LABEL="standard-isa"
-      SUITE_LABEL="standard ISA"
-      ISA="rv64im_zicclsm"
-      SUITE="act4-target"
+      SUITE="act4-standard"
     fi
+
     SUMMARY_FILE="test-results/${ZKVM}/summary-act4-${FILE_LABEL}.json"
     RESULTS_FILE="test-results/${ZKVM}/results-act4-${FILE_LABEL}.json"
 
     if [ ! -f "$SUMMARY_FILE" ]; then
-      if [ -z "$ACT4_SUFFIX" ]; then
+      if [ "$SUITE_TYPE" = "full" ]; then
         echo "  Warning: No summary generated for $ZKVM (container may have failed)"
       fi
       continue
@@ -62,10 +62,11 @@ process_results() {
     FAILED=$(jq '.failed' "$SUMMARY_FILE")
     TOTAL=$(jq '.total' "$SUMMARY_FILE")
 
+    # Build per-test array (empty array if results file missing)
     if [ -f "$RESULTS_FILE" ]; then
-      TEST_COUNT=$(jq '.tests | length' "$RESULTS_FILE")
+      TESTS_JSON=$(jq '.tests' "$RESULTS_FILE")
     else
-      TEST_COUNT="$TOTAL"
+      TESTS_JSON="[]"
     fi
 
     if [ "$FAILED" -eq 0 ]; then
@@ -74,43 +75,28 @@ process_results() {
       STATUS_EMOJI="x"
     fi
 
-    echo "  ACT4 ${ZKVM} (${SUITE_LABEL}): ${TEST_COUNT} tests in results-act4-${FILE_LABEL}.json"
+    echo "  ACT4 ${ZKVM} (${SUITE}): ${TOTAL} tests"
     echo "     ${STATUS_EMOJI} ${PASSED}/${TOTAL} passed"
 
     HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
+
+    # Build run entry as JSON
+    RUN_ENTRY=$(jq -n \
+      --arg date "$RUN_DATE" \
+      --arg commit "$ZKVM_COMMIT" \
+      --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
+      --argjson passed "$PASSED" \
+      --argjson failed "$FAILED" \
+      --argjson total "$TOTAL" \
+      --argjson tests "$TESTS_JSON" \
+      '{date: $date, commit: $commit, isa: $isa, passed: $passed, failed: $failed, total: $total, tests: $tests}')
+
     if [ -f "$HISTORY_FILE" ]; then
-      jq --arg date "$RUN_DATE" \
-        --arg monitor "$TEST_MONITOR_COMMIT" \
-        --arg zkvm "$ZKVM_COMMIT" \
-        --arg isa "$ISA" \
-        --arg suite "$SUITE" \
-        --argjson passed "$PASSED" \
-        --argjson failed "$FAILED" \
-        --argjson total "$TOTAL" \
-        '.runs += [{"date": $date, "test_monitor_commit": $monitor,
-                    "zkvm_commit": $zkvm, "isa": $isa, "suite": $suite,
-                    "passed": $passed, "failed": $failed, "total": $total, "notes": ""}]' \
+      jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
         "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
     else
-      cat > "$HISTORY_FILE" << HISTORY
-{
-  "zkvm": "${ZKVM}",
-  "suite": "${SUITE}",
-  "runs": [
-    {
-      "date": "${RUN_DATE}",
-      "test_monitor_commit": "${TEST_MONITOR_COMMIT}",
-      "zkvm_commit": "${ZKVM_COMMIT}",
-      "isa": "${ISA}",
-      "suite": "${SUITE}",
-      "passed": ${PASSED},
-      "failed": ${FAILED},
-      "total": ${TOTAL},
-      "notes": ""
-    }
-  ]
-}
-HISTORY
+      jq -n --arg zkvm "$ZKVM" --arg suite "$SUITE" --argjson run "$RUN_ENTRY" \
+        '{zkvm: $zkvm, suite: $suite, runs: [$run]}' > "$HISTORY_FILE"
     fi
   done
 }
@@ -234,7 +220,7 @@ run_zisk_split_pipeline() {
       --zkvm zisk --binary binaries/zisk-binary \
       --elf-dir "$ELF_DIR/native" \
       --output-dir "test-results/${ZKVM}" \
-      --suite act4 \
+      --suite act4-full \
       --label full-isa \
       --mode execute \
       $RUNNER_JOBS || true
@@ -259,7 +245,7 @@ run_zisk_split_pipeline() {
       $TARGET_ZKVM_ARG \
       --elf-dir "$ELF_DIR/target" \
       --output-dir "test-results/${ZKVM}" \
-      --suite act4-target \
+      --suite act4-standard \
       --label standard-isa \
       --mode "$MODE" \
       $TARGET_PROVE_ARGS $RUNNER_JOBS || true
