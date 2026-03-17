@@ -1,6 +1,6 @@
 {
   "zkvm": "jolt",
-  "suite": "act4",
+  "suite": "act4-full",
   "runs": [
     {
       "date": "2026-02-20",
@@ -71,6 +71,50 @@
     {
       "date": "2026-03-04",
       "test_monitor_commit": "0fbef7e2",
+      "zkvm_commit": "8f2ec364",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 116,
+      "failed": 3,
+      "total": 119,
+      "notes": ""
+    },
+    {
+      "date": "2026-03-17",
+      "test_monitor_commit": "ff079145",
+      "zkvm_commit": "8f2ec364",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 116,
+      "failed": 3,
+      "total": 119,
+      "notes": ""
+    },
+    {
+      "date": "2026-03-17",
+      "test_monitor_commit": "ff079145",
+      "zkvm_commit": "8f2ec364",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 116,
+      "failed": 3,
+      "total": 119,
+      "notes": ""
+    },
+    {
+      "date": "2026-03-17",
+      "test_monitor_commit": "ff079145",
+      "zkvm_commit": "8f2ec364",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 116,
+      "failed": 3,
+      "total": 119,
+      "notes": ""
+    },
+    {
+      "date": "2026-03-17",
+      "test_monitor_commit": "ff079145",
       "zkvm_commit": "8f2ec364",
       "isa": "rv32im",
       "suite": "act4",

@@ -1,6 +1,6 @@
 {
   "zkvm": "sp1",
-  "suite": "act4",
+  "suite": "act4-full",
   "runs": [
     {
       "date": "2026-02-20",
@@ -226,6 +226,17 @@
       "date": "2026-03-04",
       "test_monitor_commit": "ba56741a",
       "zkvm_commit": "eb86c1dee",
+      "isa": "rv32im",
+      "suite": "act4",
+      "passed": 62,
+      "failed": 2,
+      "total": 64,
+      "notes": ""
+    },
+    {
+      "date": "2026-03-17",
+      "test_monitor_commit": "ff079145",
+      "zkvm_commit": "213fc1ab",
       "isa": "rv32im",
       "suite": "act4",
       "passed": 62,
