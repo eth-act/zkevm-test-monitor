@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ZKVM Detail - ZKVM Test Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        h1 { margin-bottom: 10px; color: #333; }
+        h2 { margin: 30px 0 15px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }
+        h3 { margin: 20px 0 10px; color: #495057; }
+        .metadata {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            margin-bottom: 30px;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        tr:hover { background: #f8f9fa; }
+        .pass { color: #28a745; font-weight: 600; }
+        .fail { color: #dc3545; font-weight: 600; }
+        .none { color: #6c757d; }
+        .badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-fail { background: #f8d7da; color: #721c24; }
+        .badge-skip { background: #e2e3e5; color: #383d41; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .commit-link { font-family: monospace; }
+        .back-link { margin-bottom: 20px; display: inline-block; }
+        #loading { text-align: center; padding: 40px; color: #666; }
+        #error { text-align: center; padding: 40px; color: #dc3545; display: none; }
+        .suite-section { margin-bottom: 40px; }
+        .suite-header {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .suite-header span { margin-right: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&larr; Back to summary</a>
+        <div class="nav-header">
+            <h1 id="title">Loading...</h1>
+        </div>
+
+        <div id="loading">Loading ZKVM data...</div>
+        <div id="error"></div>
+        <div id="content" style="display: none;"></div>
+    </div>
+
+    <script>
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name');
+
+    if (!name) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Missing ?name= parameter';
+    } else {
+        document.getElementById('title').textContent = `${name.toUpperCase()} - Test Results`;
+        document.title = `${name.toUpperCase()} - ZKVM Test Monitor`;
+        loadDetail();
+    }
+
+    function statusBadge(status) {
+        if (!status) return '<span class="badge badge-skip">skip</span>';
+        if (status === 'success') return '<span class="badge badge-success">success</span>';
+        return '<span class="badge badge-fail">fail</span>';
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '&mdash;';
+        if (dateStr.includes('T')) return dateStr.split('T')[0];
+        return dateStr;
+    }
+
+    function commitShort(commit) {
+        if (!commit || commit === 'unknown') return 'unknown';
+        return commit.substring(0, 8);
+    }
+
+    function renderTestTable(tests, showProveVerify) {
+        if (!tests || tests.length === 0) return '<p class="none">No per-test data available.</p>';
+
+        const headers = showProveVerify
+            ? '<th>Test Name</th><th>Extension</th><th>Execute</th><th>Prove</th><th>Verify</th>'
+            : '<th>Test Name</th><th>Extension</th><th>Status</th>';
+
+        const rows = tests.map(t => {
+            const execStatus = t.passed
+                ? '<span class="pass">PASS</span>'
+                : '<span class="fail">FAIL</span>';
+
+            if (showProveVerify) {
+                return `<tr>
+                    <td>${t.name}</td>
+                    <td><code>${t.extension || ''}</code></td>
+                    <td>${execStatus}</td>
+                    <td>${statusBadge(t.prove_status)}</td>
+                    <td>${statusBadge(t.verify_status)}</td>
+                </tr>`;
+            }
+            return `<tr>
+                <td>${t.name}</td>
+                <td><code>${t.extension || ''}</code></td>
+                <td>${execStatus}</td>
+            </tr>`;
+        }).join('');
+
+        return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function renderHistoryTable(runs, repoUrl) {
+        if (!runs || runs.length === 0) return '<p class="none">No history available.</p>';
+
+        const rows = runs.slice().reverse().map(r => {
+            const cls = r.passed === r.total ? 'pass' : 'fail';
+            const commitUrl = repoUrl ? `${repoUrl}/commit/${r.commit || r.zkvm_commit}` : '#';
+            const commit = r.commit || r.zkvm_commit || 'unknown';
+            return `<tr>
+                <td>${formatDate(r.date)}</td>
+                <td><a href="${commitUrl}" class="commit-link">${commitShort(commit)}</a></td>
+                <td class="${cls}">${r.passed}</td>
+                <td class="${r.failed > 0 ? 'fail' : 'pass'}">${r.failed}</td>
+                <td>${r.total}</td>
+            </tr>`;
+        }).join('');
+
+        return `<table>
+            <thead><tr><th>Date</th><th>Commit</th><th>Passed</th><th>Failed</th><th>Total</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    async function loadDetail() {
+        try {
+            const config = await fetch('../config.json').then(r => r.json());
+            const zkvm = config.zkvms[name];
+            if (!zkvm) throw new Error(`Unknown ZKVM: ${name}`);
+
+            const fullHistory = await fetch(`../data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
+            const stdHistory = await fetch(`../data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+
+            const fullRun = fullHistory?.runs?.at(-1);
+            const stdRun = stdHistory?.runs?.at(-1);
+
+            let html = '';
+
+            // Metadata
+            html += `<div class="metadata">
+                <strong>Repository:</strong> <a href="${zkvm.repo_url}">${zkvm.repo_url}</a><br>
+                <strong>ISA:</strong> <code>${zkvm.isa}</code><br>
+                <strong>Commit:</strong> <a href="${zkvm.repo_url}/commit/${fullRun?.commit || stdRun?.commit || zkvm.commit}" class="commit-link">${commitShort(fullRun?.commit || stdRun?.commit || zkvm.commit)}</a>
+            </div>`;
+
+            // Latest Run — Full ISA
+            html += '<h2>Latest Run</h2>';
+
+            if (fullRun) {
+                const cls = fullRun.passed === fullRun.total ? 'pass' : 'fail';
+                html += `<div class="suite-section">
+                    <h3>Full ISA (act4-full)</h3>
+                    <div class="suite-header">
+                        <span>Date: ${formatDate(fullRun.date)}</span>
+                        <span class="${cls}">${fullRun.passed}/${fullRun.total} passed</span>
+                    </div>
+                    ${renderTestTable(fullRun.tests, false)}
+                </div>`;
+            } else {
+                html += '<div class="suite-section"><h3>Full ISA (act4-full)</h3><p class="none">No data available.</p></div>';
+            }
+
+            // Latest Run — Standard ISA
+            if (stdRun) {
+                const cls = stdRun.passed === stdRun.total ? 'pass' : 'fail';
+                const hasProveVerify = stdRun.tests?.some(t => t.prove_status || t.verify_status);
+                html += `<div class="suite-section">
+                    <h3>Standard ISA (act4-standard)</h3>
+                    <div class="suite-header">
+                        <span>Date: ${formatDate(stdRun.date)}</span>
+                        <span class="${cls}">${stdRun.passed}/${stdRun.total} passed</span>
+                    </div>
+                    ${renderTestTable(stdRun.tests, hasProveVerify)}
+                </div>`;
+            } else {
+                html += '<div class="suite-section"><h3>Standard ISA (act4-standard)</h3><p class="none">No data available.</p></div>';
+            }
+
+            // History
+            html += '<h2>Run History</h2>';
+
+            if (fullHistory?.runs) {
+                html += `<div class="suite-section">
+                    <h3>Full ISA (act4-full)</h3>
+                    ${renderHistoryTable(fullHistory.runs, zkvm.repo_url)}
+                </div>`;
+            }
+
+            if (stdHistory?.runs) {
+                html += `<div class="suite-section">
+                    <h3>Standard ISA (act4-standard)</h3>
+                    ${renderHistoryTable(stdHistory.runs, zkvm.repo_url)}
+                </div>`;
+            }
+
+            document.getElementById('content').innerHTML = html;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+        } catch (e) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = `Failed to load data: ${e.message}`;
+        }
+    }
+    </script>
+</body>
+</html>
