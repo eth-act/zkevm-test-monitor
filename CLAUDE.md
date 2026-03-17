@@ -26,8 +26,7 @@ data/history/           # Historical pass/fail tracking
 ./run build airbender       # Build airbender binary via Docker
 ./run test airbender        # Run ACT4 compliance tests for airbender
 ./run test                  # Run ACT4 tests for all ZKVMs
-./run all airbender         # Build + test + update dashboard
-./run update                # Regenerate dashboard HTML
+./run all airbender         # Build + test
 ./run serve                 # Serve dashboard at localhost:8000
 ./run clean                 # Remove binaries/ and test-results/
 ```
