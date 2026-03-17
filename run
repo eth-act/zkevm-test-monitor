@@ -8,32 +8,25 @@ shift || true
 
 case "$CMD" in
     build)
-        echo "🔨 Building ZKVMs: ${@:-all}"
+        echo "Building ZKVMs: ${@:-all}"
         ./src/build.sh "$@"
         ;;
 
     test)
         DISPLAY_TARGETS="${@:-all}"
-        echo "🧪 Testing ZKVMs: ${DISPLAY_TARGETS}"
+        echo "Testing ZKVMs: ${DISPLAY_TARGETS}"
         ./src/test.sh "$@"
-        uv run --with pyyaml src/update.py
-        ;;
-
-    update)
-        echo "📊 Updating dashboard"
-        uv run --with pyyaml src/update.py
         ;;
 
     all)
         DISPLAY_TARGETS="${@:-all}"
-        echo "🚀 Building and testing: ${DISPLAY_TARGETS}"
+        echo "Building and testing: ${DISPLAY_TARGETS}"
         ./src/build.sh "$@"
         ./src/test.sh "$@"
-        uv run --with pyyaml src/update.py
         ;;
 
     serve)
-        echo "🌐 Server at http://localhost:8000/"
+        echo "Server at http://localhost:8000/"
         echo "   Press Ctrl+C to stop"
         cd docs && python3 -m http.server 8000 --bind 127.0.0.1
         ;;
@@ -41,17 +34,16 @@ case "$CMD" in
     clean)
         TARGETS="${@:-all}"
         if [ "$TARGETS" = "all" ]; then
-            echo "🧹 Cleaning all artifacts"
+            echo "Cleaning all artifacts"
             ZKVMS=""
             for dir in test-results/*/; do
                 [ -d "$dir" ] && ZKVMS="$ZKVMS $(basename "$dir")"
             done
         else
-            echo "🧹 Cleaning artifacts for: $TARGETS"
+            echo "Cleaning artifacts for: $TARGETS"
             ZKVMS="$TARGETS"
         fi
         for zkvm in $ZKVMS; do
-            # Docker creates root-owned files; use a container to clean them.
             if [ -d "test-results/$zkvm/elfs" ]; then
                 docker run --rm -v "$PWD/test-results/$zkvm/elfs:/elfs" ubuntu:24.04 rm -rf /elfs/native /elfs/target 2>/dev/null || true
             fi
@@ -74,8 +66,7 @@ Usage: ./run COMMAND [OPTIONS]
 Commands:
   build [zkvm ...]          Build ZKVM binaries
   test [zkvm ...]           Run ACT4 compliance tests
-  all [zkvm ...]            Build + test + update dashboard
-  update                    Regenerate dashboard HTML
+  all [zkvm ...]            Build + test
   serve                     Start local web server at localhost:8000
   clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
 
