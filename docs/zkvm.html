@@ -262,8 +262,17 @@
             if (!run.tests || run.tests.length === 0) {
                 html += '<p class="none" style="margin-top: 20px;">No per-test data available for this run.</p>';
             } else {
-                const failures = run.tests.filter(t => !t.passed);
-                const passes = run.tests.filter(t => t.passed);
+                // A test is "fully passing" only if execution passed AND
+                // prove/verify (when present) also succeeded
+                function isFullyPassing(t) {
+                    if (!t.passed) return false;
+                    if (t.prove_status && t.prove_status !== 'success') return false;
+                    if (t.verify_status && t.verify_status !== 'success') return false;
+                    return true;
+                }
+
+                const failures = run.tests.filter(t => !isFullyPassing(t));
+                const passes = run.tests.filter(t => isFullyPassing(t));
 
                 // Failures section
                 if (failures.length > 0) {
@@ -271,18 +280,12 @@
                     html += renderFailureTable(failures, hasProveVerify);
                 }
 
-                // Passing tests section
+                // Passing tests section (compact)
                 if (passes.length > 0) {
                     html += `<h2>Passing (${passes.length})</h2>`;
-                    if (hasProveVerify) {
-                        // For prove/verify suites, show a table with status columns
-                        html += renderPassTable(passes);
-                    } else {
-                        // Compact tag list for execution-only
-                        html += '<div class="pass-list">';
-                        html += passes.map(t => `<span>${t.name}</span>`).join('');
-                        html += '</div>';
-                    }
+                    html += '<div class="pass-list">';
+                    html += passes.map(t => `<span>${t.name}</span>`).join('');
+                    html += '</div>';
                 }
             }
 
@@ -310,11 +313,14 @@
             : '<th>Test</th><th>Ext</th><th>Status</th>';
 
         const rows = tests.map(t => {
+            const execBadge = t.passed
+                ? '<span class="badge badge-success">pass</span>'
+                : '<span class="badge badge-fail">fail</span>';
             if (showProveVerify) {
                 return `<tr>
                     <td><strong>${t.name}</strong></td>
                     <td><code>${t.extension || ''}</code></td>
-                    <td><span class="fail">FAIL</span></td>
+                    <td>${execBadge}</td>
                     <td>${statusBadge(t.prove_status)}</td>
                     <td>${statusBadge(t.verify_status)}</td>
                 </tr>`;
@@ -322,23 +328,11 @@
             return `<tr>
                 <td><strong>${t.name}</strong></td>
                 <td><code>${t.extension || ''}</code></td>
-                <td><span class="fail">FAIL</span></td>
+                <td>${execBadge}</td>
             </tr>`;
         }).join('');
 
         return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
-    }
-
-    function renderPassTable(tests) {
-        const rows = tests.map(t => {
-            return `<tr>
-                <td>${t.name}</td>
-                <td><code>${t.extension || ''}</code></td>
-                <td>${statusBadge(t.prove_status)}</td>
-                <td>${statusBadge(t.verify_status)}</td>
-            </tr>`;
-        }).join('');
-        return `<table><thead><tr><th>Test</th><th>Ext</th><th>Prove</th><th>Verify</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 
     function showError(msg) {
