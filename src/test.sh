@@ -35,9 +35,9 @@ process_results() {
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
   RUN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  # Resolve commit: check Docker image first, then config.json
-  ZKVM_COMMIT=$(docker run --rm --entrypoint cat "zkvm-${ZKVM}:latest" /commit.txt 2>/dev/null || \
-    jq -r ".zkvms.${ZKVM}.commit // \"unknown\"" config.json 2>/dev/null || echo "unknown")
+  # Resolve commit from the binary that actually ran the tests.
+  # No fallbacks — if we can't determine the commit, say so.
+  ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || echo "unknown")
 
   for SUITE_TYPE in full standard; do
     if [ "$SUITE_TYPE" = "full" ]; then
@@ -259,6 +259,12 @@ run_jolt_split_pipeline() {
   local ZKVM=jolt
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
+
+  # Record jolt commit from the local repo (where jolt-prover was built)
+  mkdir -p data/commits
+  if [ -d "jolt/.git" ]; then
+    git -C jolt rev-parse HEAD 2>/dev/null | head -c 8 > "data/commits/jolt.txt"
+  fi
 
   # jolt-prover handles both execution (trace) and proving
   if [ ! -f "binaries/jolt-prover" ]; then
