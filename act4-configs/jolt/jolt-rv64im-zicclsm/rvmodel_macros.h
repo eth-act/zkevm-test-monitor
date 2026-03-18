@@ -19,7 +19,7 @@
   write_tohost_pass:      ;\
     sw x1, 0(t0)          ;\
     sw x0, 4(t0)          ;\
-    j write_tohost_pass   ;\
+    j .                   ;\
 
 #define RVMODEL_HALT_FAIL \
   li x1, 3                ;\
@@ -27,7 +27,7 @@
   write_tohost_fail:      ;\
     sw x1, 0(t0)          ;\
     sw x0, 4(t0)          ;\
-    j write_tohost_fail   ;\
+    j .                   ;\
 
 #define RVMODEL_IO_INIT(_R1, _R2, _R3)
 
