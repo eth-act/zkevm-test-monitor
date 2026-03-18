@@ -39,44 +39,47 @@ def wrap_elf(elf_path: str, boot_bin: bytes) -> bool:
     if test_entry is None:
         return False
 
-    # Patch boot code: replace j . at 0x40-0x43 with jump to test_entry
+    # Find the exit-point j . in boot code.
+    # The boot code has multiple j . (c.j 0 = 0xa001): dead code at 0x40,
+    # normal exit at 0xe3a (after writing termination bit), error handler at 0x1660.
+    # We patch the SECOND one (0xe3a) — the normal exit after main() returns.
     boot = bytearray(boot_bin)
-    jal_src = BOOT_VADDR + 0x40
+    j_dot_positions = []
+    for i in range(0, len(boot) - 1, 2):
+        if boot[i] == 0x01 and boot[i + 1] == 0xa0:
+            j_dot_positions.append(i)
+    if len(j_dot_positions) < 2:
+        print(f"  Warning: expected >=2 j . in boot code, found {len(j_dot_positions)}")
+        return False
+    exit_offset = j_dot_positions[1]  # second j . = normal exit
+    jal_src = BOOT_VADDR + exit_offset
 
-    # Compute jump target — may need indirect jump if too far
-    offset = test_entry - jal_src
-    if abs(offset) < (1 << 20):
-        # Direct JAL
-        imm = offset & ((1 << 21) - 1)
-        imm20     = (imm >> 20) & 0x1
-        imm_10_1  = (imm >> 1)  & 0x3FF
-        imm11     = (imm >> 11) & 0x1
-        imm_19_12 = (imm >> 12) & 0xFF
-        word = (imm20 << 31) | (imm_10_1 << 21) | (imm11 << 20) | (imm_19_12 << 12) | 0x6F
-        boot[0x40:0x44] = struct.pack("<I", word)
+    # Append trampoline at end of boot code: auipc t1, hi; jalr x0, lo(t1)
+    # Uses PC-relative addressing which works correctly on RV64 (no sign-extension issues).
+    tramp_offset = len(boot)
+    tramp_addr = BOOT_VADDR + tramp_offset
+    pc_offset = test_entry - tramp_addr
+    # Split into hi20 + lo12 with sign correction
+    lo12 = pc_offset & 0xFFF
+    if lo12 >= 0x800:
+        lo12 -= 0x1000
+        hi20 = ((pc_offset - lo12) >> 12) & 0xFFFFF
     else:
-        # Indirect: append trampoline at end of boot code
-        # lui t1, hi20(test_entry); jalr x0, lo12(t1)
-        hi = ((test_entry + 0x800) >> 12) & 0xFFFFF
-        lo = test_entry & 0xFFF
-        if lo >= 0x800:
-            lo = lo - 0x1000
-        lui = (hi << 12) | (6 << 7) | 0x37  # lui t1, hi
-        jalr = ((lo & 0xFFF) << 20) | (6 << 15) | 0x67  # jalr x0, lo(t1)
+        hi20 = (pc_offset >> 12) & 0xFFFFF
+    auipc = (hi20 << 12) | (6 << 7) | 0x17     # auipc t1, hi20
+    jalr  = ((lo12 & 0xFFF) << 20) | (6 << 15) | 0x67  # jalr x0, lo12(t1)
+    boot.extend(struct.pack("<II", auipc, jalr))
 
-        tramp_offset = len(boot)
-        boot.extend(struct.pack("<II", lui, jalr))
-
-        # Patch 0x40 with j to trampoline (should be in range)
-        tramp_addr = BOOT_VADDR + tramp_offset
-        t_offset = tramp_addr - jal_src
-        imm = t_offset & ((1 << 21) - 1)
-        imm20     = (imm >> 20) & 0x1
-        imm_10_1  = (imm >> 1)  & 0x3FF
-        imm11     = (imm >> 11) & 0x1
-        imm_19_12 = (imm >> 12) & 0xFF
-        word = (imm20 << 31) | (imm_10_1 << 21) | (imm11 << 20) | (imm_19_12 << 12) | 0x6F
-        boot[0x40:0x44] = struct.pack("<I", word)
+    # Patch exit j . with 4-byte JAL to trampoline
+    # The j . (2 bytes) + unimp (2 bytes) = 4 bytes available
+    t_offset = tramp_addr - jal_src
+    imm = t_offset & ((1 << 21) - 1)
+    imm20     = (imm >> 20) & 0x1
+    imm_10_1  = (imm >> 1)  & 0x3FF
+    imm11     = (imm >> 11) & 0x1
+    imm_19_12 = (imm >> 12) & 0xFF
+    word = (imm20 << 31) | (imm_10_1 << 21) | (imm11 << 20) | (imm_19_12 << 12) | 0x6F
+    boot[exit_offset:exit_offset + 4] = struct.pack("<I", word)
 
     # Write patched boot code to temp file
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
