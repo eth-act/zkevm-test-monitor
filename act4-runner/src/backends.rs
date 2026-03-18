@@ -361,24 +361,23 @@ fn run_jolt(
             });
         }
 
-        // 2. Prove (and optionally verify)
+        // 2. Prove
         let tmp_dir = tempfile::tempdir()?;
         let prove_start = Instant::now();
 
-        let mut cmd = Command::new(jolt_prover);
-        cmd.args(["prove"]).arg(elf_path);
-        cmd.arg("-o").arg(tmp_dir.path());
-        if mode == Mode::Full {
-            cmd.arg("--verify");
-        }
-
-        let prove_output = cmd.output()?;
+        let prove_output = Command::new(jolt_prover)
+            .args(["prove"])
+            .arg(elf_path)
+            .arg("-o").arg(tmp_dir.path())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()?;
         let prove_duration = prove_start.elapsed();
 
         if !prove_output.status.success() {
             let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
             eprintln!(
-                "jolt-prover failed for {}: {}",
+                "jolt-prover prove failed for {}: {}",
                 elf_path.display(),
                 prove_stderr.lines().last().unwrap_or("(no output)"),
             );
@@ -396,8 +395,27 @@ fn run_jolt(
         let proof_path = tmp_dir.path().join("proof.bin");
         let proof_written = proof_path.exists();
 
+        // 3. Verify (separate step so we can distinguish prove vs verify failure)
         let verify_status = if mode == Mode::Full {
-            Some("success".to_string())
+            let verify_output = Command::new(jolt_prover)
+                .args(["prove"])
+                .arg(elf_path)
+                .arg("--verify")
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .output()?;
+
+            if verify_output.status.success() {
+                Some("success".to_string())
+            } else {
+                let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
+                eprintln!(
+                    "jolt-prover verify failed for {}: {}",
+                    elf_path.display(),
+                    verify_stderr.lines().last().unwrap_or("(no output)"),
+                );
+                Some("failed".to_string())
+            }
         } else {
             None
         };
