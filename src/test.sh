@@ -254,6 +254,126 @@ run_zisk_split_pipeline() {
   process_results "$ZKVM"
 }
 
+# run_jolt_split_pipeline — ELF generation in Docker, test execution + proving on host
+run_jolt_split_pipeline() {
+  local ZKVM=jolt
+  local ELF_DIR="test-results/${ZKVM}/elfs"
+  local DOCKER_DIR="docker/${ZKVM}"
+
+  # Check required binary
+  if [ ! -f "binaries/jolt-binary" ]; then
+    echo "  Error: binaries/jolt-binary not found. Run './run build jolt' first."
+    return 1
+  fi
+
+  # Auto-detect proving capability
+  local HAS_PROVER=0
+  if [ -f "binaries/jolt-prover" ]; then
+    HAS_PROVER=1
+    echo "  Jolt prover detected — proving will be enabled for target suite"
+  fi
+
+  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
+  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+    local NATIVE_COUNT
+    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
+    if [ "$NATIVE_COUNT" -gt 0 ]; then
+      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
+    fi
+  else
+    echo "Building Docker image for $ZKVM (ELF generation)..."
+    docker build -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+      echo "Failed to build Docker image for $ZKVM"
+      return 1
+    }
+
+    # Clean old ELFs before regenerating
+    rm -rf "$ELF_DIR" 2>/dev/null || \
+      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
+    rm -rf "$ELF_DIR" 2>/dev/null
+    mkdir -p "$ELF_DIR"
+
+    JOBS_ARG=""
+    if [ -n "${ACT4_JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
+    elif [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    fi
+
+    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
+    docker run --rm \
+      ${JOBS_ARG} \
+      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/$ELF_DIR:/elfs" \
+      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
+      return 1
+    }
+  fi
+
+  # Build act4-runner if needed
+  local RUNNER="act4-runner/target/release/act4-runner"
+  if [ ! -x "$RUNNER" ]; then
+    echo "  Building act4-runner..."
+    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build act4-runner"
+      return 1
+    }
+  fi
+
+  mkdir -p "test-results/${ZKVM}"
+
+  # Determine job count for act4-runner
+  local RUNNER_JOBS=""
+  if [ -n "${ACT4_JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${ACT4_JOBS}"
+  elif [ -n "${JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${JOBS}"
+  fi
+
+  # Run native suite — always execute-only
+  if [ -d "$ELF_DIR/native" ]; then
+    echo "Running $ZKVM native suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm jolt --binary binaries/jolt-binary \
+      --elf-dir "$ELF_DIR/native" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-full \
+      --label full-isa \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
+  # Run target suite — prove if prover is available
+  if [ -d "$ELF_DIR/target" ]; then
+    if [ "$HAS_PROVER" = "1" ]; then
+      echo "Running $ZKVM target suite (mode: full)..."
+      "$RUNNER" \
+        --zkvm jolt-prove --binary binaries/jolt-binary \
+        --jolt-prover binaries/jolt-prover \
+        --elf-dir "$ELF_DIR/target" \
+        --output-dir "test-results/${ZKVM}" \
+        --suite act4-standard \
+        --label standard-isa \
+        --mode full \
+        $RUNNER_JOBS || true
+    else
+      echo "Running $ZKVM target suite (mode: execute)..."
+      "$RUNNER" \
+        --zkvm jolt --binary binaries/jolt-binary \
+        --elf-dir "$ELF_DIR/target" \
+        --output-dir "test-results/${ZKVM}" \
+        --suite act4-standard \
+        --label standard-isa \
+        --mode execute \
+        $RUNNER_JOBS || true
+    fi
+  fi
+
+  process_results "$ZKVM"
+}
+
 # run_legacy_pipeline <zkvm> — original Docker-based test execution
 run_legacy_pipeline() {
   local ZKVM="$1"
@@ -312,6 +432,8 @@ run_legacy_pipeline() {
 for ZKVM in $ZKVMS; do
   if [ "$ZKVM" = "zisk" ]; then
     run_zisk_split_pipeline || true
+  elif [ "$ZKVM" = "jolt" ]; then
+    run_jolt_split_pipeline || true
   else
     run_legacy_pipeline "$ZKVM" || true
   fi

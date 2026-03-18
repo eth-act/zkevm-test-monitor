@@ -83,7 +83,17 @@ for ZKVM in $ZKVMS; do
   # Create a temporary container, copy binaries, and clean up
   CONTAINER_ID=$(docker create zkvm-${ZKVM}:latest)
 
-  if [ "$ZKVM" = "zisk" ]; then
+  if [ "$ZKVM" = "jolt" ]; then
+    # Jolt produces both jolt-emu (emulator) and jolt-prover (proving CLI)
+    docker cp "$CONTAINER_ID:/usr/local/bin/jolt-emu" "binaries/jolt-binary" || {
+      echo "  ❌ Failed to extract jolt-emu for $ZKVM"
+      docker rm "$CONTAINER_ID" > /dev/null 2>&1
+      continue
+    }
+    docker cp "$CONTAINER_ID:/usr/local/bin/jolt-prover" "binaries/jolt-prover" 2>/dev/null || \
+      echo "  Warning: jolt-prover not found (proving will not work)"
+    chmod +x binaries/jolt-binary binaries/jolt-prover 2>/dev/null || true
+  elif [ "$ZKVM" = "zisk" ]; then
     # Zisk produces multiple artifacts via /output/ entrypoint
     docker cp "$CONTAINER_ID:/usr/local/bin/ziskemu" "binaries/zisk-binary" || {
       echo "  ❌ Failed to extract ziskemu for $ZKVM"
@@ -183,10 +193,8 @@ for ZKVM in $ZKVMS; do
     if [ "$ZKVM" = "pico" ] && [ -f "binaries/cargo-pico" ]; then
       mv "binaries/cargo-pico" "binaries/pico-binary"
     fi
-    if [ "$ZKVM" = "jolt" ] && [ -f "binaries/jolt-emu" ]; then
-      mv "binaries/jolt-emu" "binaries/jolt-binary"
-    fi
   fi
 
+  docker rm "$CONTAINER_ID" > /dev/null 2>&1 || true
   echo "  ✅ Built ${ZKVM}"
 done

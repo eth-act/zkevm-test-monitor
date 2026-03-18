@@ -3,46 +3,55 @@ set -eu
 
 # ACT4 Jolt test runner
 #
-# Expected mounts:
+# Modes:
+#   ELF-only mode: mount /elfs → generates ELFs and copies them to /elfs/{native,target}
+#   Legacy mode:   mount /dut/jolt-binary + /results → generates ELFs, runs tests, writes JSON
+#
+# Expected mounts (legacy):
 #   /dut/jolt-binary                — the Jolt CLI binary (ELF is positional arg)
 #   /act4/config/jolt               — Jolt ACT4 config directory (host act4-configs/jolt)
 #   /results/                       — output directory for summary JSON
+#
+# Expected mounts (ELF-only):
+#   /act4/config/jolt               — Jolt ACT4 config directory
+#   /elfs/                          — output directory for generated ELFs
 
-DUT=/dut/jolt-binary
 ZKVM=jolt
-RESULTS=/results
 WORKDIR=/act4/work
 
-if [ ! -x "$DUT" ]; then
-    echo "Error: No executable found at $DUT"
-    exit 1
+# Detect ELF-generation-only mode (split pipeline)
+ELF_ONLY=0
+if [ -d "/elfs" ]; then
+    ELF_ONLY=1
+fi
+
+# In legacy mode, require the DUT binary
+if [ "$ELF_ONLY" = "0" ]; then
+    DUT=/dut/jolt-binary
+    RESULTS=/results
+    if [ ! -x "$DUT" ]; then
+        echo "Error: No executable found at $DUT"
+        exit 1
+    fi
+    mkdir -p "$RESULTS"
 fi
 
 cd /act4
-mkdir -p "$RESULTS"
 JOBS="${ACT4_JOBS:-$(nproc)}"
 
-# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
+# generate_elfs <config-path> <config-name> <extensions-list> <extensions-txt-entries> <elf-output-label>
 #
-# Generates Makefiles, compiles ELFs, runs them, and writes summary + per-test JSON.
-# summary-suffix: "" for native, "-target" for ETH-ACT target
-run_act4_suite() {
+# Generates Makefiles and compiles self-checking ELFs.
+# elf-output-label: "native" or "target" (used for /elfs/ subdirectory in ELF-only mode)
+generate_elfs() {
     local CONFIG="$1"
     local CONFIG_NAME="$2"
     local EXTENSIONS="$3"
     local EXT_TXT="$4"
-    local SUFFIX="$5"
-    # Derive file label from suffix
-    local FILE_LABEL
-    if [ -z "$SUFFIX" ]; then
-        FILE_LABEL="full-isa"
-    else
-        FILE_LABEL="standard-isa"
-    fi
 
     if [ ! -f "/act4/$CONFIG" ]; then
-        echo "⚠️  Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
-        return
+        echo "Warning: Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
+        return 1
     fi
 
     # Pre-generate extensions.txt to skip UDB validation (which requires Podman/Docker
@@ -53,39 +62,75 @@ run_act4_suite() {
     # Touch with future timestamp to ensure it's always newer than the mounted config
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
 
-    # Generate Makefiles and compile self-checking ELFs.
-    # The 'act' tool reads the DUT config, generates a Makefile, then invokes Sail
-    # to compute expected register values which are baked directly into the ELFs.
+    # Generate and compile self-checking ELFs.
+    # The 'act' tool generates Makefiles, invokes Sail for expected values,
+    # and compiles ELFs in one step.
     echo ""
-    echo "=== Generating Makefiles for $CONFIG_NAME ==="
+    echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
         --extensions "$EXTENSIONS"
-
-    echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
-    # Must compile from top-level workdir so common ELF dependencies are built first.
-    make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$ELF_COUNT" -eq 0 ]; then
         echo "Error: No ELFs found in $ELF_DIR after compilation"
+        return 1
+    fi
+    echo "=== Generated $ELF_COUNT ELFs for $CONFIG_NAME ==="
+
+    # Patch data words in .text with NOPs for prover compatibility.
+    # ACT4's SELFCHECK embeds .dword pointers after jal failedtest_* calls;
+    # jolt's prover pre-scans all .text bytes as instructions and panics on these.
+    echo "=== Patching ELFs for $CONFIG_NAME (replacing data words with NOPs) ==="
+    python3 /act4/patch_elfs.py "$ELF_DIR"
+}
+
+# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix> <elf-output-label>
+#
+# Generates ELFs, runs them (legacy) or copies them (ELF-only), and writes results.
+run_act4_suite() {
+    local CONFIG="$1"
+    local CONFIG_NAME="$2"
+    local EXTENSIONS="$3"
+    local EXT_TXT="$4"
+    local SUFFIX="$5"
+    local OUTPUT_LABEL="$6"
+    # Derive file label from suffix
+    local FILE_LABEL
+    if [ -z "$SUFFIX" ]; then
+        FILE_LABEL="full-isa"
+    else
+        FILE_LABEL="standard-isa"
+    fi
+
+    generate_elfs "$CONFIG" "$CONFIG_NAME" "$EXTENSIONS" "$EXT_TXT" || return
+
+    local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
+
+    # ELF-only mode: copy ELFs to output and return
+    if [ "$ELF_ONLY" = "1" ]; then
+        mkdir -p "/elfs/$OUTPUT_LABEL"
+        cp -rL "$ELF_DIR"/* "/elfs/$OUTPUT_LABEL/"
+        local COUNT
+        COUNT=$(find "/elfs/$OUTPUT_LABEL" -name "*.elf" | wc -l)
+        echo "=== Copied $COUNT ELFs to /elfs/$OUTPUT_LABEL ==="
         return
     fi
+
+    # Legacy mode: run tests and write results
+    local ELF_COUNT
+    ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
     echo "=== Running $ELF_COUNT tests with Jolt ($CONFIG_NAME) ==="
 
     # run_tests.py exits 0 if all pass, 1 if any fail.
-    # Capture output for parsing; allow non-zero exit.
     local RUN_OUTPUT
     RUN_OUTPUT=$(python3 /act4/run_tests.py "$DUT" "$ELF_DIR" -j "$JOBS" 2>&1) || true
     echo "$RUN_OUTPUT"
 
     # Parse results from run_tests.py output.
-    # Possible formats:
-    #   "\tX out of N tests failed."  → X failures, N total
-    #   "\tAll N tests passed."       → 0 failures, N total
     local FAILED TOTAL PASSED
     FAILED=$(echo "$RUN_OUTPUT" | grep -oE '[0-9]+ out of [0-9]+ tests failed' | grep -oE '^[0-9]+' || echo "0")
     TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
@@ -102,9 +147,7 @@ run_act4_suite() {
 }
 EOF
 
-    # Generate per-test results JSON (enumerate ELFs, mark failed ones).
-    # Pass authoritative PASSED count so tests that failed silently (timeout/kill)
-    # are not incorrectly marked as passed.
+    # Generate per-test results JSON
     python3 -c "
 import json, os, re
 
@@ -112,14 +155,12 @@ elf_dir = '$ELF_DIR'
 run_output = '''$RUN_OUTPUT'''
 expected_passed = $PASSED
 
-# Parse failed test names from run_tests.py output
 failed_names = set()
 for line in run_output.splitlines():
     m = re.match(r'\tTest (\S+\.elf) failed', line)
     if m:
         failed_names.add(m.group(1))
 
-# Enumerate all ELFs and build per-test results
 tests = []
 for root, dirs, files in os.walk(elf_dir):
     for f in sorted(files):
@@ -135,9 +176,6 @@ for root, dirs, files in os.walk(elf_dir):
 
 tests.sort(key=lambda t: (t['extension'], t['name']))
 
-# Cross-check: if parsed pass count doesn't match the authoritative count,
-# some tests failed silently (timeout/OOM). Mark all as failed since we
-# can't reliably distinguish which ones truly passed.
 parsed_passed = sum(1 for t in tests if t['passed'])
 if parsed_passed != expected_passed:
     for t in tests:
@@ -164,7 +202,8 @@ run_act4_suite \
     "jolt-rv64im" \
     "I,M,Zaamo,Zalrsc,Zca" \
     "$(printf 'I\nM\nZaamo\nZalrsc\nZca\nZicsr\nSm')" \
-    "" || true
+    "" \
+    "native" || true
 
 # ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
 run_act4_suite \
@@ -172,7 +211,8 @@ run_act4_suite \
     "jolt-rv64im-zicclsm" \
     "I,M,Misalign" \
     "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
-    "-target" || true
+    "-target" \
+    "target" || true
 
 echo ""
 echo "=== All ACT4 suites complete ==="

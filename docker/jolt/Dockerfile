@@ -59,7 +59,8 @@ RUN uv run make tests EXTENSIONS=I,M,Zaamo,Zalrsc,Zca,Misalign
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results
 
+COPY docker/shared/patch_elfs.py /act4/patch_elfs.py
 COPY docker/jolt/entrypoint.sh /act4/entrypoint.sh
-RUN chmod +x /act4/entrypoint.sh
+RUN chmod +x /act4/patch_elfs.py /act4/entrypoint.sh
 
 ENTRYPOINT ["/act4/entrypoint.sh"]
