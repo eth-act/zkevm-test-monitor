@@ -44,13 +44,17 @@ struct Cli {
     jobs: Option<usize>,
 
     /// Execution mode: execute (emulation only), prove (emulate + prove),
-    /// full (emulate + prove + verify). Only used by zisk-ere.
+    /// full (emulate + prove + verify). Used by jolt-prove and zisk-prove.
     #[arg(long, default_value = "execute")]
     mode: String,
 
     /// Path to cargo-zisk binary (for zisk-prove backend).
     #[arg(long)]
     cargo_zisk: Option<PathBuf>,
+
+    /// Path to jolt-prover binary (for jolt-prove backend).
+    #[arg(long)]
+    jolt_prover: Option<PathBuf>,
 
     /// Path to libzisk_witness.so (required for zisk-prove on v0.15.0).
     #[arg(long)]
@@ -97,6 +101,16 @@ fn main() {
                 .clone()
                 .unwrap_or_else(|| cli.output_dir.join("proofs")),
         },
+        "jolt" => Backend::Jolt {
+            binary: require_binary(&cli),
+        },
+        "jolt-prove" => Backend::JoltProve {
+            jolt_emu: require_binary(&cli),
+            jolt_prover: cli.jolt_prover.clone().unwrap_or_else(|| {
+                eprintln!("error: --jolt-prover is required for zkvm 'jolt-prove'");
+                process::exit(2);
+            }),
+        },
         "openvm" => Backend::OpenVM {
             binary: require_binary(&cli),
         },
@@ -113,7 +127,7 @@ fn main() {
             gpu: cli.gpu,
         },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, openvm, zisk, zisk-prove");
+            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, jolt-prove, openvm, zisk, zisk-prove");
             process::exit(2);
         }
     };

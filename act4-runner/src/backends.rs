@@ -9,6 +9,8 @@ use crate::elf_utils;
 pub enum Backend {
     Airbender { binary: PathBuf },
     AirbenderProve { binary: PathBuf, gpu: bool, proof_dir: PathBuf },
+    Jolt { binary: PathBuf },
+    JoltProve { jolt_emu: PathBuf, jolt_prover: PathBuf },
     OpenVM { binary: PathBuf },
     Zisk { binary: PathBuf },
     ZiskProve {
@@ -47,8 +49,9 @@ pub struct RunResult {
 impl Backend {
     /// Execute an ELF test through the backend and return the result.
     ///
-    /// For most backends, `mode` is ignored (execute-only). The `ZiskProve`
-    /// backend uses `mode` to control whether to prove and/or verify.
+    /// For most backends, `mode` is ignored (execute-only). The `JoltProve`
+    /// and `ZiskProve` backends use `mode` to control whether to prove
+    /// and/or verify.
     pub fn run_elf(&self, elf_path: &Path, mode: Mode) -> RunResult {
         let start = Instant::now();
 
@@ -56,15 +59,21 @@ impl Backend {
             Backend::AirbenderProve { binary, gpu, proof_dir } => {
                 run_airbender_prove(binary, elf_path, *gpu, proof_dir)
             }
+            Backend::JoltProve { jolt_emu, jolt_prover } => {
+                run_jolt_prove(jolt_emu, jolt_prover, elf_path, mode, start)
+            }
             Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
             _ => {
                 let (passed, exit_code) = match self {
                     Backend::Airbender { binary } => run_airbender(binary, elf_path),
+                    Backend::Jolt { binary } => run_jolt(binary, elf_path),
                     Backend::OpenVM { binary } => run_openvm(binary, elf_path),
                     Backend::Zisk { binary } => run_zisk(binary, elf_path),
-                    Backend::AirbenderProve { .. } | Backend::ZiskProve { .. } => unreachable!(),
+                    Backend::AirbenderProve { .. }
+                    | Backend::JoltProve { .. }
+                    | Backend::ZiskProve { .. } => unreachable!(),
                 };
 
                 RunResult {
@@ -315,6 +324,135 @@ fn run_airbender(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
     match inner() {
         Ok((passed, code)) => (passed, code),
         Err(_) => (false, None),
+    }
+}
+
+/// Jolt: invoke `<binary> <elf_path>`.
+///
+/// jolt-emu always exits 0 regardless of test pass/fail — it logs
+/// "Test Failed" to stderr but never calls process::exit. We parse
+/// stderr to determine the actual result.
+fn run_jolt(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
+    let output = Command::new(binary)
+        .arg(elf_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output();
+
+    match output {
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            let failed = stderr.contains("Test Failed");
+            let passed = o.status.success() && !failed;
+            (passed, o.status.code())
+        }
+        Err(_) => (false, None),
+    }
+}
+
+/// Jolt proving via `jolt-prover prove` CLI.
+///
+/// Lifecycle:
+/// 1. Execute: `jolt-emu <elf>` — parse stderr for pass/fail
+/// 2. Prove:   `jolt-prover prove <elf> -o <tmpdir> [--verify]`
+fn run_jolt_prove(
+    jolt_emu: &Path,
+    jolt_prover: &Path,
+    elf_path: &Path,
+    mode: Mode,
+    start: Instant,
+) -> RunResult {
+    let inner = || -> anyhow::Result<RunResult> {
+        // 1. Execute
+        let exec_output = Command::new(jolt_emu)
+            .arg(elf_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()?;
+        let stderr = String::from_utf8_lossy(&exec_output.stderr);
+        let failed = stderr.contains("Test Failed");
+        let passed = exec_output.status.success() && !failed;
+
+        if mode == Mode::Execute || !passed {
+            return Ok(RunResult {
+                passed,
+                exit_code: exec_output.status.code(),
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            });
+        }
+
+        // 2. Prove (and optionally verify)
+        let tmp_dir = tempfile::tempdir()?;
+        let prove_start = Instant::now();
+
+        let mut cmd = Command::new(jolt_prover);
+        cmd.args(["prove"]).arg(elf_path);
+        cmd.arg("-o").arg(tmp_dir.path());
+        if mode == Mode::Full {
+            cmd.arg("--verify");
+        }
+
+        let prove_output = cmd.output()?;
+        let prove_duration = prove_start.elapsed();
+
+        if !prove_output.status.success() {
+            let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
+            eprintln!(
+                "jolt-prover failed for {}: {}",
+                elf_path.display(),
+                prove_stderr.lines().last().unwrap_or("(no output)"),
+            );
+            return Ok(RunResult {
+                passed: true, // execution passed, proving failed
+                exit_code: Some(0),
+                duration: start.elapsed(),
+                prove_duration: Some(prove_duration),
+                proof_written: false,
+                prove_status: Some("failed".to_string()),
+                verify_status: None,
+            });
+        }
+
+        let proof_path = tmp_dir.path().join("proof.bin");
+        let proof_written = proof_path.exists();
+
+        let verify_status = if mode == Mode::Full {
+            // --verify flag handles verification during proving;
+            // if the command succeeded, verification passed.
+            Some("success".to_string())
+        } else {
+            None
+        };
+
+        Ok(RunResult {
+            passed: true,
+            exit_code: Some(0),
+            duration: start.elapsed(),
+            prove_duration: Some(prove_duration),
+            proof_written,
+            prove_status: Some("success".to_string()),
+            verify_status,
+        })
+    };
+
+    match inner() {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("error running {}: {e}", elf_path.display());
+            RunResult {
+                passed: false,
+                exit_code: None,
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            }
+        }
     }
 }
 
