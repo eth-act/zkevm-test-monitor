@@ -59,6 +59,12 @@ RUN uv run make tests EXTENSIONS=I,M,Zaamo,Zalrsc,Zca,Misalign
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results
 
+# Jolt ZeroOS boot code for proving-compatible ELFs.
+# boot.bin is the raw .text from a minimal jolt guest (built on host).
+# wrap_boot.py appends it to ELFs as a new LOAD segment and sets the entry point.
+COPY docker/jolt/boot.bin /act4/boot.bin
+COPY docker/jolt/wrap_boot.py /act4/wrap_boot.py
+
 COPY docker/shared/patch_elfs.py /act4/patch_elfs.py
 COPY docker/jolt/entrypoint.sh /act4/entrypoint.sh
 RUN chmod +x /act4/patch_elfs.py /act4/entrypoint.sh

@@ -39,6 +39,7 @@ fi
 cd /act4
 JOBS="${ACT4_JOBS:-$(nproc)}"
 
+
 # generate_elfs <config-path> <config-name> <extensions-list> <extensions-txt-entries> <elf-output-label>
 #
 # Generates Makefiles and compiles self-checking ELFs.
@@ -86,6 +87,13 @@ generate_elfs() {
     # jolt's prover pre-scans all .text bytes as instructions and panics on these.
     echo "=== Patching ELFs for $CONFIG_NAME (replacing data words with NOPs) ==="
     python3 /act4/patch_elfs.py "$ELF_DIR"
+
+    # Wrap ELFs with jolt ZeroOS boot code for prover compatibility.
+    # Appends boot code as a new LOAD segment and sets entry point.
+    if [ -f /act4/boot.bin ]; then
+        echo "=== Wrapping ELFs with jolt boot code for $CONFIG_NAME ==="
+        python3 /act4/wrap_boot.py /act4/boot.bin "$ELF_DIR"
+    fi
 }
 
 # run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix> <elf-output-label>
