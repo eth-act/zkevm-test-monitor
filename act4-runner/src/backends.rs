@@ -9,8 +9,7 @@ use crate::elf_utils;
 pub enum Backend {
     Airbender { binary: PathBuf },
     AirbenderProve { binary: PathBuf, gpu: bool, proof_dir: PathBuf },
-    Jolt { binary: PathBuf },
-    JoltProve { jolt_emu: PathBuf, jolt_prover: PathBuf },
+    Jolt { jolt_prover: PathBuf },
     OpenVM { binary: PathBuf },
     Zisk { binary: PathBuf },
     ZiskProve {
@@ -59,8 +58,8 @@ impl Backend {
             Backend::AirbenderProve { binary, gpu, proof_dir } => {
                 run_airbender_prove(binary, elf_path, *gpu, proof_dir)
             }
-            Backend::JoltProve { jolt_emu, jolt_prover } => {
-                run_jolt_prove(jolt_emu, jolt_prover, elf_path, mode, start)
+            Backend::Jolt { jolt_prover } => {
+                run_jolt(jolt_prover, elf_path, mode, start)
             }
             Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
@@ -68,11 +67,10 @@ impl Backend {
             _ => {
                 let (passed, exit_code) = match self {
                     Backend::Airbender { binary } => run_airbender(binary, elf_path),
-                    Backend::Jolt { binary } => run_jolt(binary, elf_path),
                     Backend::OpenVM { binary } => run_openvm(binary, elf_path),
                     Backend::Zisk { binary } => run_zisk(binary, elf_path),
                     Backend::AirbenderProve { .. }
-                    | Backend::JoltProve { .. }
+                    | Backend::Jolt { .. }
                     | Backend::ZiskProve { .. } => unreachable!(),
                 };
 
@@ -327,51 +325,29 @@ fn run_airbender(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
     }
 }
 
-/// Jolt: invoke `<binary> <elf_path>`.
-///
-/// jolt-emu always exits 0 regardless of test pass/fail — it logs
-/// "Test Failed" to stderr but never calls process::exit. We parse
-/// stderr to determine the actual result.
-fn run_jolt(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
-    let output = Command::new(binary)
-        .arg(elf_path)
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output();
-
-    match output {
-        Ok(o) => {
-            let stderr = String::from_utf8_lossy(&o.stderr);
-            let failed = stderr.contains("Test Failed");
-            let passed = o.status.success() && !failed;
-            (passed, o.status.code())
-        }
-        Err(_) => (false, None),
-    }
-}
-
-/// Jolt proving via `jolt-prover prove` CLI.
+/// Jolt: uses `jolt-prover` for both execution testing and proving.
 ///
 /// Lifecycle:
-/// 1. Execute: `jolt-emu <elf>` — parse stderr for pass/fail
-/// 2. Prove:   `jolt-prover prove <elf> -o <tmpdir> [--verify]`
-fn run_jolt_prove(
-    jolt_emu: &Path,
+/// 1. Execute: `jolt-prover trace <elf>` — exit 0 = pass, exit 1 = panic/fail
+/// 2. Prove:   `jolt-prover prove <elf> [--verify]`
+///
+/// The tracer uses the same code path as the prover (tracer::trace via
+/// CheckpointingTracer), not the jolt-emu run_test path.
+fn run_jolt(
     jolt_prover: &Path,
     elf_path: &Path,
     mode: Mode,
     start: Instant,
 ) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
-        // 1. Execute
-        let exec_output = Command::new(jolt_emu)
+        // 1. Execute via tracer
+        let exec_output = Command::new(jolt_prover)
+            .args(["trace"])
             .arg(elf_path)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .output()?;
-        let stderr = String::from_utf8_lossy(&exec_output.stderr);
-        let failed = stderr.contains("Test Failed");
-        let passed = exec_output.status.success() && !failed;
+        let passed = exec_output.status.success();
 
         if mode == Mode::Execute || !passed {
             return Ok(RunResult {
@@ -407,7 +383,7 @@ fn run_jolt_prove(
                 prove_stderr.lines().last().unwrap_or("(no output)"),
             );
             return Ok(RunResult {
-                passed: true, // execution passed, proving failed
+                passed: true,
                 exit_code: Some(0),
                 duration: start.elapsed(),
                 prove_duration: Some(prove_duration),
@@ -421,8 +397,6 @@ fn run_jolt_prove(
         let proof_written = proof_path.exists();
 
         let verify_status = if mode == Mode::Full {
-            // --verify flag handles verification during proving;
-            // if the command succeeded, verification passed.
             Some("success".to_string())
         } else {
             None

@@ -260,17 +260,10 @@ run_jolt_split_pipeline() {
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
 
-  # Check required binary
-  if [ ! -f "binaries/jolt-binary" ]; then
-    echo "  Error: binaries/jolt-binary not found. Run './run build jolt' first."
+  # jolt-prover handles both execution (trace) and proving
+  if [ ! -f "binaries/jolt-prover" ]; then
+    echo "  Error: binaries/jolt-prover not found. Run './run build jolt' first."
     return 1
-  fi
-
-  # Auto-detect proving capability
-  local HAS_PROVER=0
-  if [ -f "binaries/jolt-prover" ]; then
-    HAS_PROVER=1
-    echo "  Jolt prover detected — proving will be enabled for target suite"
   fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
@@ -332,11 +325,11 @@ run_jolt_split_pipeline() {
     RUNNER_JOBS="-j ${JOBS}"
   fi
 
-  # Run native suite — always execute-only
+  # Run native suite (execute-only)
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
-      --zkvm jolt --binary binaries/jolt-binary \
+      --zkvm jolt --jolt-prover binaries/jolt-prover \
       --elf-dir "$ELF_DIR/native" \
       --output-dir "test-results/${ZKVM}" \
       --suite act4-full \
@@ -345,30 +338,17 @@ run_jolt_split_pipeline() {
       $RUNNER_JOBS || true
   fi
 
-  # Run target suite — prove if prover is available
+  # Run target suite (prove + verify)
   if [ -d "$ELF_DIR/target" ]; then
-    if [ "$HAS_PROVER" = "1" ]; then
-      echo "Running $ZKVM target suite (mode: full)..."
-      "$RUNNER" \
-        --zkvm jolt-prove --binary binaries/jolt-binary \
-        --jolt-prover binaries/jolt-prover \
-        --elf-dir "$ELF_DIR/target" \
-        --output-dir "test-results/${ZKVM}" \
-        --suite act4-standard \
-        --label standard-isa \
-        --mode full \
-        $RUNNER_JOBS || true
-    else
-      echo "Running $ZKVM target suite (mode: execute)..."
-      "$RUNNER" \
-        --zkvm jolt --binary binaries/jolt-binary \
-        --elf-dir "$ELF_DIR/target" \
-        --output-dir "test-results/${ZKVM}" \
-        --suite act4-standard \
-        --label standard-isa \
-        --mode execute \
-        $RUNNER_JOBS || true
-    fi
+    echo "Running $ZKVM target suite (mode: full)..."
+    "$RUNNER" \
+      --zkvm jolt --jolt-prover binaries/jolt-prover \
+      --elf-dir "$ELF_DIR/target" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-standard \
+      --label standard-isa \
+      --mode full \
+      $RUNNER_JOBS || true
   fi
 
   process_results "$ZKVM"

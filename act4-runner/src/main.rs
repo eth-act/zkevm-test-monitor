@@ -102,12 +102,8 @@ fn main() {
                 .unwrap_or_else(|| cli.output_dir.join("proofs")),
         },
         "jolt" => Backend::Jolt {
-            binary: require_binary(&cli),
-        },
-        "jolt-prove" => Backend::JoltProve {
-            jolt_emu: require_binary(&cli),
             jolt_prover: cli.jolt_prover.clone().unwrap_or_else(|| {
-                eprintln!("error: --jolt-prover is required for zkvm 'jolt-prove'");
+                eprintln!("error: --jolt-prover is required for zkvm 'jolt'");
                 process::exit(2);
             }),
         },
@@ -127,7 +123,7 @@ fn main() {
             gpu: cli.gpu,
         },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, jolt-prove, openvm, zisk, zisk-prove");
+            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, openvm, zisk, zisk-prove");
             process::exit(2);
         }
     };

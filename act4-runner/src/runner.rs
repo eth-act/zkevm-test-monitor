@@ -55,7 +55,7 @@ fn collect_elfs(dir: &Path, out: &mut Vec<PathBuf>) {
 pub fn default_jobs(zkvm: &str) -> usize {
     match zkvm {
         "airbender-prove" => 1, // GPU: one prove at a time
-        "jolt-prove" => {
+        "jolt" => {
             // Jolt proving is memory-intensive (~16 GB per instance)
             let mem_bytes = read_available_memory_bytes().unwrap_or(0);
             let by_mem = (mem_bytes as f64 * 0.8 / 16_000_000_000.0) as usize;
