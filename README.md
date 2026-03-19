@@ -1,3 +1,5 @@
+⚠️⚠️ This monitor is currently undergoing a major overhaul. Updates are paused until that work is complete. ⚠️⚠️
+
 # ZKVM Test Monitor
 
 A simplified, robust testing framework for Zero-Knowledge Virtual Machines (ZKVMs) using RISC-V compliance tests.
