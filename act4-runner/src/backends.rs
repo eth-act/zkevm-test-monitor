@@ -149,7 +149,16 @@ fn run_zisk_prove(
         cmd.process_group(0);
         cmd.args(["prove", "--elf"]).arg(elf_path);
         if let Some(wl) = witness_lib {
-            cmd.arg("--witness-lib").arg(wl);
+            // v0.15.0 requires --witness-lib; v0.16.0+ removed the flag (built-in).
+            // Only pass it if the cargo-zisk binary actually accepts it.
+            let help_out = Command::new(cargo_zisk)
+                .args(["prove", "--help"])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).contains("--witness-lib"))
+                .unwrap_or(false);
+            if help_out {
+                cmd.arg("--witness-lib").arg(wl);
+            }
         }
         cmd.arg("--emulator");
         cmd.args(["-o"]).arg(tmp_dir.path());
@@ -204,7 +213,14 @@ fn run_zisk_prove(
             retry_cmd.process_group(0);
             retry_cmd.args(["prove", "--elf"]).arg(elf_path);
             if let Some(wl) = witness_lib {
-                retry_cmd.arg("--witness-lib").arg(wl);
+                let help_out = Command::new(cargo_zisk)
+                    .args(["prove", "--help"])
+                    .output()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).contains("--witness-lib"))
+                    .unwrap_or(false);
+                if help_out {
+                    retry_cmd.arg("--witness-lib").arg(wl);
+                }
             }
             retry_cmd.arg("--emulator");
             retry_cmd.args(["-o"]).arg(tmp_dir.path());

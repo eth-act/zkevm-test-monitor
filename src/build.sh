@@ -125,7 +125,7 @@ for ZKVM in $ZKVMS; do
         binaries/cargo-zisk --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || true)
       if [ -n "$ZISK_VERSION" ]; then
         ZISK_MAJOR_MINOR=$(echo "$ZISK_VERSION" | grep -oP '^\d+\.\d+')
-        SETUP_KEY_FILE="zisk-provingkey-pre-${ZISK_MAJOR_MINOR}.0.tar.gz"
+        SETUP_KEY_FILE="zisk-provingkey-${ZISK_MAJOR_MINOR}.0.tar.gz"
         SETUP_URL="https://storage.googleapis.com/zisk-setup/${SETUP_KEY_FILE}"
         MARKER_FILE="$HOME/.zisk/.zisk-setup-version"
         CURRENT_MARKER=$(cat "$MARKER_FILE" 2>/dev/null || true)

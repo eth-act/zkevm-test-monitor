@@ -29,58 +29,69 @@ Bonus: it'll be easier to upgrade these test to do proving and verification. May
 
 ## What we actually had to change, per VM
 
-**jolt, zisk, pico — zero VM changes.**
-These three run tests purely with upstream binaries. All that was needed was a DUT config (linker script, halt macros, Sail reference config) and a Docker entrypoint.
+**zisk — zero VM changes.** ([upstream](https://github.com/0xPolygonHermez/zisk) @ `b3ca745b`)
+Runs tests purely with the upstream `ziskemu` binary. All that was needed was a DUT config (linker script, halt macros, Sail reference config) and a Docker entrypoint.
 
-**r0vm (risc0) — ~15 lines.**
-Added a single `--execute-only` flag to `r0vm/src/lib.rs`. Without it, r0vm always attempted ZK proving after execution. The flag reads the guest's `ExitCode` and calls `std::process::exit(code)`.
-
-**sp1 — zero VM changes.**
-`sp1-perf-executor` (in the upstream repo) already accepts `--program`, `--stdin`, and `--executor-mode simple` and exits with the guest return code. The only obstacle was that the `sp1-perf` crate lists `test-artifacts` as a dependency — a crate that pre-builds RISC-V benchmark programs and requires SP1's custom `succinct` Rust toolchain. Since `sp1-perf-executor` doesn't actually use it, two `sed` lines in the build Dockerfile comment it out. No fork needed.
-
-**openvm — zero VM changes.**
+**openvm — zero VM changes.** ([upstream](https://github.com/openvm-org/openvm) @ `bf11b4a5`)
 Upstream OpenVM SDK already exposes `CpuSdk::riscv32()` (rv32i + rv32m + io — the exact config we need) and accepts raw ELF bytes via `sdk.execute(elf_bytes, StdIn::default())`, returning `Err` on a non-zero guest exit code. A 10-line standalone Rust binary wraps this API and produces an executable that takes an ELF path and exits 0/1. No fork needed.
 
-**airbender — one new command.**
+**jolt — fork, ~two new crates.** ([codygunton/jolt](https://github.com/codygunton/jolt) @ `3adde10f`)
+The upstream `jolt-emu` binary is used for test execution with zero changes to VM emulation logic. The fork adds a `jolt-prover` CLI tool for standalone ELF proving (used for proving integration, not for the compliance results reported here).
+
+**sp1 — fork, ~7 lines changed.** ([codygunton/sp1](https://github.com/codygunton/sp1) @ `213fc1ab`)
+The upstream `sp1-perf-executor` already accepts `--program`, `--stdin`, and `--executor-mode simple`. Two changes were needed: (1) `sp1-perf-executor` was silently discarding execution errors in simple mode — the `Result` from `run_fast()` was swallowed, making every test appear to pass. Fixed by propagating the error and calling `exit(1)`. (2) The `sp1-perf` crate lists `test-artifacts` as a dependency requiring SP1's custom `succinct` Rust toolchain; commented out since `sp1-perf-executor` doesn't use it.
+
+**pico — fork, ~16 lines changed.** ([codygunton/pico](https://github.com/codygunton/pico) @ `e4d8f22d`)
+The upstream `cargo-pico test-emulator` had the same issue as SP1: `test_emulator()` always returned `Ok(())` regardless of whether the guest halted with a non-zero exit code. Changed the return type to propagate the exit code and call `std::process::exit(code)`.
+
+**r0vm (risc0) — fork, ~15 lines.** ([codygunton/risc0](https://github.com/codygunton/risc0), branch `act4` @ `6bc23889`)
+Added `--execute-only` (skips ZK proving, exits with the guest's `ExitCode`) and `--test-elf` (accepts raw ELF format instead of `ProgramBinary`). No VM emulation logic modified.
+
+**airbender — fork, one new command.** ([codygunton/zksync-airbender](https://github.com/codygunton/zksync-airbender), branch `riscof-dev` @ `6353d63d`)
 Added `run-with-transpiler`: loads a flat binary at a given entry point, runs it through the prover execution path (`preprocess_bytecode` + `VM::run_basic_unrolled`), polls the HTIF tohost address, and exits 0/1/2. Also changed the instruction decoder to emit `Illegal` markers instead of panicking when it sees non-instruction words (data sections appear in the flat binary since objcopy concatenates everything). The `Illegal` instruction panics only if the PC actually reaches it at runtime.
 
 ---
 
 ## Current results
 
-### Native ISA suite (RV32IM, 47 tests for RV32 VMs; RV64IM + extensions, 119 tests for RV64 VMs)
+### Native ISA suite (tests the VM's declared ISA)
 
-| VM        | Passed | Total | Failures |
-|-----------|--------|-------|----------|
-| sp1       | 47     | 47    | — |
-| pico      | 47     | 47    | — |
-| r0vm      | 47     | 47    | — |
-| openvm    | 47     | 47    | — |
-| jolt      | 116    | 119   | sc.d, sc.w (store-conditional); c.slli |
-| zisk      | 237    | 239   | c.fldsp, c.fsdsp (crash) — tested against v0.16.0-pre |
-| airbender | 42     | 47    | fence; div, rem, mulh, mulhsu |
+Test counts vary by declared ISA: 47 for RV32IM, 64 for RV64IM, 119 for RV64IMAC, 239 for RV64IMFDAC.
 
-### ETH-ACT target suite (RV64IM_Zicclsm, 72 tests — the Ethereum target profile)
+| VM        | ISA        | Passed | Total | Failures |
+|-----------|------------|--------|-------|----------|
+| openvm    | RV32IM     | 47     | 47    | — |
+| airbender | RV32IM     | 42     | 47    | fence; div, rem, mulh, mulhsu |
+| pico      | RV32IM     | 45     | 47    | fence, jalr |
+| sp1       | RV64IM     | 62     | 64    | fence, jalr |
+| jolt      | RV64IMAC   | 108    | 119   | 8 AMO double-word; sc.d, sc.w; c.slli |
+| r0vm      | RV32IM     | 46     | 47    | fence |
+| zisk      | RV64IMFDAC | 235    | 239   | c.jalr, c.jr, c.fldsp, c.fsdsp |
+
+### Standard ISA suite (RV64IM_Zicclsm, 72 tests — the Ethereum target profile)
 
 | VM        | Passed | Total | Notes |
 |-----------|--------|-------|-------|
-| zisk      | 72     | 72    | ✓ |
-| jolt      | 64     | 72    | All 8 misaligned-access tests fail |
-| sp1       | 0      | 72    | RV32 only — expected |
+| sp1       | 62     | 72    | fence, jalr, 8 misaligned-access failures |
+| jolt      | 64     | 72    | 8 misaligned-access failures |
+| zisk      | 71     | 72    | fence |
+| openvm    | 0      | 72    | RV32 only — expected |
 | pico      | 0      | 72    | RV32 only — expected |
 | r0vm      | 0      | 72    | RV32 only — expected |
-| openvm    | 0      | 72    | RV32 only — expected |
 | airbender | 0      | 72    | RV32 only — expected |
-
-### Zisk RVI20 profile (259 tests)
-
-| VM   | Passed | Total | Failures |
-|------|--------|-------|----------|
-| zisk | 257    | 259   | same 2 as native: c.fldsp, c.fsdsp — tested against v0.16.0-pre |
 
 ---
 
 ## Notable failures worth digging into
+
+**fence — widespread**
+The FENCE instruction fails on airbender, pico, sp1, r0vm, and zisk (standard suite only). Most ZK-VMs treat FENCE as a no-op since they execute single-threaded, but the ACT4 test may be checking that the instruction at least decodes and completes without error rather than testing memory ordering semantics.
+
+**SP1 / Pico — jalr**
+JALR (jump-and-link-register) fails on both SP1 and Pico. This is a core RV32I instruction, so the failure likely reflects an edge case in the test (e.g. specific immediate encoding or link register behaviour) rather than a fundamentally broken instruction — these VMs wouldn't boot at all without basic JALR support.
+
+**Jolt — AMO double-word (amoadd.d, amoand.d, amomax.d, amomin.d, amominu.d, amoor.d, amoswap.d, amoxor.d)**
+All 8 Zaamo double-word atomic operations fail. The 32-bit AMO variants (amoadd.w, etc.) pass, suggesting the 64-bit atomics path is unimplemented or broken. These are new failures compared to our earlier run — likely due to test suite updates.
 
 **Jolt — sc.d / sc.w (store-conditional)**
 LR (load-reserved) passes but SC (store-conditional) fails. This suggests the reservation mechanism isn't implemented correctly — LR sets a reservation but SC doesn't honour it.
@@ -90,19 +101,19 @@ These are genuinely new findings: the RISCOF arch test suite (v3.9.1, July 2024)
 **Jolt — c.slli**
 Compressed shift-left-logical-immediate fails. Either the compressed instruction decoder or the shift itself has a bug.
 
-**Jolt — all 8 Misalign tests**
-The ETH-ACT target profile (RV64IM_Zicclsm) requires `Zicclsm` — support for misaligned loads/stores in hardware. Jolt appears to trap or panic on unaligned accesses rather than handling them transparently.
+**Jolt — all 8 Misalign tests (standard suite)**
+The standard target profile (RV64IM_Zicclsm) requires `Zicclsm` — support for misaligned loads/stores in hardware. Jolt appears to trap or panic on unaligned accesses rather than handling them transparently.
 
-**Zisk — c.jalr / c.jr — fixed in v0.16.0**
-These were new findings at the time of testing (v0.15.x). Both are fixed in upstream v0.16.0-pre and pass cleanly.
+**Zisk — c.jalr / c.jr**
+These were previously fixed in v0.16.0-pre but the current test runs against v0.15.0 (b3ca745b). Both fail on this version.
 
 **Zisk — c.fldsp / c.fsdsp (exit 101, crash)**
 These are compressed double-precision float stack-pointer-relative load/store instructions. The crash (exit 101 = Rust panic) indicates the instructions are not implemented.
 
 These are also genuinely new findings: the RISCOF v3.9.1 C-extension tests covered only the integer compressed subset — no Zcd tests existed. Zcd test generation was added to ACT4 in December 2025 (formatter commit `cedefca0`), making this the first test suite to exercise these instructions against Zisk. Zisk's ISA config declared full `RV64IMAFDCZ...` support, so RISCOF would have tested Zcd had the tests existed — the gap was in the test suite, not the config.
 
-**Airbender — fence**
-FENCE instruction not implemented. Probably a single-line fix.
+**Zisk — fence (standard suite only)**
+Fence fails in the standard suite but not the native suite. This may indicate a difference in how the test is compiled for the RV64IM_Zicclsm target profile vs the native RV64IMFDAC profile.
 
 **Airbender — div, rem, mulh, mulhsu**
 These four M-extension instructions are unimplemented. The basic multiply (mul, mulw) passes; only the high-word and division variants are missing.
@@ -124,46 +135,8 @@ With ACT4, integrating a new VM requires:
 
 The halt convention is the only VM-specific piece. For most VMs it's a single ecall (`ecall` with a7=93, or a custom opcode, or whatever the VM uses to terminate). Once that's right, every test in the suite just works.
 
----
 
-## Message to Jolt team
 
-Hi — we've been running compliance tests against several ZK-VMs using ACT4, the new arch test framework from riscv-non-isa. The RISCOF tool is [now deprecated](https://github.com/riscv-non-isa/riscv-arch-test/blob/f970fe843c4294837be34804977853ad3cd01f5c/README.md#L5) and the `act4` branch [has become the canonical branch](https://lists.riscv.org/g/sig-arch-test/topic/notice_update/117795984) of riscv-arch-test. The main difference from RISCOF: tests are self-checking ELFs — Sail runs at compile time to embed expected values, so tests just exit 0/1. No signature extraction needed.
+## Disclosure letters
 
-To reproduce against Jolt:
-
-```bash
-git clone -b act4 https://github.com/eth-act/zkevm-test-monitor
-cd zkevm-test-monitor
-./run build jolt
-./run test --act4 jolt
-```
-
-Jolt passes 116/119 native tests. Three failures:
-
-sc.d / sc.w: LR executes fine but SC never honours the reservation. Every LR/SC-based mutex or spinlock would spin forever. The tests exercise [`norm:sc_w_success`, `norm:sc_w_failure`, `norm:sc_reservation_invalidate`, `norm:lr_sc_rv64`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/a-st-ext.adoc#L62) in the ISA manual. This is a new finding — RISCOF v3.9.1 covered only AMO instructions; LR/SC test generation was added to ACT4 in December 2025 (commits `4ffe77c3`, `89928a9d` in riscv-non-isa/riscv-arch-test). Jolt passed all 124 RISCOF tests cleanly, so this slipped through.
-
-c.slli: the compressed shift-left-immediate produces a wrong result. Tests [`norm:c-slli_op`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/c-st-ext.adoc#L626).
-
-8 misaligned-access tests (ETH-ACT target profile only): Jolt traps on unaligned loads/stores rather than handling them transparently. Tests [`zicclsm_op`](https://github.com/riscv/riscv-profiles/blob/8dbac1fc2d0d834ed1a31a145bf26114c4c26b56/src/profiles.adoc#L524) from the RVA profiles spec, which requires misaligned scalar loads/stores to main memory be handled in hardware or via a trap to the execution environment.
-
----
-
-## Message to Zisk team
-
-Hi — we've been running compliance tests against several ZK-VMs using ACT4, the new arch test framework from riscv-non-isa. The RISCOF tool is [now deprecated](https://github.com/riscv-non-isa/riscv-arch-test/blob/f970fe843c4294837be34804977853ad3cd01f5c/README.md#L5) and the `act4` branch [has become the canonical branch](https://lists.riscv.org/g/sig-arch-test/topic/notice_update/117795984) of riscv-arch-test. Tests are self-checking ELFs — Sail runs at compile time, expected values are embedded, tests exit 0/1.
-
-To reproduce against Zisk (tested on pre-develop-0.16.0):
-
-```bash
-git clone -b act4 https://github.com/eth-act/zkevm-test-monitor
-cd zkevm-test-monitor
-./run build zisk
-./run test --act4 zisk
-```
-
-Zisk passes 237/239 native, 72/72 ETH-ACT target, 257/259 RVI20. Two remaining failures, both in Zcd ([ISA manual §Zcd](https://github.com/riscv/riscv-isa-manual/blob/791314b6ae08d95c523e2892e16a9e0c76065726/src/c-st-ext.adoc#L299)):
-
-c.fldsp / c.fsdsp: the compressed double-precision FP load/store relative to the stack pointer — the instructions that appear in every function prologue and epilogue that saves FP registers. Both crash with a Rust panic (exit 101), suggesting they aren't decoded. Tests [`norm:c-fldsp_op`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/c-st-ext.adoc#L324) and [`norm:c-fsdwsp_op`](https://github.com/riscv/riscv-isa-manual/blob/a57784637cdf6ff3de9b068c7b273d982c754773/src/c-st-ext.adoc#L351). These are new findings — RISCOF had no Zcd tests at all; that was added to ACT4 in December 2025 (commit `cedefca0` in riscv-non-isa/riscv-arch-test). Your ISA config already declared Zcd; the tests just didn't exist yet.
-
-Worth noting: c.jalr and c.jr were also new failures on v0.15.x (same gap — no Zca jump tests in RISCOF) and are fixed in v0.16.0-pre.
+Individual letters to each ZKVM team are in the [`letters/`](letters/) directory.

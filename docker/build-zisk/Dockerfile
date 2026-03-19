@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     openmpi-common \
     libclang-dev \
     clang \
+    gcc-riscv64-unknown-elf \
     git \
     ca-certificates \
     pkg-config \
