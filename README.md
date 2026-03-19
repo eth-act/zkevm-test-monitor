@@ -1,168 +1,70 @@
-# ZKVM Test Monitor
+# zkevm-test-monitor
 
-A simplified, robust testing framework for Zero-Knowledge Virtual Machines (ZKVMs) using RISC-V compliance tests.
+RISC-V compliance testing for ZK-VMs using the [ACT4](https://github.com/riscv-non-isa/riscv-arch-test/tree/act4) framework.
 
-## Quick Start
+Tests are self-checking ELFs: the Sail reference model runs at compile time to embed expected values, and tests exit 0 (pass) or non-zero (fail).
 
-```bash
-# Build all ZKVMs
-./run build all
+## Supported ZK-VMs
 
-# Run architecture tests on a specific ZKVM
-./run test --arch sp1
+| ZK-VM | ISA | Repo |
+|-------|-----|------|
+| SP1 | RV64IM | [succinctlabs/sp1](https://github.com/succinctlabs/sp1) |
+| Jolt | RV64IMAC | [a16z/jolt](https://github.com/a16z/jolt) |
+| OpenVM | RV32IM | [openvm-org/openvm](https://github.com/openvm-org/openvm) |
+| r0vm | RV32IM | [risc0/risc0](https://github.com/risc0/risc0) |
+| Zisk | RV64IMFDAC | [0xPolygonHermez/zisk](https://github.com/0xPolygonHermez/zisk) |
+| Pico | RV32IM | [brevis-network/pico](https://github.com/brevis-network/pico) |
+| Airbender | RV32IM | [matter-labs/zksync-airbender](https://github.com/matter-labs/zksync-airbender) |
 
-# Run extra tests on all ZKVMs
-./run test --extra
-
-# View results
-./run serve
-# Open http://localhost:8000
-```
-
-## Overview
-
-This repository provides automated RISC-V compliance testing for various ZKVM implementations using the [RISCOF](https://github.com/riscv-software-src/riscof/) framework. Tests are run differentially against the [Sail reference model](https://github.com/riscv/sail-riscv).
-
-Two test suites are available:
-- **Architecture Tests**: Official [RISC-V Architecture Tests](https://github.com/riscv-non-isa/riscv-arch-test) v3.9.1
-- **Extra Tests**: Additional tests to address gaps; useful also for experimentation
-
-## Reproducing Results
-
-To specify a ZKVM commit, edit `config.json`:
-```bash
-# Using jq
-jq '.zkvms.sp1.commit = "fc98075a"' config.json > config.tmp && mv config.tmp config.json
-
-# Then rebuild and test
-FORCE=1 ./run build sp1  # FORCE=1 rebuilds even if binary exists
-./run test --arch sp1
-```
-
-Each ZKVM's history page shows the exact commit, ISA, and results for every past run, as well as the particular test monitor commit, so the above workflow allows for reproducing historical results. 
-
-Configuration for each ZKVM is in `config.json`.
-
-## Test Suites
-
-### Architecture Tests (`--arch`)
-Official RISC-V compliance tests from [riscv-arch-test](https://github.com/riscv-non-isa/riscv-arch-test) v3.9.1. These tests verify basic ISA compliance for instructions like ADD, SUB, etc.
-
-### Extra Tests (`--extra`)
-Custom tests located in `extra-tests/` for:
-- Edge cases not covered by standard tests
-- Specific bug reproductions
-- Differential testing scenarios
-- Trap and exception handling
-
-## Commands
+## Usage
 
 ```bash
-./run build [zkvm]                # Build ZKVM binaries (Docker-based)
-./run test --arch [zkvm]          # Run architecture compliance tests
-./run test --extra [zkvm]         # Run extra differential tests
-./run update                      # Regenerate dashboard HTML
-./run all --arch [zkvm]           # Build + test (arch) + update
-./run all --extra [zkvm]          # Build + test (extra) + update
-./run serve                       # Start local web server
-./run clean                       # Remove build artifacts
+./run build sp1          # Build binary via Docker
+./run test sp1           # Run ACT4 tests
+./run test sp1 jolt      # Test multiple
+./run test               # Test all
+./run all sp1            # Build + test
+./run serve              # Dashboard at localhost:8000
+./run clean              # Remove artifacts
 ```
 
-## Architecture
-
-The system uses a minimal, robust architecture:
-
-- `run` - Main entry point (bash)
-- `config.json` - All ZKVM configurations
-- `src/` - Core logic (build, test, update scripts)
-- `docker/build-*/` - Docker builds for each ZKVM
-- `riscof/` - RISCOF framework and plugins
-- `extra-tests/` - Custom test suite for edge cases
-- `data/` - Test results and history (generated)
-- `docs/` - Static dashboard HTML (generated)
-
-## RISCOF Integration
-
-The test system uses the integrated RISCOF framework:
-
-1. **Built-in Setup**: RISCOF is included as part of this repository:
-   - Build the RISCOF Docker image on first run
-   - Use plugins from `riscof/plugins/` for each ZKVM
-
-2. **Local Development**: RISCOF is located at `./riscof/` in this repository:
-   - Modify plugins directly in `riscof/plugins/[zkvm-name]/`
-   - Update the Docker environment in `riscof/Dockerfile`
-   - No external dependencies or configuration needed
-
-3. **Plugin Structure**: RISCOF plugins for each ZKVM are located at:
-   ```
-   riscof/plugins/
-   ├── sp1/
-   │   ├── riscof_sp1.py
-   │   ├── sp1_isa.yaml
-   │   ├── sp1_platform.yaml
-   │   └── env/link.ld
-   ├── jolt/
-   │   └── (same structure)
-   └── ...
-   ```
-
-See the [RISCOF plugin documentation](https://riscof.readthedocs.io/) for details.
-
-## Development Workflow
-
-1. **Configure**: Edit `config.json` to set ZKVM repositories and commits
-2. **Build**: `./run build sp1` builds the SP1 binary
-3. **Test**: `./run test --arch sp1` runs architecture compliance tests
-4. **Test Extra**: `./run test --extra sp1` runs custom edge case tests
-5. **View**: `./run serve` starts a web server with results
-
-## Deployment
-
-The dashboard automatically deploys to GitHub Pages when you push changes to the `docs/` folder:
+### Environment variables
 
 ```bash
-# Test and update locally
-./run test --arch sp1
-./run update
-
-# Push to deploy
-git add -A
-git commit -m "Update test results"
-git push
+JOBS=8 ./run test zisk              # Limit CPU cores
+FORCE=1 ./run test zisk             # Regenerate ELFs from scratch
+ZISK_MODE=execute ./run test zisk   # Execution only (no proving)
+ZISK_GPU=1 ./run build zisk         # Build with GPU support
+ZISK_GPU=1 ./run test zisk          # Prove with GPU
 ```
 
-**GitHub Pages URL**: https://eth-act.github.io/zkevm-test-monitor/
+## Adding a ZK-VM
 
-**Setup** (first time only):
-- Go to Settings → Pages → Source: GitHub Actions
+1. Add entry to `config.json`
+2. Create `docker/build-<name>/Dockerfile`
+3. Create `docker/<name>/Dockerfile` + `entrypoint.sh`
+4. Create `act4-configs/<name>/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
 
-## Nightly CI Updates
+## Project layout
 
-Some ZKVMs (Jolt, Zisk) have automated nightly updates via GitHub Actions:
-- Runs daily to check for new commits
-- Automatically builds and tests the latest version
-- Updates the dashboard with results
-- Creates issues on failures
-
-See `.github/workflows/nightly-*.yml` for configurations.
+```
+run                     Entry point
+config.json             ZK-VM repo URLs and commit pins
+src/                    Build and test scripts
+docker/<zkvm>/          Per-ZK-VM ACT4 test Docker setup
+docker/build-<zkvm>/    Per-ZK-VM binary build Dockerfiles
+docker/shared/          Shared utilities (patch_elfs.py)
+act4-configs/           Per-ZK-VM ACT4 ISA/platform configs
+act4-runner/            Host-side test runner (Rust, used for proving)
+docs/                   Dashboard (generated)
+data/history/           Historical pass/fail tracking
+```
 
 ## Requirements
 
 - Docker
 - Bash
-- Python 3
-- jq (for JSON processing)
 
 ## License
 
-Licensed under either of
-
-* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
-
-### Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+Dual-licensed under [Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT).
