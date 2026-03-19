@@ -46,7 +46,7 @@ for ZKVM in $ZKVMS; do
   if [ "${NO_CACHE:-}" = "1" ]; then
     EXTRA_BUILD_ARGS="--no-cache"
   fi
-  if [ "$ZKVM" = "zisk" ] && [ -n "${ZISK_GPU:-}" ]; then
+  if [ "$ZKVM" = "zisk" ] && [ -n "${GPU:-}" ]; then
     # Auto-detect GPU compute capability for CUDA arch (e.g. 12.0 → sm_120)
     CUDA_ARCH="${CUDA_ARCH:-}"
     if [ -z "$CUDA_ARCH" ] && command -v nvidia-smi &>/dev/null; then
@@ -76,12 +76,16 @@ for ZKVM in $ZKVMS; do
   ACTUAL_COMMIT=$(docker run --rm --entrypoint cat zkvm-${ZKVM}:latest /commit.txt 2>/dev/null || echo "$COMMIT")
   echo "  Built from commit: ${ACTUAL_COMMIT:0:8}"
 
+  mkdir -p data/commits
+  echo "${ACTUAL_COMMIT:0:8}" > "data/commits/${ZKVM}.txt"
+
   # Extract binary using docker cp (needed to test CI using act)
   mkdir -p binaries
   BINARY_NAME=$(jq -r ".zkvms.${ZKVM}.binary_name" config.json)
 
   # Create a temporary container, copy binaries, and clean up
-  CONTAINER_ID=$(docker create zkvm-${ZKVM}:latest)
+  docker rm -f zkvm-${ZKVM}-build 2>/dev/null || true
+  CONTAINER_ID=$(docker create --name zkvm-${ZKVM}-build zkvm-${ZKVM}:latest)
 
   if [ "$ZKVM" = "jolt" ]; then
     # Jolt produces both jolt-emu (emulator) and jolt-prover (proving CLI)
@@ -110,7 +114,7 @@ for ZKVM in $ZKVMS; do
     # Extract bundled shared libraries for cargo-zisk (libsodium, libomp)
     rm -rf binaries/zisk-lib && mkdir -p binaries/zisk-lib
     docker cp "$CONTAINER_ID:/usr/local/bin/lib/." "binaries/zisk-lib/" 2>/dev/null || true
-    # GPU variants (optional — only present if ZISK_GPU=1 was set during build)
+    # GPU variants (optional — only present if GPU=1 was set during build)
     docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk-cuda" "binaries/cargo-zisk-cuda" 2>/dev/null || true
     chmod +x binaries/zisk-binary binaries/cargo-zisk 2>/dev/null || true
     chmod +x binaries/cargo-zisk-cuda 2>/dev/null || true
@@ -129,7 +133,7 @@ for ZKVM in $ZKVMS; do
         # Track GPU state separately so switching triggers re-setup
         GPU_MARKER_FILE="$HOME/.zisk/.zisk-setup-gpu"
         CURRENT_GPU_MARKER=$(cat "$GPU_MARKER_FILE" 2>/dev/null || true)
-        WANT_GPU="${ZISK_GPU:-0}"
+        WANT_GPU="${GPU:-0}"
 
         if [ "$CURRENT_MARKER" != "$ZISK_VERSION" ]; then
           echo "  Installing proving keys for Zisk v${ZISK_VERSION}..."

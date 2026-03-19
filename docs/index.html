@@ -81,6 +81,7 @@
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
             <strong>Test Suite:</strong> <a href="https://github.com/riscv-non-isa/riscv-arch-test/tree/act4">RISC-V ACT4 Self-Checking Tests</a>
+            <span id="act4-commit"></span>
             <br><br><em style="color: #155724; background-color: #d4edda; padding: 10px; display: block; border-radius: 4px; border: 1px solid #c3e6cb;">
             ACT4 uses self-checking ELFs with expected values baked in at compile time. Pass/fail is determined by exit code, not signature comparison.
             </em>
@@ -132,6 +133,13 @@
             const config = await fetch('config.json').then(r => r.json());
             const zkvms = Object.keys(config.zkvms).sort();
 
+            // Show ACT4 commit in header
+            if (config.act4_commit) {
+                const short = config.act4_commit.substring(0, 8);
+                document.getElementById('act4-commit').innerHTML =
+                    `@ <a href="https://github.com/riscv-non-isa/riscv-arch-test/commit/${config.act4_commit}" class="commit-link">${short}</a>`;
+            }
+
             const rows = await Promise.all(zkvms.map(async (name) => {
                 const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
                 const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
@@ -144,8 +152,8 @@
                 const c = row.config;
                 const full = row.fullRun;
                 const std = row.stdRun;
-                const commit = full?.commit || full?.zkvm_commit || std?.commit || std?.zkvm_commit || c.commit;
-                const commitUrl = `${c.repo_url}/commit/${commit}`;
+                const commit = full?.commit || full?.zkvm_commit || std?.commit || std?.zkvm_commit;
+                const commitUrl = commit ? `${c.repo_url}/commit/${commit}` : null;
                 const isa = c.isa || full?.isa || 'unknown';
 
                 const pv = countProveVerify(std?.tests);
@@ -165,7 +173,7 @@
 
                 return `<tr>
                     <td><strong><a href="zkvm.html?name=${row.name}">${row.name.toUpperCase()}</a></strong></td>
-                    <td><a href="${commitUrl}" class="commit-link">${commitShort(commit)}</a></td>
+                    <td>${commitUrl ? `<a href="${commitUrl}" class="commit-link">${commitShort(commit)}</a>` : '<span class="none">&mdash;</span>'}</td>
                     <td><code>${isa}</code></td>
                     ${resultCell(full?.passed, full?.total, fullLink)}
                     ${resultCell(std?.passed, std?.total, stdLink)}

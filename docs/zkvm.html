@@ -278,9 +278,15 @@
             let html = '';
 
             // Run metadata
+            const monitorCommit = run.monitor_commit;
+            const monitorHtml = monitorCommit && monitorCommit !== 'unknown'
+                ? `<span><strong>Monitor:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor/commit/${monitorCommit}" class="commit-link">${commitShort(monitorCommit)}</a></span>`
+                : '';
+
             html += `<div class="suite-header">
                 <span><strong>Date:</strong> ${formatDate(run.date)}</span>
                 <span><strong>Commit:</strong> <a href="${zkvm.repo_url}/commit/${commit}" class="commit-link">${commitShort(commit)}</a></span>
+                ${monitorHtml}
                 <span class="${run.passed === run.total ? 'pass' : 'fail'}"><strong>${run.passed}/${run.total}</strong> passed</span>
             </div>`;
 

@@ -75,7 +75,7 @@ Environment Variables:
   ACT4_JOBS=N               Override parallel test jobs inside container
   FORCE=1                   Force regeneration of ELFs / rebuild of binaries
   ZISK_MODE=execute|prove|full   Zisk test mode (default: full)
-  ZISK_GPU=1                    Build/use GPU variants for Zisk proving
+  GPU=1                    Build/use GPU variants for Zisk proving
 
 Examples:
   ./run build sp1
@@ -84,8 +84,8 @@ Examples:
   ./run all
   JOBS=8 ./run test zisk
   ZISK_MODE=execute ./run test zisk   # zisk emulation only (no proving)
-  ZISK_GPU=1 ./run build zisk         # build with GPU support
-  ZISK_GPU=1 ./run test zisk          # use GPU for proving
+  GPU=1 ./run build zisk         # build with GPU support
+  GPU=1 ./run test zisk          # use GPU for proving
   FORCE=1 ./run test zisk             # regenerate ELFs from scratch
 EOF
         ;;

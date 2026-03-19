@@ -36,8 +36,17 @@ process_results() {
   RUN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
   # Resolve commit from the binary that actually ran the tests.
-  # No fallbacks — if we can't determine the commit, say so.
-  ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || echo "unknown")
+  # Primary source: data/commits/<zkvm>.txt written by build.sh.
+  # Fallback: resolve from the Docker image used for building.
+  if [ -f "data/commits/${ZKVM}.txt" ]; then
+    ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt")
+  else
+    ZKVM_COMMIT=$(docker run --rm --entrypoint cat "zkvm-${ZKVM}:latest" /commit.txt 2>/dev/null | head -c 8 || echo "unknown")
+    if [ "$ZKVM_COMMIT" != "unknown" ]; then
+      mkdir -p data/commits
+      echo "$ZKVM_COMMIT" > "data/commits/${ZKVM}.txt"
+    fi
+  fi
 
   for SUITE_TYPE in full standard; do
     if [ "$SUITE_TYPE" = "full" ]; then
@@ -84,12 +93,13 @@ process_results() {
     RUN_ENTRY=$(jq -n \
       --arg date "$RUN_DATE" \
       --arg commit "$ZKVM_COMMIT" \
+      --arg monitor_commit "$TEST_MONITOR_COMMIT" \
       --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
       --argjson passed "$PASSED" \
       --argjson failed "$FAILED" \
       --argjson total "$TOTAL" \
       --argjson tests "$TESTS_JSON" \
-      '{date: $date, commit: $commit, isa: $isa, passed: $passed, failed: $failed, total: $total, tests: $tests}')
+      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, isa: $isa, passed: $passed, failed: $failed, total: $total, tests: $tests}')
 
     if [ -f "$HISTORY_FILE" ]; then
       jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
@@ -127,11 +137,11 @@ run_zisk_split_pipeline() {
 
   # GPU binary selection
   local CARGO_ZISK="binaries/cargo-zisk"
-  if [ -n "${ZISK_GPU:-}" ]; then
+  if [ -n "${GPU:-}" ]; then
     if [ -f "binaries/cargo-zisk-cuda" ]; then
       CARGO_ZISK="binaries/cargo-zisk-cuda"
     else
-      echo "  Error: GPU requested but cargo-zisk-cuda not found. Run 'ZISK_GPU=1 ./run build zisk' first."
+      echo "  Error: GPU requested but cargo-zisk-cuda not found. Run 'GPU=1 ./run build zisk' first."
       return 1
     fi
   fi
@@ -145,7 +155,8 @@ run_zisk_split_pipeline() {
     fi
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
-    docker build -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -166,7 +177,7 @@ run_zisk_split_pipeline() {
 
     LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
     echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    docker run --rm \
+    docker run --rm --name zkvm-${ZKVM}-elfgen \
       ${JOBS_ARG} \
       -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
@@ -198,7 +209,7 @@ run_zisk_split_pipeline() {
 
   # GPU flag for proving
   local GPU_ARG=""
-  if [ -n "${ZISK_GPU:-}" ]; then
+  if [ -n "${GPU:-}" ]; then
     GPU_ARG="--gpu"
   fi
 
@@ -260,12 +271,6 @@ run_jolt_split_pipeline() {
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
 
-  # Record jolt commit from the local repo (where jolt-prover was built)
-  mkdir -p data/commits
-  if [ -d "jolt/.git" ]; then
-    git -C jolt rev-parse HEAD 2>/dev/null | head -c 8 > "data/commits/jolt.txt"
-  fi
-
   # jolt-prover handles both execution (trace) and proving
   if [ ! -f "binaries/jolt-prover" ]; then
     echo "  Error: binaries/jolt-prover not found. Run './run build jolt' first."
@@ -281,7 +286,8 @@ run_jolt_split_pipeline() {
     fi
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
-    docker build -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -301,7 +307,7 @@ run_jolt_split_pipeline() {
 
     LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
     echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    docker run --rm \
+    docker run --rm --name zkvm-${ZKVM}-elfgen \
       ${JOBS_ARG} \
       -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
@@ -378,7 +384,8 @@ run_legacy_pipeline() {
   fi
 
   echo "Building Docker image for $ZKVM..."
-  docker build -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+  ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
+  docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
     echo "Failed to build Docker image for $ZKVM"
     return
   }
@@ -401,7 +408,7 @@ run_legacy_pipeline() {
 
   LOG_FILE="test-results/${ZKVM}/act4.log"
   echo "Running tests for $ZKVM... (log: $LOG_FILE)"
-  docker run --rm \
+  docker run --rm --name zkvm-${ZKVM}-test \
     ${CPUSET_ARG} \
     ${JOBS_ARG} \
     -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \

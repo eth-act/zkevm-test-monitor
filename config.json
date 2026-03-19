@@ -1,4 +1,5 @@
 {
+  "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0",
   "zkvms": {
     "sp1": {
       "repo_url": "https://github.com/codygunton/sp1",
@@ -9,8 +10,8 @@
       "isa": "RV64IM"
     },
     "jolt": {
-      "repo_url": "https://github.com/a16z/jolt",
-      "commit": "8f2ec364",
+      "repo_url": "https://github.com/codygunton/jolt",
+      "commit": "3adde10f",
       "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
       "binary_name": "jolt-emu",
       "binary_path": "target/release/jolt-emu",
