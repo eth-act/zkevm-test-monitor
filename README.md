@@ -2,6 +2,8 @@
 
 RISC-V compliance testing for ZK-VMs using the [ACT4](https://github.com/riscv-non-isa/riscv-arch-test/tree/act4) framework.
 
+**Dashboard:** https://codygunton.github.io/zkevm-test-monitor/
+
 Tests are self-checking ELFs: the Sail reference model runs at compile time to embed expected values, and tests exit 0 (pass) or non-zero (fail).
 
 ## Supported ZK-VMs
@@ -58,6 +60,8 @@ act4-configs/           Per-ZK-VM ACT4 ISA/platform configs
 act4-runner/            Host-side test runner (Rust, used for proving)
 docs/                   Dashboard (generated)
 data/history/           Historical pass/fail tracking
+scripts/                Utility scripts
+notes/                  Reference documents and notes
 ```
 
 ## Requirements
