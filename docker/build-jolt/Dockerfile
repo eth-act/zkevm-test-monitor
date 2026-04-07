@@ -30,7 +30,7 @@ ENV RUST_LOG=info
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/a16z/jolt
-ARG COMMIT_HASH=c4b9b060
+ARG COMMIT_HASH=0156f771
 
 # Clone the repository at the specific commit
 # This layer will be cached until COMMIT_HASH changes
@@ -39,12 +39,12 @@ RUN git clone "$REPO_URL" jolt && \
     git checkout "$COMMIT_HASH" && \
     git rev-parse HEAD | head -c8 > /commit.txt
 
-# Build Jolt
-# This layer will be cached as long as the source code doesn't change
+# Build Jolt emulator and prover
 WORKDIR /workspace/jolt
 RUN cargo build --release -p tracer --bin jolt-emu
+RUN cargo build --release -p jolt-prover --bin jolt-prover
 
-# Final stage - just the binary
+# Final stage - just the binaries
 FROM ubuntu:24.04
 
 # Install runtime dependencies only
@@ -53,9 +53,10 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the built binary from builder stage
+# Copy the built binaries from builder stage
 COPY --from=builder /workspace/jolt/target/release/jolt-emu /usr/local/bin/jolt-emu
+COPY --from=builder /workspace/jolt/target/release/jolt-prover /usr/local/bin/jolt-prover
 COPY --from=builder /commit.txt /commit.txt
 
-# Simple entrypoint to copy the binary out
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/jolt-emu /output/jolt-emu"]
+# Simple entrypoint to copy binaries out
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/jolt-emu /output/jolt-emu && cp /usr/local/bin/jolt-prover /output/jolt-prover"]

@@ -1,53 +1,61 @@
 {
+  "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0",
   "zkvms": {
     "sp1": {
       "repo_url": "https://github.com/codygunton/sp1",
-      "commit": "eb86c1dee",
+      "commit": "213fc1ab656390dfcf8b146e2fa59f6f8e1c6e9f",
       "build_cmd": "cargo build --bin sp1-perf-executor",
       "binary_name": "sp1-perf-executor",
-      "binary_path": "target/debug/sp1-perf-executor"
+      "binary_path": "target/debug/sp1-perf-executor",
+      "isa": "RV64IM"
     },
     "jolt": {
-      "repo_url": "https://github.com/a16z/jolt",
-      "commit": "a0dbd371",
+      "repo_url": "https://github.com/codygunton/jolt",
+      "commit": "3adde10f",
       "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
       "binary_name": "jolt-emu",
-      "binary_path": "target/release/jolt-emu"
+      "binary_path": "target/release/jolt-emu",
+      "isa": "RV64IMAC"
     },
     "openvm": {
-      "repo_url": "https://github.com/codygunton/openvm",
-      "commit": "b5f3f0197",
+      "repo_url": "https://github.com/openvm-org/openvm",
+      "commit": "bf11b4a5f",
       "build_cmd": "cargo build --release",
-      "binary_name": "cargo-openvm",
-      "binary_path": "target/release/cargo-openvm"
+      "binary_name": "openvm-binary",
+      "binary_path": "target/release/openvm-binary",
+      "isa": "RV32IM"
     },
     "r0vm": {
       "repo_url": "https://github.com/codygunton/risc0",
-      "commit": "riscof",
+      "commit": "act4",
       "build_cmd": "cargo build --release -p risc0-r0vm --bin r0vm",
-      "binary_name": "r0vm",
-      "binary_path": "target/release/r0vm"
+      "binary_name": "r0vm-binary",
+      "binary_path": "target/release/r0vm",
+      "isa": "RV32IM"
     },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",
-      "commit": "aacf0a73",
+      "commit": "aacf0a733cbad4be3beb674727804d17cb79f69d",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
-      "binary_path": "target/release/ziskemu"
+      "binary_path": "target/release/ziskemu",
+      "isa": "RV64IMFDAC"
     },
     "pico": {
-      "repo_url": "https://github.com/brevis-network/pico",
-      "commit": "f8617c9c",
+      "repo_url": "https://github.com/codygunton/pico",
+      "commit": "e4d8f22d01c200d790b0a90961305ecb7074879a",
       "build_cmd": "cargo build --release -p pico-cli",
       "binary_name": "cargo-pico",
-      "binary_path": "target/release/cargo-pico"
+      "binary_path": "target/release/cargo-pico",
+      "isa": "RV32IM"
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",
       "commit": "riscof-dev",
       "build_cmd": "cargo build --profile test-release --bin cli",
       "binary_name": "airbender-binary",
-      "binary_path": "target/test-release/cli"
+      "binary_path": "target/test-release/cli",
+      "isa": "RV32IM"
     }
   }
 }

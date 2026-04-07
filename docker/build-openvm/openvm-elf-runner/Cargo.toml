@@ -1,0 +1,11 @@
+[package]
+name = "openvm-binary"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "openvm-binary"
+path = "src/main.rs"
+
+[dependencies]
+openvm-sdk = { git = "https://github.com/openvm-org/openvm", rev = "bf11b4a5f79d20fa14d01f78b41d54df4acd0ee0" }

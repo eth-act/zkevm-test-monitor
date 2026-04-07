@@ -1,9 +1,9 @@
 name: Nightly Jolt ZKVM Update
 
 on:
-  schedule:
-    # Run daily at 3:00 AM UTC
-    - cron: '0 3 * * *'
+  # schedule:
+  #   # Run daily at 3:00 AM UTC
+  #   - cron: '0 3 * * *'
   workflow_dispatch:  # Allow manual trigger for testing
 
 permissions:

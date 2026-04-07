@@ -26,7 +26,7 @@ WORKDIR /workspace
 
 # Clone and checkout specific commit
 ARG REPO_URL=https://github.com/brevis-network/pico
-ARG COMMIT_HASH=v1.1.10
+ARG COMMIT_HASH=f8617c9c
 RUN git clone "$REPO_URL" pico && \
     cd pico && \
     git checkout "$COMMIT_HASH" && \

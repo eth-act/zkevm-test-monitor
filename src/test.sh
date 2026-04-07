@@ -1,210 +1,444 @@
 #!/bin/bash
 set -e
 
-# Parse flags
-TEST_SUITE=""
+# Parse targets (positional args only; no suite flag needed)
 TARGETS=""
-BUILD_ONLY=false
-
 while [[ $# -gt 0 ]]; do
-  case $1 in
-    --arch)
-      TEST_SUITE="arch"
-      shift
-      ;;
-    --extra)
-      TEST_SUITE="extra"
-      shift
-      ;;
-    --build-only)
-      BUILD_ONLY=true
-      shift
-      ;;
-    *)
-      TARGETS="$TARGETS $1"
-      shift
-      ;;
-  esac
+  TARGETS="$TARGETS $1"
+  shift
 done
-
-# Require one of the flags to be specified
-if [ -z "$TEST_SUITE" ]; then
-  echo "❌ Error: Must specify either --arch or --extra"
-  echo "Usage: $0 [--arch|--extra] [--build-only] [target1 target2 ...]"
-  exit 1
-fi
 
 # Default to "all" if no targets specified
 TARGETS="${TARGETS:-all}"
-# Remove leading space
 TARGETS="${TARGETS# }"
 
-export TEST_SUITE
-
-# Load config
-if [ ! -f config.json ]; then
-  echo "❌ config.json not found"
-  exit 1
-fi
-
-# Setup RISCOF (now integrated locally)
-if [ ! -d "riscof" ]; then
-  echo "❌ riscof directory not found - riscof should be integrated into this repository"
-  exit 1
-fi
-
-# Build RISCOF Docker image from local directory
-echo "🔨 Building RISCOF Docker image..."
-cd riscof
-docker build -t riscof:latest . || {
-  echo "❌ Failed to build RISCOF Docker image"
-  cd ..
-  exit 1
-}
-cd ..
-
 # Determine which ZKVMs to test
-if [ "$TARGETS" = "all" ]; then
-  ZKVMS=$(jq -r '.zkvms | keys[]' config.json)
+if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ]; then
+  ZKVMS=""
+  for dir in docker/*/; do
+    name=$(basename "$dir")
+    # Skip build-* and shared
+    [[ "$name" == build-* ]] && continue
+    [[ "$name" == "shared" ]] && continue
+    [ -d "$dir" ] && ZKVMS="$ZKVMS $name"
+  done
+  ZKVMS="${ZKVMS# }"
 else
   ZKVMS="$TARGETS"
 fi
 
-# Test each ZKVM
-for ZKVM in $ZKVMS; do
-  echo "Testing $ZKVM..."
+# process_results <zkvm> — reads summary/results JSON and updates history
+process_results() {
+  local ZKVM="$1"
 
-  # Check binary exists
+  mkdir -p data/history
+  TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
+  RUN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  # Resolve commit from the binary that actually ran the tests.
+  # Primary source: data/commits/<zkvm>.txt written by build.sh.
+  # Fallback: resolve from the Docker image used for building.
+  if [ -f "data/commits/${ZKVM}.txt" ]; then
+    ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt")
+  else
+    ZKVM_COMMIT=$(docker run --rm --entrypoint cat "zkvm-${ZKVM}:latest" /commit.txt 2>/dev/null | head -c 8 || echo "unknown")
+    if [ "$ZKVM_COMMIT" != "unknown" ]; then
+      mkdir -p data/commits
+      echo "$ZKVM_COMMIT" > "data/commits/${ZKVM}.txt"
+    fi
+  fi
+
+  for SUITE_TYPE in full standard; do
+    if [ "$SUITE_TYPE" = "full" ]; then
+      FILE_LABEL="full-isa"
+      SUITE="act4-full"
+    else
+      FILE_LABEL="standard-isa"
+      SUITE="act4-standard"
+    fi
+
+    SUMMARY_FILE="test-results/${ZKVM}/summary-act4-${FILE_LABEL}.json"
+    RESULTS_FILE="test-results/${ZKVM}/results-act4-${FILE_LABEL}.json"
+
+    if [ ! -f "$SUMMARY_FILE" ]; then
+      if [ "$SUITE_TYPE" = "full" ]; then
+        echo "  Warning: No summary generated for $ZKVM (container may have failed)"
+      fi
+      continue
+    fi
+
+    TOTAL=$(jq '.total' "$SUMMARY_FILE")
+    PASSED_COUNT=$(jq '.passed' "$SUMMARY_FILE")
+    FAILED_COUNT=$(jq '.failed' "$SUMMARY_FILE")
+
+    # Read per-test arrays from results file (new compact format)
+    if [ -f "$RESULTS_FILE" ]; then
+      PASSED_JSON=$(jq '.passed' "$RESULTS_FILE")
+      FAILED_JSON=$(jq '.failed' "$RESULTS_FILE")
+      PROVE_FAILED_JSON=$(jq '.prove_failed' "$RESULTS_FILE")
+      VERIFY_FAILED_JSON=$(jq '.verify_failed' "$RESULTS_FILE")
+    else
+      PASSED_JSON="[]"
+      FAILED_JSON="[]"
+      PROVE_FAILED_JSON="[]"
+      VERIFY_FAILED_JSON="[]"
+    fi
+
+    # Check if proving was attempted (summary has "proved" field)
+    HAS_PROVING=$(jq 'if .proved != null then true else false end' "$SUMMARY_FILE")
+
+    if [ "$FAILED_COUNT" -eq 0 ]; then
+      STATUS_EMOJI="+"
+    else
+      STATUS_EMOJI="x"
+    fi
+
+    echo "  ACT4 ${ZKVM} (${SUITE}): ${TOTAL} tests"
+    echo "     ${STATUS_EMOJI} ${PASSED_COUNT}/${TOTAL} passed"
+
+    HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
+
+    # Build run entry as JSON
+    RUN_ENTRY=$(jq -n \
+      --arg date "$RUN_DATE" \
+      --arg commit "$ZKVM_COMMIT" \
+      --arg monitor_commit "$TEST_MONITOR_COMMIT" \
+      --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
+      --argjson total "$TOTAL" \
+      --argjson passed "$PASSED_JSON" \
+      --argjson failed "$FAILED_JSON" \
+      --argjson prove_failed "$PROVE_FAILED_JSON" \
+      --argjson verify_failed "$VERIFY_FAILED_JSON" \
+      --argjson has_proving "$HAS_PROVING" \
+      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving}')
+
+    if [ -f "$HISTORY_FILE" ]; then
+      jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
+        "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
+    else
+      jq -n --arg zkvm "$ZKVM" --arg suite "$SUITE" --argjson run "$RUN_ENTRY" \
+        '{zkvm: $zkvm, suite: $suite, runs: [$run]}' > "$HISTORY_FILE"
+    fi
+  done
+}
+
+# run_zisk_split_pipeline — ELF generation in Docker, test execution on host via act4-runner
+run_zisk_split_pipeline() {
+  local ZKVM=zisk
+  local ELF_DIR="test-results/${ZKVM}/elfs"
+  local DOCKER_DIR="docker/${ZKVM}"
+
+  # Zisk mode: execute, prove, or full (default). Set via ZISK_MODE env var.
+  local MODE="${ZISK_MODE:-full}"
+
+  # Check required binaries (built by ./run build zisk)
+  if [ ! -f "binaries/zisk-binary" ]; then
+    echo "  Error: binaries/zisk-binary not found. Run './run build zisk' first."
+    return 1
+  fi
+  if [ "$MODE" != "execute" ]; then
+    if [ ! -f "binaries/cargo-zisk" ]; then
+      echo "  Error: binaries/cargo-zisk not found (required for mode=$MODE). Run './run build zisk' first."
+      return 1
+    fi
+    if [ ! -f "binaries/libzisk_witness.so" ]; then
+      echo "  Warning: binaries/libzisk_witness.so not found (may be required for proving)"
+    fi
+  fi
+
+  # GPU binary selection
+  local CARGO_ZISK="binaries/cargo-zisk"
+  if [ -n "${GPU:-}" ]; then
+    if [ -f "binaries/cargo-zisk-cuda" ]; then
+      CARGO_ZISK="binaries/cargo-zisk-cuda"
+    else
+      echo "  Error: GPU requested but cargo-zisk-cuda not found. Run 'GPU=1 ./run build zisk' first."
+      return 1
+    fi
+  fi
+
+  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
+  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+    local NATIVE_COUNT
+    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
+    if [ "$NATIVE_COUNT" -gt 0 ]; then
+      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
+    fi
+  else
+    echo "Building Docker image for $ZKVM (ELF generation)..."
+    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+      echo "Failed to build Docker image for $ZKVM"
+      return 1
+    }
+
+    # Clean old ELFs before regenerating (Docker creates files as root,
+    # so use a Docker container to remove them if rm -rf fails).
+    rm -rf "$ELF_DIR" 2>/dev/null || \
+      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
+    rm -rf "$ELF_DIR" 2>/dev/null
+    mkdir -p "$ELF_DIR"
+
+    JOBS_ARG=""
+    if [ -n "${ACT4_JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
+    elif [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    fi
+
+    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
+    docker run --rm --name zkvm-${ZKVM}-elfgen \
+      ${JOBS_ARG} \
+      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/$ELF_DIR:/elfs" \
+      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
+      return 1
+    }
+  fi
+
+  # Build act4-runner if needed
+  local RUNNER="act4-runner/target/release/act4-runner"
+  if [ ! -x "$RUNNER" ]; then
+    echo "  Building act4-runner..."
+    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build act4-runner"
+      return 1
+    }
+  fi
+
+  mkdir -p "test-results/${ZKVM}"
+
+  # Determine job count for act4-runner
+  local RUNNER_JOBS=""
+  if [ -n "${ACT4_JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${ACT4_JOBS}"
+  elif [ -n "${JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${JOBS}"
+  fi
+
+  # GPU flag for proving
+  local GPU_ARG=""
+  if [ -n "${GPU:-}" ]; then
+    GPU_ARG="--gpu"
+  fi
+
+  # Set LD_LIBRARY_PATH for bundled Zisk shared libs (built in Docker).
+  # Host CUDA libs (/usr/local/cuda/lib64) must come first for GPU proving —
+  # the Docker-bundled libcudart may not match the host driver exactly.
+  if [ -d "binaries/zisk-lib" ]; then
+    if [ -d "/usr/local/cuda/lib64" ]; then
+      export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    else
+      export LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    fi
+  fi
+
+  # Run native suite — always execute-only (no proving needed for full ISA)
+  if [ -d "$ELF_DIR/native" ]; then
+    echo "Running $ZKVM native suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm zisk --binary binaries/zisk-binary \
+      --elf-dir "$ELF_DIR/native" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-full \
+      --label full-isa \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
+  # Run target suite — uses requested mode (execute/prove/full)
+  if [ -d "$ELF_DIR/target" ]; then
+    local TARGET_ZKVM_ARG TARGET_PROVE_ARGS
+    if [ "$MODE" = "execute" ]; then
+      TARGET_ZKVM_ARG="--zkvm zisk --binary binaries/zisk-binary"
+      TARGET_PROVE_ARGS=""
+    else
+      TARGET_ZKVM_ARG="--zkvm zisk-prove --binary binaries/zisk-binary --cargo-zisk $CARGO_ZISK"
+      TARGET_PROVE_ARGS="$GPU_ARG"
+      if [ -f "binaries/libzisk_witness.so" ]; then
+        TARGET_ZKVM_ARG="$TARGET_ZKVM_ARG --witness-lib binaries/libzisk_witness.so"
+      fi
+    fi
+
+    echo "Running $ZKVM target suite (mode: $MODE)..."
+    "$RUNNER" \
+      $TARGET_ZKVM_ARG \
+      --elf-dir "$ELF_DIR/target" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-standard \
+      --label standard-isa \
+      --mode "$MODE" \
+      $TARGET_PROVE_ARGS $RUNNER_JOBS || true
+  fi
+
+  process_results "$ZKVM"
+}
+
+# run_jolt_split_pipeline — ELF generation in Docker, test execution + proving on host
+run_jolt_split_pipeline() {
+  local ZKVM=jolt
+  local ELF_DIR="test-results/${ZKVM}/elfs"
+  local DOCKER_DIR="docker/${ZKVM}"
+
+  # jolt-prover handles both execution (trace) and proving
+  if [ ! -f "binaries/jolt-prover" ]; then
+    echo "  Error: binaries/jolt-prover not found. Run './run build jolt' first."
+    return 1
+  fi
+
+  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
+  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+    local NATIVE_COUNT
+    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
+    if [ "$NATIVE_COUNT" -gt 0 ]; then
+      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
+    fi
+  else
+    echo "Building Docker image for $ZKVM (ELF generation)..."
+    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+      echo "Failed to build Docker image for $ZKVM"
+      return 1
+    }
+
+    # Clean old ELFs before regenerating
+    rm -rf "$ELF_DIR" 2>/dev/null || \
+      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
+    rm -rf "$ELF_DIR" 2>/dev/null
+    mkdir -p "$ELF_DIR"
+
+    JOBS_ARG=""
+    if [ -n "${ACT4_JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
+    elif [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    fi
+
+    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
+    docker run --rm --name zkvm-${ZKVM}-elfgen \
+      ${JOBS_ARG} \
+      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/$ELF_DIR:/elfs" \
+      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
+      return 1
+    }
+  fi
+
+  # Build act4-runner if needed
+  local RUNNER="act4-runner/target/release/act4-runner"
+  if [ ! -x "$RUNNER" ]; then
+    echo "  Building act4-runner..."
+    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build act4-runner"
+      return 1
+    }
+  fi
+
+  mkdir -p "test-results/${ZKVM}"
+
+  # Determine job count for act4-runner
+  local RUNNER_JOBS=""
+  if [ -n "${ACT4_JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${ACT4_JOBS}"
+  elif [ -n "${JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${JOBS}"
+  fi
+
+  # Run native suite (execute-only)
+  if [ -d "$ELF_DIR/native" ]; then
+    echo "Running $ZKVM native suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm jolt --jolt-prover binaries/jolt-prover \
+      --elf-dir "$ELF_DIR/native" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-full \
+      --label full-isa \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
+  # Run target suite (prove + verify)
+  if [ -d "$ELF_DIR/target" ]; then
+    echo "Running $ZKVM target suite (mode: full)..."
+    "$RUNNER" \
+      --zkvm jolt --jolt-prover binaries/jolt-prover \
+      --elf-dir "$ELF_DIR/target" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-standard \
+      --label standard-isa \
+      --mode full \
+      $RUNNER_JOBS || true
+  fi
+
+  process_results "$ZKVM"
+}
+
+# run_legacy_pipeline <zkvm> — original Docker-based test execution
+run_legacy_pipeline() {
+  local ZKVM="$1"
+
   if [ ! -f "binaries/${ZKVM}-binary" ]; then
-    echo "  ⚠️  No binary found, skipping"
-    continue
+    echo "  Warning: No binary found for $ZKVM at binaries/${ZKVM}-binary, skipping"
+    return
   fi
 
-  # Check plugin exists in riscof repo
-  if [ ! -d "riscof/plugins/${ZKVM}" ]; then
-    echo "  ⚠️  No plugin found at riscof/plugins/${ZKVM}"
-    echo "  Make sure the riscof symlink points to your riscof repository"
-    continue
+  chmod +x "binaries/${ZKVM}-binary" 2>/dev/null || true
+
+  DOCKER_DIR="docker/${ZKVM}"
+  if [ ! -d "$DOCKER_DIR" ]; then
+    echo "  Warning: No Docker config at $DOCKER_DIR, skipping $ZKVM"
+    return
   fi
 
-  # Make binary executable if not already (skip if permission denied)
-  chmod +x "binaries/${ZKVM}-binary" 2> /dev/null || true
+  echo "Building Docker image for $ZKVM..."
+  ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
+  docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    echo "Failed to build Docker image for $ZKVM"
+    return
+  }
 
-  # Run RISCOF tests (allow non-zero exit for test failures)
-  mkdir -p test-results/${ZKVM}
+  mkdir -p "test-results/${ZKVM}"
 
-  # Prepare compile-only argument if --build-only flag is set
-  COMPILE_ONLY_ARG=""
-  if [ "$BUILD_ONLY" = true ]; then
-    COMPILE_ONLY_ARG="compile-only"
-  fi
-
-  # Use JOBS environment variable if set, otherwise default to 48
-  RISCOF_JOBS=${JOBS:-48}
-
-  # Build cpuset argument to pin container to specific cores
-  # If JOBS=8, use cores 0-7; if JOBS=48, use cores 0-47
   CPUSET_ARG=""
-  if [ -n "$JOBS" ]; then
+  if [ -n "${JOBS:-}" ]; then
     LAST_CORE=$((JOBS - 1))
     CPUSET_ARG="--cpuset-cpus=0-${LAST_CORE}"
-    echo "  📌 Limiting to cores 0-${LAST_CORE} (${JOBS} cores total)"
+    echo "  Limiting to cores 0-${LAST_CORE} (${JOBS} cores total)"
   fi
 
-  docker run --rm \
+  JOBS_ARG=""
+  if [ -n "${ACT4_JOBS:-}" ]; then
+    JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
+  elif [ -n "${JOBS:-}" ]; then
+    JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+  fi
+
+  LOG_FILE="test-results/${ZKVM}/act4.log"
+  echo "Running tests for $ZKVM... (log: $LOG_FILE)"
+  docker run --rm --name zkvm-${ZKVM}-test \
     ${CPUSET_ARG} \
-    -e RISCOF_JOBS=${RISCOF_JOBS} \
-    -v "$PWD/binaries/${ZKVM}-binary:/dut/bin/dut-exe" \
-    -v "$PWD/riscof/plugins/${ZKVM}:/dut/plugin" \
-    -v "$PWD/test-results/${ZKVM}:/riscof/riscof_work" \
-    -v "$PWD/extra-tests:/extra-tests" \
-    riscof:latest \
-    "${ZKVM}" "${TEST_SUITE}" ${COMPILE_ONLY_ARG} || true
+    ${JOBS_ARG} \
+    -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \
+    -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+    -v "$PWD/test-results/${ZKVM}:/results" \
+    "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+    echo "  Container failed for $ZKVM — check $LOG_FILE"
+    return
+  }
 
-  # Copy report with suite suffix
-  if [ -f "test-results/${ZKVM}/report.html" ]; then
-    cp "test-results/${ZKVM}/report.html" "test-results/${ZKVM}/report-${TEST_SUITE}.html"
-  fi
-
-  # Parse test results from HTML report
-  if [ -f "test-results/${ZKVM}/report-${TEST_SUITE}.html" ]; then
-    # Extract pass/fail counts from the HTML report
-    PASSED=$(grep -oE '<span class="passed">[0-9]+Passed</span>' "test-results/${ZKVM}/report-${TEST_SUITE}.html" | grep -oE '[0-9]+' | head -1 || echo "0")
-    FAILED=$(grep -oE '<span class="failed">[0-9]+Failed</span>' "test-results/${ZKVM}/report-${TEST_SUITE}.html" | grep -oE '[0-9]+' | head -1 || echo "0")
-
-    # If that didn't work, count the actual result rows
-    if [ "$PASSED" = "0" ] && [ "$FAILED" = "0" ]; then
-      PASSED=$(grep -c '<td class="col-result">Passed</td>' "test-results/${ZKVM}/report-${TEST_SUITE}.html" 2> /dev/null || echo "0")
-      FAILED=$(grep -c '<td class="col-result">Failed</td>' "test-results/${ZKVM}/report-${TEST_SUITE}.html" 2> /dev/null || echo "0")
-    fi
-
-    TOTAL=$((PASSED + FAILED))
-
-    # Create summary.json for update script (with suite-specific file)
-    cat > "test-results/${ZKVM}/summary-${TEST_SUITE}.json" << EOF
-{
-  "zkvm": "${ZKVM}",
-  "suite": "${TEST_SUITE}",
-  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "passed": $PASSED,
-  "failed": $FAILED,
-  "total": $TOTAL
+  process_results "$ZKVM"
 }
-EOF
 
-    # Record history with suite tracking
-    mkdir -p data/history
-    HISTORY_FILE="data/history/${ZKVM}-${TEST_SUITE}.json"
-    TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2> /dev/null | head -c 8 || echo "unknown")
-    ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2> /dev/null || jq -r ".zkvms.${ZKVM}.commit" config.json || echo "unknown")
-    ISA=$(grep -oP 'ISA:\s*\K\S+' "riscof/plugins/${ZKVM}/${ZKVM}_isa.yaml" 2> /dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
-    RUN_DATE=$(date -u +"%Y-%m-%d")
-
-    # Create or update history file
-    if [ -f "$HISTORY_FILE" ]; then
-      # Append to existing history
-      jq --arg date "$RUN_DATE" \
-        --arg monitor "$TEST_MONITOR_COMMIT" \
-        --arg zkvm "$ZKVM_COMMIT" \
-        --arg isa "$ISA" \
-        --arg suite "$TEST_SUITE" \
-        --argjson passed "$PASSED" \
-        --argjson total "$TOTAL" \
-        '.runs += [{
-                   "date": $date,
-                   "test_monitor_commit": $monitor,
-                   "zkvm_commit": $zkvm,
-                   "isa": $isa,
-                   "suite": $suite,
-                   "passed": $passed,
-                   "total": $total,
-                   "notes": ""
-               }]' "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
-    else
-      # Create new history file
-      cat > "$HISTORY_FILE" << HISTORY
-{
-  "zkvm": "${ZKVM}",
-  "suite": "${TEST_SUITE}",
-  "runs": [
-    {
-      "date": "${RUN_DATE}",
-      "test_monitor_commit": "${TEST_MONITOR_COMMIT}",
-      "zkvm_commit": "${ZKVM_COMMIT}",
-      "isa": "${ISA}",
-      "suite": "${TEST_SUITE}",
-      "passed": ${PASSED},
-      "total": ${TOTAL},
-      "notes": ""
-    }
-  ]
-}
-HISTORY
-    fi
-
-    echo "  ✅ Tested ${ZKVM}: ${PASSED}/${TOTAL} passed"
+for ZKVM in $ZKVMS; do
+  if [ "$ZKVM" = "zisk" ]; then
+    run_zisk_split_pipeline || true
+  elif [ "$ZKVM" = "jolt" ]; then
+    run_jolt_split_pipeline || true
   else
-    echo "  ⚠️  Tests ran but no report generated"
+    run_legacy_pipeline "$ZKVM" || true
   fi
 done
-
