@@ -1,6 +1,6 @@
 # zkevm-test-monitor
 
-RISC-V compliance testing for ZK-VMs using the [ACT4](https://github.com/riscv-non-isa/riscv-arch-test/tree/act4) framework.
+RISC-V compliance testing zkVMs using the the [ACT4](https://github.com/riscv-non-isa/riscv-arch-test/tree/act4) framework.
 
 **Dashboard:** https://codygunton.github.io/zkevm-test-monitor/
 
@@ -34,10 +34,11 @@ Tests are self-checking ELFs: the Sail reference model runs at compile time to e
 
 ```bash
 JOBS=8 ./run test zisk              # Limit CPU cores
+ACT4_JOBS=N ./run test zisk         # Override parallel jobs inside container
 FORCE=1 ./run test zisk             # Regenerate ELFs from scratch
-ZISK_MODE=execute ./run test zisk   # Execution only (no proving)
-ZISK_GPU=1 ./run build zisk         # Build with GPU support
-ZISK_GPU=1 ./run test zisk          # Prove with GPU
+ZISK_MODE=execute ./run test zisk   # Execution only (no proving); also: prove, full (default)
+GPU=1 ./run build zisk              # Build with GPU support
+GPU=1 ./run test zisk               # Prove with GPU
 ```
 
 ## Adding a ZK-VM
