@@ -1,10 +1,15 @@
 name: Nightly Jolt ZKVM Update
 
 on:
-  # schedule:
-  #   # Run daily at 3:00 AM UTC
-  #   - cron: '0 3 * * *'
-  workflow_dispatch:  # Allow manual trigger for testing
+  schedule:
+    # Run daily at 3:00 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force build+test even if upstream commit has not changed'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -20,3 +25,6 @@ jobs:
     uses: ./.github/workflows/build-and-test-zkvm.yml
     with:
       zkvm: jolt
+      # Jolt proving needs ~16GB RAM per test instance
+      runner: '["self-hosted-ghr", "size-xl-x64"]'
+      force: ${{ github.event.inputs.force == 'true' }}
