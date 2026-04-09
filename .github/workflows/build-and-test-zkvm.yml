@@ -112,6 +112,10 @@ jobs:
         continue-on-error: true
         id: build-zkvm
 
+      - name: Install Rust (for act4-runner)
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Test ZKVM
         if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
         run: |
