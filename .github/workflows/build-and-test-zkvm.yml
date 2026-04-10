@@ -170,7 +170,7 @@ jobs:
           CURRENT_COMMIT=${{ steps.zkvm-commit.outputs.current_commit }}
           LATEST_COMMIT=${{ steps.zkvm-commit.outputs.latest_commit }}
 
-          # Add config and test history (dashboard deploys automatically via GitHub Pages)
+          # Add config and test history
           git add config.json data/ || true
 
           # Create commit message with build/test status
@@ -199,6 +199,19 @@ jobs:
           git push origin main
 
           echo "✅ Changes committed and pushed successfully"
+
+      - name: Trigger dashboard deploy
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && env.has_changes == 'true' && inputs.dry_run != true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref: 'main'
+            });
+            console.log('Triggered dashboard deploy');
 
       - name: Fail job if tests failed
         if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.test-zkvm.outcome == 'failure'
