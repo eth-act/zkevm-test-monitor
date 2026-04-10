@@ -195,8 +195,8 @@ jobs:
           # Commit changes
           git commit -m "$COMMIT_MSG"
 
-          # Push changes (use GITHUB_REF_NAME to support feature branches)
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # Push changes
+          git push origin main
 
           echo "✅ Changes committed and pushed successfully"
 
