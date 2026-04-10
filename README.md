@@ -2,7 +2,7 @@
 
 RISC-V compliance testing zkVMs using the the [ACT4](https://github.com/riscv-non-isa/riscv-arch-test/tree/act4) framework.
 
-**Dashboard:** https://codygunton.github.io/zkevm-test-monitor/
+**Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 
 Tests are self-checking ELFs: the Sail reference model runs at compile time to embed expected values, and tests exit 0 (pass) or non-zero (fail).
 
