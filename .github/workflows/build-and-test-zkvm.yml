@@ -47,7 +47,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq python3 python3-pip python3-yaml libopenmpi-dev
+          sudo apt-get install -y jq python3 python3-pip python3-yaml openmpi-bin
 
       - name: Get latest commit
         id: zkvm-commit
