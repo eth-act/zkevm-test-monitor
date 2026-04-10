@@ -3,11 +3,6 @@ name: Deploy Dashboard to GitHub Pages
 on:
   push:
     branches: [main]
-    paths:
-      - 'docs/**'
-      - 'data/**'
-      - 'config.json'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
