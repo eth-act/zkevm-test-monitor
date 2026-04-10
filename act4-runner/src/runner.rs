@@ -19,6 +19,18 @@ pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> 
         elfs.par_iter()
             .map(|elf_path| {
                 let result = backend.run_elf(elf_path, mode);
+                let name = elf_path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("?");
+                let status = if result.passed { "✓" } else { "✗" };
+                let secs = result.duration.as_secs_f64();
+                if let Some(prove_dur) = result.prove_duration {
+                    let prove_status = result.prove_status.as_deref().unwrap_or("?");
+                    eprintln!("{status} {name} ({secs:.1}s, prove={prove_status} {:.1}s)",
+                        prove_dur.as_secs_f64());
+                } else {
+                    eprintln!("{status} {name} ({secs:.1}s)");
+                }
                 (elf_path.clone(), result)
             })
             .collect()
