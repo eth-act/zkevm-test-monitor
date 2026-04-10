@@ -1,10 +1,19 @@
 name: Nightly Zisk ZKVM Update
 
 on:
-  # schedule:
-  #   # Run daily at 3:30 AM UTC (30 minutes after Jolt to avoid conflicts)
-  #   - cron: '30 3 * * *'
-  workflow_dispatch:  # Allow manual trigger for testing
+  schedule:
+    # Run daily at 3:30 AM UTC (30 minutes after Jolt to avoid conflicts)
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force build+test even if upstream commit has not changed'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Run build+test but do not commit or push results'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,3 +30,5 @@ jobs:
     with:
       zkvm: zisk
       runner: '["self-hosted-ghr", "size-xl-x64"]'
+      force: ${{ github.event.inputs.force == 'true' }}
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
