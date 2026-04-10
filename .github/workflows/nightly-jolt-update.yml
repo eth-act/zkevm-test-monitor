@@ -1,9 +1,9 @@
-name: Nightly Zisk ZKVM Update
+name: Nightly Jolt ZKVM Update
 
 on:
   # schedule:
-  #   # Run daily at 3:30 AM UTC (30 minutes after Jolt to avoid conflicts)
-  #   - cron: '30 3 * * *'
+  #   # Run daily at 3:00 AM UTC
+  #   - cron: '0 3 * * *'
   workflow_dispatch:  # Allow manual trigger for testing
 
 permissions:
@@ -12,12 +12,11 @@ permissions:
   issues: write
 
 concurrency:
-  group: zisk-update
+  group: jolt-update
   cancel-in-progress: true
 
 jobs:
-  update-zisk:
+  update-jolt:
     uses: ./.github/workflows/build-and-test-zkvm.yml
     with:
-      zkvm: zisk
-      runner: '["self-hosted-ghr", "size-xl-x64"]'
+      zkvm: jolt

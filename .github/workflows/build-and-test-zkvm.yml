@@ -12,16 +12,6 @@ on:
         required: false
         default: '["ubuntu-latest"]'
         description: 'Runner labels as JSON array (e.g., ["ubuntu-latest"] or ["self-hosted-ghr", "size-xl-x64"])'
-      force:
-        type: boolean
-        required: false
-        default: false
-        description: 'Force build+test even if upstream commit has not changed'
-      dry_run:
-        type: boolean
-        required: false
-        default: false
-        description: 'Run build+test but do not commit or push results back to the repo'
 
 permissions:
   contents: write
@@ -47,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq python3 python3-pip python3-yaml openmpi-bin
+          sudo apt-get install -y jq python3 python3-pip python3-yaml
 
       - name: Get latest commit
         id: zkvm-commit
@@ -63,14 +53,8 @@ jobs:
           LATEST_COMMIT=$(git ls-remote $REPO_URL refs/heads/main | cut -f1 | head -c8)
           echo "Latest ${ZKVM} commit from main branch: $LATEST_COMMIT"
 
-          # Check if there's an update available (or forced)
-          FORCE="${{ inputs.force }}"
-          if [ "$FORCE" = "true" ]; then
-            echo "needs_update=true" >> $GITHUB_OUTPUT
-            echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
-            echo "latest_commit=${LATEST_COMMIT:-$CURRENT_COMMIT}" >> $GITHUB_OUTPUT
-            echo "⚡ Force mode: running build+test regardless of commit change"
-          elif [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
+          # Check if there's an update available
+          if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
             echo "needs_update=true" >> $GITHUB_OUTPUT
             echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
             echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
@@ -96,7 +80,7 @@ jobs:
           echo "✅ Updated ${ZKVM} commit to: $NEW_COMMIT"
 
       - name: Set up Docker Buildx
-        if: steps.zkvm-commit.outputs.needs_update == 'true' && !env.ACT
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build ZKVM
@@ -112,39 +96,59 @@ jobs:
         continue-on-error: true
         id: build-zkvm
 
-      - name: Install Rust (for act4-runner)
-        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Test ZKVM
         if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
         run: |
           ZKVM="${{ inputs.zkvm }}"
           echo "🧪 Testing ${ZKVM} ZKVM..."
 
-          # Run ACT4 tests (split pipeline for jolt/zisk, legacy Docker for others)
-          JOBS=1 ./src/test.sh ${ZKVM}
+          # Run tests
+          # A handful of float tests takes >20GB RAM to compile
+          JOBS=1 ./src/test.sh --arch ${ZKVM}
         continue-on-error: true
         id: test-zkvm
+
+      - name: Test Debug Command
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success'
+        run: |
+          ZKVM="${{ inputs.zkvm }}"
+          echo "🐛 Testing debug command for ${ZKVM}..."
+
+          # Debug: Check what test results exist
+          echo "📁 Checking test-results directory..."
+          ls -la test-results/${ZKVM}/ || echo "test-results/${ZKVM} doesn't exist"
+          find test-results/${ZKVM} -name "my.elf" 2>/dev/null || echo "No my.elf found"
+
+          # Run debug command test after full test suite completes
+          ./src/test_debug.sh ${ZKVM}
+        continue-on-error: true
+        id: test-debug
 
       - name: Record test failure
         if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.build-zkvm.outcome == 'success' && steps.test-zkvm.outcome == 'failure'
         run: |
           ZKVM="${{ inputs.zkvm }}"
 
-          # Create placeholder summary files for ACT4 suites
+          # Create summary file indicating test failure
           mkdir -p test-results/${ZKVM}
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          for LABEL in full-isa standard-isa; do
-            if [ ! -f "test-results/${ZKVM}/summary-act4-${LABEL}.json" ]; then
-              jq -n \
-                --arg zkvm "$ZKVM" \
-                --arg label "$LABEL" \
-                --arg timestamp "$TIMESTAMP" \
-                '{zkvm: $zkvm, label: $label, timestamp: $timestamp, passed: 0, failed: 0, total: 0}' \
-                > "test-results/${ZKVM}/summary-act4-${LABEL}.json"
-            fi
-          done
+          jq -n \
+            --arg zkvm "$ZKVM" \
+            --arg suite "arch" \
+            --arg timestamp "$TIMESTAMP" \
+            '{zkvm: $zkvm, suite: $suite, timestamp: $timestamp, passed: 0, failed: 0, total: 0}' \
+            > test-results/${ZKVM}/summary-arch.json
+
+          # Create placeholder report indicating failure
+          cp src/report-not-generated-template.html test-results/${ZKVM}/report-arch.html
+
+      - name: Update dashboard
+        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        run: |
+          echo "📊 Updating dashboard..."
+          python3 src/update.py
+        continue-on-error: true
+        id: update-dashboard
 
       - name: Check for changes and commit
         if: steps.zkvm-commit.outputs.needs_update == 'true'
@@ -164,14 +168,14 @@ jobs:
           fi
 
       - name: Commit and push changes
-        if: steps.zkvm-commit.outputs.needs_update == 'true' && env.has_changes == 'true' && inputs.dry_run != true
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && env.has_changes == 'true'
         run: |
           ZKVM="${{ inputs.zkvm }}"
           CURRENT_COMMIT=${{ steps.zkvm-commit.outputs.current_commit }}
           LATEST_COMMIT=${{ steps.zkvm-commit.outputs.latest_commit }}
 
-          # Add config and test history
-          git add config.json data/ || true
+          # Add all modified files (only tracked files that should be committed)
+          git add config.json data/ docs/ index.html || true
 
           # Create commit message with build/test status
           COMMIT_MSG="chore: update ${ZKVM} ZKVM from $CURRENT_COMMIT to $LATEST_COMMIT"
@@ -190,6 +194,12 @@ jobs:
             COMMIT_MSG="${COMMIT_MSG}"$'\n'"⚠️ Tests: skipped (build failed)"
           fi
 
+          if [ "${{ steps.update-dashboard.outcome }}" = "success" ]; then
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"✅ Dashboard: updated"
+          else
+            COMMIT_MSG="${COMMIT_MSG}"$'\n'"❌ Dashboard: update failed"
+          fi
+
           COMMIT_MSG="${COMMIT_MSG}"$'\n\n'"🤖 Automated nightly update"
 
           # Commit changes
@@ -199,19 +209,6 @@ jobs:
           git push origin main
 
           echo "✅ Changes committed and pushed successfully"
-
-      - name: Trigger dashboard deploy
-        if: steps.zkvm-commit.outputs.needs_update == 'true' && env.has_changes == 'true' && inputs.dry_run != true
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'deploy.yml',
-              ref: 'main'
-            });
-            console.log('Triggered dashboard deploy');
 
       - name: Fail job if tests failed
         if: steps.zkvm-commit.outputs.needs_update == 'true' && steps.test-zkvm.outcome == 'failure'
@@ -278,6 +275,7 @@ jobs:
                   '### Status Summary',
                   `- **Build Status:** ${{ steps.build-zkvm.outcome }}`,
                   `- **Test Status:** ${{ steps.test-zkvm.outcome }}`,
+                  `- **Dashboard Update:** ${{ steps.update-dashboard.outcome }}`,
                   '',
                   '### Next Steps',
                   `1. Check the [workflow run](${run_url}) for detailed error logs`,
@@ -336,10 +334,15 @@ jobs:
               echo "### 🧪 Tests: ⚠️ Skipped (build failed)" >> $GITHUB_STEP_SUMMARY
             fi
 
+            # Dashboard status
+            if [ "${{ steps.update-dashboard.outcome }}" = "success" ]; then
+              echo "### 📊 Dashboard: ✅ Updated" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### 📊 Dashboard: ❌ Update failed" >> $GITHUB_STEP_SUMMARY
+            fi
+
             # Commit status
-            if [ "${{ inputs.dry_run }}" = "true" ]; then
-              echo "### 📝 Changes: 🔍 Dry run (not committed)" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ env.has_changes }}" = "true" ]; then
+            if [ "${{ env.has_changes }}" = "true" ]; then
               echo "### 📝 Changes: ✅ Committed and pushed" >> $GITHUB_STEP_SUMMARY
             else
               echo "### 📝 Changes: ℹ️ No changes to commit" >> $GITHUB_STEP_SUMMARY
