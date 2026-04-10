@@ -96,7 +96,7 @@ jobs:
           echo "✅ Updated ${ZKVM} commit to: $NEW_COMMIT"
 
       - name: Set up Docker Buildx
-        if: steps.zkvm-commit.outputs.needs_update == 'true'
+        if: steps.zkvm-commit.outputs.needs_update == 'true' && !env.ACT
         uses: docker/setup-buildx-action@v3
 
       - name: Build ZKVM
@@ -324,7 +324,9 @@ jobs:
             fi
 
             # Commit status
-            if [ "${{ env.has_changes }}" = "true" ]; then
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "### 📝 Changes: 🔍 Dry run (not committed)" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ env.has_changes }}" = "true" ]; then
               echo "### 📝 Changes: ✅ Committed and pushed" >> $GITHUB_STEP_SUMMARY
             else
               echo "### 📝 Changes: ℹ️ No changes to commit" >> $GITHUB_STEP_SUMMARY
