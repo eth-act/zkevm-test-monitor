@@ -180,10 +180,8 @@ run_zisk_split_pipeline() {
     mkdir -p "$ELF_DIR"
 
     JOBS_ARG=""
-    if [ -n "${ACT4_JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-    elif [ -n "${JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    if [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e JOBS=${JOBS}"
     fi
 
     LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
@@ -192,7 +190,8 @@ run_zisk_split_pipeline() {
       ${JOBS_ARG} \
       -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
-      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+      "${ZKVM}:latest" 2>&1 | tee "$LOG_FILE" | \
+      awk '/-o .*\.elf/ && !/\.sig\.elf/ { for(i=1;i<=NF;i++) if($i=="-o") { split($(i+1),a,"/"); gsub(/\.elf/,"",a[length(a)]); print "  compiled " a[length(a)] } }' || {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
       return 1
     }
@@ -212,9 +211,7 @@ run_zisk_split_pipeline() {
 
   # Determine job count for act4-runner
   local RUNNER_JOBS=""
-  if [ -n "${ACT4_JOBS:-}" ]; then
-    RUNNER_JOBS="-j ${ACT4_JOBS}"
-  elif [ -n "${JOBS:-}" ]; then
+  if [ -n "${JOBS:-}" ]; then
     RUNNER_JOBS="-j ${JOBS}"
   fi
 
@@ -310,10 +307,8 @@ run_jolt_split_pipeline() {
     mkdir -p "$ELF_DIR"
 
     JOBS_ARG=""
-    if [ -n "${ACT4_JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-    elif [ -n "${JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    if [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e JOBS=${JOBS}"
     fi
 
     LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
@@ -322,7 +317,8 @@ run_jolt_split_pipeline() {
       ${JOBS_ARG} \
       -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
-      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+      "${ZKVM}:latest" 2>&1 | tee "$LOG_FILE" | \
+      awk '/-o .*\.elf/ && !/\.sig\.elf/ { for(i=1;i<=NF;i++) if($i=="-o") { split($(i+1),a,"/"); gsub(/\.elf/,"",a[length(a)]); print "  compiled " a[length(a)] } }' || {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
       return 1
     }
@@ -342,9 +338,7 @@ run_jolt_split_pipeline() {
 
   # Determine job count for act4-runner
   local RUNNER_JOBS=""
-  if [ -n "${ACT4_JOBS:-}" ]; then
-    RUNNER_JOBS="-j ${ACT4_JOBS}"
-  elif [ -n "${JOBS:-}" ]; then
+  if [ -n "${JOBS:-}" ]; then
     RUNNER_JOBS="-j ${JOBS}"
   fi
 
@@ -411,10 +405,8 @@ run_legacy_pipeline() {
   fi
 
   JOBS_ARG=""
-  if [ -n "${ACT4_JOBS:-}" ]; then
-    JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-  elif [ -n "${JOBS:-}" ]; then
-    JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+  if [ -n "${JOBS:-}" ]; then
+    JOBS_ARG="-e JOBS=${JOBS}"
   fi
 
   LOG_FILE="test-results/${ZKVM}/act4.log"

@@ -23,8 +23,8 @@ WORKDIR=/act4/work
 cd /act4
 
 # Determine parallelism for compilation
-if [ -n "${ACT4_JOBS:-}" ]; then
-    JOBS="$ACT4_JOBS"
+if [ -n "${JOBS:-}" ]; then
+    : # JOBS already set via -e JOBS=N
 else
     AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
     SAFE_JOBS=$(( AVAIL_MB * 80 / 100 / 8192 ))

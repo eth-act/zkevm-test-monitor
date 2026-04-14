@@ -20,7 +20,7 @@ fi
 
 cd /act4
 mkdir -p "$RESULTS"
-JOBS="${ACT4_JOBS:-$(nproc)}"
+JOBS="${JOBS:-$(nproc)}"
 
 # Create wrapper script for SP1 (reformats args for sp1-binary)
 cat > /act4/run-dut.sh << 'WRAPPER'

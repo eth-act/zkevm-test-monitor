@@ -33,8 +33,7 @@ Tests are self-checking ELFs: the Sail reference model runs at compile time to e
 ### Environment variables
 
 ```bash
-JOBS=8 ./run test zisk              # Limit CPU cores
-ACT4_JOBS=N ./run test zisk         # Override parallel jobs inside container
+JOBS=8 ./run test zisk              # Limit parallel jobs
 FORCE=1 ./run test zisk             # Regenerate ELFs from scratch
 ZISK_MODE=execute ./run test zisk   # Execution only (no proving); also: prove, full (default)
 GPU=1 ./run build zisk              # Build with GPU support

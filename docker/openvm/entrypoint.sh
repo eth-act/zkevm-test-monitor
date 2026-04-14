@@ -20,7 +20,7 @@ fi
 
 cd /act4
 mkdir -p "$RESULTS"
-JOBS="${ACT4_JOBS:-$(nproc)}"
+JOBS="${JOBS:-$(nproc)}"
 
 # Create wrapper script for running OpenVM
 # The standalone binary accepts a raw ELF path and exits with the guest exit code.

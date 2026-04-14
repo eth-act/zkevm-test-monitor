@@ -20,7 +20,7 @@ fi
 
 cd /act4
 mkdir -p "$RESULTS"
-JOBS="${ACT4_JOBS:-$(nproc)}"
+JOBS="${JOBS:-$(nproc)}"
 
 # Create wrapper script for Pico
 cat > /act4/run-dut.sh << 'WRAPPER'

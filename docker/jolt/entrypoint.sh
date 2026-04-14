@@ -37,7 +37,7 @@ if [ "$ELF_ONLY" = "0" ]; then
 fi
 
 cd /act4
-JOBS="${ACT4_JOBS:-$(nproc)}"
+JOBS="${JOBS:-$(nproc)}"
 
 
 # generate_elfs <config-path> <config-name> <extensions-list> <extensions-txt-entries> <elf-output-label>

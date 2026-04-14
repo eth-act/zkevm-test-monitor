@@ -19,7 +19,7 @@ fi
 
 cd /act4
 mkdir -p "$RESULTS"
-JOBS="${ACT4_JOBS:-$(nproc)}"
+JOBS="${JOBS:-$(nproc)}"
 
 # run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
 #

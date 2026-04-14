@@ -19,7 +19,7 @@ fi
 
 cd /act4
 mkdir -p "$RESULTS"
-JOBS="${ACT4_JOBS:-$(nproc)}"
+JOBS="${JOBS:-$(nproc)}"
 
 # Wrapper: runs r0vm in execute-only mode on the ELF directly.
 # --elf: loads a standard RISC-V ELF via ExecutorImpl::from_kernel_elf().

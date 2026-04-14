@@ -78,8 +78,7 @@ Commands:
   clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
 
 Environment Variables:
-  JOBS=N                    Limit to N CPU cores
-  ACT4_JOBS=N               Override parallel test jobs inside container
+  JOBS=N                    Limit parallel jobs (compilation and test execution)
   FORCE=1                   Force regeneration of ELFs / rebuild of binaries
   ZISK_MODE=execute|prove|full   Zisk test mode (default: full)
   GPU=1                    Build/use GPU variants for Zisk proving
