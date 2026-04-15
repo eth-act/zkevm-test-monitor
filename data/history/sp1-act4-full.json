@@ -78,7 +78,8 @@
       ],
       "prove_failed": [],
       "verify_failed": [],
-      "has_proving": false
+      "has_proving": false,
+      "notes": "I-auipc-00 was a false pass: --mode node did not propagate exit codes, masking the failure"
     }
   ]
 }

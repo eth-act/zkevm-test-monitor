@@ -27,9 +27,15 @@ cat > /act4/run-dut.sh << 'WRAPPER'
 #!/bin/bash
 TMPDIR=$(mktemp -d)
 printf '\x00%.0s' {1..24} > "$TMPDIR/stdin.bin"
-/dut/sp1-binary --program "$1" --param "$TMPDIR/stdin.bin" --mode node --local
+OUTPUT=$(/dut/sp1-binary --program "$1" --param "$TMPDIR/stdin.bin" --mode minimal --local 2>&1)
 EC=$?
 rm -rf "$TMPDIR"
+echo "$OUTPUT"
+# SP1's JIT logs "Unimplemented instruction" to stderr and continues with
+# exit code 0. Treat any such message as a failure.
+if echo "$OUTPUT" | grep -qi "unimplemented instruction"; then
+  exit 1
+fi
 exit $EC
 WRAPPER
 chmod +x /act4/run-dut.sh
@@ -158,11 +164,18 @@ if parsed_passed != expected_passed:
     for t in tests:
         t['passed'] = False
 
+passed_names = [t['name'] for t in tests if t['passed']]
+failed_names_list = [t['name'] for t in tests if not t['passed']]
+
 with open('$RESULTS/results-act4-${FILE_LABEL}.json', 'w') as out:
     json.dump({
         'zkvm': '$ZKVM',
         'suite': 'act4${SUFFIX}',
-        'tests': tests
+        'tests': tests,
+        'passed': passed_names,
+        'failed': failed_names_list,
+        'prove_failed': [],
+        'verify_failed': []
     }, out, indent=2)
 
 print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABEL}.json')

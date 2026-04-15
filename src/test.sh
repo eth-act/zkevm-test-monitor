@@ -30,6 +30,7 @@ fi
 # process_results <zkvm> — reads summary/results JSON and updates history
 process_results() {
   local ZKVM="$1"
+  local NOTES="${2:-}"
 
   mkdir -p data/history
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
@@ -110,7 +111,8 @@ process_results() {
       --argjson prove_failed "$PROVE_FAILED_JSON" \
       --argjson verify_failed "$VERIFY_FAILED_JSON" \
       --argjson has_proving "$HAS_PROVING" \
-      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving}')
+      --arg notes "$NOTES" \
+      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
 
     if [ -f "$HISTORY_FILE" ]; then
       jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
