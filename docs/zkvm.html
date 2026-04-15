@@ -52,7 +52,6 @@
             font-weight: 600;
             color: #495057;
         }
-        tr:hover { background: #f8f9fa; }
         .pass { color: #28a745; font-weight: 600; }
         .fail { color: #dc3545; font-weight: 600; }
         .none { color: #6c757d; }
@@ -82,7 +81,7 @@
         }
         .suite-header span { margin-right: 20px; }
         .clickable-row { cursor: pointer; }
-        .clickable-row:hover { background: #e8f4fd !important; }
+        tr.group-hover { background: #e8f4fd; }
         .pass-list {
             display: flex;
             flex-wrap: wrap;
@@ -221,7 +220,7 @@
             }
             const sortedGroups = Object.values(groups).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-            const rows = sortedGroups.map(g => {
+            const rows = sortedGroups.map((g, gi) => {
                 const commit = g.commit;
                 const commitUrl = zkvm.repo_url ? `${zkvm.repo_url}/commit/${commit}` : '#';
                 const notes = [...new Set(g.runs.map(r => r.notes).filter(Boolean))].join(' ');
@@ -254,7 +253,7 @@
                         verifyCell = '<td></td>';
                     }
 
-                    return `<tr class="${hasData ? 'clickable-row' : ''}" ${hasData ? `onclick="location.href='${runUrl}'"` : ''}>
+                    return `<tr class="${hasData ? 'clickable-row' : ''}" data-group="${gi}" ${hasData ? `onclick="location.href='${runUrl}'"` : ''}>
                         <td>${suiteBadge}</td>
                         <td class="${cls}">${p}/${r.total}</td>
                         ${proveCell}
@@ -288,6 +287,15 @@
             document.getElementById('content').innerHTML = html;
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content').style.display = 'block';
+
+            document.querySelectorAll('tr[data-group]').forEach(tr => {
+                tr.addEventListener('mouseenter', () => {
+                    document.querySelectorAll(`tr[data-group="${tr.dataset.group}"]`).forEach(r => r.classList.add('group-hover'));
+                });
+                tr.addEventListener('mouseleave', () => {
+                    document.querySelectorAll(`tr[data-group="${tr.dataset.group}"]`).forEach(r => r.classList.remove('group-hover'));
+                });
+            });
         } catch (e) {
             showError(e.message);
         }
