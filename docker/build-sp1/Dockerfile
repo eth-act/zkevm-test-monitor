@@ -33,13 +33,13 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
 # Build arguments for repository and commit
-# Fork merges upstream v6.0.2 (hypercube prover, rv64im support) with:
+# Fork rebases upstream v6.1.0 with:
 #   1. Remove test-artifacts dep from sp1-perf Cargo.toml
 #   2. Propagate MinimalExecutor exit code as non-zero process exit
 # Additional Dockerfile patch: stubs out test-artifacts (replaces build.rs + lib.rs with no-ops)
 # since cargo compiles all workspace members and test-artifacts requires the succinct toolchain.
 ARG REPO_URL=https://github.com/codygunton/sp1
-ARG COMMIT_HASH=213fc1ab656390dfcf8b146e2fa59f6f8e1c6e9f
+ARG COMMIT_HASH=1099518175f1eb0af3318c5a9be8865da2fc5bd6
 
 # Clone the fork at the specific commit
 # This layer will be cached until COMMIT_HASH changes

@@ -3,7 +3,7 @@
   "zkvms": {
     "sp1": {
       "repo_url": "https://github.com/codygunton/sp1",
-      "commit": "213fc1ab656390dfcf8b146e2fa59f6f8e1c6e9f",
+      "commit": "1099518175f1eb0af3318c5a9be8865da2fc5bd6",
       "build_cmd": "cargo build --bin sp1-perf-executor",
       "binary_name": "sp1-perf-executor",
       "binary_path": "target/debug/sp1-perf-executor",
