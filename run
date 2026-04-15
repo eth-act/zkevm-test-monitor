@@ -26,7 +26,7 @@ case "$CMD" in
         ;;
 
     serve)
-        echo "Server at http://0.0.0.0:8000/"
+        echo "Server at http://0.0.0.0:9586/"
         echo "   Press Ctrl+C to stop"
         cd docs && python3 -c "
 import http.server
@@ -34,7 +34,7 @@ class H(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         super().end_headers()
-http.server.HTTPServer(('0.0.0.0', 8000), H).serve_forever()
+http.server.HTTPServer(('0.0.0.0', 9586), H).serve_forever()
 "
         ;;
 
@@ -74,7 +74,7 @@ Commands:
   build [zkvm ...]          Build ZKVM binaries
   test [zkvm ...]           Run ACT4 compliance tests
   all [zkvm ...]            Build + test
-  serve                     Start local web server at 0.0.0.0:8000
+  serve                     Start local web server at 0.0.0.0:9586
   clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
 
 Environment Variables:
