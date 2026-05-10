@@ -34,8 +34,8 @@
       "isa": "RV32IM"
     },
     "zisk": {
-      "repo_url": "https://github.com/0xPolygonHermez/zisk",
-      "commit": "aacf0a733cbad4be3beb674727804d17cb79f69d",
+      "repo_url": "https://github.com/NethermindEth/zisk",
+      "commit": "3cd25449d59e6f62965bd95690eccee43bd2f4c0",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
