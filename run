@@ -80,7 +80,7 @@ Commands:
 Environment Variables:
   JOBS=N                    Limit parallel jobs (compilation and test execution)
   FORCE=1                   Force regeneration of ELFs / rebuild of binaries
-  ZISK_MODE=execute|prove|full   Zisk test mode (default: full)
+  MODE=execute|prove|full   Target-suite mode for prover-capable ZKVMs (zisk, jolt). Default: full
   GPU=1                    Build/use GPU variants for Zisk proving
 
 Examples:
@@ -89,7 +89,7 @@ Examples:
   ./run test                          # test all ZKVMs
   ./run all
   JOBS=8 ./run test zisk
-  ZISK_MODE=execute ./run test zisk   # zisk emulation only (no proving)
+  MODE=execute ./run test zisk        # emulation only (no proving)
   GPU=1 ./run build zisk         # build with GPU support
   GPU=1 ./run test zisk          # use GPU for proving
   FORCE=1 ./run test zisk             # regenerate ELFs from scratch

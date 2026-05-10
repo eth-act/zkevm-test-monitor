@@ -35,7 +35,7 @@ Tests are self-checking ELFs: the Sail reference model runs at compile time to e
 ```bash
 JOBS=8 ./run test zisk              # Limit parallel jobs
 FORCE=1 ./run test zisk             # Regenerate ELFs from scratch
-ZISK_MODE=execute ./run test zisk   # Execution only (no proving); also: prove, full (default)
+MODE=execute ./run test zisk        # Execution only (no proving); also: prove, full (default). Applies to zisk, jolt
 GPU=1 ./run build zisk              # Build with GPU support
 GPU=1 ./run test zisk               # Prove with GPU
 ```
