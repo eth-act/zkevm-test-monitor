@@ -105,7 +105,7 @@ fn run_zisk_prove(
     witness_lib: Option<&Path>,
     elf_path: &Path,
     mode: Mode,
-    _gpu: bool,
+    gpu: bool,
     start: Instant,
 ) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
@@ -144,7 +144,7 @@ fn run_zisk_prove(
                 .map(|o| String::from_utf8_lossy(&o.stdout).contains("--witness-lib"))
                 .unwrap_or(false);
 
-        let is_gpu = cargo_zisk.to_string_lossy().contains("cuda");
+        let is_gpu = gpu;
         let verify = mode == Mode::Full;
 
         // 2. Prove (with --verify-proofs in Full mode)
@@ -153,7 +153,7 @@ fn run_zisk_prove(
 
         let prove_output = {
             let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, tmp_dir.path(),
-                                          witness_lib.filter(|_| accepts_witness_lib), verify);
+                                          witness_lib.filter(|_| accepts_witness_lib), verify, gpu);
             cmd.output()?
         };
         let mut prove_duration = prove_start.elapsed();
@@ -185,7 +185,7 @@ fn run_zisk_prove(
                 let retry_start = Instant::now();
                 let retry_output = {
                     let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, tmp_dir.path(),
-                                                  witness_lib.filter(|_| accepts_witness_lib), verify);
+                                                  witness_lib.filter(|_| accepts_witness_lib), verify, gpu);
                     cmd.output()?
                 };
                 prove_duration += retry_start.elapsed();
@@ -278,12 +278,15 @@ fn combined_output(output: &std::process::Output) -> String {
 /// that proving succeeded but verification failed.
 ///
 /// cargo-zisk logs verification activity to stdout:
-///   ">>> VERIFYING_PROOFS"
+///   ">>> VERIFYING_PROOFS"               (v0.16)
+///   ">>> VERIFYING_VADCOP_FINAL_PROOF"   (v0.17+)
 ///   "was not verified"
-/// If either appears, the prover reached the verification stage (i.e. proving
+/// If any appears, the prover reached the verification stage (i.e. proving
 /// itself succeeded).
 fn is_verify_failure(output: &str) -> bool {
-    output.contains("VERIFYING_PROOFS") || output.contains("was not verified")
+    output.contains("VERIFYING_PROOFS")
+        || output.contains("VERIFYING_VADCOP_FINAL_PROOF")
+        || output.contains("was not verified")
 }
 
 /// Build a `cargo-zisk prove` command with standard flags.
@@ -293,6 +296,7 @@ fn zisk_prove_cmd(
     out_dir: &Path,
     witness_lib: Option<&Path>,
     verify: bool,
+    gpu: bool,
 ) -> Command {
     let mut cmd = Command::new(cargo_zisk);
     // Isolate in its own process group so MPI signal propagation
@@ -312,9 +316,13 @@ fn zisk_prove_cmd(
         cmd.arg("--witness-lib").arg(wl);
     }
     cmd.arg("--emulator");
-    cmd.args(["-o"]).arg(out_dir);
+    // -o takes a file path (Nethermind v0.17+); upstream v0.16 took a directory.
+    cmd.args(["-o"]).arg(out_dir.join("proof.bin"));
     if verify {
         cmd.arg("--verify-proofs");
+    }
+    if gpu {
+        cmd.arg("--gpu");
     }
     // Capture both stdout and stderr for output parsing
     cmd.stdout(Stdio::piped());
