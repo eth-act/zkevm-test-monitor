@@ -119,6 +119,20 @@ for ZKVM in $ZKVMS; do
     chmod +x binaries/zisk-binary binaries/cargo-zisk 2>/dev/null || true
     chmod +x binaries/cargo-zisk-cuda 2>/dev/null || true
 
+    # Nethermind v0.17+ ships a single `cargo-zisk` with GPU compiled in
+    # (no separate cuda binary; --gpu flag selects GPU). Detect via the
+    # "[gpu]" tag in --version output and alias to the cargo-zisk-cuda slot
+    # so downstream scripts that look for cargo-zisk-cuda still work.
+    UNIFIED_GPU=0
+    if [ ! -f "binaries/cargo-zisk-cuda" ] && [ -n "${GPU:-}" ]; then
+      if LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+           binaries/cargo-zisk --version 2>/dev/null | grep -q '\[gpu\]'; then
+        cp -a binaries/cargo-zisk binaries/cargo-zisk-cuda
+        UNIFIED_GPU=1
+        echo "  Detected unified GPU binary — aliased cargo-zisk → cargo-zisk-cuda"
+      fi
+    fi
+
     # Auto-install proving keys if version changed
     if [ -f "binaries/cargo-zisk" ]; then
       ZISK_VERSION=$(LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
@@ -152,11 +166,15 @@ for ZKVM in $ZKVMS; do
               binaries/cargo-zisk check-setup -a || {
               echo "  Warning: check-setup failed — proving may not work"
             }
-            # Generate GPU constant trees if GPU binary exists
+            # Generate GPU constant trees if GPU binary exists.
+            # Unified binaries (Nethermind v0.17+) need an explicit --gpu flag;
+            # legacy v0.16 cargo-zisk-cuda runs on GPU implicitly.
             if [ -f "binaries/cargo-zisk-cuda" ]; then
+              GPU_FLAG=""
+              [ "$UNIFIED_GPU" = "1" ] && GPU_FLAG="--gpu"
               echo "  Running check-setup to generate GPU constant trees..."
               LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-                binaries/cargo-zisk-cuda check-setup -a || {
+                binaries/cargo-zisk-cuda check-setup -a $GPU_FLAG || {
                 echo "  Warning: GPU check-setup failed — GPU proving may not work"
               }
               echo "1" > "$GPU_MARKER_FILE"
@@ -168,9 +186,11 @@ for ZKVM in $ZKVMS; do
           fi
         # Re-run GPU check-setup if GPU binary was added after initial setup
         elif [ -f "binaries/cargo-zisk-cuda" ] && [ "$CURRENT_GPU_MARKER" != "1" ]; then
+          GPU_FLAG=""
+          [ "$UNIFIED_GPU" = "1" ] && GPU_FLAG="--gpu"
           echo "  Generating GPU constant trees for Zisk v${ZISK_VERSION}..."
           LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-            binaries/cargo-zisk-cuda check-setup -a || {
+            binaries/cargo-zisk-cuda check-setup -a $GPU_FLAG || {
             echo "  Warning: GPU check-setup failed — GPU proving may not work"
           }
           echo "1" > "$GPU_MARKER_FILE"
