@@ -92,10 +92,10 @@ impl Backend {
 ///
 /// Lifecycle:
 /// 1. Execute: `ziskemu --elf <path>` — exit code 0 = pass
-/// 2. Prove:   `cargo-zisk prove --elf <path> --emulator [-o <dir>] [--verify-proofs]`
+/// 2. Prove:   `cargo-zisk prove --elf <path> --emulator -o <file> [--verify-proofs]`
 ///
-/// In Full mode, `--verify-proofs` triggers in-memory verification during
-/// the prove step (no separate proof file is produced without `--aggregation`).
+/// As of zisk v0.17.0, `-o/--output` is a file path (not a directory) and proofs
+/// are aggregated by default; `--verify-proofs` runs verification in-process.
 /// If the command fails, we parse stdout to distinguish prove vs verify failure:
 /// the presence of "VERIFYING_PROOFS" or "was not verified" means proving
 /// succeeded but verification failed.
@@ -151,9 +151,11 @@ fn run_zisk_prove(
         let tmp_dir = tempfile::tempdir()?;
         let prove_start = Instant::now();
 
+        let proof_path = tmp_dir.path().join("proof.bin");
         let prove_output = {
-            let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, tmp_dir.path(),
-                                          witness_lib.filter(|_| accepts_witness_lib), verify);
+            let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
+                                          witness_lib.filter(|_| accepts_witness_lib),
+                                          verify, is_gpu);
             cmd.output()?
         };
         let mut prove_duration = prove_start.elapsed();
@@ -176,16 +178,18 @@ fn run_zisk_prove(
                 prove_output
             } else {
                 let stderr = String::from_utf8_lossy(&prove_output.stderr);
+                let tail: String = stderr.lines().rev().take(10).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
                 eprintln!(
-                    "cargo-zisk prove failed for {} (retrying): {}",
+                    "cargo-zisk prove failed for {} (retrying):\n{}",
                     elf_path.display(),
-                    stderr.lines().last().unwrap_or("(no output)"),
+                    if tail.is_empty() { "(no stderr)".to_string() } else { tail },
                 );
 
                 let retry_start = Instant::now();
                 let retry_output = {
-                    let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, tmp_dir.path(),
-                                                  witness_lib.filter(|_| accepts_witness_lib), verify);
+                    let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
+                                                  witness_lib.filter(|_| accepts_witness_lib),
+                                                  verify, is_gpu);
                     cmd.output()?
                 };
                 prove_duration += retry_start.elapsed();
@@ -200,10 +204,11 @@ fn run_zisk_prove(
 
                 if !retry_output.status.success() {
                     let retry_stderr = String::from_utf8_lossy(&retry_output.stderr);
+                    let tail: String = retry_stderr.lines().rev().take(10).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
                     eprintln!(
-                        "cargo-zisk prove failed for {} (retry also failed): {}",
+                        "cargo-zisk prove failed for {} (retry also failed):\n{}",
                         elf_path.display(),
-                        retry_stderr.lines().last().unwrap_or("(no output)"),
+                        if tail.is_empty() { "(no stderr)".to_string() } else { tail },
                     );
                 }
                 retry_output
@@ -236,7 +241,6 @@ fn run_zisk_prove(
         }
 
         // Success — prove (and verify if requested) all passed
-        let proof_path = tmp_dir.path().join("vadcop_final_proof.bin");
         let proof_written = proof_path.exists();
 
         Ok(RunResult {
@@ -287,12 +291,16 @@ fn is_verify_failure(output: &str) -> bool {
 }
 
 /// Build a `cargo-zisk prove` command with standard flags.
+///
+/// `out_path` is the proof output **file** (v0.17.0+). `gpu` adds the explicit
+/// `--gpu` flag to the cuda-built binary so it actually uses the GPU.
 fn zisk_prove_cmd(
     cargo_zisk: &Path,
     elf_path: &Path,
-    out_dir: &Path,
+    out_path: &Path,
     witness_lib: Option<&Path>,
     verify: bool,
+    gpu: bool,
 ) -> Command {
     let mut cmd = Command::new(cargo_zisk);
     // Isolate in its own process group so MPI signal propagation
@@ -312,9 +320,12 @@ fn zisk_prove_cmd(
         cmd.arg("--witness-lib").arg(wl);
     }
     cmd.arg("--emulator");
-    cmd.args(["-o"]).arg(out_dir);
+    cmd.args(["-o"]).arg(out_path);
     if verify {
         cmd.arg("--verify-proofs");
+    }
+    if gpu {
+        cmd.arg("--gpu");
     }
     // Capture both stdout and stderr for output parsing
     cmd.stdout(Stdio::piped());
