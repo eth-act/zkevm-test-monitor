@@ -130,8 +130,9 @@ run_zisk_split_pipeline() {
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
 
-  # Zisk mode: execute, prove, or full (default). Set via ZISK_MODE env var.
-  local MODE="${ZISK_MODE:-full}"
+  # Test mode: execute (emulate only), prove (emulate + prove), or full
+  # (emulate + prove + verify, default). Set via ACT4_MODE env var.
+  local MODE="${ACT4_MODE:-full}"
 
   # Check required binaries (built by ./run build zisk)
   if [ ! -f "binaries/zisk-binary" ]; then
@@ -284,6 +285,10 @@ run_jolt_split_pipeline() {
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
 
+  # Test mode: execute (emulate only), prove (emulate + prove), or full
+  # (emulate + prove + verify, default). Set via ACT4_MODE env var.
+  local MODE="${ACT4_MODE:-full}"
+
   # jolt-prover handles both execution (trace) and proving
   if [ ! -f "binaries/jolt-prover" ]; then
     echo "  Error: binaries/jolt-prover not found. Run './run build jolt' first."
@@ -363,16 +368,16 @@ run_jolt_split_pipeline() {
       $RUNNER_JOBS || true
   fi
 
-  # Run target suite (prove + verify)
+  # Run target suite — uses requested mode (execute/prove/full)
   if [ -d "$ELF_DIR/target" ]; then
-    echo "Running $ZKVM target suite (mode: full)..."
+    echo "Running $ZKVM target suite (mode: $MODE)..."
     "$RUNNER" \
       --zkvm jolt --jolt-prover binaries/jolt-prover \
       --elf-dir "$ELF_DIR/target" \
       --output-dir "test-results/${ZKVM}" \
       --suite act4-standard \
       --label standard-isa \
-      --mode full \
+      --mode "$MODE" \
       $RUNNER_JOBS || true
   fi
 

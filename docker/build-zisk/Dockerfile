@@ -66,20 +66,25 @@ RUN git clone "$REPO_URL" zisk && \
     git checkout "$COMMIT_HASH" && \
     git rev-parse HEAD > /workspace/commit.txt
 
-# Build zisk tools: ziskemu (emulator), cargo-zisk (prover CLI),
-# and optionally zisk-witness (witness lib, if it exists at this commit).
+# Build zisk tools: ziskemu (emulator) and cargo-zisk (prover CLI).
+# In v0.17.0+ cargo-zisk is GPU-capable by default (CUDA libs always required at
+# runtime) with a `cpu-only` opt-out feature. Older versions used the inverse:
+# CPU by default, opt-in `gpu` feature. The zisk-witness crate is also gone in
+# v0.17.0 (folded into the main build).
 WORKDIR /workspace/zisk
-RUN cargo build --release --bin ziskemu --bin cargo-zisk
+RUN if [ "$GPU" = "1" ]; then export CUDA_ARCH="$CUDA_ARCH"; fi && \
+    cargo build --release --bin ziskemu --bin cargo-zisk
 
-# Build witness lib if the crate exists (added in newer commits)
+# Build witness lib if the crate still exists (pre-v0.17.0).
 RUN if cargo metadata --no-deps --format-version 1 2>/dev/null | \
       grep -q '"name":"zisk-witness"'; then \
       cargo build --release -p zisk-witness; \
     fi
 
 # Stage all outputs into /workspace/output/ so the final stage can COPY a single dir.
-# Bundle only the specific shared libs that commonly differ between Docker (Ubuntu 24.04)
-# and host distros (e.g. Arch). System libs (libc, libm, libstdc++) must match the host.
+# Bundle the shared libs that differ between Docker (Ubuntu 24.04) and host distros
+# (e.g. Arch). cargo-zisk in v0.17.0 always links libcudart/libcublas, so include
+# CUDA libs unconditionally — older builds simply won't have them in `ldd` output.
 RUN mkdir -p /workspace/output /workspace/output/lib && \
     cp target/release/ziskemu /workspace/output/ && \
     cp target/release/cargo-zisk /workspace/output/ && \
@@ -88,7 +93,7 @@ RUN mkdir -p /workspace/output /workspace/output/lib && \
     else \
       touch /workspace/output/libzisk_witness.none; \
     fi && \
-    for lib in libsodium libomp; do \
+    for lib in libsodium libomp libcudart libcublasLt libcublas; do \
       for bin in target/release/cargo-zisk target/release/libzisk_witness.so; do \
         [ -f "$bin" ] || continue; \
         path=$(ldd "$bin" | grep "$lib" | grep -oP '/\S+\.so\S*'); \
@@ -96,22 +101,17 @@ RUN mkdir -p /workspace/output /workspace/output/lib && \
       done; \
     done
 
-# Build GPU variants if requested (same binaries with --features gpu, renamed).
-# Bundle CUDA runtime libs needed by the GPU binary.
-# CUDA_ARCH must be set so pil2-proofman's Makefile compiles for the correct GPU.
-# The configure.sh script tries to run deviceQuery which requires a GPU in the container;
-# setting CUDA_ARCH explicitly bypasses that detection.
+# GPU variant: in v0.17.0+ cargo-zisk is already GPU-capable, so cargo-zisk-cuda
+# is just an alias copy. For older versions we still need the `--features gpu` rebuild.
 RUN if [ "$GPU" = "1" ]; then \
-      export CUDA_ARCH="$CUDA_ARCH" && \
-      cargo build --release --bin cargo-zisk --features gpu && \
-      cp target/release/cargo-zisk /workspace/output/cargo-zisk-cuda && \
-      for lib in libcudart libcublasLt libcublas; do \
-        path=$(ldd target/release/cargo-zisk | grep "$lib" | grep -oP '/\S+\.so\S*'); \
-        [ -n "$path" ] && cp -n "$path" /workspace/output/lib/; \
-      done; \
-      if [ -f target/release/libzisk_witness.so ]; then \
-        cargo build --release -p zisk-witness --features gpu && \
-        cp target/release/libzisk_witness.so /workspace/output/libzisk_witness_cuda.so; \
+      if cargo build --release --bin cargo-zisk --features gpu 2>/dev/null; then \
+        cp target/release/cargo-zisk /workspace/output/cargo-zisk-cuda; \
+        if [ -f target/release/libzisk_witness.so ]; then \
+          cargo build --release -p zisk-witness --features gpu && \
+          cp target/release/libzisk_witness.so /workspace/output/libzisk_witness_cuda.so; \
+        fi; \
+      else \
+        cp /workspace/output/cargo-zisk /workspace/output/cargo-zisk-cuda; \
       fi; \
     fi
 
