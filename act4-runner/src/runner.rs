@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 
@@ -9,20 +10,54 @@ use crate::backends::{Backend, Mode, RunResult};
 pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> Vec<(PathBuf, RunResult)> {
     let mut elfs = discover_elfs(elf_dir);
     elfs.sort();
+    let total = elfs.len();
 
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(jobs)
         .build()
         .expect("failed to build rayon thread pool");
 
+    // Per-test progress is streamed to stderr as each ELF finishes so a run
+    // shows steady output instead of going silent until the final summary.
+    // With parallel jobs the completion order is not sorted, hence the counter.
+    let completed = AtomicUsize::new(0);
+
     pool.install(|| {
         elfs.par_iter()
             .map(|elf_path| {
                 let result = backend.run_elf(elf_path, mode);
+                let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                report_progress(done, total, elf_path, &result);
                 (elf_path.clone(), result)
             })
             .collect()
     })
+}
+
+/// Print a one-line progress report for a finished test to stderr.
+///
+/// Format: `[ 12/64] PASS I-add-00 (0.01s)`, with `prove=`/`verify=` appended
+/// when those stages ran.
+fn report_progress(idx: usize, total: usize, elf_path: &Path, result: &RunResult) {
+    let name = elf_path
+        .file_stem()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
+    let status = if result.passed { "PASS" } else { "FAIL" };
+
+    let mut detail = String::new();
+    if let Some(prove) = &result.prove_status {
+        detail.push_str(&format!(" prove={prove}"));
+    }
+    if let Some(verify) = &result.verify_status {
+        detail.push_str(&format!(" verify={verify}"));
+    }
+
+    let width = total.to_string().len();
+    eprintln!(
+        "  [{idx:>width$}/{total}] {status} {name} ({:.2}s){detail}",
+        result.duration.as_secs_f64(),
+    );
 }
 
 /// Recursively discover all `*.elf` files under `dir`.
