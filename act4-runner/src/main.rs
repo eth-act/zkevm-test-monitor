@@ -15,11 +15,12 @@ use crate::results::TestEntry;
 #[derive(Parser)]
 #[command(name = "act4-runner")]
 struct Cli {
-    /// ZK-VM backend to use (airbender, airbender-prove, openvm, zisk, zisk-ere).
+    /// ZK-VM backend to use (airbender, airbender-prove, jolt, lambdavm,
+    /// openvm, zisk, zisk-prove).
     #[arg(long)]
     zkvm: String,
 
-    /// Path to the ZK-VM binary executable (not needed for zisk-ere).
+    /// Path to the ZK-VM binary executable.
     #[arg(long)]
     binary: Option<PathBuf>,
 
@@ -107,6 +108,9 @@ fn main() {
                 process::exit(2);
             }),
         },
+        "lambdavm" => Backend::LambdaVM {
+            binary: require_binary(&cli),
+        },
         "openvm" => Backend::OpenVM {
             binary: require_binary(&cli),
         },
@@ -123,7 +127,7 @@ fn main() {
             gpu: cli.gpu,
         },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, openvm, zisk, zisk-prove");
+            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, lambdavm, openvm, zisk, zisk-prove");
             process::exit(2);
         }
     };

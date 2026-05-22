@@ -384,6 +384,112 @@ run_jolt_split_pipeline() {
   process_results "$ZKVM"
 }
 
+# run_lambdavm_split_pipeline — ELF generation in Docker, test execution + proving on host
+run_lambdavm_split_pipeline() {
+  local ZKVM=lambdavm
+  local ELF_DIR="test-results/${ZKVM}/elfs"
+  local DOCKER_DIR="docker/${ZKVM}"
+
+  # Test mode: execute (emulate only), prove (emulate + prove), or full
+  # (emulate + prove + verify, default). Set via ACT4_MODE env var.
+  local MODE="${ACT4_MODE:-full}"
+
+  # A single binary (the lambdavm cli) handles execute, prove, and verify.
+  if [ ! -f "binaries/lambdavm-binary" ]; then
+    echo "  Error: binaries/lambdavm-binary not found. Run './run build lambdavm' first."
+    return 1
+  fi
+
+  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
+  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+    local NATIVE_COUNT
+    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
+    if [ "$NATIVE_COUNT" -gt 0 ]; then
+      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
+    fi
+  else
+    echo "Building Docker image for $ZKVM (ELF generation)..."
+    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+      echo "Failed to build Docker image for $ZKVM"
+      return 1
+    }
+
+    # Clean old ELFs before regenerating
+    rm -rf "$ELF_DIR" 2>/dev/null || \
+      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
+    rm -rf "$ELF_DIR" 2>/dev/null
+    mkdir -p "$ELF_DIR"
+
+    JOBS_ARG=""
+    if [ -n "${ACT4_JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
+    elif [ -n "${JOBS:-}" ]; then
+      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
+    fi
+
+    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
+    mkdir -p "test-results/${ZKVM}"
+    docker run --rm --name zkvm-${ZKVM}-elfgen \
+      ${JOBS_ARG} \
+      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/$ELF_DIR:/elfs" \
+      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
+      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
+      return 1
+    }
+  fi
+
+  # Build act4-runner if needed
+  local RUNNER="act4-runner/target/release/act4-runner"
+  if [ ! -x "$RUNNER" ]; then
+    echo "  Building act4-runner..."
+    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build act4-runner"
+      return 1
+    }
+  fi
+
+  mkdir -p "test-results/${ZKVM}"
+
+  # Determine job count for act4-runner
+  local RUNNER_JOBS=""
+  if [ -n "${ACT4_JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${ACT4_JOBS}"
+  elif [ -n "${JOBS:-}" ]; then
+    RUNNER_JOBS="-j ${JOBS}"
+  fi
+
+  # Run native suite (execute-only)
+  if [ -d "$ELF_DIR/native" ]; then
+    echo "Running $ZKVM native suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm lambdavm --binary binaries/lambdavm-binary \
+      --elf-dir "$ELF_DIR/native" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-full \
+      --label full-isa \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
+  # Run target suite — uses requested mode (execute/prove/full)
+  if [ -d "$ELF_DIR/target" ]; then
+    echo "Running $ZKVM target suite (mode: $MODE)..."
+    "$RUNNER" \
+      --zkvm lambdavm --binary binaries/lambdavm-binary \
+      --elf-dir "$ELF_DIR/target" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-standard \
+      --label standard-isa \
+      --mode "$MODE" \
+      $RUNNER_JOBS || true
+  fi
+
+  process_results "$ZKVM"
+}
+
 # run_legacy_pipeline <zkvm> — original Docker-based test execution
 run_legacy_pipeline() {
   local ZKVM="$1"
@@ -445,6 +551,8 @@ for ZKVM in $ZKVMS; do
     run_zisk_split_pipeline || true
   elif [ "$ZKVM" = "jolt" ]; then
     run_jolt_split_pipeline || true
+  elif [ "$ZKVM" = "lambdavm" ]; then
+    run_lambdavm_split_pipeline || true
   else
     run_legacy_pipeline "$ZKVM" || true
   fi

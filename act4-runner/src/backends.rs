@@ -10,6 +10,7 @@ pub enum Backend {
     Airbender { binary: PathBuf },
     AirbenderProve { binary: PathBuf, gpu: bool, proof_dir: PathBuf },
     Jolt { jolt_prover: PathBuf },
+    LambdaVM { binary: PathBuf },
     OpenVM { binary: PathBuf },
     Zisk { binary: PathBuf },
     ZiskProve {
@@ -61,6 +62,9 @@ impl Backend {
             Backend::Jolt { jolt_prover } => {
                 run_jolt(jolt_prover, elf_path, mode, start)
             }
+            Backend::LambdaVM { binary } => {
+                run_lambdavm(binary, elf_path, mode, start)
+            }
             Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
@@ -71,6 +75,7 @@ impl Backend {
                     Backend::Zisk { binary } => run_zisk(binary, elf_path),
                     Backend::AirbenderProve { .. }
                     | Backend::Jolt { .. }
+                    | Backend::LambdaVM { .. }
                     | Backend::ZiskProve { .. } => unreachable!(),
                 };
 
@@ -459,6 +464,133 @@ fn run_jolt(
                 let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
                 eprintln!(
                     "jolt-prover verify failed for {}: {}",
+                    elf_path.display(),
+                    verify_stderr.lines().last().unwrap_or("(no output)"),
+                );
+                Some("failed".to_string())
+            }
+        } else {
+            None
+        };
+
+        Ok(RunResult {
+            passed: true,
+            exit_code: Some(0),
+            duration: start.elapsed(),
+            prove_duration: Some(prove_duration),
+            proof_written,
+            prove_status: Some("success".to_string()),
+            verify_status,
+        })
+    };
+
+    match inner() {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("error running {}: {e}", elf_path.display());
+            RunResult {
+                passed: false,
+                exit_code: None,
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            }
+        }
+    }
+}
+
+/// LambdaVM: a RV64IM STARK zkVM. The `lambdavm` CLI handles execution,
+/// proving, and verification through subcommands.
+///
+/// Lifecycle:
+/// 1. Execute: `lambdavm execute <elf>` — exit 0 = pass, non-zero = fault/panic
+/// 2. Prove:   `lambdavm prove <elf> -o <proof>`
+/// 3. Verify:  `lambdavm verify <proof> <elf>`
+///
+/// Compliance ELFs terminate via the Halt ecall (a7=93) for pass and the
+/// Panic ecall (a7=2) for fail, so the executor's process exit code directly
+/// reflects the test outcome.
+fn run_lambdavm(
+    binary: &Path,
+    elf_path: &Path,
+    mode: Mode,
+    start: Instant,
+) -> RunResult {
+    let inner = || -> anyhow::Result<RunResult> {
+        // 1. Execute
+        let exec_output = Command::new(binary)
+            .arg("execute")
+            .arg(elf_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()?;
+        let passed = exec_output.status.success();
+
+        if mode == Mode::Execute || !passed {
+            return Ok(RunResult {
+                passed,
+                exit_code: exec_output.status.code(),
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            });
+        }
+
+        // 2. Prove
+        let tmp_dir = tempfile::tempdir()?;
+        let proof_path = tmp_dir.path().join("proof.bin");
+        let prove_start = Instant::now();
+
+        let prove_output = Command::new(binary)
+            .args(["prove"])
+            .arg(elf_path)
+            .arg("-o")
+            .arg(&proof_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()?;
+        let prove_duration = prove_start.elapsed();
+
+        if !prove_output.status.success() {
+            let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
+            eprintln!(
+                "lambdavm prove failed for {}: {}",
+                elf_path.display(),
+                prove_stderr.lines().last().unwrap_or("(no output)"),
+            );
+            return Ok(RunResult {
+                passed: true,
+                exit_code: Some(0),
+                duration: start.elapsed(),
+                prove_duration: Some(prove_duration),
+                proof_written: false,
+                prove_status: Some("failed".to_string()),
+                verify_status: None,
+            });
+        }
+
+        let proof_written = proof_path.exists();
+
+        // 3. Verify
+        let verify_status = if mode == Mode::Full {
+            let verify_output = Command::new(binary)
+                .args(["verify"])
+                .arg(&proof_path)
+                .arg(elf_path)
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .output()?;
+
+            if verify_output.status.success() {
+                Some("success".to_string())
+            } else {
+                let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
+                eprintln!(
+                    "lambdavm verify failed for {}: {}",
                     elf_path.display(),
                     verify_stderr.lines().last().unwrap_or("(no output)"),
                 );

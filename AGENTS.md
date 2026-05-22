@@ -114,4 +114,4 @@ ISA: RV32IM only. Entry point: `0x0100_0000`, tohost: `0x0101_0000`.
 }
 ```
 
-Current ZKVMs: `sp1`, `jolt`, `openvm`, `r0vm`, `zisk`, `pico`, `airbender`
+Current ZKVMs: `sp1`, `jolt`, `openvm`, `r0vm`, `zisk`, `pico`, `airbender`, `lambdavm`

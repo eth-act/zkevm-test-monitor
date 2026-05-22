@@ -56,6 +56,14 @@
       "binary_name": "airbender-binary",
       "binary_path": "target/test-release/cli",
       "isa": "RV32IM"
+    },
+    "lambdavm": {
+      "repo_url": "https://github.com/yetanotherco/lambda_vm",
+      "commit": "6dbdc2ec6ac880744215042966124b2ec223aca4",
+      "build_cmd": "cargo build --release -p cli",
+      "binary_name": "lambdavm-binary",
+      "binary_path": "target/release/cli",
+      "isa": "RV64IM"
     }
   }
 }
