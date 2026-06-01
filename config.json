@@ -39,7 +39,7 @@
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
-      "isa": "RV64IMFDAC"
+      "isa": "RV64IMFDAC_Zicclsm"
     },
     "pico": {
       "repo_url": "https://github.com/codygunton/pico",
@@ -59,11 +59,11 @@
     },
     "lambdavm": {
       "repo_url": "https://github.com/yetanotherco/lambda_vm",
-      "commit": "6dbdc2ec6ac880744215042966124b2ec223aca4",
+      "commit": "09ef37d937d53aecb45bfc16d1509c6d75b1cb15",
       "build_cmd": "cargo build --release -p cli",
       "binary_name": "lambdavm-binary",
       "binary_path": "target/release/cli",
-      "isa": "RV64IM"
+      "isa": "RV64IM_Zicclsm"
     }
   }
 }
