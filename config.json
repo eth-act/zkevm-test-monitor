@@ -59,7 +59,7 @@
     },
     "lambdavm": {
       "repo_url": "https://github.com/yetanotherco/lambda_vm",
-      "commit": "6dbdc2ec6ac880744215042966124b2ec223aca4",
+      "commit": "09ef37d937d53aecb45bfc16d1509c6d75b1cb15",
       "build_cmd": "cargo build --release -p cli",
       "binary_name": "lambdavm-binary",
       "binary_path": "target/release/cli",
