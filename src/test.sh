@@ -35,6 +35,8 @@ process_results() {
   mkdir -p data/history
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
   RUN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  ACT4_COMMIT_VAL=$(jq -r '.act4_commit // "unknown"' config.json)
+  ACT4_VERSION_VAL=$(jq -r '.act4_version // ""' config.json)
 
   # Resolve commit from the binary that actually ran the tests.
   # Primary source: data/commits/<zkvm>.txt written by build.sh.
@@ -104,6 +106,8 @@ process_results() {
       --arg date "$RUN_DATE" \
       --arg commit "$ZKVM_COMMIT" \
       --arg monitor_commit "$TEST_MONITOR_COMMIT" \
+      --arg act4_commit "$ACT4_COMMIT_VAL" \
+      --arg act4_version "$ACT4_VERSION_VAL" \
       --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
       --argjson total "$TOTAL" \
       --argjson passed "$PASSED_JSON" \
@@ -112,7 +116,7 @@ process_results() {
       --argjson verify_failed "$VERIFY_FAILED_JSON" \
       --argjson has_proving "$HAS_PROVING" \
       --arg notes "$NOTES" \
-      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
+      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
 
     if [ -f "$HISTORY_FILE" ]; then
       jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
