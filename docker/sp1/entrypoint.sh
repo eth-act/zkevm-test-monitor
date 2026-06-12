@@ -81,10 +81,6 @@ run_act4_suite() {
         --test-dir tests \
         --extensions "$EXTENSIONS"
 
-    echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
-    # Must compile from top-level workdir so common ELF dependencies are built first.
-    make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
-
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
