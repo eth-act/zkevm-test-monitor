@@ -87,7 +87,8 @@
         "Misalign-sh-00",
         "Misalign-sw-00"
       ],
-      "has_proving": true
+      "has_proving": true,
+      "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0"
     },
     {
       "date": "2026-04-14T17:46:39Z",
@@ -174,7 +175,8 @@
         "Misalign-sh-00",
         "Misalign-sw-00"
       ],
-      "has_proving": true
+      "has_proving": true,
+      "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0"
     },
     {
       "date": "2026-05-18T14:50:20Z",
@@ -260,7 +262,8 @@
       ],
       "prove_failed": [],
       "verify_failed": [],
-      "has_proving": true
+      "has_proving": true,
+      "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0"
     }
   ]
 }

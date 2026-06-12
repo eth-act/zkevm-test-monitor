@@ -85,7 +85,8 @@
       ],
       "prove_failed": [],
       "verify_failed": [],
-      "has_proving": false
+      "has_proving": false,
+      "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0"
     }
   ]
 }

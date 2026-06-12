@@ -137,30 +137,6 @@
         return dateStr;
     }
 
-    function act4Label(run) {
-        const v = run?.act4_version;
-        if (v) return 'v' + v;
-        const c = run?.act4_commit;
-        if (c && c !== 'unknown') return c.substring(0, 8);
-        return null;
-    }
-
-    function act4Url(run) {
-        const v = run?.act4_version;
-        if (v) return `https://github.com/riscv/riscv-arch-test/releases/tag/${v}`;
-        const c = run?.act4_commit;
-        if (c && c !== 'unknown') return `https://github.com/riscv/riscv-arch-test/commit/${c}`;
-        return null;
-    }
-
-    function act4Cell(run) {
-        const label = act4Label(run);
-        const url = act4Url(run);
-        if (!label) return '<td class="none">&mdash;</td>';
-        if (url) return `<td><a href="${url}" class="commit-link">${label}</a></td>`;
-        return `<td class="commit-link">${label}</td>`;
-    }
-
     async function loadDashboard() {
         try {
             const config = await fetch('config.json').then(r => r.json());
@@ -218,7 +194,6 @@
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     <td>${formatDate(lastDate)}</td>
-                    ${act4Cell(full || std)}
                 </tr>`;
             }).join('\n');
 
@@ -231,7 +206,6 @@
                             <th colspan="2" class="col-group col-group-native">Full ISA</th>
                             <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a></th>
                             <th rowspan="2">Last Run</th>
-                            <th rowspan="2">ACT4</th>
                         </tr>
                         <tr>
                             <th class="col-group-native">ISA</th>

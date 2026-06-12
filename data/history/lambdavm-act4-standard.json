@@ -85,7 +85,8 @@
         "M-mulw-00",
         "M-remuw-00"
       ],
-      "has_proving": true
+      "has_proving": true,
+      "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0"
     },
     {
       "date": "2026-06-01T20:12:36Z",
@@ -170,7 +171,8 @@
       "failed": [],
       "prove_failed": [],
       "verify_failed": [],
-      "has_proving": true
+      "has_proving": true,
+      "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0"
     }
   ]
 }
