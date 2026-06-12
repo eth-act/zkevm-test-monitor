@@ -71,7 +71,6 @@ generate_elfs() {
         --workdir "$WORKDIR" \
         --test-dir tests \
         --extensions "$EXTENSIONS"
-    make -C "$WORKDIR" compile
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT

@@ -15,11 +15,11 @@
 **Progress**:
 - [x] jolt — upgraded + tested (115/118 native, 64/72 target)
 - [x] zisk — upgraded + tested (315/318 native execute; 70/72 target full/GPU — I-fence-00 expected, Zcd-c.fldsp/c.fsdsp fail, I-auipc-00 prove=failed)
+- [x] lambdavm — upgraded + tested (58/64 native, 66/72 target — same 6 branch failures as before, pre-existing LambdaVM bug)
 - [ ] airbender — pending
 - [ ] sp1 — pending
 - [ ] openvm — pending
 - [ ] r0vm — pending
 - [ ] pico — pending
-- [ ] lambdavm — pending
 
-**Next step**: Upgrade airbender to 4.0.0.
+**Next step**: Upgrade SP1 to 4.0.0.
