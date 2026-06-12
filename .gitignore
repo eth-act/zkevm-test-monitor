@@ -22,5 +22,5 @@ __pycache__/
 .worktrees/
 
 # Local repo symlinks (not tracked)
-zisk/
+/zisk/
 letters/
