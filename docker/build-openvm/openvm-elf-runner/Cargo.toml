@@ -10,3 +10,5 @@ path = "src/main.rs"
 [dependencies]
 openvm-sdk = { git = "https://github.com/openvm-org/openvm", rev = "4d410f21fd90a05e7f31627bdd51fbe57a4580a5" }
 openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", branch = "develop-v2", default-features = false }
+clap = { version = "4", features = ["derive"] }
+eyre = "0.6"
