@@ -17,9 +17,9 @@
 - [x] zisk — upgraded + tested (315/318 native execute; 70/72 target full/GPU — I-fence-00 expected, Zcd-c.fldsp/c.fsdsp fail, I-auipc-00 prove=failed)
 - [x] lambdavm — upgraded + tested (58/64 native, 66/72 target — same 6 branch failures as before, pre-existing LambdaVM bug)
 - [x] sp1 — upgraded + tested (62/64 native, 62/72 target — same failures as 3.x: I-auipc-00, I-fence-00, Misalign-*)
-- [ ] airbender — pending
+- [x] airbender — upgraded + tested (42/47 native, 0/72 target — same pre-existing failures; target 0/72 expected, airbender is RV32IM only)
 - [x] openvm — upgraded + tested (64/64 native, 64/72 target — 8 Misalign-* pre-existing; also upgraded binary to RV64IM v2.1.0-dev.0 commit 4d410f21)
 - [ ] r0vm — pending
 - [ ] pico — pending
 
-**Next step**: Upgrade airbender, r0vm, or pico to 4.0.0.
+**Next step**: Upgrade r0vm or pico to 4.0.0.
