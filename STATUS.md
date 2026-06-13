@@ -19,7 +19,7 @@
 - [x] sp1 — upgraded + tested (62/64 native, 62/72 target — same failures as 3.x: I-auipc-00, I-fence-00, Misalign-*)
 - [x] airbender — upgraded + tested (42/47 native, 0/72 target — same pre-existing failures; target 0/72 expected, airbender is RV32IM only)
 - [x] openvm — upgraded + tested (64/64 native, 64/72 target — 8 Misalign-* pre-existing; also upgraded binary to RV64IM v2.1.0-dev.0 commit 4d410f21)
-- [ ] r0vm — pending
-- [ ] pico — pending
+- [x] pico — upgraded + tested (45/47 native, 0/72 target — I-fence-00 expected, I-jalr-00 pico limitation; target 0/72 expected, pico is RV32IM)
+- [x] r0vm — upgraded + tested (46/47 native, 0/72 target — I-fence-00 expected; target 0/72 expected, r0vm is RV32IM)
 
-**Next step**: Upgrade r0vm or pico to 4.0.0.
+**Next step**: All ZKVMs upgraded. Merge act4-4.0.0 branch → main.

@@ -32,25 +32,21 @@ RUN curl -L https://github.com/riscv/sail-riscv/releases/download/0.10/sail-risc
     mv /opt/sail-riscv-Linux-x86_64 /opt/sail-riscv
 ENV PATH="/opt/sail-riscv/bin:${PATH}"
 
-# Clone riscv-arch-test at the act4 branch
-ARG ARCH_TEST_COMMIT=act4
+# Clone riscv-arch-test at the 4.0.0 release tag.
+# The ARCH_TEST_COMMIT build arg pins to a specific commit for reproducibility.
+ARG ARCH_TEST_COMMIT=a7c99303516f4e668f7488f172043392e23b9dfd
 WORKDIR /act4
-RUN git clone --branch act4 --single-branch \
-        https://github.com/riscv-non-isa/riscv-arch-test.git . && \
+RUN git clone --branch 4.0.0 --single-branch \
+        https://github.com/riscv/riscv-arch-test.git . && \
     git checkout ${ARCH_TEST_COMMIT} && \
     git rev-parse HEAD > /act4/arch_test_commit.txt
 
-# Initialize the UDB submodule (required for config schema validation during make elfs)
-RUN git submodule update --init external/riscv-unified-db
+# Patch rvtest_setup.h (renamed from test_setup.h in 4.0.0): remove .option rvc
+# (sets EF_RISCV_RVC, causes SP1/Pico/OpenVM to mishandle ELFs so tests cannot fail).
+RUN python3 -c "s=open('tests/env/rvtest_setup.h').read();n=s.replace('  .option rvc\n  .align UNROLLSZ\n  .option norvc','  .option norvc\n  .align UNROLLSZ');assert n!=s,'patch did not match';open('tests/env/rvtest_setup.h','w').write(n);print('Patched rvtest_setup.h')"
 
-# Patch test_setup.h: remove .option rvc (sets EF_RISCV_RVC, causes SP1/Pico/OpenVM
-# to mishandle ELFs so tests cannot fail). Fix from codygunton/riscv-arch-test@fb327b09.
-RUN python3 -c "s=open('tests/env/test_setup.h').read();n=s.replace('  .option rvc\n  .align UNROLLSZ\n  .option norvc','  .option norvc\n  .align UNROLLSZ');assert n!=s,'patch did not match';open('tests/env/test_setup.h','w').write(n);print('Patched test_setup.h')"
-
-
-# Pre-generate assembly test sources for I, M, and Misalign extensions.
-# Misalign is needed for the RV64IM_Zicclsm target profile.
-RUN uv run make tests EXTENSIONS=I,M,Misalign
+# 4.0.0: test sources are pre-generated and checked in — no make tests step needed.
+# UDB submodule removed in 4.0.0 — no submodule init needed.
 
 # Create mount points for DUT binary and results
 RUN mkdir -p /dut /results

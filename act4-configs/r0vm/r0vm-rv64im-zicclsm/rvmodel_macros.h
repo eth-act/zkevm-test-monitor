@@ -30,6 +30,10 @@
   ecall                   ;\
   j .                     ;\
 
+#define RVMODEL_INTERRUPT_LATENCY 10
+
+#define RVMODEL_TIMER_INT_SOON_DELAY 100
+
 #define RVMODEL_IO_INIT(_R1, _R2, _R3)
 
 #define RVMODEL_IO_WRITE_STR(_R1, _R2, _R3, _STR_PTR)

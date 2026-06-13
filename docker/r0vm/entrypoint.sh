@@ -9,6 +9,7 @@ set -eu
 #   /results/                      — output directory for summary JSON
 
 DUT=/dut/r0vm-binary
+ZKVM=r0vm
 RESULTS=/results
 WORKDIR=/act4/work
 
@@ -24,11 +25,19 @@ JOBS="${ACT4_JOBS:-$(nproc)}"
 # Wrapper: runs r0vm in execute-only mode on the ELF directly.
 # --elf: loads a standard RISC-V ELF via ExecutorImpl::from_kernel_elf().
 # --execute-only: skip ZK proving; exit with guest exit code (0=pass, 1=fail, 2=timeout).
+# ACT4 4.0.0 run_tests.py requires RVCP-SUMMARY in stdout to confirm pass/fail.
+# r0vm's RVMODEL_IO_WRITE_STR is a no-op, so synthesize it from exit code.
 cat > /act4/run-dut.sh << 'WRAPPER'
 #!/bin/bash
 ELF="$1"
 /dut/r0vm-binary --elf "$ELF" --execute-only
-exit $?
+EC=$?
+if [ $EC -eq 0 ]; then
+  echo "RVCP-SUMMARY: TEST PASSED - Test File \"$ELF\""
+else
+  echo "RVCP-SUMMARY: TEST FAILED - Test File \"$ELF\""
+fi
+exit $EC
 WRAPPER
 chmod +x /act4/run-dut.sh
 
@@ -62,15 +71,13 @@ run_act4_suite() {
     # Touch with future timestamp to ensure it's always newer than the mounted config
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
 
+    # In 4.0.0, 'act' handles both Makefile generation and compilation.
     echo ""
     echo "=== Generating Makefiles for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
         --extensions "$EXTENSIONS"
-
-    echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
-    make -C "$WORKDIR" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
@@ -85,14 +92,16 @@ run_act4_suite() {
     RUN_OUTPUT=$(python3 /act4/run_tests.py "/act4/run-dut.sh" "$ELF_DIR" -j "$JOBS" 2>&1) || true
     echo "$RUN_OUTPUT"
 
+    # Parse results from run_tests.py output.
+    # ACT4 4.0.0 format: "RESULT: N failed, M passed out of T tests."
     local FAILED TOTAL PASSED
-    FAILED=$(echo "$RUN_OUTPUT" | grep -oE '[0-9]+ out of [0-9]+ tests failed' | grep -oE '^[0-9]+' || echo "0")
-    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
+    FAILED=$(echo "$RUN_OUTPUT" | grep -oE 'RESULT: [0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
+    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE 'out of [0-9]+ tests' | grep -oE '[0-9]+' || echo "$ELF_COUNT")
     PASSED=$((TOTAL - FAILED))
 
     cat > "$RESULTS/summary-act4-${FILE_LABEL}.json" << EOF
 {
-  "zkvm": "r0vm",
+  "zkvm": "$ZKVM",
   "suite": "act4${SUFFIX}",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "passed": $PASSED,
@@ -101,17 +110,23 @@ run_act4_suite() {
 }
 EOF
 
-    # Generate per-test results JSON
+    # Generate per-test results JSON.
+    # Write run_output to a temp file to avoid shell-quoting issues in -c.
+    local RUN_OUTPUT_FILE
+    RUN_OUTPUT_FILE=$(mktemp)
+    echo "$RUN_OUTPUT" > "$RUN_OUTPUT_FILE"
     python3 -c "
 import json, os, re
 
 elf_dir = '$ELF_DIR'
-run_output = '''$RUN_OUTPUT'''
+with open('$RUN_OUTPUT_FILE') as _f:
+    run_output = _f.read()
 expected_passed = $PASSED
 
+# Parse failed test names from run_tests.py output (ACT4 4.0.0 format).
 failed_names = set()
 for line in run_output.splitlines():
-    m = re.match(r'\tTest (\S+\.elf) failed', line)
+    m = re.match(r'\s+FAIL\s+(\S+\.elf)\s', line)
     if m:
         failed_names.add(m.group(1))
 
@@ -130,20 +145,31 @@ for root, dirs, files in os.walk(elf_dir):
 
 tests.sort(key=lambda t: (t['extension'], t['name']))
 
+# Cross-check: if parsed pass count does not match the authoritative count,
+# some tests failed silently. Mark all as failed since we cannot reliably
+# distinguish which ones truly passed.
 parsed_passed = sum(1 for t in tests if t['passed'])
 if parsed_passed != expected_passed:
     for t in tests:
         t['passed'] = False
 
+passed_names = [t['name'] for t in tests if t['passed']]
+failed_names_list = [t['name'] for t in tests if not t['passed']]
+
 with open('$RESULTS/results-act4-${FILE_LABEL}.json', 'w') as out:
     json.dump({
-        'zkvm': 'r0vm',
+        'zkvm': '$ZKVM',
         'suite': 'act4${SUFFIX}',
-        'tests': tests
+        'tests': tests,
+        'passed': passed_names,
+        'failed': failed_names_list,
+        'prove_failed': [],
+        'verify_failed': []
     }, out, indent=2)
 
 print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABEL}.json')
 "
+    rm -f "$RUN_OUTPUT_FILE"
 
     echo ""
     echo "=== $CONFIG_NAME: $PASSED/$TOTAL passed ==="
