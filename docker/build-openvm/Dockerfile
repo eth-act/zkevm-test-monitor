@@ -34,7 +34,7 @@ COPY docker/build-openvm/openvm-elf-runner/ /workspace/openvm-elf-runner/
 # Build the standalone ELF runner
 # Cargo fetches openvm-sdk from upstream git as declared in Cargo.toml
 WORKDIR /workspace/openvm-elf-runner
-RUN echo "bf11b4a5" > /workspace/commit.txt
+RUN echo "4d410f21" > /workspace/commit.txt
 RUN cargo build --release
 
 # Final stage - just the binary
