@@ -20,11 +20,11 @@
     },
     "openvm": {
       "repo_url": "https://github.com/openvm-org/openvm",
-      "commit": "4d410f21fd90a05e7f31627bdd51fbe57a4580a5",
+      "commit": "bf11b4a5f",
       "build_cmd": "cargo build --release",
       "binary_name": "openvm-binary",
       "binary_path": "target/release/openvm-binary",
-      "isa": "RV64IM"
+      "isa": "RV32IM"
     },
     "r0vm": {
       "repo_url": "https://github.com/codygunton/risc0",

@@ -86,14 +86,15 @@
       "has_proving": false
     },
     {
-      "date": "2026-06-13T02:27:32Z",
-      "commit": "4d410f21",
-      "monitor_commit": "84a1b3d0",
+      "date": "2026-06-13T16:24:36Z",
+      "commit": "bf11b4a5",
+      "monitor_commit": "c5538312",
       "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
       "act4_version": "4.0.0",
-      "isa": "RV64IM",
+      "isa": "RV32IM",
       "total": 72,
-      "passed": [
+      "passed": [],
+      "failed": [
         "I-add-00",
         "I-addi-00",
         "I-addiw-00",
@@ -157,9 +158,7 @@
         "M-rem-00",
         "M-remu-00",
         "M-remuw-00",
-        "M-remw-00"
-      ],
-      "failed": [
+        "M-remw-00",
         "Misalign-ld-00",
         "Misalign-lh-00",
         "Misalign-lhu-00",
@@ -171,7 +170,7 @@
       ],
       "prove_failed": [],
       "verify_failed": [],
-      "has_proving": true
+      "has_proving": false
     }
   ]
 }
