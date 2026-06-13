@@ -80,8 +80,22 @@ def find_patches(filepath: str) -> dict[int, int]:
         vaddr_str, insn_hex, rest = line_match.groups()
         rest = rest.strip()
 
+        should_patch = False
+
         # Non-instruction data words (.word or raw hex with no mnemonic)
         if rest.startswith('.word') or re.match(r'^0x[0-9a-f]+\s*$', rest):
+            should_patch = True
+        # SYSTEM instructions (opcode 0x73) that SP1/Pico/OpenVM don't support:
+        # CSR ops, mret, sret, wfi, sfence.vma, etc.
+        # The ACT4 4.0.0 failure_code.h embeds csrr mepc/sepc/fcsr in the
+        # failure handler; SP1's transpiler rejects them at ELF load time.
+        # Keep only ecall (0x00000073) which is used for HALT_PASS/HALT_FAIL.
+        elif len(insn_hex) == 8 and (int(insn_hex, 16) & 0x7f) == 0x73:
+            word = int(insn_hex, 16)
+            if word != 0x00000073:  # keep ecall
+                should_patch = True
+
+        if should_patch:
             vaddr = int(vaddr_str, 16)
             file_off = vaddr_to_file_offset(vaddr, sections)
             if file_off is not None:

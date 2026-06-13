@@ -241,11 +241,9 @@
       "act4_commit": "b75bf1eeddaab59820eb3527943fb59101faf1f0"
     },
     {
-      "date": "2026-06-12T23:13:48Z",
+      "date": "2026-06-12T00:00:00Z",
       "commit": "10995181",
-      "monitor_commit": "fc73116d",
-      "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
-      "act4_version": "4.0.0",
+      "monitor_commit": "2dffa374",
       "isa": "RV64IM",
       "total": 64,
       "passed": [
@@ -255,14 +253,12 @@
         "I-addw-00",
         "I-and-00",
         "I-andi-00",
-        "I-auipc-00",
         "I-beq-00",
         "I-bge-00",
         "I-bgeu-00",
         "I-blt-00",
         "I-bltu-00",
         "I-bne-00",
-        "I-fence-00",
         "I-jal-00",
         "I-jalr-00",
         "I-lb-00",
@@ -314,10 +310,14 @@
         "M-remuw-00",
         "M-remw-00"
       ],
-      "failed": [],
+      "failed": [
+        "I-auipc-00",
+        "I-fence-00"
+      ],
       "prove_failed": [],
       "verify_failed": [],
-      "has_proving": false
+      "has_proving": false,
+      "notes": "ACT4 4.0.0 test suite upgrade"
     }
   ]
 }
