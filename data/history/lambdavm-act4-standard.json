@@ -173,9 +173,9 @@
       "has_proving": true
     },
     {
-      "date": "2026-06-13T15:10:18Z",
+      "date": "2026-06-16T18:48:04Z",
       "commit": "09ef37d9",
-      "monitor_commit": "3872cde5",
+      "monitor_commit": "84edd9b8",
       "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
       "act4_version": "4.0.0",
       "isa": "RV64IM_Zicclsm",
@@ -188,6 +188,12 @@
         "I-and-00",
         "I-andi-00",
         "I-auipc-00",
+        "I-beq-00",
+        "I-bge-00",
+        "I-bgeu-00",
+        "I-blt-00",
+        "I-bltu-00",
+        "I-bne-00",
         "I-fence-00",
         "I-jal-00",
         "I-jalr-00",
@@ -248,17 +254,11 @@
         "Misalign-sh-00",
         "Misalign-sw-00"
       ],
-      "failed": [
-        "I-beq-00",
-        "I-bge-00",
-        "I-bgeu-00",
-        "I-blt-00",
-        "I-bltu-00",
-        "I-bne-00"
-      ],
+      "failed": [],
       "prove_failed": [],
       "verify_failed": [],
-      "has_proving": true
+      "has_proving": true,
+      "notes": "Replaced 2026-06-13 run (66/72): branch test failures were caused by missing SUBALIGN(4) in link.ld, which left a zero-filled inter-section gap in the executable segment that LambdaVM\u2019s instruction scanner hit at load time. Fixed in test configuration."
     }
   ]
 }
