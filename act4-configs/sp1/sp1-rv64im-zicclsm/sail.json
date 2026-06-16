@@ -46,7 +46,7 @@
       "supported": true,
       "byte_by_byte": true,
       "order_decreasing": false,
-      "allowed_within_exp": 11
+      "allowed_within_exp": 0
     },
     "translation": {
       "dirty_update": false
