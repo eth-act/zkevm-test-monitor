@@ -63,10 +63,6 @@ generate_elfs() {
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
-    # NOP out the 6 lhu reads in failedtest_saveresults that read from .text.init.
-    echo "=== Patching ELFs ($CONFIG_NAME) ==="
-    python3 /act4/patch_elfs.py --zisk "$ELF_DIR"
-
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$ELF_COUNT" -eq 0 ]; then
@@ -125,8 +121,6 @@ run_act4_suite() {
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
-    echo "=== Patching ELFs ($CONFIG_NAME) ==="
-    python3 /act4/patch_elfs.py --zisk "$ELF_DIR"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$ELF_COUNT" -eq 0 ]; then
