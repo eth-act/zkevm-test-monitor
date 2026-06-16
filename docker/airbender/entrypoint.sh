@@ -9,6 +9,7 @@ set -eu
 #   /results/                      — output directory for summary JSON
 
 DUT=/dut/airbender-binary
+ZKVM=airbender
 RESULTS=/results
 WORKDIR=/act4/work
 
@@ -53,18 +54,13 @@ run_act4_suite() {
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
 
     # Generate Makefiles and compile self-checking ELFs.
-    # The 'act' tool reads the DUT config, generates a Makefile, then invokes Sail
-    # to compute expected register values which are baked directly into the ELFs.
+    # In 4.0.0, 'act' handles both Makefile generation and compilation.
     echo ""
     echo "=== Generating Makefiles for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
         --extensions "$EXTENSIONS"
-
-    echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
-    # Must compile from top-level workdir so common ELF dependencies are built first.
-    make -C "$WORKDIR" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
@@ -77,7 +73,8 @@ run_act4_suite() {
 
     # Create a wrapper that converts each ELF to a flat binary and extracts the
     # entry point and tohost address before invoking run-with-transpiler.
-    # run_tests.py passes the ELF path as $1 to this wrapper.
+    # ACT4 4.0.0 run_tests.py requires RVCP-SUMMARY in stdout to confirm pass/fail.
+    # Airbender's RVMODEL_IO_WRITE_STR is a no-op, so synthesize it from exit code.
     cat > /act4/run-dut.sh << 'WRAPPER'
 #!/bin/bash
 ELF="$1"
@@ -96,13 +93,19 @@ TOHOST_HEX=$(riscv64-unknown-elf-nm "$ELF" \
     | awk '$3 == "tohost" {print $1; exit}')
 TOHOST_DEC=$(printf '%d' "0x${TOHOST_HEX}")
 
-/dut/airbender-binary run-with-transpiler \
+OUTPUT=$(/dut/airbender-binary run-with-transpiler \
     --bin "$BIN" \
     --entry-point "$ENTRY_DEC" \
     --tohost-addr "$TOHOST_DEC" \
-    --cycles 10000000
+    --cycles 10000000 2>&1)
 EC=$?
 rm -f "$BIN"
+echo "$OUTPUT"
+if [ $EC -eq 0 ]; then
+  echo "RVCP-SUMMARY: TEST PASSED - Test File \"$ELF\""
+else
+  echo "RVCP-SUMMARY: TEST FAILED - Test File \"$ELF\""
+fi
 exit $EC
 WRAPPER
     chmod +x /act4/run-dut.sh
@@ -114,17 +117,15 @@ WRAPPER
     echo "$RUN_OUTPUT"
 
     # Parse results from run_tests.py output.
-    # Possible formats:
-    #   "\tX out of N tests failed."  → X failures, N total
-    #   "\tAll N tests passed."       → 0 failures, N total
+    # ACT4 4.0.0 format: "RESULT: N failed, M passed out of T tests."
     local FAILED TOTAL PASSED
-    FAILED=$(echo "$RUN_OUTPUT" | grep -oE '[0-9]+ out of [0-9]+ tests failed' | grep -oE '^[0-9]+' || echo "0")
-    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
+    FAILED=$(echo "$RUN_OUTPUT" | grep -oE 'RESULT: [0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
+    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE 'out of [0-9]+ tests' | grep -oE '[0-9]+' || echo "$ELF_COUNT")
     PASSED=$((TOTAL - FAILED))
 
     cat > "$RESULTS/summary-act4-${FILE_LABEL}.json" << EOF
 {
-  "zkvm": "airbender",
+  "zkvm": "$ZKVM",
   "suite": "act4${SUFFIX}",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "passed": $PASSED,
@@ -133,20 +134,23 @@ WRAPPER
 }
 EOF
 
-    # Generate per-test results JSON (enumerate ELFs, mark failed ones).
-    # Pass authoritative PASSED count so tests that failed silently (timeout/kill)
-    # are not incorrectly marked as passed.
+    # Generate per-test results JSON.
+    # Write run_output to a temp file to avoid shell-quoting issues in -c.
+    local RUN_OUTPUT_FILE
+    RUN_OUTPUT_FILE=$(mktemp)
+    echo "$RUN_OUTPUT" > "$RUN_OUTPUT_FILE"
     python3 -c "
 import json, os, re
 
 elf_dir = '$ELF_DIR'
-run_output = '''$RUN_OUTPUT'''
+with open('$RUN_OUTPUT_FILE') as _f:
+    run_output = _f.read()
 expected_passed = $PASSED
 
-# Parse failed test names from run_tests.py output
+# Parse failed test names from run_tests.py output (ACT4 4.0.0 format).
 failed_names = set()
 for line in run_output.splitlines():
-    m = re.match(r'\tTest (\S+\.elf) failed', line)
+    m = re.match(r'\s+FAIL\s+(\S+\.elf)\s', line)
     if m:
         failed_names.add(m.group(1))
 
@@ -166,23 +170,31 @@ for root, dirs, files in os.walk(elf_dir):
 
 tests.sort(key=lambda t: (t['extension'], t['name']))
 
-# Cross-check: if parsed pass count doesn't match the authoritative count,
-# some tests failed silently (timeout/OOM). Mark all as failed since we
-# can't reliably distinguish which ones truly passed.
+# Cross-check: if parsed pass count does not match the authoritative count,
+# some tests failed silently. Mark all as failed since we cannot reliably
+# distinguish which ones truly passed.
 parsed_passed = sum(1 for t in tests if t['passed'])
 if parsed_passed != expected_passed:
     for t in tests:
         t['passed'] = False
 
+passed_names = [t['name'] for t in tests if t['passed']]
+failed_names_list = [t['name'] for t in tests if not t['passed']]
+
 with open('$RESULTS/results-act4-${FILE_LABEL}.json', 'w') as out:
     json.dump({
-        'zkvm': 'airbender',
+        'zkvm': '$ZKVM',
         'suite': 'act4${SUFFIX}',
-        'tests': tests
+        'tests': tests,
+        'passed': passed_names,
+        'failed': failed_names_list,
+        'prove_failed': [],
+        'verify_failed': []
     }, out, indent=2)
 
 print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABEL}.json')
 "
+    rm -f "$RUN_OUTPUT_FILE"
 
     echo ""
     echo "=== $CONFIG_NAME: $PASSED/$TOTAL passed ==="

@@ -1,25 +1,16 @@
 #!/usr/bin/env python3
-"""Post-process ACT4 ELFs for ZKVMs that need instruction-level fixups.
+"""Post-process ACT4 ELFs for ZKVMs that pre-process all words as instructions.
 
-Two modes:
+Replaces non-instruction data words embedded in executable sections with NOPs.
+ACT4's SELFCHECK mechanism places .word string pointers after jal failedtest_*
+calls in .text. ZKVMs that scan every word in executable segments at load time
+(SP1, Pico, OpenVM, LambdaVM) panic on these non-instruction words.
 
-  Default (no flags): word-in-text patch for SP1, Pico, OpenVM
-    Replaces non-instruction data words embedded in executable sections with NOPs.
-    ACT4's SELFCHECK mechanism places .word string pointers after jal failedtest_*
-    calls in .text. ZKVMs that pre-process all words as instructions panic on these.
-
-  --zisk: failure-handler bypass patch for Zisk
-    Replaces the first instruction of failedtest_saveresults with a JAL x0 to
-    failedtest_terminate (exit 1). Zisk maps .text.init as execute-only; ACT4's
-    failure handler decodes the failing instruction by reading bytes from .text.init
-    via lhu with negative offsets from x5 (the return address). Zisk panics. Simple
-    NOPs aren't sufficient because subsequent `ld` instructions use the stale lhu
-    results to compute further load addresses, cascading the crash. A direct jump to
-    failedtest_terminate preserves exit-code semantics: 0 = pass, 1 = fail.
+The failure handler itself is handled separately via a per-DUT failure_code.h
+override in each VM's dut_include_dir.
 
 Usage:
-  python3 patch_elfs.py <elf_directory>           # SP1/Pico/OpenVM mode
-  python3 patch_elfs.py --zisk <elf_directory>    # Zisk mode
+  python3 patch_elfs.py <elf_directory>
 """
 
 import glob
@@ -56,7 +47,7 @@ def vaddr_to_file_offset(vaddr: int, sections: dict) -> int | None:
 
 
 def find_patches(filepath: str) -> dict[int, int]:
-    """Find non-instruction data words in executable sections (SP1/Pico/OpenVM mode).
+    """Find non-instruction data words in executable sections.
 
     Returns dict of file_offset → NOP (0x00000013).
     """
@@ -90,67 +81,9 @@ def find_patches(filepath: str) -> dict[int, int]:
     return patches
 
 
-def encode_jal_x0(src_vaddr: int, dst_vaddr: int) -> int:
-    """Encode 'jal x0, (dst_vaddr - src_vaddr)' as a 32-bit RISC-V J-type instruction."""
-    offset = dst_vaddr - src_vaddr
-    assert offset % 2 == 0 and -(1 << 20) <= offset < (1 << 20), \
-        f"JAL offset {offset:#x} out of range"
-    imm = offset & ((1 << 21) - 1)
-    imm20     = (imm >> 20) & 0x1
-    imm_10_1  = (imm >> 1)  & 0x3FF
-    imm11     = (imm >> 11) & 0x1
-    imm_19_12 = (imm >> 12) & 0xFF
-    return (imm20 << 31) | (imm_10_1 << 21) | (imm11 << 20) | (imm_19_12 << 12) | 0x6F
-
-
-def find_zisk_patches(filepath: str) -> dict[int, int]:
-    """Patch failedtest_saveresults to jump directly to failedtest_terminate (Zisk mode).
-
-    ACT4's failedtest_saveresults decodes the failing instruction by reading bytes from
-    .text.init via lhu with negative offsets from t0 (return address into the code
-    segment). Zisk maps .text.init as execute-only, so these reads panic. Subsequent
-    instructions use the stale/garbage registers to compute further load addresses,
-    causing a cascade of crashes even after NOPping the individual lhu instructions.
-
-    Fix: replace the first instruction of failedtest_saveresults with a JAL x0 directly
-    to failedtest_terminate (exit code 1). This skips all instruction-decoding code
-    while preserving correct exit-code semantics (1 = test failed, 0 = test passed).
-
-    Returns dict of file_offset → JAL encoding.
-    """
-    sections = get_exec_sections(filepath)
-    if not sections:
-        return {}
-
-    objdump = subprocess.run(
-        ["riscv64-unknown-elf-objdump", "-d", filepath],
-        capture_output=True, text=True
-    )
-
-    # Collect symbol → first-instruction vaddr
-    symbols: dict[str, int] = {}
-    for line in objdump.stdout.splitlines():
-        m = re.match(r'([0-9a-f]+) <([^>]+)>:', line)
-        if m:
-            vaddr, name = int(m.group(1), 16), m.group(2)
-            if name in ('failedtest_saveresults', 'failedtest_terminate'):
-                symbols[name] = vaddr
-
-    if 'failedtest_saveresults' not in symbols or 'failedtest_terminate' not in symbols:
-        return {}
-
-    src_vaddr = symbols['failedtest_saveresults']
-    dst_vaddr = symbols['failedtest_terminate']
-    file_off = vaddr_to_file_offset(src_vaddr, sections)
-    if file_off is None:
-        return {}
-
-    return {file_off: encode_jal_x0(src_vaddr, dst_vaddr)}
-
-
-def patch_elf(filepath: str, zisk_mode: bool = False) -> int:
+def patch_elf(filepath: str) -> int:
     """Patch a single ELF file. Returns number of words patched."""
-    patches = find_zisk_patches(filepath) if zisk_mode else find_patches(filepath)
+    patches = find_patches(filepath)
     if not patches:
         return 0
 
@@ -166,24 +99,18 @@ def patch_elf(filepath: str, zisk_mode: bool = False) -> int:
 
 
 def main():
-    args = sys.argv[1:]
-    zisk_mode = False
-    if args and args[0] == '--zisk':
-        zisk_mode = True
-        args = args[1:]
-
-    if len(args) != 1:
-        print(f"Usage: {sys.argv[0]} [--zisk] <elf_directory>", file=sys.stderr)
+    if len(sys.argv) != 2:
+        print(f"Usage: {sys.argv[0]} <elf_directory>", file=sys.stderr)
         sys.exit(1)
 
-    elf_dir = args[0]
+    elf_dir = sys.argv[1]
     total_patched = 0
     files_patched = 0
 
     for f in sorted(glob.glob(os.path.join(elf_dir, "**", "*.elf"), recursive=True)):
         if os.path.islink(f):
             f = os.path.realpath(f)
-        count = patch_elf(f, zisk_mode=zisk_mode)
+        count = patch_elf(f)
         if count:
             print(f"  Patched {count} words in {os.path.basename(f)}")
             total_patched += count

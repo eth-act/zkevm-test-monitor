@@ -71,7 +71,6 @@ generate_elfs() {
         --workdir "$WORKDIR" \
         --test-dir tests \
         --extensions "$EXTENSIONS"
-    make -C "$WORKDIR" compile
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
@@ -157,12 +156,13 @@ EOF
 }
 
 # Run each suite; allow failures without aborting (set -e is active globally)
-# ─── Run 1: Native ISA (rv64im) ───
+# ─── Run 1: Native ISA (rv64im-zicclsm) ───
+# LambdaVM natively supports Zicclsm (misaligned LD/ST), so include Misalign tests.
 run_act4_suite \
-    "config/lambdavm/lambdavm-rv64im/test_config.yaml" \
-    "lambdavm-rv64im" \
-    "I,M" \
-    "$(printf 'I\nM\nZicsr\nSm')" \
+    "config/lambdavm/lambdavm-rv64im-zicclsm/test_config.yaml" \
+    "lambdavm-rv64im-zicclsm" \
+    "I,M,Misalign" \
+    "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
     "" \
     "native" || true
 

@@ -34,7 +34,15 @@ echo "$OUTPUT"
 # SP1's JIT logs "Unimplemented instruction" to stderr and continues with
 # exit code 0. Treat any such message as a failure.
 if echo "$OUTPUT" | grep -qi "unimplemented instruction"; then
+  echo "RVCP-SUMMARY: TEST FAILED - Test File \"$1\""
   exit 1
+fi
+# ACT4 4.0.0's run_tests.py requires RVCP-SUMMARY in stdout to confirm pass/fail.
+# SP1's RVMODEL_IO_WRITE_STR is a no-op, so synthesize it from the exit code here.
+if [ $EC -eq 0 ]; then
+  echo "RVCP-SUMMARY: TEST PASSED - Test File \"$1\""
+else
+  echo "RVCP-SUMMARY: TEST FAILED - Test File \"$1\""
 fi
 exit $EC
 WRAPPER
@@ -81,10 +89,6 @@ run_act4_suite() {
         --test-dir tests \
         --extensions "$EXTENSIONS"
 
-    echo "=== Compiling self-checking ELFs ($CONFIG_NAME) ==="
-    # Must compile from top-level workdir so common ELF dependencies are built first.
-    make -C "$WORKDIR" -j "$JOBS" || { echo "Error: compilation failed for $CONFIG_NAME"; return; }
-
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
@@ -104,12 +108,10 @@ run_act4_suite() {
     echo "$RUN_OUTPUT"
 
     # Parse results from run_tests.py output.
-    # Possible formats:
-    #   "\tX out of N tests failed."  → X failures, N total
-    #   "\tAll N tests passed."       → 0 failures, N total
+    # ACT4 4.0.0 format: "RESULT: N failed, M passed out of T tests."
     local FAILED TOTAL PASSED
-    FAILED=$(echo "$RUN_OUTPUT" | grep -oE '[0-9]+ out of [0-9]+ tests failed' | grep -oE '^[0-9]+' || echo "0")
-    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE '([0-9]+ out of )?([0-9]+) tests' | grep -oE '[0-9]+' | tail -1 || echo "$ELF_COUNT")
+    FAILED=$(echo "$RUN_OUTPUT" | grep -oE 'RESULT: [0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
+    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE 'out of [0-9]+ tests' | grep -oE '[0-9]+' || echo "$ELF_COUNT")
     PASSED=$((TOTAL - FAILED))
 
     cat > "$RESULTS/summary-act4-${FILE_LABEL}.json" << EOF
@@ -126,17 +128,22 @@ EOF
     # Generate per-test results JSON (enumerate ELFs, mark failed ones).
     # Pass authoritative PASSED count so tests that failed silently (timeout/kill)
     # are not incorrectly marked as passed.
+    # Write run_output to a temp file to avoid shell-quoting issues in -c.
+    local RUN_OUTPUT_FILE
+    RUN_OUTPUT_FILE=$(mktemp)
+    echo "$RUN_OUTPUT" > "$RUN_OUTPUT_FILE"
     python3 -c "
 import json, os, re
 
 elf_dir = '$ELF_DIR'
-run_output = '''$RUN_OUTPUT'''
+with open('$RUN_OUTPUT_FILE') as _f:
+    run_output = _f.read()
 expected_passed = $PASSED
 
-# Parse failed test names from run_tests.py output
+# Parse failed test names from run_tests.py output (ACT4 4.0.0 format).
 failed_names = set()
 for line in run_output.splitlines():
-    m = re.match(r'\tTest (\S+\.elf) failed', line)
+    m = re.match(r'\s+FAIL\s+(\S+\.elf)\s', line)
     if m:
         failed_names.add(m.group(1))
 
@@ -180,6 +187,7 @@ with open('$RESULTS/results-act4-${FILE_LABEL}.json', 'w') as out:
 
 print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABEL}.json')
 "
+    rm -f "$RUN_OUTPUT_FILE"
 
     echo ""
     echo "=== $CONFIG_NAME: $PASSED/$TOTAL passed ==="

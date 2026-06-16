@@ -80,7 +80,7 @@
         </div>
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
-            <strong>Test Suite:</strong> <a href="https://github.com/riscv-non-isa/riscv-arch-test/tree/act4">RISC-V Architecture Tests</a>
+            <strong>Test Suite:</strong> <a href="https://github.com/riscv/riscv-arch-test">RISC-V Architecture Tests</a>
             <span id="act4-commit"></span>
         </div>
 
@@ -142,11 +142,16 @@
             const config = await fetch('config.json').then(r => r.json());
             const zkvms = Object.keys(config.zkvms).sort();
 
-            // Show ACT4 commit in header
-            if (config.act4_commit) {
-                const short = config.act4_commit.substring(0, 8);
+            // Show ACT4 version in header
+            const hv = config.act4_version;
+            const hc = config.act4_commit;
+            if (hv || hc) {
+                const label = hv ? `v${hv}` : hc.substring(0, 8);
+                const url = hv
+                    ? `https://github.com/riscv/riscv-arch-test/releases/tag/${hv}`
+                    : `https://github.com/riscv/riscv-arch-test/commit/${hc}`;
                 document.getElementById('act4-commit').innerHTML =
-                    `@ <a href="https://github.com/riscv-non-isa/riscv-arch-test/commit/${config.act4_commit}" class="commit-link">${short}</a>`;
+                    ` (<a href="${url}" class="commit-link">${label}</a>)`;
             }
 
             const rows = await Promise.all(zkvms.map(async (name) => {

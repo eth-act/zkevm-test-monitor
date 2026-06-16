@@ -175,6 +175,22 @@
         return run?.commit || run?.zkvm_commit || 'unknown';
     }
 
+    function act4Label(run) {
+        const v = run?.act4_version;
+        if (v) return 'v' + v;
+        const c = run?.act4_commit;
+        if (c && c !== 'unknown') return c.substring(0, 8);
+        return null;
+    }
+
+    function act4Url(run) {
+        const v = run?.act4_version;
+        if (v) return `https://github.com/riscv/riscv-arch-test/releases/tag/${v}`;
+        const c = run?.act4_commit;
+        if (c && c !== 'unknown') return `https://github.com/riscv/riscv-arch-test/commit/${c}`;
+        return null;
+    }
+
     function suiteLabel(s) {
         if (s === 'act4-full') return 'Full ISA';
         if (s === 'act4-standard') return 'Standard ISA';
@@ -267,10 +283,18 @@
                 const rest = suiteRows.slice(1);
                 const notesHtml = notes ? '<span title="' + notes.replace(/"/g, '&quot;') + '">' + notes + '</span>' : '';
 
+                const actRun = g.runs[0];
+                const actLabel = act4Label(actRun);
+                const actUrl = act4Url(actRun);
+                const act4Html = actLabel
+                    ? (actUrl ? `<a href="${actUrl}" class="commit-link" onclick="event.stopPropagation()">${actLabel}</a>` : `<span class="commit-link">${actLabel}</span>`)
+                    : '<span class="none">&mdash;</span>';
+
                 const firstRow = first.replace('<tr', `<tr`).replace(
                     /<td>.*?<\/td>/,
                     `<td rowspan="${rowspan}" class="group-date">${formatDate(g.date)}</td>` +
                     `<td rowspan="${rowspan}"><a href="${commitUrl}" class="commit-link" onclick="event.stopPropagation()">${commitShort(commit)}</a></td>` +
+                    `<td rowspan="${rowspan}">${act4Html}</td>` +
                     '$&'
                 );
                 const lastCol = `<td rowspan="${rowspan}" class="notes-cell">${notesHtml}</td>`;
@@ -280,7 +304,7 @@
             }).join('');
 
             html += `<table>
-                <thead><tr><th>Date</th><th>Commit</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
+                <thead><tr><th>Date</th><th>Commit</th><th>ACT4</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
 
