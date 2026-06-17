@@ -286,9 +286,21 @@
                 const actRun = g.runs[0];
                 const actLabel = act4Label(actRun);
                 const actUrl = act4Url(actRun);
-                const act4Html = actLabel
-                    ? (actUrl ? `<a href="${actUrl}" class="commit-link" onclick="event.stopPropagation()">${actLabel}</a>` : `<span class="commit-link">${actLabel}</span>`)
-                    : '<span class="none">&mdash;</span>';
+                const monitorCommit = actRun?.monitor_commit;
+                let act4Html;
+                if (actLabel) {
+                    act4Html = actUrl
+                        ? `<a href="${actUrl}" class="commit-link" onclick="event.stopPropagation()">${actLabel}</a>`
+                        : `<span class="commit-link">${actLabel}</span>`;
+                } else if (monitorCommit && monitorCommit !== 'unknown') {
+                    // ACT4 version wasn't recorded for this run, and the arch-test version
+                    // it used wasn't a tagged release. Link the test-monitor commit that
+                    // produced the run instead — config.json at that commit pins the exact
+                    // arch-test commit, so the version is still recoverable.
+                    act4Html = `<a href="https://github.com/eth-act/zkevm-test-monitor/commit/${monitorCommit}" class="commit-link" title="Test monitor commit (ACT4 version not recorded for this run)" onclick="event.stopPropagation()">${commitShort(monitorCommit)}</a>`;
+                } else {
+                    act4Html = '<span class="none">&mdash;</span>';
+                }
 
                 const firstRow = first.replace('<tr', `<tr`).replace(
                     /<td>.*?<\/td>/,
