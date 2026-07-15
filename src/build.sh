@@ -109,6 +109,9 @@ for ZKVM in $ZKVMS; do
       docker rm "$CONTAINER_ID" > /dev/null 2>&1
       continue
     }
+    # Extract cargo-zisk-dev (v1.0.0 CLI split: owns check-setup / per-program setup)
+    docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk-dev" "binaries/cargo-zisk-dev" 2>/dev/null || \
+      echo "  Warning: cargo-zisk-dev not found (pre-v1.0.0 bundle; check-setup falls back to cargo-zisk)"
     # Extract witness lib (required for v0.15.0 proving)
     docker cp "$CONTAINER_ID:/usr/local/bin/libzisk_witness.so" "binaries/libzisk_witness.so" 2>/dev/null || true
     # Extract bundled shared libraries for cargo-zisk (libsodium, libomp)
@@ -116,17 +119,23 @@ for ZKVM in $ZKVMS; do
     docker cp "$CONTAINER_ID:/usr/local/bin/lib/." "binaries/zisk-lib/" 2>/dev/null || true
     # GPU variants (optional — only present if GPU=1 was set during build)
     docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk-cuda" "binaries/cargo-zisk-cuda" 2>/dev/null || true
-    chmod +x binaries/zisk-binary binaries/cargo-zisk 2>/dev/null || true
+    chmod +x binaries/zisk-binary binaries/cargo-zisk binaries/cargo-zisk-dev 2>/dev/null || true
     chmod +x binaries/cargo-zisk-cuda 2>/dev/null || true
 
     # Auto-install proving keys if version changed
     if [ -f "binaries/cargo-zisk" ]; then
+      # Capture the full semver including any prerelease suffix (e.g. 1.0.0-alpha).
+      # Proving-key tarballs are named with the exact version (matching ziskup:
+      # zisk-provingkey-<version>.tar.gz), so we must NOT strip "-alpha".
       ZISK_VERSION=$(LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-        binaries/cargo-zisk --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || true)
+        binaries/cargo-zisk --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?' | head -1 || true)
       if [ -n "$ZISK_VERSION" ]; then
-        ZISK_MAJOR_MINOR=$(echo "$ZISK_VERSION" | grep -oP '^\d+\.\d+')
-        SETUP_KEY_FILE="zisk-provingkey-${ZISK_MAJOR_MINOR}.0.tar.gz"
+        SETUP_KEY_FILE="zisk-provingkey-${ZISK_VERSION}.tar.gz"
         SETUP_URL="https://storage.googleapis.com/zisk-setup/${SETUP_KEY_FILE}"
+        # check-setup moved to cargo-zisk-dev in the v1.0.0 CLI split; fall back
+        # to cargo-zisk for older bundles where it still lives on the main binary.
+        CHECK_ZISK="binaries/cargo-zisk-dev"
+        [ -x "$CHECK_ZISK" ] || CHECK_ZISK="binaries/cargo-zisk"
         MARKER_FILE="$HOME/.zisk/.zisk-setup-version"
         CURRENT_MARKER=$(cat "$MARKER_FILE" 2>/dev/null || true)
 
@@ -149,14 +158,16 @@ for ZKVM in $ZKVMS; do
             rm -f "/tmp/${SETUP_KEY_FILE}"
             echo "  Running check-setup to generate CPU constant trees..."
             LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-              binaries/cargo-zisk check-setup -a || {
+              "$CHECK_ZISK" check-setup --proving-key "$HOME/.zisk/provingKey" -a || {
               echo "  Warning: check-setup failed — proving may not work"
             }
-            # Generate GPU constant trees if GPU binary exists
+            # Generate GPU constant trees if this was a GPU build. GPU is now a
+            # runtime flag (--gpu) rather than a separate binary; cargo-zisk-cuda
+            # is just an alias, so its presence signals "GPU build requested".
             if [ -f "binaries/cargo-zisk-cuda" ]; then
               echo "  Running check-setup to generate GPU constant trees..."
               LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-                binaries/cargo-zisk-cuda check-setup -a || {
+                "$CHECK_ZISK" check-setup --gpu --proving-key "$HOME/.zisk/provingKey" -a || {
                 echo "  Warning: GPU check-setup failed — GPU proving may not work"
               }
               echo "1" > "$GPU_MARKER_FILE"
@@ -170,7 +181,7 @@ for ZKVM in $ZKVMS; do
         elif [ -f "binaries/cargo-zisk-cuda" ] && [ "$CURRENT_GPU_MARKER" != "1" ]; then
           echo "  Generating GPU constant trees for Zisk v${ZISK_VERSION}..."
           LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-            binaries/cargo-zisk-cuda check-setup -a || {
+            "$CHECK_ZISK" check-setup --gpu --proving-key "$HOME/.zisk/provingKey" -a || {
             echo "  Warning: GPU check-setup failed — GPU proving may not work"
           }
           echo "1" > "$GPU_MARKER_FILE"

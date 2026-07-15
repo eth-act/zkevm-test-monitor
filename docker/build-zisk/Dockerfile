@@ -55,7 +55,7 @@ ENV CXXFLAGS="-std=c++17"
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/0xPolygonHermez/zisk.git
-ARG COMMIT_HASH=b3ca745b
+ARG COMMIT_HASH=4b9f758f
 ARG GPU=0
 ARG CUDA_ARCH=sm_89
 
@@ -66,14 +66,31 @@ RUN git clone "$REPO_URL" zisk && \
     git checkout "$COMMIT_HASH" && \
     git rev-parse HEAD > /workspace/commit.txt
 
-# Build zisk tools: ziskemu (emulator) and cargo-zisk (prover CLI).
+# Build zisk tools: ziskemu (emulator), cargo-zisk (user prover CLI), and
+# cargo-zisk-dev (dev CLI). The v1.0.0 CLI split moved `check-setup` (and the
+# per-program `setup`) onto the new cargo-zisk-dev binary, so both are needed.
 # In v0.17.0+ cargo-zisk is GPU-capable by default (CUDA libs always required at
 # runtime) with a `cpu-only` opt-out feature. Older versions used the inverse:
 # CPU by default, opt-in `gpu` feature. The zisk-witness crate is also gone in
 # v0.17.0 (folded into the main build).
 WORKDIR /workspace/zisk
+# --features zisk-core/float: v1.0.0 moved RV64 F/D (float) support behind the
+# `float` cargo feature on zisk-core (was always-on in v0.18.0's RV64IMFDAC).
+# Both the emulator and the prover convert ELF→ZisK ROM via zisk-core's
+# riscv2zisk, which panics on any word decoding to an F/D instruction when the
+# feature is off — and it decodes data words too, so even I/M-only ELFs trip it.
+# zisk-core is a workspace member, so the member/feature form works from the root.
+# lib-float's build.rs rebuilds its committed RISC-V float lib (libziskfloat.a /
+# ziskfloat.elf) via a *nested* `docker build` whenever a C source looks newer
+# than the artifact — which always happens after `git clone` equalizes mtimes,
+# and there is no docker daemon inside this build. The committed artifacts are the
+# reproducible source of truth (ziskfloat.elf's bytes fix the program vk), so we
+# `touch` them newer than the sources to make build.rs skip the rebuild and link
+# the committed library directly.
 RUN if [ "$GPU" = "1" ]; then export CUDA_ARCH="$CUDA_ARCH"; fi && \
-    cargo build --release --bin ziskemu --bin cargo-zisk
+    touch lib-float/c/lib/libziskfloat.a lib-float/c/lib/ziskfloat.elf && \
+    cargo build --release --bin ziskemu --bin cargo-zisk --bin cargo-zisk-dev \
+      --features zisk-core/float
 
 # Build witness lib if the crate still exists (pre-v0.17.0).
 RUN if cargo metadata --no-deps --format-version 1 2>/dev/null | \
@@ -88,13 +105,14 @@ RUN if cargo metadata --no-deps --format-version 1 2>/dev/null | \
 RUN mkdir -p /workspace/output /workspace/output/lib && \
     cp target/release/ziskemu /workspace/output/ && \
     cp target/release/cargo-zisk /workspace/output/ && \
+    cp target/release/cargo-zisk-dev /workspace/output/ && \
     if [ -f target/release/libzisk_witness.so ]; then \
       cp target/release/libzisk_witness.so /workspace/output/; \
     else \
       touch /workspace/output/libzisk_witness.none; \
     fi && \
     for lib in libsodium libomp libcudart libcublasLt libcublas; do \
-      for bin in target/release/cargo-zisk target/release/libzisk_witness.so; do \
+      for bin in target/release/ziskemu target/release/cargo-zisk target/release/cargo-zisk-dev target/release/libzisk_witness.so; do \
         [ -f "$bin" ] || continue; \
         path=$(ldd "$bin" | grep "$lib" | grep -oP '/\S+\.so\S*'); \
         [ -n "$path" ] && cp -n "$path" /workspace/output/lib/; \
@@ -134,7 +152,7 @@ COPY --from=builder /workspace/output/libzisk_witness* /usr/local/bin/
 COPY --from=builder /workspace/commit.txt /commit.txt
 
 # Entrypoint copies all tools to /output/
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/ziskemu /usr/local/bin/cargo-zisk /output/ && \
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/ziskemu /usr/local/bin/cargo-zisk /usr/local/bin/cargo-zisk-dev /output/ && \
   cp -r /usr/local/bin/lib /output/lib 2>/dev/null || true && \
   [ -f /usr/local/bin/libzisk_witness.so ] && cp /usr/local/bin/libzisk_witness.so /output/; \
   [ -f /usr/local/bin/cargo-zisk-cuda ] && cp /usr/local/bin/cargo-zisk-cuda /output/; true"]

@@ -97,10 +97,12 @@ impl Backend {
 ///
 /// Lifecycle:
 /// 1. Execute: `ziskemu --elf <path>` — exit code 0 = pass
-/// 2. Prove:   `cargo-zisk prove --elf <path> --emulator -o <file> [--verify-proofs]`
+/// 2. Prove:   `cargo-zisk prove --elf <path> -o <file> [--verify-proof] [--gpu]`
 ///
 /// As of zisk v0.17.0, `-o/--output` is a file path (not a directory) and proofs
-/// are aggregated by default; `--verify-proofs` runs verification in-process.
+/// are aggregated by default (VadcopFinal). In v1.0.0 the Rust emulator became the
+/// default (old `--emulator` flag removed), `prove` runs the per-program setup
+/// internally, and `--verify-proofs` was renamed `--verify-proof` (in-process verify).
 /// If the command fails, we parse stdout to distinguish prove vs verify failure:
 /// the presence of "VERIFYING_PROOFS" or "was not verified" means proving
 /// succeeded but verification failed.
@@ -324,10 +326,13 @@ fn zisk_prove_cmd(
     if let Some(wl) = witness_lib {
         cmd.arg("--witness-lib").arg(wl);
     }
-    cmd.arg("--emulator");
+    // v1.0.0 CLI: the Rust emulator is the default (the old `--emulator` flag is
+    // gone; `--asm` now opts into the ASM emulator, which we don't want here).
+    // `cargo-zisk prove` runs the per-program setup internally before proving.
     cmd.args(["-o"]).arg(out_path);
     if verify {
-        cmd.arg("--verify-proofs");
+        // v1.0.0 renamed `--verify-proofs` → `--verify-proof`.
+        cmd.arg("--verify-proof");
     }
     if gpu {
         cmd.arg("--gpu");
