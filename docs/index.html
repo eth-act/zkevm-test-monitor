@@ -81,7 +81,10 @@
         <div class="metadata">
             <strong>Source:</strong> <a href="https://github.com/eth-act/zkevm-test-monitor">github.com/eth-act/zkevm-test-monitor</a> (contains steps to reproduce results)<br>
             <strong>Test Suite:</strong> <a href="https://github.com/riscv/riscv-arch-test">RISC-V Architecture Tests</a>
-            <span id="act4-commit"></span>
+            <span id="act4-commit"></span><br>
+            <small>Full-ISA (native) results are omitted here while that suite is unreliable (e.g. float
+            <code>fflags</code>; see <a href="https://github.com/eth-act/zkevm-test-monitor-act4/issues/6">issue #6</a>);
+            they are still generated and shown on each ZK-VM's page.</small>
         </div>
 
         <div id="loading">Loading dashboard data...</div>
@@ -175,7 +178,6 @@
                 // Use most recent date from either suite
                 const lastDate = full?.date || std?.date;
 
-                const fullLink = full ? `zkvm.html?name=${row.name}&suite=act4-full&run=latest` : null;
                 const stdLink = std ? `zkvm.html?name=${row.name}&suite=act4-standard&run=latest` : null;
 
                 function resultCell(passed, total, link) {
@@ -189,7 +191,6 @@
                     <td><strong><a href="zkvm.html?name=${row.name}">${row.name.toUpperCase()}</a></strong></td>
                     <td>${commitUrl ? `<a href="${commitUrl}" class="commit-link">${commitShort(commit)}</a>` : '<span class="none">&mdash;</span>'}</td>
                     <td><code>${isa}</code></td>
-                    ${resultCell(execPassedCount(full), full?.total, fullLink)}
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
@@ -203,13 +204,11 @@
                         <tr>
                             <th rowspan="2">ZKVM</th>
                             <th rowspan="2">Commit</th>
-                            <th colspan="2" class="col-group col-group-native">Full ISA</th>
+                            <th rowspan="2">ISA</th>
                             <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a></th>
                             <th rowspan="2">Last Run</th>
                         </tr>
                         <tr>
-                            <th class="col-group-native">ISA</th>
-                            <th class="col-group-native">Execution</th>
                             <th class="col-group-target">Execution</th>
                             <th class="col-group-target">Prove</th>
                             <th class="col-group-target">Verify</th>

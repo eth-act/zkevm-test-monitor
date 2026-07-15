@@ -350,9 +350,9 @@
       "has_proving": true
     },
     {
-      "date": "2026-07-15T01:31:21Z",
+      "date": "2026-07-15T18:37:56Z",
       "commit": "4b9f758f",
-      "monitor_commit": "a57059f1",
+      "monitor_commit": "c693bd6f",
       "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
       "act4_version": "4.0.0",
       "isa": "RV64IMFDAC_Zicclsm",
@@ -364,7 +364,6 @@
         "I-addw-00",
         "I-and-00",
         "I-andi-00",
-        "I-auipc-00",
         "I-beq-00",
         "I-bge-00",
         "I-bgeu-00",
@@ -432,9 +431,12 @@
         "Misalign-sw-00"
       ],
       "failed": [],
-      "prove_failed": [],
+      "prove_failed": [
+        "I-auipc-00"
+      ],
       "verify_failed": [],
-      "has_proving": true
+      "has_proving": true,
+      "notes": "I-auipc-00 prove fails: known zisk circuit bug \u2014 AUIPC constraints fail for PC values with bit 12 set (test code at 0x80001xxx). Execution is 72/72; only prove is affected. Reported upstream; fix expected in zisk 1.0.0-beta."
     }
   ]
 }
