@@ -1426,7 +1426,7 @@
       "prove_failed": [],
       "verify_failed": [],
       "has_proving": false,
-      "notes": "Native (Full ISA) float failures (~176/180) are an ACT4 test-suite gap, not a zisk bug: the Sail reference emits fflags=0 while zisk sets IEEE-correct exception flags (arithmetic results are correct). This suite is unreliable and is hidden from the monitor home page (shown here only). Tracking the upstream fix: eth-act/zkevm-test-monitor-act4#6."
+      "notes": "Native (Full ISA) float failures (~176/180) are an ACT4 test-suite gap, not a zisk bug: the Sail reference emits fflags=0 while zisk sets IEEE-correct exception flags (arithmetic results are correct). This suite is unreliable and is hidden from the monitor home page (shown here only). Tracking the upstream fix: eth-act/zkevm-test-monitor#25."
     }
   ]
 }
