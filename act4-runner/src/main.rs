@@ -16,7 +16,7 @@ use crate::results::TestEntry;
 #[command(name = "act4-runner")]
 struct Cli {
     /// ZK-VM backend to use (airbender, airbender-prove, jolt, lambdavm,
-    /// openvm, zisk, zisk-prove).
+    /// openvm, sp1-prove, zisk, zisk-prove).
     #[arg(long)]
     zkvm: String,
 
@@ -56,6 +56,10 @@ struct Cli {
     /// Path to jolt-prover binary (for jolt-prove backend).
     #[arg(long)]
     jolt_prover: Option<PathBuf>,
+
+    /// Path to sp1-perf binary (prove+verify; for sp1-prove backend).
+    #[arg(long)]
+    sp1_perf: Option<PathBuf>,
 
     /// Path to libzisk_witness.so (required for zisk-prove on v0.15.0).
     #[arg(long)]
@@ -114,6 +118,14 @@ fn main() {
         "openvm" => Backend::OpenVM {
             binary: require_binary(&cli),
         },
+        "sp1-prove" => Backend::Sp1Prove {
+            executor: require_binary(&cli),
+            sp1_perf: cli.sp1_perf.clone().unwrap_or_else(|| {
+                eprintln!("error: --sp1-perf is required for zkvm 'sp1-prove'");
+                process::exit(2);
+            }),
+            gpu: cli.gpu,
+        },
         "zisk" => Backend::Zisk {
             binary: require_binary(&cli),
         },
@@ -127,7 +139,7 @@ fn main() {
             gpu: cli.gpu,
         },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, lambdavm, openvm, zisk, zisk-prove");
+            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, lambdavm, openvm, sp1-prove, zisk, zisk-prove");
             process::exit(2);
         }
     };
