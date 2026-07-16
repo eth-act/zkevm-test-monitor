@@ -97,6 +97,17 @@ for ZKVM in $ZKVMS; do
     docker cp "$CONTAINER_ID:/usr/local/bin/jolt-prover" "binaries/jolt-prover" 2>/dev/null || \
       echo "  Warning: jolt-prover not found (proving will not work)"
     chmod +x binaries/jolt-binary binaries/jolt-prover 2>/dev/null || true
+  elif [ "$ZKVM" = "sp1" ]; then
+    # SP1 produces sp1-perf-executor (execute-only → sp1-binary) and
+    # sp1-perf (execute + GPU prove + verify → sp1-prover).
+    docker cp "$CONTAINER_ID:/usr/local/bin/sp1-perf-executor" "binaries/sp1-binary" || {
+      echo "  ❌ Failed to extract sp1-perf-executor for $ZKVM"
+      docker rm "$CONTAINER_ID" > /dev/null 2>&1
+      continue
+    }
+    docker cp "$CONTAINER_ID:/usr/local/bin/sp1-perf" "binaries/sp1-prover" 2>/dev/null || \
+      echo "  Warning: sp1-perf not found (GPU proving will not work)"
+    chmod +x binaries/sp1-binary binaries/sp1-prover 2>/dev/null || true
   elif [ "$ZKVM" = "zisk" ]; then
     # Zisk produces multiple artifacts via /output/ entrypoint
     docker cp "$CONTAINER_ID:/usr/local/bin/ziskemu" "binaries/zisk-binary" || {
@@ -199,9 +210,6 @@ for ZKVM in $ZKVMS; do
     chmod +x "binaries/$BINARY_NAME"
 
     # Handle special cases for binary naming
-    if [ "$ZKVM" = "sp1" ] && [ -f "binaries/sp1-perf-executor" ]; then
-      mv "binaries/sp1-perf-executor" "binaries/sp1-binary"
-    fi
     if [ "$ZKVM" = "r0vm" ] && [ -f "binaries/r0vm-r0vm" ]; then
       mv "binaries/r0vm-r0vm" "binaries/r0vm-binary"
     fi

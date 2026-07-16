@@ -5,9 +5,9 @@
     "sp1": {
       "repo_url": "https://github.com/codygunton/sp1",
       "commit": "1099518175f1eb0af3318c5a9be8865da2fc5bd6",
-      "build_cmd": "cargo build --bin sp1-perf-executor",
+      "build_cmd": "cargo build --release --bin sp1-perf-executor --bin sp1-perf",
       "binary_name": "sp1-perf-executor",
-      "binary_path": "target/debug/sp1-perf-executor",
+      "binary_path": "target/release/sp1-perf-executor",
       "isa": "RV64IM"
     },
     "jolt": {

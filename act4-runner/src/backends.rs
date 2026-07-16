@@ -12,6 +12,11 @@ pub enum Backend {
     Jolt { jolt_prover: PathBuf },
     LambdaVM { binary: PathBuf },
     OpenVM { binary: PathBuf },
+    Sp1Prove {
+        executor: PathBuf,
+        sp1_perf: PathBuf,
+        gpu: bool,
+    },
     Zisk { binary: PathBuf },
     ZiskProve {
         ziskemu: PathBuf,
@@ -65,6 +70,9 @@ impl Backend {
             Backend::LambdaVM { binary } => {
                 run_lambdavm(binary, elf_path, mode, start)
             }
+            Backend::Sp1Prove { executor, sp1_perf, gpu } => {
+                run_sp1_prove(executor, sp1_perf, elf_path, mode, *gpu, start)
+            }
             Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
@@ -76,6 +84,7 @@ impl Backend {
                     Backend::AirbenderProve { .. }
                     | Backend::Jolt { .. }
                     | Backend::LambdaVM { .. }
+                    | Backend::Sp1Prove { .. }
                     | Backend::ZiskProve { .. } => unreachable!(),
                 };
 
@@ -276,6 +285,208 @@ fn run_zisk_prove(
             }
         }
     }
+}
+
+/// SP1 GPU prove+verify via the `sp1-perf` binary.
+///
+/// Lifecycle:
+/// 1. Execute: `sp1-perf-executor --program <elf> --param <stdin> --mode minimal --local`
+///    — MinimalExecutor, propagates the guest exit code (0 = pass). SP1's JIT logs
+///    "Unimplemented instruction" and continues with exit 0, so that string is also
+///    treated as a failure. This step establishes the compliance pass/fail (the
+///    prover below ignores the guest exit code).
+/// 2. Prove+verify: `sp1-perf --program <elf> --stdin <stdin> --mode cuda`
+///    — executes, generates a core proof, and verifies it in one process (exit 0 =
+///    prove and verify both succeeded). SP1 always verifies after proving, so prove
+///    vs verify failure is distinguished by parsing the output: a `VerificationError`
+///    means proving succeeded but verification failed.
+///
+/// `stdin` is 24 zero bytes (a bincode-serialized empty `SP1Stdin`). `--mode cuda`
+/// spawns the host-native `sp1-gpu-server`; see run_zisk_prove for the analogous
+/// host-GPU serialization (one prove at a time via jobs=1).
+fn run_sp1_prove(
+    executor: &Path,
+    sp1_perf: &Path,
+    elf_path: &Path,
+    mode: Mode,
+    gpu: bool,
+    start: Instant,
+) -> RunResult {
+    let inner = || -> anyhow::Result<RunResult> {
+        // Empty SP1Stdin (bincode): three zero-length fields = 24 zero bytes.
+        let tmp_dir = tempfile::tempdir()?;
+        let stdin_path = tmp_dir.path().join("stdin.bin");
+        std::fs::write(&stdin_path, [0u8; 24])?;
+
+        // 1. Execute (exit-code + unimplemented-instruction check).
+        let exec_output = Command::new(executor)
+            .arg("--program")
+            .arg(elf_path)
+            .arg("--param")
+            .arg(&stdin_path)
+            .args(["--mode", "minimal", "--local"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()?;
+        let exec_combined = combined_output(&exec_output);
+        let passed = exec_output.status.success()
+            && !exec_combined.to_lowercase().contains("unimplemented instruction");
+
+        if mode == Mode::Execute || !passed {
+            return Ok(RunResult {
+                passed,
+                exit_code: exec_output.status.code(),
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            });
+        }
+
+        // 2. Prove + verify (one process). GPU-only per project scope: `--mode cuda`
+        // spawns the host-native sp1-gpu-server; `cpu` is a slow fallback.
+        let prove_mode = if gpu { "cuda" } else { "cpu" };
+        let verify = mode == Mode::Full;
+
+        let prove_start = Instant::now();
+        let mut prove_output = sp1_prove_cmd(sp1_perf, elf_path, &stdin_path, prove_mode).output()?;
+        let mut prove_duration = prove_start.elapsed();
+
+        if gpu {
+            if !prove_output.status.success() {
+                kill_sp1_gpu_processes();
+            }
+            wait_for_gpu_free(Duration::from_secs(30));
+        }
+
+        // Retry once on a non-verify failure — GPU/server transients are common,
+        // while a deterministic verification rejection is not worth retrying.
+        if !prove_output.status.success()
+            && !is_sp1_verify_failure(&combined_output(&prove_output))
+        {
+            let stderr = String::from_utf8_lossy(&prove_output.stderr);
+            let tail: String = stderr
+                .lines()
+                .rev()
+                .take(8)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n");
+            eprintln!(
+                "sp1-perf prove failed for {} (retrying):\n{}",
+                elf_path.display(),
+                if tail.is_empty() { "(no stderr)".to_string() } else { tail },
+            );
+            let retry_start = Instant::now();
+            prove_output = sp1_prove_cmd(sp1_perf, elf_path, &stdin_path, prove_mode).output()?;
+            prove_duration += retry_start.elapsed();
+            if gpu {
+                if !prove_output.status.success() {
+                    kill_sp1_gpu_processes();
+                }
+                wait_for_gpu_free(Duration::from_secs(30));
+            }
+        }
+
+        if !prove_output.status.success() {
+            let combined = combined_output(&prove_output);
+            let (prove_status, verify_status) = if is_sp1_verify_failure(&combined) {
+                (Some("success".to_string()), Some("failed".to_string()))
+            } else {
+                let tail: String = combined
+                    .lines()
+                    .rev()
+                    .take(8)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                eprintln!("sp1-perf prove failed for {}:\n{}", elf_path.display(), tail);
+                (Some("failed".to_string()), None)
+            };
+            return Ok(RunResult {
+                passed: true, // execution passed
+                exit_code: Some(0),
+                duration: start.elapsed(),
+                prove_duration: Some(prove_duration),
+                proof_written: false,
+                prove_status,
+                verify_status,
+            });
+        }
+
+        // Success — prove (and verify) passed.
+        Ok(RunResult {
+            passed: true,
+            exit_code: Some(0),
+            duration: start.elapsed(),
+            prove_duration: Some(prove_duration),
+            proof_written: true,
+            prove_status: Some("success".to_string()),
+            verify_status: if verify { Some("success".to_string()) } else { None },
+        })
+    };
+
+    match inner() {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("error running {}: {e}", elf_path.display());
+            RunResult {
+                passed: false,
+                exit_code: None,
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            }
+        }
+    }
+}
+
+/// Build a `sp1-perf` execute+prove+verify command for the given prover mode.
+fn sp1_prove_cmd(sp1_perf: &Path, elf_path: &Path, stdin_path: &Path, mode: &str) -> Command {
+    let mut cmd = Command::new(sp1_perf);
+    // Own process group + no core dumps, so a crashing gpu-server child can't
+    // signal the runner or hang writing a multi-GB core.
+    unsafe {
+        cmd.pre_exec(|| {
+            let zero = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+            libc::setrlimit(libc::RLIMIT_CORE, &zero);
+            Ok(())
+        });
+    }
+    cmd.process_group(0);
+    cmd.arg("--program")
+        .arg(elf_path)
+        .arg("--stdin")
+        .arg(stdin_path)
+        .args(["--mode", mode]);
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+    cmd
+}
+
+/// Whether a failed `sp1-perf` run indicates proving succeeded but verification
+/// failed. `sp1-perf` verifies after proving and surfaces a `VerificationError`
+/// (Display: "Failed to verify the proof") when the proof is rejected.
+fn is_sp1_verify_failure(output: &str) -> bool {
+    output.contains("VerificationError") || output.contains("Failed to verify the proof")
+}
+
+/// Kill any lingering sp1-gpu-server processes holding GPU memory. `sp1-perf`
+/// kills its server on drop, but a crashed prove can leave one behind.
+fn kill_sp1_gpu_processes() {
+    let _ = Command::new("pkill")
+        .args(["-9", "-f", "sp1-gpu-server"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    std::thread::sleep(Duration::from_secs(2));
 }
 
 /// Combine stdout and stderr into a single string for output parsing.

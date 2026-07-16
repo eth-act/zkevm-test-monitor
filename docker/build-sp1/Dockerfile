@@ -65,10 +65,15 @@ with open("crates/test-artifacts/src/lib.rs", "w") as f:
 print("test-artifacts stubbed successfully")
 EOF
 
-# Build SP1
-RUN cargo build --bin sp1-perf-executor
+# Build SP1.
+#   sp1-perf-executor — MinimalExecutor (execute-only, native suite).
+#   sp1-perf          — execute + GPU prove + verify in one process (`--mode cuda`).
+#     Its `cuda` feature is a plain client (no CUDA at build time); at runtime it
+#     spawns a host-native sp1-gpu-server. `native-gnark` needs Go + protobuf
+#     (installed above). Built in release so proving is not debug-slow.
+RUN cargo build --release --bin sp1-perf-executor --bin sp1-perf
 
-# Final stage - just the binary
+# Final stage - just the binaries
 FROM ubuntu:24.04
 
 # Install runtime dependencies only
@@ -77,9 +82,10 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the built binary from builder stage
-COPY --from=builder /workspace/sp1/target/debug/sp1-perf-executor /usr/local/bin/sp1-perf-executor
+# Copy the built binaries from builder stage
+COPY --from=builder /workspace/sp1/target/release/sp1-perf-executor /usr/local/bin/sp1-perf-executor
+COPY --from=builder /workspace/sp1/target/release/sp1-perf /usr/local/bin/sp1-perf
 COPY --from=builder /workspace/commit.txt /commit.txt
 
-# Simple entrypoint to copy the binary out
-ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/sp1-perf-executor /output/sp1-perf-executor"]
+# Simple entrypoint to copy the binaries out (build.sh uses docker cp from /usr/local/bin)
+ENTRYPOINT ["sh", "-c", "cp /usr/local/bin/sp1-perf-executor /usr/local/bin/sp1-perf /output/"]

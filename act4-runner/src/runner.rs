@@ -89,6 +89,8 @@ fn collect_elfs(dir: &Path, out: &mut Vec<PathBuf>) {
 /// memory. Other backends default to the number of available CPU cores.
 pub fn default_jobs(zkvm: &str) -> usize {
     match zkvm {
+        // sp1-prove is not listed: its native (execute) suite runs parallel via the
+        // default, while its target (prove/full) suite is forced to 1 job in main.rs.
         "airbender-prove" => 1, // GPU: one prove at a time
         "jolt" => {
             // Jolt proving is memory-intensive (~16 GB per instance)
