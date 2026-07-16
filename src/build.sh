@@ -208,14 +208,6 @@ for ZKVM in $ZKVMS; do
       continue
     }
     chmod +x "binaries/$BINARY_NAME"
-
-    # Handle special cases for binary naming
-    if [ "$ZKVM" = "r0vm" ] && [ -f "binaries/r0vm-r0vm" ]; then
-      mv "binaries/r0vm-r0vm" "binaries/r0vm-binary"
-    fi
-    if [ "$ZKVM" = "pico" ] && [ -f "binaries/cargo-pico" ]; then
-      mv "binaries/cargo-pico" "binaries/pico-binary"
-    fi
   fi
 
   docker rm "$CONTAINER_ID" > /dev/null 2>&1 || true

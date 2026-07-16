@@ -11,8 +11,6 @@ __pycache__/
 .gitignore
 
 # Build artifacts
-emulators/risc0/
-toolchains/risc0-riscv32im/
 build-temp-*
 artifacts/
 target/

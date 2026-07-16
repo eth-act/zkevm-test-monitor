@@ -13,9 +13,7 @@ Tests are self-checking ELFs: the Sail reference model runs at compile time to e
 | SP1 | RV64IM | [succinctlabs/sp1](https://github.com/succinctlabs/sp1) |
 | Jolt | RV64IMAC | [a16z/jolt](https://github.com/a16z/jolt) |
 | OpenVM | RV32IM | [openvm-org/openvm](https://github.com/openvm-org/openvm) |
-| r0vm | RV32IM | [risc0/risc0](https://github.com/risc0/risc0) |
 | Zisk | RV64IMFDAC | [0xPolygonHermez/zisk](https://github.com/0xPolygonHermez/zisk) |
-| Pico | RV32IM | [brevis-network/pico](https://github.com/brevis-network/pico) |
 | Airbender | RV32IM | [matter-labs/zksync-airbender](https://github.com/matter-labs/zksync-airbender) |
 
 ## Usage
