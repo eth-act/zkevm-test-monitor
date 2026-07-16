@@ -4,7 +4,7 @@
 Replaces non-instruction data words embedded in executable sections with NOPs.
 ACT4's SELFCHECK mechanism places .word string pointers after jal failedtest_*
 calls in .text. ZKVMs that scan every word in executable segments at load time
-(SP1, Pico, OpenVM, LambdaVM) panic on these non-instruction words.
+(SP1, OpenVM, LambdaVM) panic on these non-instruction words.
 
 The failure handler itself is handled separately via a per-DUT failure_code.h
 override in each VM's dut_include_dir.

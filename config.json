@@ -26,14 +26,6 @@
       "binary_path": "target/release/openvm-binary",
       "isa": "RV32IM"
     },
-    "r0vm": {
-      "repo_url": "https://github.com/codygunton/risc0",
-      "commit": "act4",
-      "build_cmd": "cargo build --release -p risc0-r0vm --bin r0vm",
-      "binary_name": "r0vm-binary",
-      "binary_path": "target/release/r0vm",
-      "isa": "RV32IM"
-    },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",
       "commit": "4b9f758fabc4955cac20af837019ccc31b803a46",
@@ -41,14 +33,6 @@
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
       "isa": "RV64IMFDAC_Zicclsm"
-    },
-    "pico": {
-      "repo_url": "https://github.com/codygunton/pico",
-      "commit": "e4d8f22d01c200d790b0a90961305ecb7074879a",
-      "build_cmd": "cargo build --release -p pico-cli",
-      "binary_name": "cargo-pico",
-      "binary_path": "target/release/cargo-pico",
-      "isa": "RV32IM"
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",
