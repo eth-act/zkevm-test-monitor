@@ -32,7 +32,9 @@
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
-      "isa": "RV64IMFDAC_Zicclsm"
+      "isa": "RV64IMFDAC_Zicclsm",
+      "act4_repo_url": "https://github.com/codygunton/riscv-arch-test.git",
+      "act4_commit": "739e92537b67072084de1f00750b871749690908"
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",

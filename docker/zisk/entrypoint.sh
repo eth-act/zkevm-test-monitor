@@ -87,41 +87,73 @@ generate_elfs() {
     fi
 }
 
-# generate_exception_elfs — compile the execute-only exception stimuli directly.
+# generate_exception_elfs — build the generated termination exception tests.
 #
-# These programs deliberately cannot complete architectural execution, so they
-# must not go through ACT4's Sail/signature/self-check pipeline. Phase 2 will
-# replace this temporary hand-written input with generated ACT4 stimulus.
+# These tests deliberately cannot complete architectural execution. The pinned
+# ACT4 fork selects its direct no-Sail build path from EXPECTED_EXIT_CODE.
 generate_exception_elfs() {
-    local SOURCE_DIR="/act4/config/zisk/zisk-exceptions"
+    local CONFIG="config/zisk/zisk-rv64im-zicclsm/test_config.yaml"
+    local CONFIG_NAME="zisk-rv64im-zicclsm"
+    local EXTENSIONS="ExceptionsUnprivIllegal,ExceptionsUnprivBreakpoint,ExceptionsUnprivInstructionAccessFault,ExceptionsUnprivLoadAccessFault,ExceptionsUnprivStoreAccessFault"
+    local SOURCE_ROOT="/act4/tests"
+    local SOURCE_ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local OUTPUT_DIR="/elfs/exceptions"
-    local SOURCE
-    local NAME
-    local COUNT=0
 
-    if [ ! -f "$SOURCE_DIR/link.ld" ]; then
-        echo "Warning: Exception source directory not found at $SOURCE_DIR, skipping"
+    if [ ! -f "/act4/$CONFIG" ]; then
+        echo "Warning: Config not found at /act4/$CONFIG, skipping exceptions"
         return
     fi
 
-    mkdir -p "$OUTPUT_DIR"
-    for SOURCE in "$SOURCE_DIR"/*.S; do
-        [ -f "$SOURCE" ] || continue
-        NAME=$(basename "$SOURCE" .S)
-        if ! riscv64-unknown-elf-gcc -nostdlib -nostartfiles -march=rv64im -mabi=lp64 \
-            -Wl,--build-id=none -T "$SOURCE_DIR/link.ld" \
-            -o "$OUTPUT_DIR/$NAME.elf" "$SOURCE"; then
-            echo "Error: failed to compile exception ELF $NAME"
-            return 1
-        fi
-        COUNT=$((COUNT + 1))
-    done
+    echo ""
+    echo "=== Generating termination exception sources ==="
+    uv run testgen testplans -o tests --extensions "$EXTENSIONS" --jobs "$JOBS"
 
-    if [ "$COUNT" -eq 0 ]; then
-        echo "Error: No exception sources found in $SOURCE_DIR"
-        return 1
-    fi
-    echo "=== Compiled $COUNT execute-only exception/control ELFs ==="
+    # Pre-generate extensions.txt to skip UDB validation. The generated tests
+    # require only the base integer extension.
+    mkdir -p "$WORKDIR/$CONFIG_NAME"
+    printf 'I\n' > "$WORKDIR/$CONFIG_NAME/extensions.txt"
+    touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
+
+    echo "=== Compiling generated termination exception ELFs ==="
+    uv run act "$CONFIG" \
+        --workdir "$WORKDIR" \
+        --test-dir tests \
+        --extensions "$EXTENSIONS" \
+        --jobs "$JOBS" \
+        --no-coverage \
+        --fast
+
+    mkdir -p "$OUTPUT_DIR"
+    python3 - "$SOURCE_ROOT" "$SOURCE_ELF_DIR" "$OUTPUT_DIR" <<'PY'
+import json
+import re
+import shutil
+import sys
+from pathlib import Path
+
+tests_dir, elf_dir, output_dir = map(Path, sys.argv[1:])
+expected_exit_codes = {}
+for source in sorted(tests_dir.glob("priv/ExceptionsUnpriv*/*.S")):
+    match = re.search(r"^# EXPECTED_EXIT_CODE: (\d+)$", source.read_text(), re.MULTILINE)
+    if match is None:
+        raise SystemExit(f"Missing EXPECTED_EXIT_CODE in {source}")
+    elf = elf_dir / source.relative_to(tests_dir).with_suffix(".elf")
+    if not elf.is_file():
+        raise SystemExit(f"Missing compiled ELF for {source}: {elf}")
+    destination = output_dir / elf.relative_to(elf_dir)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(elf, destination)
+    expected_exit_codes[elf.stem] = int(match.group(1))
+
+if len(expected_exit_codes) != 5:
+    raise SystemExit(f"Expected five generated exception ELFs, found {len(expected_exit_codes)}")
+
+(output_dir / "expected_exit_codes.json").write_text(
+    json.dumps(expected_exit_codes, indent=2, sort_keys=True) + "\n"
+)
+PY
+
+    echo "=== Compiled $(find "$OUTPUT_DIR" -name '*.elf' | wc -l) generated exception ELFs ==="
 }
 
 # run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
