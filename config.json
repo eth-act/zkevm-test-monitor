@@ -27,8 +27,8 @@
       "isa": "RV32IM"
     },
     "zisk": {
-      "repo_url": "https://github.com/0xPolygonHermez/zisk",
-      "commit": "4b9f758fabc4955cac20af837019ccc31b803a46",
+      "repo_url": "https://github.com/codygunton/zisk",
+      "commit": "5de9e2f72d5430d778552e3b575f6bcc20f897a0",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",

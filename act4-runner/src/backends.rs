@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+use wait_timeout::ChildExt;
+
 use crate::elf_utils;
 
 /// Supported ZK-VM backends for running ACT4 compliance tests.
@@ -42,6 +44,8 @@ pub enum Mode {
 pub struct RunResult {
     pub passed: bool,
     pub exit_code: Option<i32>,
+    pub expected_exit_code: Option<i32>,
+    pub timed_out: bool,
     pub duration: Duration,
     pub prove_duration: Option<Duration>,
     pub proof_written: bool,
@@ -57,10 +61,10 @@ impl Backend {
     /// For most backends, `mode` is ignored (execute-only). The `JoltProve`
     /// and `ZiskProve` backends use `mode` to control whether to prove
     /// and/or verify.
-    pub fn run_elf(&self, elf_path: &Path, mode: Mode) -> RunResult {
+    pub fn run_elf(&self, elf_path: &Path, mode: Mode, expected_exit_code: Option<i32>) -> RunResult {
         let start = Instant::now();
 
-        match self {
+        let mut result = match self {
             Backend::AirbenderProve { binary, gpu, proof_dir } => {
                 run_airbender_prove(binary, elf_path, *gpu, proof_dir)
             }
@@ -77,9 +81,15 @@ impl Backend {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
             _ => {
-                let (passed, exit_code) = match self {
-                    Backend::Airbender { binary } => run_airbender(binary, elf_path),
-                    Backend::OpenVM { binary } => run_openvm(binary, elf_path),
+                let (passed, exit_code, timed_out) = match self {
+                    Backend::Airbender { binary } => {
+                        let (passed, exit_code) = run_airbender(binary, elf_path);
+                        (passed, exit_code, false)
+                    }
+                    Backend::OpenVM { binary } => {
+                        let (passed, exit_code) = run_openvm(binary, elf_path);
+                        (passed, exit_code, false)
+                    }
                     Backend::Zisk { binary } => run_zisk(binary, elf_path),
                     Backend::AirbenderProve { .. }
                     | Backend::Jolt { .. }
@@ -91,6 +101,8 @@ impl Backend {
                 RunResult {
                     passed,
                     exit_code,
+                    expected_exit_code: None,
+                    timed_out,
                     duration: start.elapsed(),
                     prove_duration: None,
                     proof_written: false,
@@ -98,7 +110,13 @@ impl Backend {
                     verify_status: None,
                 }
             }
+        };
+
+        result.expected_exit_code = expected_exit_code;
+        if let Some(expected) = expected_exit_code {
+            result.passed = !result.timed_out && result.exit_code == Some(expected);
         }
+        result
     }
 }
 
@@ -144,6 +162,8 @@ fn run_zisk_prove(
             return Ok(RunResult {
                 passed,
                 exit_code: exec_output.status.code(),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -248,6 +268,8 @@ fn run_zisk_prove(
             return Ok(RunResult {
                 passed: true, // execution passed
                 exit_code: Some(0),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: Some(prove_duration),
                 proof_written: false,
@@ -262,6 +284,8 @@ fn run_zisk_prove(
         Ok(RunResult {
             passed: true,
             exit_code: Some(0),
+            expected_exit_code: None,
+            timed_out: false,
             duration: start.elapsed(),
             prove_duration: Some(prove_duration),
             proof_written,
@@ -277,6 +301,8 @@ fn run_zisk_prove(
             RunResult {
                 passed: false,
                 exit_code: None,
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -336,6 +362,8 @@ fn run_sp1_prove(
             return Ok(RunResult {
                 passed,
                 exit_code: exec_output.status.code(),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -411,6 +439,8 @@ fn run_sp1_prove(
             return Ok(RunResult {
                 passed: true, // execution passed
                 exit_code: Some(0),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: Some(prove_duration),
                 proof_written: false,
@@ -423,6 +453,8 @@ fn run_sp1_prove(
         Ok(RunResult {
             passed: true,
             exit_code: Some(0),
+            expected_exit_code: None,
+            timed_out: false,
             duration: start.elapsed(),
             prove_duration: Some(prove_duration),
             proof_written: true,
@@ -438,6 +470,8 @@ fn run_sp1_prove(
             RunResult {
                 passed: false,
                 exit_code: None,
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -622,6 +656,8 @@ fn run_jolt(
             return Ok(RunResult {
                 passed,
                 exit_code: exec_output.status.code(),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -653,6 +689,8 @@ fn run_jolt(
             return Ok(RunResult {
                 passed: true,
                 exit_code: Some(0),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: Some(prove_duration),
                 proof_written: false,
@@ -692,6 +730,8 @@ fn run_jolt(
         Ok(RunResult {
             passed: true,
             exit_code: Some(0),
+            expected_exit_code: None,
+            timed_out: false,
             duration: start.elapsed(),
             prove_duration: Some(prove_duration),
             proof_written,
@@ -707,6 +747,8 @@ fn run_jolt(
             RunResult {
                 passed: false,
                 exit_code: None,
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -748,6 +790,8 @@ fn run_lambdavm(
             return Ok(RunResult {
                 passed,
                 exit_code: exec_output.status.code(),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -781,6 +825,8 @@ fn run_lambdavm(
             return Ok(RunResult {
                 passed: true,
                 exit_code: Some(0),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: Some(prove_duration),
                 proof_written: false,
@@ -819,6 +865,8 @@ fn run_lambdavm(
         Ok(RunResult {
             passed: true,
             exit_code: Some(0),
+            expected_exit_code: None,
+            timed_out: false,
             duration: start.elapsed(),
             prove_duration: Some(prove_duration),
             proof_written,
@@ -834,6 +882,8 @@ fn run_lambdavm(
             RunResult {
                 passed: false,
                 exit_code: None,
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -862,24 +912,95 @@ fn run_openvm(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
 }
 
 /// Zisk: invoke `<binary> -e <elf_path>`.
-fn run_zisk(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
+fn run_zisk(binary: &Path, elf_path: &Path) -> (bool, Option<i32>, bool) {
+    run_zisk_with_timeout(binary, elf_path, Duration::from_secs(60))
+}
+
+fn run_zisk_with_timeout(
+    binary: &Path,
+    elf_path: &Path,
+    timeout: Duration,
+) -> (bool, Option<i32>, bool) {
     // Capture stderr: ziskemu exits 0 even when emulation fails, but prints
     // "finished with error" to stderr. Check both exit code and stderr.
-    let output = Command::new(binary)
+    // A file rather than a pipe lets the watchdog reap a process even if it
+    // writes enough diagnostics to fill a pipe buffer.
+    let stderr_file = match tempfile::NamedTempFile::new() {
+        Ok(file) => file,
+        Err(e) => {
+            eprintln!("failed to create zisk stderr capture for {}: {e}", elf_path.display());
+            return (false, None, false);
+        }
+    };
+    let stderr = match stderr_file.reopen() {
+        Ok(file) => file,
+        Err(e) => {
+            eprintln!("failed to open zisk stderr capture for {}: {e}", elf_path.display());
+            return (false, None, false);
+        }
+    };
+    let mut child = match Command::new(binary)
         .arg("-e")
         .arg(elf_path)
         .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output();
-
-    match output {
-        Ok(o) => {
-            let code = o.status.code();
-            let stderr = String::from_utf8_lossy(&o.stderr);
-            let passed = o.status.success() && !stderr.contains("finished with error");
-            (passed, code)
+        .stderr(Stdio::from(stderr))
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(e) => {
+            eprintln!("failed to start zisk for {}: {e}", elf_path.display());
+            return (false, None, false);
         }
-        Err(_) => (false, None),
+    };
+
+    let status = match child.wait_timeout(timeout) {
+        Ok(Some(status)) => status,
+        Ok(None) => {
+            eprintln!("zisk timed out after {}s for {}", timeout.as_secs(), elf_path.display());
+            let _ = child.kill();
+            let _ = child.wait();
+            return (false, None, true);
+        }
+        Err(e) => {
+            eprintln!("failed while waiting for zisk {}: {e}", elf_path.display());
+            let _ = child.kill();
+            let _ = child.wait();
+            return (false, None, false);
+        }
+    };
+
+    let stderr = match std::fs::read(stderr_file.path()) {
+        Ok(stderr) => stderr,
+        Err(e) => {
+            eprintln!("failed to read zisk stderr for {}: {e}", elf_path.display());
+            return (false, status.code(), false);
+        }
+    };
+
+    let code = status.code();
+    let stderr = String::from_utf8_lossy(&stderr);
+    let passed = status.success() && !stderr.contains("finished with error");
+    (passed, code, false)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use super::*;
+
+    #[test]
+    fn zisk_watchdog_times_out() {
+        let mut script = tempfile::NamedTempFile::new().expect("create test script");
+        writeln!(script, "sleep 1").expect("write test script");
+
+        let result = run_zisk_with_timeout(
+            Path::new("/bin/sh"),
+            script.path(),
+            Duration::from_millis(10),
+        );
+
+        assert_eq!(result, (false, None, true));
     }
 }
 
@@ -943,6 +1064,8 @@ fn run_airbender_prove(binary: &Path, elf_path: &Path, gpu: bool, proof_dir: &Pa
             return Ok(RunResult {
                 passed: false,
                 exit_code: output.status.code(),
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: Some(prove_duration),
                 proof_written: false,
@@ -970,6 +1093,8 @@ fn run_airbender_prove(binary: &Path, elf_path: &Path, gpu: bool, proof_dir: &Pa
         Ok(RunResult {
             passed,
             exit_code,
+            expected_exit_code: None,
+            timed_out: false,
             duration: start.elapsed(),
             prove_duration: Some(prove_duration),
             proof_written: true,
@@ -989,6 +1114,8 @@ fn run_airbender_prove(binary: &Path, elf_path: &Path, gpu: bool, proof_dir: &Pa
             RunResult {
                 passed: false,
                 exit_code: None,
+                expected_exit_code: None,
+                timed_out: false,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
