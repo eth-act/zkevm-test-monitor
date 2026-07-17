@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -7,7 +8,13 @@ use crate::backends::{Backend, Mode, RunResult};
 
 /// Discover all ELF files in `elf_dir` recursively, run each through the backend
 /// in parallel, and return results in deterministic (alphabetical) order.
-pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> Vec<(PathBuf, RunResult)> {
+pub fn run_tests(
+    backend: &Backend,
+    elf_dir: &Path,
+    jobs: usize,
+    mode: Mode,
+    expected_exit_codes: Option<&BTreeMap<String, i32>>,
+) -> Vec<(PathBuf, RunResult)> {
     let mut elfs = discover_elfs(elf_dir);
     elfs.sort();
     let total = elfs.len();
@@ -25,13 +32,44 @@ pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> 
     pool.install(|| {
         elfs.par_iter()
             .map(|elf_path| {
-                let result = backend.run_elf(elf_path, mode);
+                let name = elf_path.file_stem().and_then(|name| name.to_str());
+                let expected_exit_code = name.and_then(|name| {
+                    expected_exit_codes.and_then(|codes| codes.get(name)).copied()
+                });
+                let result = backend.run_elf(elf_path, mode, expected_exit_code);
                 let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                 report_progress(done, total, elf_path, &result);
                 (elf_path.clone(), result)
             })
             .collect()
     })
+}
+
+/// Ensure an expected-exit-code manifest covers precisely the selected ELFs.
+pub fn validate_expected_exit_codes(
+    elf_dir: &Path,
+    expected_exit_codes: &BTreeMap<String, i32>,
+) -> Result<(), String> {
+    let names: BTreeSet<String> = discover_elfs(elf_dir)
+        .into_iter()
+        .filter_map(|path| path.file_stem().and_then(|name| name.to_str()).map(str::to_owned))
+        .collect();
+    let expected_names: BTreeSet<String> = expected_exit_codes.keys().cloned().collect();
+
+    let missing: Vec<_> = names.difference(&expected_names).cloned().collect();
+    let unknown: Vec<_> = expected_names.difference(&names).cloned().collect();
+    if missing.is_empty() && unknown.is_empty() {
+        return Ok(());
+    }
+
+    let mut issues = Vec::new();
+    if !missing.is_empty() {
+        issues.push(format!("missing entries for {}", missing.join(", ")));
+    }
+    if !unknown.is_empty() {
+        issues.push(format!("entries without an ELF: {}", unknown.join(", ")));
+    }
+    Err(issues.join("; "))
 }
 
 /// Print a one-line progress report for a finished test to stderr.
@@ -51,6 +89,12 @@ fn report_progress(idx: usize, total: usize, elf_path: &Path, result: &RunResult
     }
     if let Some(verify) = &result.verify_status {
         detail.push_str(&format!(" verify={verify}"));
+    }
+    if let Some(expected) = result.expected_exit_code {
+        detail.push_str(&format!(" exit={:?}/{expected}", result.exit_code));
+    }
+    if result.timed_out {
+        detail.push_str(" timeout");
     }
 
     let width = total.to_string().len();

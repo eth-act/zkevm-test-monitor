@@ -33,6 +33,20 @@ pub struct Results {
     pub failed: Vec<String>,
     pub prove_failed: Vec<String>,
     pub verify_failed: Vec<String>,
+    pub tests: Vec<SerializedTestEntry>,
+}
+
+#[derive(Serialize)]
+pub struct SerializedTestEntry {
+    pub name: String,
+    pub extension: String,
+    pub passed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_exit_code: Option<i32>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub timed_out: bool,
 }
 
 /// A single test result entry (internal, used as input to write_results).
@@ -40,6 +54,9 @@ pub struct TestEntry {
     pub name: String,
     pub extension: String,
     pub passed: bool,
+    pub exit_code: Option<i32>,
+    pub expected_exit_code: Option<i32>,
+    pub timed_out: bool,
     pub prove_duration_secs: Option<f64>,
     pub proof_written: Option<bool>,
     pub prove_status: Option<String>,
@@ -126,6 +143,17 @@ pub fn write_results(
         .with_context(|| format!("failed to write {}", summary_path.display()))?;
 
     // Write results
+    let tests = sorted
+        .iter()
+        .map(|e| SerializedTestEntry {
+            name: e.name.clone(),
+            extension: e.extension.clone(),
+            passed: e.passed,
+            exit_code: e.exit_code,
+            expected_exit_code: e.expected_exit_code,
+            timed_out: e.timed_out,
+        })
+        .collect();
     let results = Results {
         zkvm: zkvm.to_owned(),
         suite: suite.to_owned(),
@@ -134,6 +162,7 @@ pub fn write_results(
         failed: failed_names,
         prove_failed: prove_failed_names,
         verify_failed: verify_failed_names,
+        tests,
     };
     let results_path = dir.join(format!("results-act4-{label}.json"));
     let results_json =
