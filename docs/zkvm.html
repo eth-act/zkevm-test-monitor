@@ -205,6 +205,7 @@
     function suiteLabel(s) {
         if (s === 'act4-full') return 'Full ISA';
         if (s === 'act4-standard') return 'Standard ISA';
+        if (s === 'act4-exceptions') return 'Exceptions';
         return s;
     }
 
@@ -222,6 +223,7 @@
 
             const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
             const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+            const exceptionsHistory = await fetch(`data/history/${name}-act4-exceptions.json`).then(r => r.json()).catch(() => null);
 
             let html = '';
 
@@ -237,6 +239,9 @@
             }
             if (stdHistory?.runs) {
                 stdHistory.runs.forEach((r, idx) => allRuns.push({ ...r, suite: 'act4-standard', runIdx: idx }));
+            }
+            if (exceptionsHistory?.runs) {
+                exceptionsHistory.runs.forEach((r, idx) => allRuns.push({ ...r, suite: 'act4-exceptions', runIdx: idx }));
             }
 
             const groups = {};
@@ -258,7 +263,9 @@
                     const runUrl = `zkvm.html?name=${name}&suite=${r.suite}&run=${r.runIdx}`;
                     const suiteBadge = r.suite === 'act4-full'
                         ? '<span style="background:#e8f4fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Full</span>'
-                        : '<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard</span>';
+                        : r.suite === 'act4-standard'
+                            ? '<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard</span>'
+                            : '<span style="background:#fff3cd;padding:2px 6px;border-radius:3px;font-size:0.85em">Exceptions</span>';
 
                     let proveCell = '';
                     let verifyCell = '';
@@ -397,7 +404,15 @@
             const proveFailed = run.prove_failed || [];
             const verifyFailed = run.verify_failed || [];
             const passed = Array.isArray(run.passed) ? run.passed : [];
+            const testResults = new Map((run.test_results || []).map(test => [test.name, test]));
             const totalFailures = failed.length + proveFailed.length + verifyFailed.length;
+
+            function testLabel(testName) {
+                const test = testResults.get(testName);
+                if (!test || test.expected_exit_code == null) return testName;
+                const actual = test.timed_out ? 'timeout' : test.exit_code ?? 'no exit';
+                return `${testName} (exit ${actual}, expected ${test.expected_exit_code})`;
+            }
 
             if (ep == null) {
                 html += '<p class="none" style="margin-top: 20px;">No per-test data available for this run.</p>';
@@ -416,21 +431,21 @@
 
                     // Execution failures: execute=fail, prove=skip, verify=skip
                     html += failed.map(n => {
-                        let row = `<tr><td><strong>${n}</strong></td><td>${fail}</td>`;
+                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${fail}</td>`;
                         if (showProveVerify) row += `<td>${skip}</td><td>${skip}</td>`;
                         return row + '</tr>';
                     }).join('');
 
                     // Prove failures: execute=pass, prove=fail, verify=skip
                     html += proveFailed.map(n => {
-                        let row = `<tr><td><strong>${n}</strong></td><td>${pass}</td>`;
+                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
                         if (showProveVerify) row += `<td>${fail}</td><td>${skip}</td>`;
                         return row + '</tr>';
                     }).join('');
 
                     // Verify failures: execute=pass, prove=pass, verify=fail
                     html += verifyFailed.map(n => {
-                        let row = `<tr><td><strong>${n}</strong></td><td>${pass}</td>`;
+                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
                         if (showProveVerify) row += `<td>${pass}</td><td>${fail}</td>`;
                         return row + '</tr>';
                     }).join('');
@@ -442,7 +457,7 @@
                 if (passed.length > 0) {
                     html += `<h2>Passing (${passed.length})</h2>`;
                     html += '<div class="pass-list">';
-                    html += passed.map(n => `<span>${n}</span>`).join('');
+                    html += passed.map(n => `<span>${testLabel(n)}</span>`).join('');
                     html += '</div>';
                 }
             }

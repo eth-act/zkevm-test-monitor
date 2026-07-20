@@ -69,6 +69,7 @@
         }
         .col-group-native { background: #e8f4fd; }
         .col-group-target { background: #f0e8fd; }
+        .col-group-exceptions { background: #fff3cd; }
         #loading { text-align: center; padding: 40px; color: #666; }
         #error { text-align: center; padding: 40px; color: #dc3545; display: none; }
     </style>
@@ -160,25 +161,29 @@
             const rows = await Promise.all(zkvms.map(async (name) => {
                 const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
                 const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+                const exceptionsHistory = await fetch(`data/history/${name}-act4-exceptions.json`).then(r => r.json()).catch(() => null);
                 const fullRun = fullHistory?.runs?.at(-1);
                 const stdRun = stdHistory?.runs?.at(-1);
-                return { name, config: config.zkvms[name], fullRun, stdRun };
+                const exceptionsRun = exceptionsHistory?.runs?.at(-1);
+                return { name, config: config.zkvms[name], fullRun, stdRun, exceptionsRun };
             }));
 
             const tbody = rows.map(row => {
                 const c = row.config;
                 const full = row.fullRun;
                 const std = row.stdRun;
-                const commit = full?.commit || full?.zkvm_commit || std?.commit || std?.zkvm_commit;
+                const exceptions = row.exceptionsRun;
+                const commit = full?.commit || full?.zkvm_commit || std?.commit || std?.zkvm_commit || exceptions?.commit || exceptions?.zkvm_commit;
                 const commitUrl = commit ? `${c.repo_url}/commit/${commit}` : null;
                 const isa = c.isa || full?.isa || 'unknown';
 
                 const pv = countProveVerify(std);
 
                 // Use most recent date from either suite
-                const lastDate = full?.date || std?.date;
+                const lastDate = full?.date || std?.date || exceptions?.date;
 
                 const stdLink = std ? `zkvm.html?name=${row.name}&suite=act4-standard&run=latest` : null;
+                const exceptionsLink = exceptions ? `zkvm.html?name=${row.name}&suite=act4-exceptions&run=latest` : null;
 
                 function resultCell(passed, total, link) {
                     if (passed == null || total == null) return '<td class="none">&mdash;</td>';
@@ -194,6 +199,7 @@
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
+                    ${resultCell(execPassedCount(exceptions), exceptions?.total, exceptionsLink)}
                     <td>${formatDate(lastDate)}</td>
                 </tr>`;
             }).join('\n');
@@ -206,6 +212,7 @@
                             <th rowspan="2">Commit</th>
                             <th rowspan="2">Full ISA</th>
                             <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a> Tests</th>
+                            <th rowspan="2" class="col-group-exceptions">Exceptions</th>
                             <th rowspan="2">Last Run</th>
                         </tr>
                         <tr>

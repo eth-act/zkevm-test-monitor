@@ -3,6 +3,7 @@ mod elf_utils;
 mod results;
 mod runner;
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process;
 
@@ -72,6 +73,10 @@ struct Cli {
     /// Directory for proof output artifacts (airbender-prove only).
     #[arg(long)]
     proof_output_dir: Option<PathBuf>,
+
+    /// JSON object mapping ELF test names to their required process exit codes.
+    #[arg(long)]
+    expected_exit_codes: Option<PathBuf>,
 }
 
 fn main() {
@@ -153,7 +158,34 @@ fn main() {
         }
     });
 
-    let run_results = runner::run_tests(&backend, &cli.elf_dir, jobs, mode);
+    let expected_exit_codes = match cli.expected_exit_codes.as_ref() {
+        Some(path) => match std::fs::read_to_string(path)
+            .map_err(anyhow::Error::from)
+            .and_then(|json| serde_json::from_str::<BTreeMap<String, i32>>(&json).map_err(anyhow::Error::from))
+        {
+            Ok(codes) => Some(codes),
+            Err(e) => {
+                eprintln!("error: failed to read expected exit codes: {e}");
+                process::exit(2);
+            }
+        },
+        None => None,
+    };
+
+    if let Some(codes) = expected_exit_codes.as_ref() {
+        if let Err(e) = runner::validate_expected_exit_codes(&cli.elf_dir, codes) {
+            eprintln!("error: invalid expected exit-code manifest: {e}");
+            process::exit(2);
+        }
+    }
+
+    let run_results = runner::run_tests(
+        &backend,
+        &cli.elf_dir,
+        jobs,
+        mode,
+        expected_exit_codes.as_ref(),
+    );
 
     let entries: Vec<TestEntry> = run_results
         .iter()
@@ -173,6 +205,9 @@ fn main() {
                 name,
                 extension,
                 passed: result.passed,
+                exit_code: result.exit_code,
+                expected_exit_code: result.expected_exit_code,
+                timed_out: result.timed_out,
                 prove_duration_secs: result.prove_duration.map(|d| d.as_secs_f64()),
                 proof_written: if result.proof_written { Some(true) } else { None },
                 prove_status: result.prove_status.clone(),
