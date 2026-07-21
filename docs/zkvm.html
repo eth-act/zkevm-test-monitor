@@ -415,6 +415,12 @@
                 return `${testName} (${cause}exit ${actual}, expected ${test.expected_exit_code})`;
             }
 
+            function testGroup(testName) {
+                const group = testResults.get(testName)?.extension;
+                if (!group || group === 'unknown') return 'Other';
+                return group.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+            }
+
             if (ep == null) {
                 html += '<p class="none" style="margin-top: 20px;">No per-test data available for this run.</p>';
             } else {
@@ -426,27 +432,27 @@
                     const fail = '<span class="badge badge-fail">fail</span>';
 
                     html += `<h2>Failures (${totalFailures})</h2>`;
-                    html += '<table><thead><tr><th>Test</th><th>Execute</th>';
+                    html += '<table><thead><tr><th>Group</th><th>Test</th><th>Execute</th>';
                     if (showProveVerify) html += '<th>Prove</th><th>Verify</th>';
                     html += '</tr></thead><tbody>';
 
                     // Execution failures: execute=fail, prove=skip, verify=skip
                     html += failed.map(n => {
-                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${fail}</td>`;
+                        let row = `<tr><td>${testGroup(n)}</td><td><strong>${testLabel(n)}</strong></td><td>${fail}</td>`;
                         if (showProveVerify) row += `<td>${skip}</td><td>${skip}</td>`;
                         return row + '</tr>';
                     }).join('');
 
                     // Prove failures: execute=pass, prove=fail, verify=skip
                     html += proveFailed.map(n => {
-                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
+                        let row = `<tr><td>${testGroup(n)}</td><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
                         if (showProveVerify) row += `<td>${fail}</td><td>${skip}</td>`;
                         return row + '</tr>';
                     }).join('');
 
                     // Verify failures: execute=pass, prove=pass, verify=fail
                     html += verifyFailed.map(n => {
-                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
+                        let row = `<tr><td>${testGroup(n)}</td><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
                         if (showProveVerify) row += `<td>${pass}</td><td>${fail}</td>`;
                         return row + '</tr>';
                     }).join('');
@@ -457,9 +463,16 @@
                 // Passing tests section (compact)
                 if (passed.length > 0) {
                     html += `<h2>Passing (${passed.length})</h2>`;
-                    html += '<div class="pass-list">';
-                    html += passed.map(n => `<span>${testLabel(n)}</span>`).join('');
-                    html += '</div>';
+                    const passingGroups = passed.reduce((groups, name) => {
+                        const group = testGroup(name);
+                        groups.set(group, [...(groups.get(group) || []), name]);
+                        return groups;
+                    }, new Map());
+                    for (const [group, names] of [...passingGroups].sort(([a], [b]) => a.localeCompare(b))) {
+                        html += `<h3>${group} (${names.length})</h3><div class="pass-list">`;
+                        html += names.map(n => `<span>${testLabel(n)}</span>`).join('');
+                        html += '</div>';
+                    }
                 }
             }
 

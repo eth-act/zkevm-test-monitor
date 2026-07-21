@@ -139,7 +139,7 @@ if not manifest_path.is_file():
     raise SystemExit(f"Missing ACT exception manifest: {manifest_path}")
 manifest = json.loads(manifest_path.read_text())
 expected_exit_codes = {}
-sources = sorted(tests_dir.glob("exception/ExceptionsI/*.S"))
+sources = sorted(tests_dir.glob("exception/ExceptionsI/**/*.S"))
 if not sources:
     raise SystemExit("No generated termination exception sources found")
 
