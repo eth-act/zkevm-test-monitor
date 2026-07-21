@@ -34,7 +34,7 @@
       "binary_path": "target/release/ziskemu",
       "isa": "RV64IMFDAC_Zicclsm",
       "act4_repo_url": "https://github.com/codygunton/riscv-arch-test.git",
-      "act4_commit": "1259093675e546ee45d05fd0140b07b3f6148891"
+      "act4_commit": "9fb28b36a9e2220d5c0cf3656ba01e167ffc33ab"
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",

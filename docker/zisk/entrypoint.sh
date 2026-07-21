@@ -19,6 +19,7 @@ set -eu
 
 ZKVM=zisk
 WORKDIR=/act4/work
+LEGACY_ACT4=/act4-legacy
 
 cd /act4
 
@@ -56,10 +57,10 @@ generate_elfs() {
 
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
-    uv run act "$CONFIG" \
+    (cd "$LEGACY_ACT4" && PATH="/opt/sail-riscv-0.10/bin:$PATH" uv run act "/act4/$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
-        --extensions "$EXTENSIONS"
+        --extensions "$EXTENSIONS")
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
@@ -90,13 +91,13 @@ generate_elfs() {
 # generate_exception_elfs — build the generated termination exception tests.
 #
 # These tests deliberately cannot complete architectural execution. The pinned
-# ACT4 fork selects its direct no-Sail build path from EXPECTED_EXIT_CODE. Each
+# ACT4 fork selects its direct no-Sail build path from EXPECTED_OUTCOME. Each
 # concrete stimulus gets its own ELF because a terminating exception cannot
 # return to execute later cases in the same source.
 generate_exception_elfs() {
-    local CONFIG="config/zisk/zisk-rv64im-zicclsm/test_config.yaml"
-    local CONFIG_NAME="zisk-rv64im-zicclsm"
-    local EXTENSIONS="ExceptionsUnprivIllegalZero,ExceptionsUnprivIllegalOnes,ExceptionsUnprivBreakpoint,ExceptionsUnprivInstructionAccessFault,ExceptionsUnprivLoadAccessFaultLb,ExceptionsUnprivLoadAccessFaultLbu,ExceptionsUnprivLoadAccessFaultLh,ExceptionsUnprivLoadAccessFaultLhu,ExceptionsUnprivLoadAccessFaultLw,ExceptionsUnprivLoadAccessFaultLwu,ExceptionsUnprivLoadAccessFaultLd,ExceptionsUnprivStoreAccessFaultSb,ExceptionsUnprivStoreAccessFaultSh,ExceptionsUnprivStoreAccessFaultSw,ExceptionsUnprivStoreAccessFaultSd"
+    local CONFIG="config/zisk/zisk-rv64im-zicclsm/exception_config.yaml"
+    local CONFIG_NAME="zisk-exceptions"
+    local EXTENSIONS="ExceptionsI"
     local SOURCE_ROOT="/act4/tests"
     local SOURCE_ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local OUTPUT_DIR="/elfs/exceptions"
@@ -111,7 +112,7 @@ generate_exception_elfs() {
     uv run testgen testplans -o tests --extensions "$EXTENSIONS" --jobs "$JOBS"
 
     # Pre-generate extensions.txt to skip UDB validation. The generated tests
-    # require only the base integer extension.
+    # require no privileged architecture or CSR instruction extension.
     mkdir -p "$WORKDIR/$CONFIG_NAME"
     printf 'I\n' > "$WORKDIR/$CONFIG_NAME/extensions.txt"
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
@@ -128,21 +129,21 @@ generate_exception_elfs() {
     mkdir -p "$OUTPUT_DIR"
     python3 - "$SOURCE_ROOT" "$SOURCE_ELF_DIR" "$OUTPUT_DIR" <<'PY'
 import json
-import re
 import shutil
 import sys
 from pathlib import Path
 
 tests_dir, elf_dir, output_dir = map(Path, sys.argv[1:])
+manifest_path = elf_dir.parent / "exception-manifest.json"
+if not manifest_path.is_file():
+    raise SystemExit(f"Missing ACT exception manifest: {manifest_path}")
+manifest = json.loads(manifest_path.read_text())
 expected_exit_codes = {}
-sources = sorted(tests_dir.glob("priv/ExceptionsUnpriv*/*.S"))
+sources = sorted(tests_dir.glob("exception/ExceptionsI/*.S"))
 if not sources:
     raise SystemExit("No generated termination exception sources found")
 
 for source in sources:
-    match = re.search(r"^# EXPECTED_EXIT_CODE: (\d+)$", source.read_text(), re.MULTILINE)
-    if match is None:
-        raise SystemExit(f"Missing EXPECTED_EXIT_CODE in {source}")
     elf = elf_dir / source.relative_to(tests_dir).with_suffix(".elf")
     if not elf.is_file():
         raise SystemExit(f"Missing compiled ELF for {source}: {elf}")
@@ -151,7 +152,14 @@ for source in sources:
     shutil.copyfile(elf, destination)
     if elf.stem in expected_exit_codes:
         raise SystemExit(f"Duplicate termination ELF name: {elf.stem}")
-    expected_exit_codes[elf.stem] = int(match.group(1))
+    manifest_key = str(elf.relative_to(elf_dir))
+    if manifest_key not in manifest:
+        raise SystemExit(f"Missing architectural outcome for {manifest_key}")
+    outcome = manifest[manifest_key]
+    expected_exit_codes[elf.stem] = {
+        "expected_exit_code": outcome["expected_exit"],
+        "exception_cause": outcome["cause"],
+    }
 
 if len(expected_exit_codes) != len(sources):
     raise SystemExit(
@@ -195,10 +203,10 @@ run_act4_suite() {
 
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
-    uv run act "$CONFIG" \
+    (cd "$LEGACY_ACT4" && PATH="/opt/sail-riscv-0.10/bin:$PATH" uv run act "/act4/$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
-        --extensions "$EXTENSIONS"
+        --extensions "$EXTENSIONS")
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
@@ -306,7 +314,7 @@ if mountpoint -q /elfs 2>/dev/null; then
         "$(printf 'I\nM\nZicclsm\nMisalign')" \
         "target" || true
 
-    generate_exception_elfs || true
+    generate_exception_elfs
 
     echo ""
     echo "=== ELF generation complete ==="

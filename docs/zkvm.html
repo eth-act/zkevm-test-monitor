@@ -411,7 +411,8 @@
                 const test = testResults.get(testName);
                 if (!test || test.expected_exit_code == null) return testName;
                 const actual = test.timed_out ? 'timeout' : test.exit_code ?? 'no exit';
-                return `${testName} (exit ${actual}, expected ${test.expected_exit_code})`;
+                const cause = test.exception_cause == null ? '' : `cause ${test.exception_cause}, `;
+                return `${testName} (${cause}exit ${actual}, expected ${test.expected_exit_code})`;
             }
 
             if (ep == null) {
