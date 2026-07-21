@@ -90,11 +90,13 @@ generate_elfs() {
 # generate_exception_elfs — build the generated termination exception tests.
 #
 # These tests deliberately cannot complete architectural execution. The pinned
-# ACT4 fork selects its direct no-Sail build path from EXPECTED_EXIT_CODE.
+# ACT4 fork selects its direct no-Sail build path from EXPECTED_EXIT_CODE. Each
+# concrete stimulus gets its own ELF because a terminating exception cannot
+# return to execute later cases in the same source.
 generate_exception_elfs() {
     local CONFIG="config/zisk/zisk-rv64im-zicclsm/test_config.yaml"
     local CONFIG_NAME="zisk-rv64im-zicclsm"
-    local EXTENSIONS="ExceptionsUnprivIllegal,ExceptionsUnprivBreakpoint,ExceptionsUnprivInstructionAccessFault,ExceptionsUnprivLoadAccessFault,ExceptionsUnprivStoreAccessFault"
+    local EXTENSIONS="ExceptionsUnprivIllegalZero,ExceptionsUnprivIllegalOnes,ExceptionsUnprivBreakpoint,ExceptionsUnprivInstructionAccessFault,ExceptionsUnprivLoadAccessFaultLb,ExceptionsUnprivLoadAccessFaultLbu,ExceptionsUnprivLoadAccessFaultLh,ExceptionsUnprivLoadAccessFaultLhu,ExceptionsUnprivLoadAccessFaultLw,ExceptionsUnprivLoadAccessFaultLwu,ExceptionsUnprivLoadAccessFaultLd,ExceptionsUnprivStoreAccessFaultSb,ExceptionsUnprivStoreAccessFaultSh,ExceptionsUnprivStoreAccessFaultSw,ExceptionsUnprivStoreAccessFaultSd"
     local SOURCE_ROOT="/act4/tests"
     local SOURCE_ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local OUTPUT_DIR="/elfs/exceptions"
@@ -133,7 +135,11 @@ from pathlib import Path
 
 tests_dir, elf_dir, output_dir = map(Path, sys.argv[1:])
 expected_exit_codes = {}
-for source in sorted(tests_dir.glob("priv/ExceptionsUnpriv*/*.S")):
+sources = sorted(tests_dir.glob("priv/ExceptionsUnpriv*/*.S"))
+if not sources:
+    raise SystemExit("No generated termination exception sources found")
+
+for source in sources:
     match = re.search(r"^# EXPECTED_EXIT_CODE: (\d+)$", source.read_text(), re.MULTILINE)
     if match is None:
         raise SystemExit(f"Missing EXPECTED_EXIT_CODE in {source}")
@@ -143,15 +149,21 @@ for source in sorted(tests_dir.glob("priv/ExceptionsUnpriv*/*.S")):
     destination = output_dir / elf.relative_to(elf_dir)
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(elf, destination)
+    if elf.stem in expected_exit_codes:
+        raise SystemExit(f"Duplicate termination ELF name: {elf.stem}")
     expected_exit_codes[elf.stem] = int(match.group(1))
 
-if len(expected_exit_codes) != 5:
-    raise SystemExit(f"Expected five generated exception ELFs, found {len(expected_exit_codes)}")
+if len(expected_exit_codes) != len(sources):
+    raise SystemExit(
+        f"Copied {len(expected_exit_codes)} termination ELFs from {len(sources)} generated sources"
+    )
 
 (output_dir / "expected_exit_codes.json").write_text(
     json.dumps(expected_exit_codes, indent=2, sort_keys=True) + "\n"
 )
 PY
+
+    cp /act4/arch_test_commit.txt "$OUTPUT_DIR/act4_commit.txt"
 
     echo "=== Compiled $(find "$OUTPUT_DIR" -name '*.elf' | wc -l) generated exception ELFs ==="
 }

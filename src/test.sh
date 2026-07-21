@@ -139,6 +139,10 @@ run_zisk_split_pipeline() {
   local ZKVM=zisk
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
+  local ACT4_REPO
+  local ACT4_COMMIT
+  ACT4_REPO=$(jq -r '.zkvms.zisk.act4_repo_url // "https://github.com/riscv/riscv-arch-test.git"' config.json)
+  ACT4_COMMIT=$(jq -r '.zkvms.zisk.act4_commit // .act4_commit // "act4"' config.json)
 
   # Test mode: execute (emulate only), prove (emulate + prove), or full
   # (emulate + prove + verify, default). Set via ACT4_MODE env var.
@@ -171,7 +175,10 @@ run_zisk_split_pipeline() {
   fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -f "$ELF_DIR/exceptions/expected_exit_codes.json" ] && [ -z "${FORCE:-}" ]; then
+  if [ -d "$ELF_DIR/native" ] && [ -f "$ELF_DIR/exceptions/expected_exit_codes.json" ] && \
+     [ -f "$ELF_DIR/exceptions/act4_commit.txt" ] && \
+     [ "$(cat "$ELF_DIR/exceptions/act4_commit.txt")" = "$ACT4_COMMIT" ] && \
+     [ -z "${FORCE:-}" ]; then
     local NATIVE_COUNT
     NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$NATIVE_COUNT" -gt 0 ]; then
@@ -179,8 +186,6 @@ run_zisk_split_pipeline() {
     fi
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
-    ACT4_REPO=$(jq -r '.zkvms.zisk.act4_repo_url // "https://github.com/riscv/riscv-arch-test.git"' config.json)
-    ACT4_COMMIT=$(jq -r '.zkvms.zisk.act4_commit // .act4_commit // "act4"' config.json)
     docker build --build-arg ARCH_TEST_REPO="$ACT4_REPO" --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
