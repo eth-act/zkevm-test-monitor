@@ -6,10 +6,6 @@ udb_config: zisk-rv64im-zicclsm.yaml
 linker_script: link-exceptions.ld
 dut_include_dir: .
 include_priv_tests: false
-architecture_override:
-  xlen: 64
-  implemented_extensions: [I, M, C, Zca, Zicclsm]
-external_exception_reporting:
-  kind: process_exit
-  cause_offset: 32
-  supported_causes: [1, 2, 3, 5, 7]
+compile_only: true
+xlen: 64
+implemented_extensions: [I, M, C, Zca, Zicclsm]

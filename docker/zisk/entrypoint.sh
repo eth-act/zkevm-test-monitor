@@ -91,7 +91,7 @@ generate_elfs() {
 # generate_exception_elfs — build the generated termination exception tests.
 #
 # These tests deliberately cannot complete architectural execution. The pinned
-# ACT4 fork selects its direct no-Sail build path from EXPECTED_OUTCOME. Each
+# ACT4's generic compile-only mode bypasses the Sail signature pass. Each
 # concrete stimulus gets its own ELF because a terminating exception cannot
 # return to execute later cases in the same source.
 generate_exception_elfs() {
@@ -129,15 +129,12 @@ generate_exception_elfs() {
     mkdir -p "$OUTPUT_DIR"
     python3 - "$SOURCE_ROOT" "$SOURCE_ELF_DIR" "$OUTPUT_DIR" <<'PY'
 import json
+import subprocess
 import shutil
 import sys
 from pathlib import Path
 
 tests_dir, elf_dir, output_dir = map(Path, sys.argv[1:])
-manifest_path = elf_dir.parent / "exception-manifest.json"
-if not manifest_path.is_file():
-    raise SystemExit(f"Missing ACT exception manifest: {manifest_path}")
-manifest = json.loads(manifest_path.read_text())
 expected_exit_codes = {}
 sources = sorted(tests_dir.glob("exception/ExceptionsI/**/*.S"))
 if not sources:
@@ -152,13 +149,21 @@ for source in sources:
     shutil.copyfile(elf, destination)
     if elf.stem in expected_exit_codes:
         raise SystemExit(f"Duplicate termination ELF name: {elf.stem}")
-    manifest_key = str(elf.relative_to(elf_dir))
-    if manifest_key not in manifest:
-        raise SystemExit(f"Missing architectural outcome for {manifest_key}")
-    outcome = manifest[manifest_key]
+    symbols = subprocess.run(
+        ["riscv64-unknown-elf-nm", "-g", str(elf)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    matches = [line.split()[0] for line in symbols if line.split()[-1:] == ["rvtest_expected_exception"]]
+    if len(matches) != 1:
+        raise SystemExit(f"Expected one rvtest_expected_exception symbol in {elf}, found {len(matches)}")
+    cause = int(matches[0], 16)
+    if cause not in {1, 2, 3, 5, 7}:
+        raise SystemExit(f"Unsupported architectural exception cause {cause} in {elf}")
     expected_exit_codes[elf.stem] = {
-        "expected_exit_code": outcome["expected_exit"],
-        "exception_cause": outcome["cause"],
+        "expected_exit_code": 32 + cause,
+        "exception_cause": cause,
     }
 
 if len(expected_exit_codes) != len(sources):
