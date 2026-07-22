@@ -45,6 +45,8 @@ pub struct SerializedTestEntry {
     pub exit_code: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_exit_code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exception_cause: Option<u32>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub timed_out: bool,
 }
@@ -56,6 +58,7 @@ pub struct TestEntry {
     pub passed: bool,
     pub exit_code: Option<i32>,
     pub expected_exit_code: Option<i32>,
+    pub exception_cause: Option<u32>,
     pub timed_out: bool,
     pub prove_duration_secs: Option<f64>,
     pub proof_written: Option<bool>,
@@ -151,6 +154,7 @@ pub fn write_results(
             passed: e.passed,
             exit_code: e.exit_code,
             expected_exit_code: e.expected_exit_code,
+            exception_cause: e.exception_cause,
             timed_out: e.timed_out,
         })
         .collect();

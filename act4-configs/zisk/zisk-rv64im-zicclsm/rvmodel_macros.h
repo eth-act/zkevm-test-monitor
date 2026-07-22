@@ -20,6 +20,10 @@
 
 #define RVMODEL_BOOT
 
+// This profile observes terminal exceptions outside the target, so it needs
+// neither ACT's in-target trap handler nor its signature/reference-model pass.
+#define RVMODEL_COMPILE_ONLY
+
 #define RVMODEL_HALT_PASS  \
   li a0, 0;                \
   li a7, 93;               \

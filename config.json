@@ -28,11 +28,13 @@
     },
     "zisk": {
       "repo_url": "https://github.com/codygunton/zisk",
-      "commit": "5de9e2f72d5430d778552e3b575f6bcc20f897a0",
+      "commit": "5752c011723d11092d436a1bfef396a290db87b3",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
-      "isa": "RV64IMFDAC_Zicclsm"
+      "isa": "RV64IMFDAC_Zicclsm",
+      "act4_repo_url": "https://github.com/codygunton/riscv-arch-test.git",
+      "act4_commit": "603f3631824611211630b93804139bcd9a90d371"
     },
     "airbender": {
       "repo_url": "https://github.com/codygunton/zksync-airbender",

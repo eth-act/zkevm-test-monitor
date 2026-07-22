@@ -35,7 +35,7 @@ process_results() {
   mkdir -p data/history
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
   RUN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  ACT4_COMMIT_VAL=$(jq -r '.act4_commit // "unknown"' config.json)
+  ACT4_COMMIT_VAL=$(jq -r --arg zkvm "$ZKVM" '.zkvms[$zkvm].act4_commit // .act4_commit // "unknown"' config.json)
   ACT4_VERSION_VAL=$(jq -r '.act4_version // ""' config.json)
 
   # Resolve commit from the binary that actually ran the tests.
@@ -92,6 +92,23 @@ process_results() {
       TEST_RESULTS_JSON="[]"
     fi
 
+    EXCEPTION_TYPES_JSON="[]"
+    if [ "$SUITE" = "act4-exceptions" ] && [ -f "$RESULTS_FILE" ]; then
+      EXCEPTION_TYPES_JSON=$(jq '
+        def exception_type:
+          if .extension == "Breakpoint" then "Breakpoint"
+          elif .extension == "IllegalInstruction" then "Illegal instruction"
+          elif (.extension == "InstructionAccessFault" or .extension == "MisalignedPriorityFetch") then "Instruction access"
+          elif (.extension == "LoadAccessFault" or .extension == "MisalignedPriorityLoad") then "Load access"
+          elif (.extension == "StoreAccessFault" or .extension == "MisalignedPriorityStore") then "Store access"
+          else "Other"
+          end;
+        [.tests | group_by(exception_type)[] |
+          {name: (.[0] | exception_type), passed: all(.passed),
+           cases_passed: map(select(.passed)) | length, cases_total: length}]
+      ' "$RESULTS_FILE")
+    fi
+
     # Check if proving was attempted (summary has "proved" field)
     HAS_PROVING=$(jq 'if .proved != null then true else false end' "$SUMMARY_FILE")
 
@@ -101,8 +118,15 @@ process_results() {
       STATUS_EMOJI="x"
     fi
 
-    echo "  ACT4 ${ZKVM} (${SUITE}): ${TOTAL} tests"
-    echo "     ${STATUS_EMOJI} ${PASSED_COUNT}/${TOTAL} passed"
+    if [ "$SUITE" = "act4-exceptions" ]; then
+      TYPE_TOTAL=$(printf '%s' "$EXCEPTION_TYPES_JSON" | jq 'length')
+      TYPE_PASSED=$(printf '%s' "$EXCEPTION_TYPES_JSON" | jq '[.[] | select(.passed)] | length')
+      echo "  ACT4 ${ZKVM} (${SUITE}): ${TYPE_TOTAL} exception types (${TOTAL} concrete cases)"
+      echo "     ${STATUS_EMOJI} ${TYPE_PASSED}/${TYPE_TOTAL} types, ${PASSED_COUNT}/${TOTAL} cases passed"
+    else
+      echo "  ACT4 ${ZKVM} (${SUITE}): ${TOTAL} tests"
+      echo "     ${STATUS_EMOJI} ${PASSED_COUNT}/${TOTAL} passed"
+    fi
 
     HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
 
@@ -120,9 +144,12 @@ process_results() {
       --argjson prove_failed "$PROVE_FAILED_JSON" \
       --argjson verify_failed "$VERIFY_FAILED_JSON" \
       --argjson test_results "$TEST_RESULTS_JSON" \
+      --argjson exception_types "$EXCEPTION_TYPES_JSON" \
       --argjson has_proving "$HAS_PROVING" \
       --arg notes "$NOTES" \
-      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, test_results: $test_results, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
+      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, test_results: $test_results, has_proving: $has_proving} |
+       if ($exception_types | length) > 0 then . + {exception_types: $exception_types} else . end |
+       if $notes != "" then . + {notes: $notes} else . end')
 
     if [ -f "$HISTORY_FILE" ]; then
       jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
@@ -139,6 +166,10 @@ run_zisk_split_pipeline() {
   local ZKVM=zisk
   local ELF_DIR="test-results/${ZKVM}/elfs"
   local DOCKER_DIR="docker/${ZKVM}"
+  local ACT4_REPO
+  local ACT4_COMMIT
+  ACT4_REPO=$(jq -r '.zkvms.zisk.act4_repo_url // "https://github.com/riscv/riscv-arch-test.git"' config.json)
+  ACT4_COMMIT=$(jq -r '.zkvms.zisk.act4_commit // .act4_commit // "act4"' config.json)
 
   # Test mode: execute (emulate only), prove (emulate + prove), or full
   # (emulate + prove + verify, default). Set via ACT4_MODE env var.
@@ -171,7 +202,10 @@ run_zisk_split_pipeline() {
   fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -d "$ELF_DIR/exceptions" ] && [ -z "${FORCE:-}" ]; then
+  if [ -d "$ELF_DIR/native" ] && [ -f "$ELF_DIR/exceptions/expected_exit_codes.json" ] && \
+     [ -f "$ELF_DIR/exceptions/act4_commit.txt" ] && \
+     [ "$(cat "$ELF_DIR/exceptions/act4_commit.txt")" = "$ACT4_COMMIT" ] && \
+     [ -z "${FORCE:-}" ]; then
     local NATIVE_COUNT
     NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$NATIVE_COUNT" -gt 0 ]; then
@@ -179,8 +213,7 @@ run_zisk_split_pipeline() {
     fi
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
-    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    docker build --build-arg ARCH_TEST_REPO="$ACT4_REPO" --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -298,7 +331,7 @@ run_zisk_split_pipeline() {
       --suite act4-exceptions \
       --label exceptions \
       --mode execute \
-      --expected-exit-codes "act4-configs/zisk/zisk-exceptions/expected_exit_codes.json" \
+      --expected-exit-codes "$ELF_DIR/exceptions/expected_exit_codes.json" \
       $RUNNER_JOBS || true
   fi
 

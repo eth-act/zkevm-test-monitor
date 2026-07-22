@@ -19,6 +19,7 @@ set -eu
 
 ZKVM=zisk
 WORKDIR=/act4/work
+LEGACY_ACT4=/act4-legacy
 
 cd /act4
 
@@ -56,10 +57,10 @@ generate_elfs() {
 
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
-    uv run act "$CONFIG" \
+    (cd "$LEGACY_ACT4" && PATH="/opt/sail-riscv-0.10/bin:$PATH" uv run act "/act4/$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
-        --extensions "$EXTENSIONS"
+        --extensions "$EXTENSIONS")
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
@@ -87,41 +88,97 @@ generate_elfs() {
     fi
 }
 
-# generate_exception_elfs — compile the execute-only exception stimuli directly.
+# generate_exception_elfs — build the generated termination exception tests.
 #
-# These programs deliberately cannot complete architectural execution, so they
-# must not go through ACT4's Sail/signature/self-check pipeline. Phase 2 will
-# replace this temporary hand-written input with generated ACT4 stimulus.
+# These tests deliberately cannot complete architectural execution. The pinned
+# ACT4's generic compile-only mode bypasses the Sail signature pass. Each
+# concrete stimulus gets its own ELF because a terminating exception cannot
+# return to execute later cases in the same source.
 generate_exception_elfs() {
-    local SOURCE_DIR="/act4/config/zisk/zisk-exceptions"
+    local CONFIG="config/zisk/zisk-rv64im-zicclsm/exception_config.yaml"
+    local CONFIG_NAME="zisk-exceptions"
+    local EXTENSIONS="ExceptionsI"
+    local SOURCE_ROOT="/act4/tests"
+    local SOURCE_ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local OUTPUT_DIR="/elfs/exceptions"
-    local SOURCE
-    local NAME
-    local COUNT=0
 
-    if [ ! -f "$SOURCE_DIR/link.ld" ]; then
-        echo "Warning: Exception source directory not found at $SOURCE_DIR, skipping"
+    if [ ! -f "/act4/$CONFIG" ]; then
+        echo "Warning: Config not found at /act4/$CONFIG, skipping exceptions"
         return
     fi
 
-    mkdir -p "$OUTPUT_DIR"
-    for SOURCE in "$SOURCE_DIR"/*.S; do
-        [ -f "$SOURCE" ] || continue
-        NAME=$(basename "$SOURCE" .S)
-        if ! riscv64-unknown-elf-gcc -nostdlib -nostartfiles -march=rv64im -mabi=lp64 \
-            -Wl,--build-id=none -T "$SOURCE_DIR/link.ld" \
-            -o "$OUTPUT_DIR/$NAME.elf" "$SOURCE"; then
-            echo "Error: failed to compile exception ELF $NAME"
-            return 1
-        fi
-        COUNT=$((COUNT + 1))
-    done
+    echo ""
+    echo "=== Generating termination exception sources ==="
+    uv run testgen testplans -o tests --extensions "$EXTENSIONS" --jobs "$JOBS"
 
-    if [ "$COUNT" -eq 0 ]; then
-        echo "Error: No exception sources found in $SOURCE_DIR"
-        return 1
-    fi
-    echo "=== Compiled $COUNT execute-only exception/control ELFs ==="
+    # Pre-generate extensions.txt to skip UDB validation. The generated tests
+    # require no privileged architecture or CSR instruction extension.
+    mkdir -p "$WORKDIR/$CONFIG_NAME"
+    printf 'I\n' > "$WORKDIR/$CONFIG_NAME/extensions.txt"
+    touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
+
+    echo "=== Compiling generated termination exception ELFs ==="
+    uv run act "$CONFIG" \
+        --workdir "$WORKDIR" \
+        --test-dir tests \
+        --extensions "$EXTENSIONS" \
+        --jobs "$JOBS" \
+        --no-coverage \
+        --fast
+
+    mkdir -p "$OUTPUT_DIR"
+    python3 - "$SOURCE_ROOT" "$SOURCE_ELF_DIR" "$OUTPUT_DIR" <<'PY'
+import json
+import subprocess
+import shutil
+import sys
+from pathlib import Path
+
+tests_dir, elf_dir, output_dir = map(Path, sys.argv[1:])
+expected_exit_codes = {}
+sources = sorted(tests_dir.glob("exception/ExceptionsI/**/*.S"))
+if not sources:
+    raise SystemExit("No generated termination exception sources found")
+
+for source in sources:
+    elf = elf_dir / source.relative_to(tests_dir).with_suffix(".elf")
+    if not elf.is_file():
+        raise SystemExit(f"Missing compiled ELF for {source}: {elf}")
+    destination = output_dir / elf.relative_to(elf_dir)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(elf, destination)
+    if elf.stem in expected_exit_codes:
+        raise SystemExit(f"Duplicate termination ELF name: {elf.stem}")
+    symbols = subprocess.run(
+        ["riscv64-unknown-elf-nm", "-g", str(elf)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    matches = [line.split()[0] for line in symbols if line.split()[-1:] == ["rvtest_expected_exception"]]
+    if len(matches) != 1:
+        raise SystemExit(f"Expected one rvtest_expected_exception symbol in {elf}, found {len(matches)}")
+    cause = int(matches[0], 16)
+    if cause not in {1, 2, 3, 5, 7}:
+        raise SystemExit(f"Unsupported architectural exception cause {cause} in {elf}")
+    expected_exit_codes[elf.stem] = {
+        "expected_exit_code": 32 + cause,
+        "exception_cause": cause,
+    }
+
+if len(expected_exit_codes) != len(sources):
+    raise SystemExit(
+        f"Copied {len(expected_exit_codes)} termination ELFs from {len(sources)} generated sources"
+    )
+
+(output_dir / "expected_exit_codes.json").write_text(
+    json.dumps(expected_exit_codes, indent=2, sort_keys=True) + "\n"
+)
+PY
+
+    cp /act4/arch_test_commit.txt "$OUTPUT_DIR/act4_commit.txt"
+
+    echo "=== Compiled $(find "$OUTPUT_DIR" -name '*.elf' | wc -l) generated exception ELFs ==="
 }
 
 # run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
@@ -151,10 +208,10 @@ run_act4_suite() {
 
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
-    uv run act "$CONFIG" \
+    (cd "$LEGACY_ACT4" && PATH="/opt/sail-riscv-0.10/bin:$PATH" uv run act "/act4/$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
-        --extensions "$EXTENSIONS"
+        --extensions "$EXTENSIONS")
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
 
@@ -262,7 +319,7 @@ if mountpoint -q /elfs 2>/dev/null; then
         "$(printf 'I\nM\nZicclsm\nMisalign')" \
         "target" || true
 
-    generate_exception_elfs || true
+    generate_exception_elfs
 
     echo ""
     echo "=== ELF generation complete ==="

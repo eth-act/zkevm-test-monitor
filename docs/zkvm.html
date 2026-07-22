@@ -168,6 +168,14 @@
         return Array.isArray(run.passed) ? run.passed.length : run.passed;
     }
 
+    function reportedCount(run) {
+        if (!run?.exception_types) return { passed: fullyPassedCount(run), total: run?.total };
+        return {
+            passed: run.exception_types.filter(type => type.passed).length,
+            total: run.exception_types.length,
+        };
+    }
+
     function commitShort(commit) {
         if (!commit || commit === 'unknown') return 'unknown';
         return commit.substring(0, 8);
@@ -257,8 +265,11 @@
                 const commitUrl = zkvm.repo_url ? `${zkvm.repo_url}/commit/${commit}` : '#';
                 const notes = [...new Set(g.runs.map(r => r.notes).filter(Boolean))].join(' ');
                 const suiteRows = g.runs.sort((a, b) => a.suite.localeCompare(b.suite)).map(r => {
-                    const p = execPassedCount(r);
-                    const cls = p === r.total ? 'pass' : 'fail';
+                    const reported = r.suite === 'act4-exceptions'
+                        ? reportedCount(r)
+                        : { passed: execPassedCount(r), total: r.total };
+                    const p = reported.passed;
+                    const cls = p === reported.total ? 'pass' : 'fail';
                     const hasData = p != null;
                     const runUrl = `zkvm.html?name=${name}&suite=${r.suite}&run=${r.runIdx}`;
                     const suiteBadge = r.suite === 'act4-full'
@@ -289,7 +300,7 @@
 
                     return `<tr class="${hasData ? 'clickable-row' : ''}" data-group="${gi}" ${hasData ? `onclick="location.href='${runUrl}'"` : ''}>
                         <td>${suiteBadge}</td>
-                        <td class="${cls}">${p}/${r.total}</td>
+                        <td class="${cls}">${p}/${reported.total}</td>
                         ${proveCell}
                         ${verifyCell}
                         <td>${hasData ? '<a href="' + runUrl + '" onclick="event.stopPropagation()">View</a>' : '<span class="none">no data</span>'}</td>
@@ -377,6 +388,9 @@
 
             const commit = getCommit(run);
             const p = fullyPassedCount(run);
+            const reported = suite === 'act4-exceptions'
+                ? reportedCount(run)
+                : { passed: p, total: run.total };
             const ep = execPassedCount(run);
             const hasProveVerify = (run.prove_failed?.length > 0) || (run.verify_failed?.length > 0);
 
@@ -392,7 +406,8 @@
                 <span><strong>Date:</strong> ${formatDate(run.date)}</span>
                 <span><strong>Commit:</strong> <a href="${zkvm.repo_url}/commit/${commit}" class="commit-link">${commitShort(commit)}</a></span>
                 ${monitorHtml}
-                <span class="${p === run.total ? 'pass' : 'fail'}"><strong>${p}/${run.total}</strong> passed</span>
+                <span class="${reported.passed === reported.total ? 'pass' : 'fail'}"><strong>${reported.passed}/${reported.total}</strong> passed</span>
+                ${suite === 'act4-exceptions' ? `<span><strong>${p}/${run.total}</strong> concrete cases</span>` : ''}
             </div>`;
 
             // Note for this run (clickable links), if present.
@@ -411,7 +426,14 @@
                 const test = testResults.get(testName);
                 if (!test || test.expected_exit_code == null) return testName;
                 const actual = test.timed_out ? 'timeout' : test.exit_code ?? 'no exit';
-                return `${testName} (exit ${actual}, expected ${test.expected_exit_code})`;
+                const cause = test.exception_cause == null ? '' : `cause ${test.exception_cause}, `;
+                return `${testName} (${cause}exit ${actual}, expected ${test.expected_exit_code})`;
+            }
+
+            function testGroup(testName) {
+                const group = testResults.get(testName)?.extension;
+                if (!group || group === 'unknown') return 'Other';
+                return group.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
             }
 
             if (ep == null) {
@@ -425,27 +447,27 @@
                     const fail = '<span class="badge badge-fail">fail</span>';
 
                     html += `<h2>Failures (${totalFailures})</h2>`;
-                    html += '<table><thead><tr><th>Test</th><th>Execute</th>';
+                    html += '<table><thead><tr><th>Group</th><th>Test</th><th>Execute</th>';
                     if (showProveVerify) html += '<th>Prove</th><th>Verify</th>';
                     html += '</tr></thead><tbody>';
 
                     // Execution failures: execute=fail, prove=skip, verify=skip
                     html += failed.map(n => {
-                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${fail}</td>`;
+                        let row = `<tr><td>${testGroup(n)}</td><td><strong>${testLabel(n)}</strong></td><td>${fail}</td>`;
                         if (showProveVerify) row += `<td>${skip}</td><td>${skip}</td>`;
                         return row + '</tr>';
                     }).join('');
 
                     // Prove failures: execute=pass, prove=fail, verify=skip
                     html += proveFailed.map(n => {
-                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
+                        let row = `<tr><td>${testGroup(n)}</td><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
                         if (showProveVerify) row += `<td>${fail}</td><td>${skip}</td>`;
                         return row + '</tr>';
                     }).join('');
 
                     // Verify failures: execute=pass, prove=pass, verify=fail
                     html += verifyFailed.map(n => {
-                        let row = `<tr><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
+                        let row = `<tr><td>${testGroup(n)}</td><td><strong>${testLabel(n)}</strong></td><td>${pass}</td>`;
                         if (showProveVerify) row += `<td>${pass}</td><td>${fail}</td>`;
                         return row + '</tr>';
                     }).join('');
@@ -456,9 +478,16 @@
                 // Passing tests section (compact)
                 if (passed.length > 0) {
                     html += `<h2>Passing (${passed.length})</h2>`;
-                    html += '<div class="pass-list">';
-                    html += passed.map(n => `<span>${testLabel(n)}</span>`).join('');
-                    html += '</div>';
+                    const passingGroups = passed.reduce((groups, name) => {
+                        const group = testGroup(name);
+                        groups.set(group, [...(groups.get(group) || []), name]);
+                        return groups;
+                    }, new Map());
+                    for (const [group, names] of [...passingGroups].sort(([a], [b]) => a.localeCompare(b))) {
+                        html += `<h3>${group} (${names.length})</h3><div class="pass-list">`;
+                        html += names.map(n => `<span>${testLabel(n)}</span>`).join('');
+                        html += '</div>';
+                    }
                 }
             }
 

@@ -8,9 +8,54 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::Parser;
+use serde::Deserialize;
 
 use crate::backends::{Backend, Mode};
 use crate::results::TestEntry;
+
+#[derive(Clone, Deserialize)]
+#[serde(untagged)]
+enum ExpectedOutcome {
+    ExitCode(i32),
+    Exception {
+        expected_exit_code: i32,
+        exception_cause: u32,
+    },
+}
+
+impl ExpectedOutcome {
+    fn exit_code(&self) -> i32 {
+        match self {
+            Self::ExitCode(code) | Self::Exception { expected_exit_code: code, .. } => *code,
+        }
+    }
+
+    fn exception_cause(&self) -> Option<u32> {
+        match self {
+            Self::ExitCode(_) => None,
+            Self::Exception { exception_cause, .. } => Some(*exception_cause),
+        }
+    }
+}
+
+#[cfg(test)]
+mod expected_outcome_tests {
+    use super::ExpectedOutcome;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn accepts_legacy_and_exception_manifest_entries() {
+        let outcomes: BTreeMap<String, ExpectedOutcome> = serde_json::from_str(
+            r#"{"legacy": 34, "exception": {"expected_exit_code": 37, "exception_cause": 5}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(outcomes["legacy"].exit_code(), 34);
+        assert_eq!(outcomes["legacy"].exception_cause(), None);
+        assert_eq!(outcomes["exception"].exit_code(), 37);
+        assert_eq!(outcomes["exception"].exception_cause(), Some(5));
+    }
+}
 
 /// ACT4 compliance test runner for RISC-V ZK-VMs.
 #[derive(Parser)]
@@ -161,7 +206,10 @@ fn main() {
     let expected_exit_codes = match cli.expected_exit_codes.as_ref() {
         Some(path) => match std::fs::read_to_string(path)
             .map_err(anyhow::Error::from)
-            .and_then(|json| serde_json::from_str::<BTreeMap<String, i32>>(&json).map_err(anyhow::Error::from))
+            .and_then(|json| {
+                serde_json::from_str::<BTreeMap<String, ExpectedOutcome>>(&json)
+                    .map_err(anyhow::Error::from)
+            })
         {
             Ok(codes) => Some(codes),
             Err(e) => {
@@ -172,7 +220,14 @@ fn main() {
         None => None,
     };
 
-    if let Some(codes) = expected_exit_codes.as_ref() {
+    let runner_exit_codes = expected_exit_codes.as_ref().map(|outcomes| {
+        outcomes
+            .iter()
+            .map(|(name, outcome)| (name.clone(), outcome.exit_code()))
+            .collect::<BTreeMap<_, _>>()
+    });
+
+    if let Some(codes) = runner_exit_codes.as_ref() {
         if let Err(e) = runner::validate_expected_exit_codes(&cli.elf_dir, codes) {
             eprintln!("error: invalid expected exit-code manifest: {e}");
             process::exit(2);
@@ -184,7 +239,7 @@ fn main() {
         &cli.elf_dir,
         jobs,
         mode,
-        expected_exit_codes.as_ref(),
+        runner_exit_codes.as_ref(),
     );
 
     let entries: Vec<TestEntry> = run_results
@@ -202,6 +257,10 @@ fn main() {
                 .unwrap_or("unknown")
                 .to_owned();
             TestEntry {
+                exception_cause: expected_exit_codes
+                    .as_ref()
+                    .and_then(|outcomes| outcomes.get(&name))
+                    .and_then(ExpectedOutcome::exception_cause),
                 name,
                 extension,
                 passed: result.passed,
