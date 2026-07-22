@@ -92,6 +92,23 @@ process_results() {
       TEST_RESULTS_JSON="[]"
     fi
 
+    EXCEPTION_TYPES_JSON="[]"
+    if [ "$SUITE" = "act4-exceptions" ] && [ -f "$RESULTS_FILE" ]; then
+      EXCEPTION_TYPES_JSON=$(jq '
+        def exception_type:
+          if .extension == "Breakpoint" then "Breakpoint"
+          elif .extension == "IllegalInstruction" then "Illegal instruction"
+          elif (.extension == "InstructionAccessFault" or .extension == "MisalignedPriorityFetch") then "Instruction access"
+          elif (.extension == "LoadAccessFault" or .extension == "MisalignedPriorityLoad") then "Load access"
+          elif (.extension == "StoreAccessFault" or .extension == "MisalignedPriorityStore") then "Store access"
+          else "Other"
+          end;
+        [.tests | group_by(exception_type)[] |
+          {name: (.[0] | exception_type), passed: all(.passed),
+           cases_passed: map(select(.passed)) | length, cases_total: length}]
+      ' "$RESULTS_FILE")
+    fi
+
     # Check if proving was attempted (summary has "proved" field)
     HAS_PROVING=$(jq 'if .proved != null then true else false end' "$SUMMARY_FILE")
 
@@ -101,8 +118,15 @@ process_results() {
       STATUS_EMOJI="x"
     fi
 
-    echo "  ACT4 ${ZKVM} (${SUITE}): ${TOTAL} tests"
-    echo "     ${STATUS_EMOJI} ${PASSED_COUNT}/${TOTAL} passed"
+    if [ "$SUITE" = "act4-exceptions" ]; then
+      TYPE_TOTAL=$(printf '%s' "$EXCEPTION_TYPES_JSON" | jq 'length')
+      TYPE_PASSED=$(printf '%s' "$EXCEPTION_TYPES_JSON" | jq '[.[] | select(.passed)] | length')
+      echo "  ACT4 ${ZKVM} (${SUITE}): ${TYPE_TOTAL} exception types (${TOTAL} concrete cases)"
+      echo "     ${STATUS_EMOJI} ${TYPE_PASSED}/${TYPE_TOTAL} types, ${PASSED_COUNT}/${TOTAL} cases passed"
+    else
+      echo "  ACT4 ${ZKVM} (${SUITE}): ${TOTAL} tests"
+      echo "     ${STATUS_EMOJI} ${PASSED_COUNT}/${TOTAL} passed"
+    fi
 
     HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
 
@@ -120,9 +144,12 @@ process_results() {
       --argjson prove_failed "$PROVE_FAILED_JSON" \
       --argjson verify_failed "$VERIFY_FAILED_JSON" \
       --argjson test_results "$TEST_RESULTS_JSON" \
+      --argjson exception_types "$EXCEPTION_TYPES_JSON" \
       --argjson has_proving "$HAS_PROVING" \
       --arg notes "$NOTES" \
-      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, test_results: $test_results, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
+      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, test_results: $test_results, has_proving: $has_proving} |
+       if ($exception_types | length) > 0 then . + {exception_types: $exception_types} else . end |
+       if $notes != "" then . + {notes: $notes} else . end')
 
     if [ -f "$HISTORY_FILE" ]; then
       jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
