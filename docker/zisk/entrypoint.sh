@@ -87,6 +87,43 @@ generate_elfs() {
     fi
 }
 
+# generate_exception_elfs — compile the execute-only exception stimuli directly.
+#
+# These programs deliberately cannot complete architectural execution, so they
+# must not go through ACT4's Sail/signature/self-check pipeline. Phase 2 will
+# replace this temporary hand-written input with generated ACT4 stimulus.
+generate_exception_elfs() {
+    local SOURCE_DIR="/act4/config/zisk/zisk-exceptions"
+    local OUTPUT_DIR="/elfs/exceptions"
+    local SOURCE
+    local NAME
+    local COUNT=0
+
+    if [ ! -f "$SOURCE_DIR/link.ld" ]; then
+        echo "Warning: Exception source directory not found at $SOURCE_DIR, skipping"
+        return
+    fi
+
+    mkdir -p "$OUTPUT_DIR"
+    for SOURCE in "$SOURCE_DIR"/*.S; do
+        [ -f "$SOURCE" ] || continue
+        NAME=$(basename "$SOURCE" .S)
+        if ! riscv64-unknown-elf-gcc -nostdlib -nostartfiles -march=rv64im -mabi=lp64 \
+            -Wl,--build-id=none -T "$SOURCE_DIR/link.ld" \
+            -o "$OUTPUT_DIR/$NAME.elf" "$SOURCE"; then
+            echo "Error: failed to compile exception ELF $NAME"
+            return 1
+        fi
+        COUNT=$((COUNT + 1))
+    done
+
+    if [ "$COUNT" -eq 0 ]; then
+        echo "Error: No exception sources found in $SOURCE_DIR"
+        return 1
+    fi
+    echo "=== Compiled $COUNT execute-only exception/control ELFs ==="
+}
+
 # run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
 #
 # Legacy mode: generates ELFs and runs them with the DUT binary.
@@ -224,6 +261,8 @@ if mountpoint -q /elfs 2>/dev/null; then
         "I,M,Misalign" \
         "$(printf 'I\nM\nZicclsm\nMisalign')" \
         "target" || true
+
+    generate_exception_elfs || true
 
     echo ""
     echo "=== ELF generation complete ==="

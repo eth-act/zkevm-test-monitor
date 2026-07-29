@@ -51,13 +51,16 @@ process_results() {
     fi
   fi
 
-  for SUITE_TYPE in full standard; do
+  for SUITE_TYPE in full standard exceptions; do
     if [ "$SUITE_TYPE" = "full" ]; then
       FILE_LABEL="full-isa"
       SUITE="act4-full"
-    else
+    elif [ "$SUITE_TYPE" = "standard" ]; then
       FILE_LABEL="standard-isa"
       SUITE="act4-standard"
+    else
+      FILE_LABEL="exceptions"
+      SUITE="act4-exceptions"
     fi
 
     SUMMARY_FILE="test-results/${ZKVM}/summary-act4-${FILE_LABEL}.json"
@@ -80,11 +83,13 @@ process_results() {
       FAILED_JSON=$(jq '.failed' "$RESULTS_FILE")
       PROVE_FAILED_JSON=$(jq '.prove_failed' "$RESULTS_FILE")
       VERIFY_FAILED_JSON=$(jq '.verify_failed' "$RESULTS_FILE")
+      TEST_RESULTS_JSON=$(jq '.tests // []' "$RESULTS_FILE")
     else
       PASSED_JSON="[]"
       FAILED_JSON="[]"
       PROVE_FAILED_JSON="[]"
       VERIFY_FAILED_JSON="[]"
+      TEST_RESULTS_JSON="[]"
     fi
 
     # Check if proving was attempted (summary has "proved" field)
@@ -114,9 +119,10 @@ process_results() {
       --argjson failed "$FAILED_JSON" \
       --argjson prove_failed "$PROVE_FAILED_JSON" \
       --argjson verify_failed "$VERIFY_FAILED_JSON" \
+      --argjson test_results "$TEST_RESULTS_JSON" \
       --argjson has_proving "$HAS_PROVING" \
       --arg notes "$NOTES" \
-      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
+      '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, test_results: $test_results, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
 
     if [ -f "$HISTORY_FILE" ]; then
       jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
@@ -165,7 +171,7 @@ run_zisk_split_pipeline() {
   fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+  if [ -d "$ELF_DIR/native" ] && [ -d "$ELF_DIR/exceptions" ] && [ -z "${FORCE:-}" ]; then
     local NATIVE_COUNT
     NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$NATIVE_COUNT" -gt 0 ]; then
@@ -278,6 +284,22 @@ run_zisk_split_pipeline() {
       --label standard-isa \
       --mode "$MODE" \
       $TARGET_PROVE_ARGS $RUNNER_JOBS || true
+  fi
+
+  # Run faulting ELFs execute-only: a successful test is its configured abnormal
+  # process exit code, not zero. The runner's watchdog prevents a bad fetch from
+  # hanging the entire suite.
+  if [ -d "$ELF_DIR/exceptions" ]; then
+    echo "Running $ZKVM exception suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm zisk --binary binaries/zisk-binary \
+      --elf-dir "$ELF_DIR/exceptions" \
+      --output-dir "test-results/${ZKVM}" \
+      --suite act4-exceptions \
+      --label exceptions \
+      --mode execute \
+      --expected-exit-codes "act4-configs/zisk/zisk-exceptions/expected_exit_codes.json" \
+      $RUNNER_JOBS || true
   fi
 
   process_results "$ZKVM"
