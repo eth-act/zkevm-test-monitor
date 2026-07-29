@@ -59,6 +59,19 @@ for ZKVM in $ZKVMS; do
       echo "  GPU build targeting $CUDA_ARCH"
     fi
   fi
+  if [ "$ZKVM" = "openvm" ]; then
+    # OpenVM's prover is GPU-only (the runner crate hard-enables openvm-sdk's `cuda`
+    # feature), so a CUDA arch is always needed to compile the .cu kernels. Auto-detect
+    # the compute capability (bare number, dot stripped — e.g. 120 for Blackwell);
+    # fall back to 120 (RTX 5090) when nvidia-smi is unavailable. Override: CUDA_ARCH=<n[,n...]>.
+    if [ -z "${CUDA_ARCH:-}" ] && command -v nvidia-smi &>/dev/null; then
+      CAP=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d '.')
+      [ -n "$CAP" ] && CUDA_ARCH="$CAP"
+    fi
+    CUDA_ARCH="${CUDA_ARCH:-120}"
+    EXTRA_BUILD_ARGS="$EXTRA_BUILD_ARGS --build-arg CUDA_ARCH=$CUDA_ARCH"
+    echo "  GPU build targeting CUDA_ARCH=$CUDA_ARCH"
+  fi
 
   # Docker build using ZKVM-specific Dockerfile
   docker build \
@@ -201,6 +214,18 @@ for ZKVM in $ZKVMS; do
         fi
       fi
     fi
+  elif [ "$ZKVM" = "openvm" ]; then
+    # OpenVM produces the single openvm-binary (execute/prove/verify) plus bundled CUDA
+    # runtime libs (version-matched fallback for hosts whose CUDA toolkit differs from
+    # the 12.9 build image; the host driver's libcuda.so is always used at runtime).
+    docker cp "$CONTAINER_ID:/usr/local/bin/openvm-binary" "binaries/openvm-binary" || {
+      echo "  ❌ Failed to extract openvm-binary for $ZKVM"
+      docker rm "$CONTAINER_ID" > /dev/null 2>&1
+      continue
+    }
+    chmod +x binaries/openvm-binary
+    rm -rf binaries/openvm-lib && mkdir -p binaries/openvm-lib
+    docker cp "$CONTAINER_ID:/usr/local/bin/lib/." "binaries/openvm-lib/" 2>/dev/null || true
   else
     docker cp "$CONTAINER_ID:/usr/local/bin/$BINARY_NAME" "binaries/$BINARY_NAME" || {
       echo "  ❌ Failed to extract binary for $ZKVM"

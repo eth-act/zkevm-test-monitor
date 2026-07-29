@@ -20,11 +20,11 @@
     },
     "openvm": {
       "repo_url": "https://github.com/openvm-org/openvm",
-      "commit": "bf11b4a5f",
-      "build_cmd": "cargo build --release",
+      "commit": "538c5488130da56c8442d33445efe3c1fe5ea8b8",
+      "build_cmd": "cargo build --release --locked",
       "binary_name": "openvm-binary",
       "binary_path": "target/release/openvm-binary",
-      "isa": "RV32IM"
+      "isa": "RV64IM_Zicclsm"
     },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",

@@ -86,12 +86,14 @@ fn collect_elfs(dir: &Path, out: &mut Vec<PathBuf>) {
 /// Determine the default number of parallel jobs for a given ZKVM.
 ///
 /// Zisk is memory-intensive (~8 GB per instance), so we cap based on available
-/// memory. Other backends default to the number of available CPU cores.
+/// memory. OpenVM initializes a large thread pool per process, so concurrent
+/// executors oversubscribe the host and can fail nondeterministically.
 pub fn default_jobs(zkvm: &str) -> usize {
     match zkvm {
         // sp1-prove is not listed: its native (execute) suite runs parallel via the
         // default, while its target (prove/full) suite is forced to 1 job in main.rs.
         "airbender-prove" => 1, // GPU: one prove at a time
+        "openvm" | "openvm-prove" => 1,
         "jolt" => {
             // Jolt proving is memory-intensive (~16 GB per instance)
             let mem_bytes = read_available_memory_bytes().unwrap_or(0);

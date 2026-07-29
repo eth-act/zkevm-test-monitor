@@ -3,8 +3,8 @@
 $schema: config_schema.json#
 kind: architecture configuration
 type: fully configured
-name: openvm-rv32im
-description: OpenVM RV32IM ZK-VM
+name: openvm-rv64im
+description: OpenVM RV64IM ZK-VM
 
 implemented_extensions:
   - { name: I,     version: "= 2.1" }
@@ -14,7 +14,7 @@ params:
   # M params
   MUTABLE_MISA_M: false
   # Sm params
-  MXLEN: 32
+  MXLEN: 64
   PRECISE_SYNCHRONOUS_EXCEPTIONS: true
   TRAP_ON_ECALL_FROM_M: true
   TRAP_ON_EBREAK: true
@@ -38,10 +38,10 @@ params:
   REPORT_VA_IN_MTVAL_ON_STORE_AMO_ACCESS_FAULT: false
   REPORT_VA_IN_MTVAL_ON_INSTRUCTION_ACCESS_FAULT: false
   REPORT_ENCODING_IN_MTVAL_ON_ILLEGAL_INSTRUCTION: false
-  MTVAL_WIDTH: 32
+  MTVAL_WIDTH: 64
   CONFIG_PTR_ADDRESS: 0
   PMA_GRANULARITY: 3
-  PHYS_ADDR_WIDTH: 32
+  PHYS_ADDR_WIDTH: 64
   M_MODE_ENDIANNESS: little
   MISA_CSR_IMPLEMENTED: false
   MTVEC_ACCESS: rw
