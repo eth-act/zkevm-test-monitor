@@ -173,9 +173,9 @@
       "has_proving": false
     },
     {
-      "date": "2026-07-29T15:50:11Z",
+      "date": "2026-07-29T16:55:00Z",
       "commit": "538c5488",
-      "monitor_commit": "f71caf9d",
+      "monitor_commit": "a7315034",
       "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
       "act4_version": "4.0.0",
       "isa": "RV64IM_Zicclsm",

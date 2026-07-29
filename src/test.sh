@@ -632,8 +632,9 @@ run_lambdavm_split_pipeline() {
 # run_openvm_split_pipeline — ELF generation in Docker, GPU execution + proving on host.
 #
 # OpenVM's runner binary is built with the `cuda` feature (GPU prover), so it links the
-# CUDA runtime libs and must run with them on LD_LIBRARY_PATH. The native (full-ISA)
-# suite is execute-only; the ETH-ACT target suite proves + verifies on the GPU.
+# CUDA runtime libs and must run with them on LD_LIBRARY_PATH. The native RV64IM
+# suite is an auxiliary execute-only check; the ETH-ACT target suite supplies both
+# Full and Standard dashboard results because those categories coincide for OpenVM.
 run_openvm_split_pipeline() {
   local ZKVM=openvm
   local ELF_DIR="test-results/${ZKVM}/elfs"
@@ -722,15 +723,16 @@ run_openvm_split_pipeline() {
     [ -d "$cuda_dir" ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$cuda_dir"
   done
 
-  # Run native suite (execute-only)
+  # Run the auxiliary native suite (execute-only). Do not publish this as Full:
+  # OpenVM's Full and Standard compliance sets are both the 72-test target suite.
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
       --zkvm openvm --binary binaries/openvm-binary \
       --elf-dir "$ELF_DIR/native" \
       --output-dir "test-results/${ZKVM}" \
-      --suite act4-full \
-      --label full-isa \
+      --suite act4-native \
+      --label native-isa \
       --mode execute \
       $RUNNER_JOBS || true
   fi
@@ -755,6 +757,18 @@ run_openvm_split_pipeline() {
       --label standard-isa \
       --mode "$MODE" \
       $TARGET_PROVE_ARGS $RUNNER_JOBS || true
+
+    # Full == Standard for OpenVM. Reuse the one target execution/proof result
+    # for both dashboard categories, changing only the suite metadata.
+    if [ -f "test-results/${ZKVM}/summary-act4-standard-isa.json" ] &&
+       [ -f "test-results/${ZKVM}/results-act4-standard-isa.json" ]; then
+      jq '.suite = "act4-full"' \
+        "test-results/${ZKVM}/summary-act4-standard-isa.json" \
+        > "test-results/${ZKVM}/summary-act4-full-isa.json"
+      jq '.suite = "act4-full"' \
+        "test-results/${ZKVM}/results-act4-standard-isa.json" \
+        > "test-results/${ZKVM}/results-act4-full-isa.json"
+    fi
   fi
 
   process_results "$ZKVM"
