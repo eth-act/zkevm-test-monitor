@@ -16,7 +16,7 @@ use crate::results::TestEntry;
 #[command(name = "act4-runner")]
 struct Cli {
     /// ZK-VM backend to use (airbender, airbender-prove, jolt, lambdavm,
-    /// openvm, sp1-prove, zisk, zisk-prove).
+    /// openvm, openvm-prove, sp1-prove, zisk, zisk-prove).
     #[arg(long)]
     zkvm: String,
 
@@ -65,7 +65,7 @@ struct Cli {
     #[arg(long)]
     witness_lib: Option<PathBuf>,
 
-    /// Enable GPU acceleration (airbender-prove, zisk-prove).
+    /// Enable GPU acceleration (airbender-prove, openvm-prove, zisk-prove).
     #[arg(long)]
     gpu: bool,
 
@@ -126,6 +126,10 @@ fn main() {
             }),
             gpu: cli.gpu,
         },
+        "openvm-prove" => Backend::OpenVMProve {
+            binary: require_binary(&cli),
+            gpu: cli.gpu,
+        },
         "zisk" => Backend::Zisk {
             binary: require_binary(&cli),
         },
@@ -139,7 +143,7 @@ fn main() {
             gpu: cli.gpu,
         },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, lambdavm, openvm, sp1-prove, zisk, zisk-prove");
+            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, lambdavm, openvm, openvm-prove, sp1-prove, zisk, zisk-prove");
             process::exit(2);
         }
     };

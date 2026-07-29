@@ -8,4 +8,14 @@ name = "openvm-binary"
 path = "src/main.rs"
 
 [dependencies]
-openvm-sdk = { git = "https://github.com/openvm-org/openvm", rev = "bf11b4a5f79d20fa14d01f78b41d54df4acd0ee0" }
+# OpenVM SDK pinned to the v2.1.0-preview release. The `cuda` feature transparently
+# switches `Sdk`/`DefaultStarkEngine` to the GPU engine (BabyBearPoseidon2GpuEngine),
+# so the same source proves on the GPU. `parallel` + `jemalloc` are on by default.
+openvm-sdk = { git = "https://github.com/openvm-org/openvm", rev = "538c5488130da56c8442d33445efe3c1fe5ea8b8", features = ["cuda"] }
+# app_params_with_100_bits_security / MAX_APP_LOG_STACKED_HEIGHT. Must come from the
+# same stark-backend source/branch as openvm-sdk so Cargo unifies the two (the lockfile
+# pins the exact rev openvm built against).
+openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", branch = "develop-v2.1.0", default-features = false }
+
+clap = { version = "4", features = ["derive"] }
+eyre = "0.6"

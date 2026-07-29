@@ -17,6 +17,7 @@ pub enum Backend {
         sp1_perf: PathBuf,
         gpu: bool,
     },
+    OpenVMProve { binary: PathBuf, gpu: bool },
     Zisk { binary: PathBuf },
     ZiskProve {
         ziskemu: PathBuf,
@@ -73,6 +74,9 @@ impl Backend {
             Backend::Sp1Prove { executor, sp1_perf, gpu } => {
                 run_sp1_prove(executor, sp1_perf, elf_path, mode, *gpu, start)
             }
+            Backend::OpenVMProve { binary, gpu } => {
+                run_openvm_prove(binary, elf_path, mode, *gpu, start)
+            }
             Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
@@ -85,6 +89,7 @@ impl Backend {
                     | Backend::Jolt { .. }
                     | Backend::LambdaVM { .. }
                     | Backend::Sp1Prove { .. }
+                    | Backend::OpenVMProve { .. }
                     | Backend::ZiskProve { .. } => unreachable!(),
                 };
 
@@ -844,9 +849,13 @@ fn run_lambdavm(
     }
 }
 
-/// OpenVM: invoke `<binary> <elf_path>`.
+/// OpenVM: invoke `<binary> execute <elf_path>`.
+///
+/// The standalone runner exits 0 on a clean guest halt(0) and non-zero on any guest
+/// failure (the SDK surfaces a non-zero guest exit code as an error).
 fn run_openvm(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
     let status = Command::new(binary)
+        .arg("execute")
         .arg(elf_path)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -859,6 +868,172 @@ fn run_openvm(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
         }
         Err(_) => (false, None),
     }
+}
+
+/// OpenVM proving: a RV64IM continuation-STARK zkVM. The `openvm-binary` CLI handles
+/// execution, app-level proving, and verification through subcommands.
+///
+/// Lifecycle:
+/// 1. Execute: `openvm-binary execute <elf>`            — exit 0 = pass
+/// 2. Prove:   `openvm-binary prove <elf> -o <proof>`   — app-level STARK proof
+/// 3. Verify:  `openvm-binary verify <proof> <elf>`
+///
+/// When the binary is built with the `cuda` feature, proving and verification run on
+/// the GPU. We serialize GPU work (the runner defaults prove/full to one job) and wait
+/// for the GPU to drain between tests, killing any stuck process after a failed prove —
+/// mirroring the zisk-prove backend's GPU hygiene.
+fn run_openvm_prove(
+    binary: &Path,
+    elf_path: &Path,
+    mode: Mode,
+    gpu: bool,
+    start: Instant,
+) -> RunResult {
+    let inner = || -> anyhow::Result<RunResult> {
+        // 1. Execute
+        let exec_output = Command::new(binary)
+            .arg("execute")
+            .arg(elf_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()?;
+        let passed = exec_output.status.success();
+
+        if mode == Mode::Execute || !passed {
+            return Ok(RunResult {
+                passed,
+                exit_code: exec_output.status.code(),
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            });
+        }
+
+        // 2. Prove
+        let tmp_dir = tempfile::tempdir()?;
+        let proof_path = tmp_dir.path().join("proof.bin");
+        let prove_start = Instant::now();
+
+        let prove_output = openvm_cmd(binary)
+            .args(["prove"])
+            .arg(elf_path)
+            .arg("-o")
+            .arg(&proof_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()?;
+        let prove_duration = prove_start.elapsed();
+
+        if gpu {
+            if !prove_output.status.success() {
+                kill_openvm_processes();
+            }
+            wait_for_gpu_free(Duration::from_secs(30));
+        }
+
+        if !prove_output.status.success() {
+            let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
+            eprintln!(
+                "openvm prove failed for {}: {}",
+                elf_path.display(),
+                prove_stderr.lines().last().unwrap_or("(no output)"),
+            );
+            return Ok(RunResult {
+                passed: true,
+                exit_code: Some(0),
+                duration: start.elapsed(),
+                prove_duration: Some(prove_duration),
+                proof_written: false,
+                prove_status: Some("failed".to_string()),
+                verify_status: None,
+            });
+        }
+
+        let proof_written = proof_path.exists();
+
+        // 3. Verify
+        let verify_status = if mode == Mode::Full {
+            let verify_output = openvm_cmd(binary)
+                .args(["verify"])
+                .arg(&proof_path)
+                .arg(elf_path)
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .output()?;
+
+            if gpu {
+                wait_for_gpu_free(Duration::from_secs(30));
+            }
+
+            if verify_output.status.success() {
+                Some("success".to_string())
+            } else {
+                let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
+                eprintln!(
+                    "openvm verify failed for {}: {}",
+                    elf_path.display(),
+                    verify_stderr.lines().last().unwrap_or("(no output)"),
+                );
+                Some("failed".to_string())
+            }
+        } else {
+            None
+        };
+
+        Ok(RunResult {
+            passed: true,
+            exit_code: Some(0),
+            duration: start.elapsed(),
+            prove_duration: Some(prove_duration),
+            proof_written,
+            prove_status: Some("success".to_string()),
+            verify_status,
+        })
+    };
+
+    match inner() {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("error running {}: {e}", elf_path.display());
+            RunResult {
+                passed: false,
+                exit_code: None,
+                duration: start.elapsed(),
+                prove_duration: None,
+                proof_written: false,
+                prove_status: None,
+                verify_status: None,
+            }
+        }
+    }
+}
+
+/// Build an `openvm-binary` command isolated in its own process group with core dumps
+/// disabled — a GPU prover crash would otherwise risk killing the parent runner and
+/// spend minutes writing a multi-GB core via systemd-coredump.
+fn openvm_cmd(binary: &Path) -> Command {
+    let mut cmd = Command::new(binary);
+    unsafe {
+        cmd.pre_exec(|| {
+            let zero = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+            libc::setrlimit(libc::RLIMIT_CORE, &zero);
+            Ok(())
+        });
+    }
+    cmd.process_group(0);
+    cmd
+}
+
+/// Kill any lingering openvm-binary processes that may be holding GPU memory.
+fn kill_openvm_processes() {
+    let _ = Command::new("pkill")
+        .args(["-9", "openvm-binary"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    std::thread::sleep(Duration::from_secs(3));
 }
 
 /// Zisk: invoke `<binary> -e <elf_path>`.

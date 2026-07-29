@@ -3,62 +3,55 @@ set -eu
 
 # ACT4 OpenVM test runner
 #
-# Expected mounts:
-#   /dut/openvm-binary              — the OpenVM standalone ELF runner
+# Modes:
+#   ELF-only mode: mount /elfs → generates ELFs and copies them to /elfs/{native,target}
+#   Legacy mode:   mount /dut/openvm-binary + /results → generates ELFs, runs execute, writes JSON
+#
+# Expected mounts (legacy):
+#   /dut/openvm-binary              — the OpenVM execute/prove/verify cli binary
 #   /act4/config/openvm             — OpenVM ACT4 config directory (host act4-configs/openvm)
 #   /results/                       — output directory for summary JSON
+#
+# Expected mounts (ELF-only):
+#   /act4/config/openvm             — OpenVM ACT4 config directory
+#   /elfs/                          — output directory for generated ELFs
 
-DUT=/dut/openvm-binary
 ZKVM=openvm
-RESULTS=/results
 WORKDIR=/act4/work
 
-if [ ! -x "$DUT" ]; then
-    echo "Error: No executable found at $DUT"
-    exit 1
+# Detect ELF-generation-only mode (split pipeline)
+ELF_ONLY=0
+if [ -d "/elfs" ]; then
+    ELF_ONLY=1
+fi
+
+# In legacy mode, require the DUT binary
+if [ "$ELF_ONLY" = "0" ]; then
+    DUT=/dut/openvm-binary
+    RESULTS=/results
+    if [ ! -x "$DUT" ]; then
+        echo "Error: No executable found at $DUT"
+        exit 1
+    fi
+    mkdir -p "$RESULTS"
 fi
 
 cd /act4
-mkdir -p "$RESULTS"
 JOBS="${ACT4_JOBS:-$(nproc)}"
 
-# Create wrapper script for running OpenVM.
-# The standalone binary accepts a raw ELF path and exits with the guest exit code.
-# ACT4 4.0.0 run_tests.py requires RVCP-SUMMARY in stdout to confirm pass/fail.
-# OpenVM's RVMODEL_IO_WRITE_STR is a no-op, so synthesize from the exit code here.
-cat > /act4/run-dut.sh << 'WRAPPER'
-#!/bin/bash
-/dut/openvm-binary "$1"
-EC=$?
-if [ $EC -eq 0 ]; then
-  echo "RVCP-SUMMARY: TEST PASSED - Test File \"$1\""
-else
-  echo "RVCP-SUMMARY: TEST FAILED - Test File \"$1\""
-fi
-exit $EC
-WRAPPER
-chmod +x /act4/run-dut.sh
 
-# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix>
+# generate_elfs <config-path> <config-name> <extensions-list> <extensions-txt-entries>
 #
-# Generates Makefiles, compiles ELFs, runs them, and writes summary + per-test JSON.
-# summary-suffix: "" for native, "-target" for ETH-ACT target
-run_act4_suite() {
+# Generates Makefiles and compiles self-checking ELFs.
+generate_elfs() {
     local CONFIG="$1"
     local CONFIG_NAME="$2"
     local EXTENSIONS="$3"
     local EXT_TXT="$4"
-    local SUFFIX="$5"
-    local FILE_LABEL
-    if [ -z "$SUFFIX" ]; then
-        FILE_LABEL="full-isa"
-    else
-        FILE_LABEL="standard-isa"
-    fi
 
     if [ ! -f "/act4/$CONFIG" ]; then
-        echo "⚠️  Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
-        return
+        echo "Warning: Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
+        return 1
     fi
 
     # Pre-generate extensions.txt to skip UDB validation (which requires Podman/Docker
@@ -66,38 +59,83 @@ run_act4_suite() {
     # and is newer than the UDB config.
     mkdir -p "$WORKDIR/$CONFIG_NAME"
     echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
+    # Touch with future timestamp to ensure it's always newer than the mounted config
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
 
-    # In 4.0.0, 'act' handles both Makefile generation and compilation.
+    # Generate self-checking ELFs. In ACT4 4.0.0 the 'act' tool builds the ELFs
+    # directly (invoking Sail for expected values).
     echo ""
-    echo "=== Generating Makefiles for $CONFIG_NAME ==="
+    echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
         --workdir "$WORKDIR" \
         --test-dir tests \
         --extensions "$EXTENSIONS"
-
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$ELF_COUNT" -eq 0 ]; then
         echo "Error: No ELFs found in $ELF_DIR after compilation"
+        return 1
+    fi
+    echo "=== Generated $ELF_COUNT ELFs for $CONFIG_NAME ==="
+
+    # Patch non-instruction data words in executable sections with NOPs, strip the RVC
+    # flag, and replace CSR instructions with NOPs. OpenVM's transpiler pre-decodes every
+    # word of every executable segment; ACT4 embeds .word data after jal failedtest_*
+    # calls, which would otherwise make the transpiler panic. See patch_elfs.py.
+    echo "=== Patching ELFs for $CONFIG_NAME (replacing data words with NOPs) ==="
+    python3 /act4/patch_elfs.py "$ELF_DIR"
+}
+
+# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <summary-suffix> <elf-output-label>
+#
+# Generates ELFs, runs them (legacy) or copies them (ELF-only), and writes results.
+run_act4_suite() {
+    local CONFIG="$1"
+    local CONFIG_NAME="$2"
+    local EXTENSIONS="$3"
+    local EXT_TXT="$4"
+    local SUFFIX="$5"
+    local OUTPUT_LABEL="$6"
+    # Derive file label from suffix
+    local FILE_LABEL
+    if [ -z "$SUFFIX" ]; then
+        FILE_LABEL="full-isa"
+    else
+        FILE_LABEL="standard-isa"
+    fi
+
+    generate_elfs "$CONFIG" "$CONFIG_NAME" "$EXTENSIONS" "$EXT_TXT" || return
+
+    local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
+
+    # ELF-only mode: copy ELFs to output and return
+    if [ "$ELF_ONLY" = "1" ]; then
+        mkdir -p "/elfs/$OUTPUT_LABEL"
+        cp -rL "$ELF_DIR"/* "/elfs/$OUTPUT_LABEL/"
+        local COUNT
+        COUNT=$(find "/elfs/$OUTPUT_LABEL" -name "*.elf" | wc -l)
+        echo "=== Copied $COUNT ELFs to /elfs/$OUTPUT_LABEL ==="
         return
     fi
-    # Post-process ELFs: strip RVC flag and replace non-instruction data words and CSR
-    # instructions with NOPs so OpenVM's transpiler doesn't panic. See patch_elfs.py.
-    python3 /act4/patch_elfs.py "$ELF_DIR"
+
+    # Legacy mode: run tests and write results
+    local ELF_COUNT
+    ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
     echo "=== Running $ELF_COUNT tests with OpenVM ($CONFIG_NAME) ==="
 
-    local RUN_OUTPUT
-    RUN_OUTPUT=$(python3 /act4/run_tests.py "/act4/run-dut.sh" "$ELF_DIR" -j "$JOBS" 2>&1) || true
-    echo "$RUN_OUTPUT"
-
-    # Parse results from run_tests.py output.
-    # ACT4 4.0.0 format: "RESULT: N failed, M passed out of T tests."
-    local FAILED TOTAL PASSED
-    FAILED=$(echo "$RUN_OUTPUT" | grep -oE 'RESULT: [0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
-    TOTAL=$(echo "$RUN_OUTPUT" | grep -oE 'out of [0-9]+ tests' | grep -oE '[0-9]+' || echo "$ELF_COUNT")
-    PASSED=$((TOTAL - FAILED))
+    local PASSED=0
+    local FAILED=0
+    local FAILED_NAMES=""
+    while IFS= read -r elf; do
+        if "$DUT" execute "$elf" > /dev/null 2>&1; then
+            PASSED=$((PASSED + 1))
+        else
+            FAILED=$((FAILED + 1))
+            FAILED_NAMES="$FAILED_NAMES $(basename "$elf")"
+        fi
+    done < <(find "$ELF_DIR" -name "*.elf" | sort)
+    local TOTAL=$((PASSED + FAILED))
 
     cat > "$RESULTS/summary-act4-${FILE_LABEL}.json" << EOF
 {
@@ -110,68 +148,20 @@ run_act4_suite() {
 }
 EOF
 
-    local RUN_OUTPUT_FILE
-    RUN_OUTPUT_FILE=$(mktemp)
-    echo "$RUN_OUTPUT" > "$RUN_OUTPUT_FILE"
-    python3 -c "
-import json, os, re
-
-elf_dir = '$ELF_DIR'
-with open('$RUN_OUTPUT_FILE') as _f:
-    run_output = _f.read()
-expected_passed = $PASSED
-
-failed_names = set()
-for line in run_output.splitlines():
-    m = re.match(r'\s+FAIL\s+(\S+\.elf)\s', line)
-    if m:
-        failed_names.add(m.group(1))
-
-tests = []
-for root, dirs, files in os.walk(elf_dir):
-    for f in sorted(files):
-        if not f.endswith('.elf'):
-            continue
-        ext = os.path.basename(root)
-        name = f.removesuffix('.elf')
-        tests.append({'name': name, 'extension': ext, 'passed': f not in failed_names})
-
-tests.sort(key=lambda t: (t['extension'], t['name']))
-
-parsed_passed = sum(1 for t in tests if t['passed'])
-if parsed_passed != expected_passed:
-    for t in tests:
-        t['passed'] = False
-
-passed_names = [t['name'] for t in tests if t['passed']]
-failed_names_list = [t['name'] for t in tests if not t['passed']]
-
-with open('$RESULTS/results-act4-${FILE_LABEL}.json', 'w') as out:
-    json.dump({
-        'zkvm': '$ZKVM',
-        'suite': 'act4${SUFFIX}',
-        'tests': tests,
-        'passed': passed_names,
-        'failed': failed_names_list,
-        'prove_failed': [],
-        'verify_failed': []
-    }, out, indent=2)
-
-print(f'Per-test results: {len(tests)} tests written to results-act4-${FILE_LABEL}.json')
-"
-    rm -f "$RUN_OUTPUT_FILE"
-
     echo ""
     echo "=== $CONFIG_NAME: $PASSED/$TOTAL passed ==="
+    [ -n "$FAILED_NAMES" ] && echo "    Failed:$FAILED_NAMES"
 }
 
-# ─── Run 1: Native ISA (rv32im) ───
+# Run each suite; allow failures without aborting (set -e is active globally)
+# ─── Run 1: Native ISA (rv64im) ───
 run_act4_suite \
-    "config/openvm/openvm-rv32im/test_config.yaml" \
-    "openvm-rv32im" \
+    "config/openvm/openvm-rv64im/test_config.yaml" \
+    "openvm-rv64im" \
     "I,M" \
     "$(printf 'I\nM\nZicsr\nSm')" \
-    "" || true
+    "" \
+    "native" || true
 
 # ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
 run_act4_suite \
@@ -179,7 +169,8 @@ run_act4_suite \
     "openvm-rv64im-zicclsm" \
     "I,M,Misalign" \
     "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
-    "-target" || true
+    "-target" \
+    "target" || true
 
 echo ""
 echo "=== All ACT4 suites complete ==="
