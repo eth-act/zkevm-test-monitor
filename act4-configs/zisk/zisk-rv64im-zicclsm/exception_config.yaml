@@ -8,4 +8,4 @@ dut_include_dir: .
 include_priv_tests: false
 compile_only: true
 xlen: 64
-implemented_extensions: [I, M, C, Zca, Zicclsm]
+implemented_extensions: [I, M, Zicclsm]

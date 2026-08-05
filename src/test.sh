@@ -98,9 +98,9 @@ process_results() {
         def exception_type:
           if .extension == "Breakpoint" then "Breakpoint"
           elif .extension == "IllegalInstruction" then "Illegal instruction"
-          elif (.extension == "InstructionAccessFault" or .extension == "MisalignedPriorityFetch") then "Instruction access"
-          elif (.extension == "LoadAccessFault" or .extension == "MisalignedPriorityLoad") then "Load access"
-          elif (.extension == "StoreAccessFault" or .extension == "MisalignedPriorityStore") then "Store access"
+          elif .extension == "InstructionAddressMisaligned" then "Instruction address misaligned"
+          elif .extension == "LoadAccessFault" then "Load access"
+          elif .extension == "StoreAccessFault" then "Store access"
           else "Other"
           end;
         [.tests | group_by(exception_type)[] |

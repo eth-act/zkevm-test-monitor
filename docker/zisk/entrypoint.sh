@@ -159,7 +159,7 @@ for source in sources:
     if len(matches) != 1:
         raise SystemExit(f"Expected one rvtest_expected_exception symbol in {elf}, found {len(matches)}")
     cause = int(matches[0], 16)
-    if cause not in {1, 2, 3, 5, 7}:
+    if cause not in {0, 2, 3, 5, 7}:
         raise SystemExit(f"Unsupported architectural exception cause {cause} in {elf}")
     expected_exit_codes[elf.stem] = {
         "expected_exit_code": 32 + cause,
