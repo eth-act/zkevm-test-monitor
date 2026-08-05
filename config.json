@@ -28,7 +28,7 @@
     },
     "zisk": {
       "repo_url": "https://github.com/codygunton/zisk",
-      "commit": "49cab2b62386ce79b75f922f94479234d197383b",
+      "commit": "cf30ed7b07de739fd09b94aa54b75de204f7af9b",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
