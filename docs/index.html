@@ -113,6 +113,14 @@
         return run.passed;
     }
 
+    function exceptionTypeCount(run) {
+        if (!run?.exception_types) return { passed: execPassedCount(run), total: run?.total };
+        return {
+            passed: run.exception_types.filter(type => type.passed).length,
+            total: run.exception_types.length,
+        };
+    }
+
     function countProveVerify(run) {
         if (!run) return { prove: null, verify: null, total: null };
         const pf = run.prove_failed;
@@ -178,6 +186,7 @@
                 const isa = c.isa || full?.isa || 'unknown';
 
                 const pv = countProveVerify(std);
+                const exceptionTypes = exceptionTypeCount(exceptions);
 
                 // Use most recent date from either suite
                 const lastDate = full?.date || std?.date || exceptions?.date;
@@ -199,7 +208,7 @@
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
-                    ${resultCell(execPassedCount(exceptions), exceptions?.total, exceptionsLink)}
+                    ${resultCell(exceptionTypes.passed, exceptionTypes.total, exceptionsLink)}
                     <td>${formatDate(lastDate)}</td>
                 </tr>`;
             }).join('\n');

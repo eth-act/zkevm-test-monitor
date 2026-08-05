@@ -1,8 +1,0 @@
-{
-  "bad_fetch": 33,
-  "clean_exit": 0,
-  "ebreak": 35,
-  "illegal": 34,
-  "load_fault": 37,
-  "store_fault": 39
-}
