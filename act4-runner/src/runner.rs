@@ -8,6 +8,17 @@ use crate::backends::{Backend, Mode, RunResult};
 /// Discover all ELF files in `elf_dir` recursively, run each through the backend
 /// in parallel, and return results in deterministic (alphabetical) order.
 pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> Vec<(PathBuf, RunResult)> {
+    run_tests_with(elf_dir, jobs, |elf_path| backend.run_elf(elf_path, mode), |result| result)
+}
+
+/// Like `run_tests`, but runs each ELF through `run`, which may return any
+/// result type from which `as_run_result` extracts the pass/fail outcome.
+pub fn run_tests_with<T, F, G>(elf_dir: &Path, jobs: usize, run: F, as_run_result: G) -> Vec<(PathBuf, T)>
+where
+    T: Send,
+    F: Fn(&Path) -> T + Sync,
+    G: Fn(&T) -> &RunResult + Sync,
+{
     let mut elfs = discover_elfs(elf_dir);
     elfs.sort();
     let total = elfs.len();
@@ -25,9 +36,9 @@ pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> 
     pool.install(|| {
         elfs.par_iter()
             .map(|elf_path| {
-                let result = backend.run_elf(elf_path, mode);
+                let result = run(elf_path);
                 let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                report_progress(done, total, elf_path, &result);
+                report_progress(done, total, elf_path, as_run_result(&result));
                 (elf_path.clone(), result)
             })
             .collect()

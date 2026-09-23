@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -33,6 +34,12 @@ pub struct Results {
     pub failed: Vec<String>,
     pub prove_failed: Vec<String>,
     pub verify_failed: Vec<String>,
+    /// Test name → group (parent directory). Written for grouped suites only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub groups: Option<BTreeMap<String, String>>,
+    /// Failed test name → reason. Written for grouped suites only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<BTreeMap<String, String>>,
 }
 
 /// A single test result entry (internal, used as input to write_results).
@@ -44,6 +51,8 @@ pub struct TestEntry {
     pub proof_written: Option<bool>,
     pub prove_status: Option<String>,
     pub verify_status: Option<String>,
+    /// Why the test failed, when the backend reports it.
+    pub detail: Option<String>,
 }
 
 /// Write summary and results JSON files to `dir`.
@@ -51,12 +60,16 @@ pub struct TestEntry {
 /// Produces two files:
 /// - `summary-act4-{label}.json` — aggregate pass/fail counts
 /// - `results-act4-{label}.json` — tests grouped by outcome (passed/failed/prove_failed/verify_failed)
+///
+/// With `grouped`, the results file also maps each test to its group and each
+/// failed test to its failure detail.
 pub fn write_results(
     dir: &Path,
     label: &str,
     zkvm: &str,
     suite: &str,
     entries: &[TestEntry],
+    grouped: bool,
 ) -> Result<()> {
     // Sort entries by (extension, name)
     let mut sorted: Vec<&TestEntry> = entries.iter().collect();
@@ -134,6 +147,18 @@ pub fn write_results(
         failed: failed_names,
         prove_failed: prove_failed_names,
         verify_failed: verify_failed_names,
+        groups: grouped.then(|| {
+            sorted
+                .iter()
+                .map(|e| (e.name.clone(), e.extension.clone()))
+                .collect()
+        }),
+        details: grouped.then(|| {
+            sorted
+                .iter()
+                .filter_map(|e| Some((e.name.clone(), e.detail.clone()?)))
+                .collect()
+        }),
     };
     let results_path = dir.join(format!("results-act4-{label}.json"));
     let results_json =
