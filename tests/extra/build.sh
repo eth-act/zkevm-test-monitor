@@ -43,7 +43,7 @@ for src in "$HERE"/*/*.c; do
   fi
 
   # shellcheck disable=SC2086
-  $CC $CFLAGS -I "$HERE/include" "$src" -T "$LINKER_SCRIPT" $LDFLAGS \
+  $CC $CFLAGS -I "$HERE/include" "$src" ${LINKER_SCRIPT:+-T "$LINKER_SCRIPT"} $LDFLAGS \
     $pre_libs "$VENDOR_LIB" $LIBS -o "$OUT/$group/$name.elf"
 
   for sidecar in input expected; do
