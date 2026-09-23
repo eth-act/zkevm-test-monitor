@@ -218,6 +218,63 @@ fn sp1_extra_outcome(executor: &Path, elf_path: &Path) -> Result<(Option<i32>, O
     }
 }
 
+/// Run one act-extra ELF through `openvm-extra-executor` with its sidecars.
+///
+/// The executor passes the input as one OpenVM input vector and writes the
+/// user public values. With ere's VM config these are a fixed area of 256
+/// bytes with zero padding, so the output is compared as for ZisK.
+pub fn run_openvm_extra(executor: &Path, elf_path: &Path) -> ExtraResult {
+    let start = Instant::now();
+    let (passed, exit_code, detail) = match openvm_extra_outcome(executor, elf_path) {
+        Ok((exit_code, None)) => (true, exit_code, None),
+        Ok((exit_code, Some(detail))) => (false, exit_code, Some(detail)),
+        Err(e) => (false, None, Some(format!("runner error: {e:#}"))),
+    };
+    ExtraResult {
+        run: RunResult {
+            passed,
+            exit_code,
+            duration: start.elapsed(),
+            prove_duration: None,
+            proof_written: false,
+            prove_status: None,
+            verify_status: None,
+        },
+        detail,
+    }
+}
+
+fn openvm_extra_outcome(executor: &Path, elf_path: &Path) -> Result<(Option<i32>, Option<String>)> {
+    let sidecars = load_sidecars(elf_path)?;
+    let tmp = tempfile::tempdir().context("failed to create temp dir")?;
+    let input_path: PathBuf = tmp.path().join("input.bin");
+    let output_path: PathBuf = tmp.path().join("public-values.bin");
+    std::fs::write(&input_path, &sidecars.input)?;
+
+    let output = Command::new(executor)
+        .arg(elf_path)
+        .arg(&input_path)
+        .arg(&output_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+        .with_context(|| format!("failed to run {}", executor.display()))?;
+
+    let exit_code = output.status.code();
+    if !output.status.success() {
+        let reason = emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
+        let exit = exit_code.map_or_else(|| "signal".to_owned(), |c| c.to_string());
+        return Ok((exit_code, Some(format!("executor error (exit {exit}): {reason}"))));
+    }
+
+    let actual = std::fs::read(&output_path).context("executor wrote no public values")?;
+    if matches_zero_padded(&actual, &sidecars.expected) {
+        Ok((exit_code, None))
+    } else {
+        Ok((exit_code, Some(describe_mismatch(&actual, &sidecars.expected))))
+    }
+}
+
 /// Like `describe_mismatch`, but give the output length instead of the
 /// fixed-area note, since an exact comparison can fail on trailing zero bytes
 /// that the hex prefix hides.
