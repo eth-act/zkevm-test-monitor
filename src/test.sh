@@ -281,6 +281,12 @@ run_zisk_split_pipeline() {
   fi
 
   process_results "$ZKVM"
+
+  # act-extra: EIP-8025 I/O, accelerator and memory-operation guests (execute only).
+  # Set EXTRA=0 to skip.
+  if [ "${EXTRA:-1}" != "0" ]; then
+    ./src/extra.sh "$ZKVM" || echo "  Warning: act-extra suite failed for $ZKVM"
+  fi
 }
 
 # run_sp1_split_pipeline — ELF generation in Docker, execution + GPU proving on host
