@@ -13,7 +13,7 @@ int main(void) {
                                          cases[i].mod, cases[i].mod_len, out);
         CHECK_OUTPUT(i, status, out, cases[i].out, cases[i].out_len);
         /* Only mod_len bytes may be written. */
-        CHECK(CASE_ID(i, 4), out[cases[i].mod_len] == OUTPUT_MARKER);
+        CHECK_LABEL(CASE_ID(i, 4), cases[i].label, out[cases[i].mod_len] == OUTPUT_MARKER);
     }
     et_pass();
     return 0;

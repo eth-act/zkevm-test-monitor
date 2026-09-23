@@ -2,7 +2,8 @@
  * Harness for act-extra guest programs.
  *
  * A self-checking test writes the 4-byte verdict "PASS" to the public output,
- * or "FAIL" followed by the little-endian u32 id of the first failing check.
+ * or "FAIL" followed by the little-endian u32 id of the first failing check
+ * and, optionally, a short text label for it.
  * The host compares the public output with the test's expected bytes
  * (default "PASS"), so a guest that never runs to completion also fails.
  *
@@ -30,6 +31,27 @@ static inline void et_fail(uint32_t id) {
                           (uint8_t)(id >> 16), (uint8_t)(id >> 24)};
     write_output(verdict, sizeof verdict);
 }
+
+/* Longest label written after a FAIL verdict. */
+#define ET_LABEL_MAX 96
+
+static inline void et_fail_label(uint32_t id, const char *label) {
+    et_fail(id);
+    size_t n = 0;
+    while (n < ET_LABEL_MAX && label[n] != 0) {
+        n++;
+    }
+    write_output((const uint8_t *)label, n);
+}
+
+/* Like CHECK, and also report a text label for the failing check. */
+#define CHECK_LABEL(id, label, cond)  \
+    do {                              \
+        if (!(cond)) {                \
+            et_fail_label(id, label); \
+            return 0;                 \
+        }                             \
+    } while (0)
 
 /* Record the first failing check and return from main without a verdict of PASS. */
 #define CHECK(id, cond)       \

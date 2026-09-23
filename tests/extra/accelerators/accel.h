@@ -7,7 +7,7 @@
  *   EXPECT_TRUE    status ZKVM_EOK and verified == true
  *   EXPECT_REJECT  a failure status, or ZKVM_EOK with verified == false
  *   EXPECT_EFAIL   a failure status
- * A failing check reports id (case index + 1) * 16 + step.
+ * A failing check reports id (case index + 1) * 16 + step and the case label.
  */
 #ifndef ACCEL_H
 #define ACCEL_H
@@ -51,14 +51,17 @@ static inline bool accel_verdict_ok(int expect, zkvm_status status, bool verifie
 /* Check a function that writes an output: status, then bytes when EXPECT_OK. */
 #define CHECK_OUTPUT(i, status, out, want, len)                             \
     do {                                                                    \
-        CHECK(CASE_ID(i, STEP_STATUS), accel_status_ok(cases[i].expect, status)); \
+        CHECK_LABEL(CASE_ID(i, STEP_STATUS), cases[i].label,                \
+                    accel_status_ok(cases[i].expect, status));              \
         if (cases[i].expect == EXPECT_OK) {                                 \
-            CHECK(CASE_ID(i, STEP_OUTPUT), et_bytes_eq(out, want, len));    \
+            CHECK_LABEL(CASE_ID(i, STEP_OUTPUT), cases[i].label,            \
+                        et_bytes_eq(out, want, len));                       \
         }                                                                   \
     } while (0)
 
 /* Check a function that reports a verified flag. */
-#define CHECK_VERDICT(i, status, verified) \
-    CHECK(CASE_ID(i, STEP_VERDICT), accel_verdict_ok(cases[i].expect, status, verified))
+#define CHECK_VERDICT(i, status, verified)                   \
+    CHECK_LABEL(CASE_ID(i, STEP_VERDICT), cases[i].label, \
+                accel_verdict_ok(cases[i].expect, status, verified))
 
 #endif /* ACCEL_H */
