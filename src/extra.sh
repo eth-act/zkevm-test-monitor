@@ -18,11 +18,20 @@ if [ ! -d "$PLATFORM_DIR" ]; then
 fi
 
 # IMAGE_EMULATOR: the emulator is built in the act-extra image and copied out.
+# IMAGE_EMULATOR_LIBS: an image directory of shared libraries the emulator
+#   needs, copied to "${EMULATOR}-lib".
 # COMMIT_FILE: the zkVM commit to record for the run.
 IMAGE_EMULATOR=""
+IMAGE_EMULATOR_LIBS=""
 COMMIT_FILE="data/commits/${ZKVM}.txt"
 case "$ZKVM" in
-  zisk) EMULATOR="binaries/zisk-binary" ;;
+  zisk)
+    EMULATOR="binaries/zisk-extra-emu"
+    IMAGE_EMULATOR="/usr/local/bin/ziskemu"
+    IMAGE_EMULATOR_LIBS="/usr/local/lib/ziskemu"
+    # The image pins the ZisK version that eth-act/ere uses, so record that commit.
+    COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
+    ;;
   sp1)
     EMULATOR="binaries/sp1-extra-executor"
     IMAGE_EMULATOR="/usr/local/bin/sp1-extra-executor"
@@ -49,6 +58,13 @@ if [ -n "$IMAGE_EMULATOR" ]; then
   docker run --rm --entrypoint cat "$IMAGE" "$IMAGE_EMULATOR" > "$EMULATOR"
   chmod +x "$EMULATOR"
 fi
+EMULATOR_LIB_DIR="binaries/${ZKVM}-lib"
+if [ -n "$IMAGE_EMULATOR_LIBS" ]; then
+  EMULATOR_LIB_DIR="${EMULATOR}-lib"
+  rm -rf "$EMULATOR_LIB_DIR"
+  mkdir -p "$EMULATOR_LIB_DIR"
+  docker run --rm --entrypoint tar "$IMAGE" -C "$IMAGE_EMULATOR_LIBS" -cf - . | tar -xf - -C "$EMULATOR_LIB_DIR"
+fi
 
 # The guests are cheap to build, so always rebuild them from current sources.
 rm -rf "$ELF_DIR"
@@ -73,8 +89,8 @@ if [ -n "${ACT4_JOBS:-${JOBS:-}}" ]; then
   RUNNER_JOBS="-j ${ACT4_JOBS:-${JOBS:-}}"
 fi
 
-if [ -d "binaries/${ZKVM}-lib" ]; then
-  export LD_LIBRARY_PATH="$PWD/binaries/${ZKVM}-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+if [ -d "$EMULATOR_LIB_DIR" ]; then
+  export LD_LIBRARY_PATH="$PWD/$EMULATOR_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
 echo "Running $ZKVM act-extra suite (mode: execute)..."

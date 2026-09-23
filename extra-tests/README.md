@@ -36,8 +36,12 @@ bytes exactly.
 
 | zkVM | Vendor library | Host |
 |---|---|---|
-| ZisK | `ziskos-staticlib` at the monitor's ZisK pin | `ziskemu` (`binaries/zisk-binary`) |
+| ZisK | `ziskos-staticlib` + ZisK's own linker script at tag v1.3.0-alpha, the version eth-act/ere pins | `ziskemu` at the same tag (`binaries/zisk-extra-emu`) |
 | SP1 | zkEVM SDK `libzkevm.a` + `zkvm.ld` (`make sdk` in `zkevm/`) at upstream tag v6.6.0, the version eth-act/ere pins | `sp1-extra-executor` (`platforms/sp1/executor`) |
+
+The ZisK image pins its own ZisK tag, not the monitor's ZisK pin for the ACT4 suites. It
+builds `ziskemu` (execute only) at that tag and copies it and its shared libraries to
+`binaries/`.
 
 The SDK is not in the monitor's SP1 fork (v6.1.0), so the SP1 image pins its own SP1 tag.
 `sp1-extra-executor` is built in the same image and copied to `binaries/`. It runs the guest in
