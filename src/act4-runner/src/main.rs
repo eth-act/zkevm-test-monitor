@@ -66,7 +66,7 @@ struct Cli {
     gpu: bool,
 
     /// Check each ELF's public output against its `<stem>.expected` sidecar,
-    /// feeding it `<stem>.input` (act-extra suite; zisk and sp1, execute only).
+    /// feeding it `<stem>.input` (act-extra suite; zisk, sp1 and openvm, execute only).
     #[arg(long)]
     io_sidecars: bool,
 }
@@ -94,6 +94,10 @@ fn main() {
     let backend = match cli.zkvm.as_str() {
         "lambdavm" => Backend::LambdaVM {
             binary: require_binary(&cli),
+        },
+        // The act-extra suite uses its own executor with ere's VM config.
+        "openvm" if cli.io_sidecars => Backend::OpenVMExtra {
+            executor: require_binary(&cli),
         },
         "openvm" => Backend::OpenVM {
             binary: require_binary(&cli),
@@ -146,8 +150,9 @@ fn main() {
             match &backend {
                 Backend::Zisk { binary } => (extra::run_zisk_extra, binary),
                 Backend::Sp1Extra { executor } => (extra::run_sp1_extra, executor),
+                Backend::OpenVMExtra { executor } => (extra::run_openvm_extra, executor),
                 _ => {
-                    eprintln!("error: --io-sidecars is only supported for zkvm 'zisk' and 'sp1'");
+                    eprintln!("error: --io-sidecars is only supported for zkvm 'zisk', 'sp1' and 'openvm'");
                     process::exit(2);
                 }
             };
