@@ -32,12 +32,16 @@ therefore accepts output that equals the expected bytes followed by zero bytes.
 SP1 public values are a variable-length stream, so on SP1 the output must equal the expected
 bytes exactly.
 
+OpenVM public values are a fixed area of 256 bytes with zero padding (ere's VM config), so the
+runner compares them as for ZisK.
+
 ## Platforms
 
 | zkVM | Vendor library | Host |
 |---|---|---|
 | ZisK | `ziskos-staticlib` + ZisK's own linker script at tag v1.3.0-alpha, the version eth-act/ere pins | `ziskemu` at the same tag (`binaries/zisk-extra-emu`) |
 | SP1 | zkEVM SDK `libzkevm.a` + `zkvm.ld` (`make sdk` in `zkevm/`) at upstream tag v6.6.0, the version eth-act/ere pins | `sp1-extra-executor` (`platforms/sp1/executor`) |
+| OpenVM | none from OpenVM; eth-act/ere's `ere-platform-openvm` at a fixed ere commit, over OpenVM tag v2.1.0-preview | `openvm-extra-executor` (`platforms/openvm/executor`) |
 
 The ZisK image pins its own ZisK tag, not the monitor's ZisK pin for the ACT4 suites. It
 builds `ziskemu` (execute only) at that tag and copies it and its shared libraries to
@@ -48,11 +52,29 @@ The SDK is not in the monitor's SP1 fork (v6.1.0), so the SP1 image pins its own
 SP1's minimal executor at that tag and passes the input as one stdin chunk, because
 `read_input` returns only the first chunk.
 
+OpenVM ships no C library for guests. Its own C-interface PRs
+([#3075](https://github.com/openvm-org/openvm/pull/3075) to #3080) were closed unmerged. The
+OpenVM results therefore test eth-act/ere's C layer on OpenVM's guest libraries, not an OpenVM
+deliverable, and each history run says so in `notes`. `platforms/openvm/vendor` builds
+`ere-platform-openvm` as a static library, the way ere compiles OpenVM guests with a stock
+nightly toolchain. Everything in it comes from ere and OpenVM (`_start`, allocator, panic
+handler, the `zkvm_*` accelerators, and `openvm-mem` for `memcpy` and friends), except for
+`read_input` and `write_output`. These two functions forward to ere's `OpenVMPlatform`:
+
+- `read_input` reads the input once and returns the same buffer on each call.
+- `write_output` appends to a buffer and reveals the whole buffer again, because ere reveals
+  from byte 0 on each call. ere limits the output to 256 bytes.
+
+There is no linker script: OpenVM guests link with the default layout and `-Ttext=0x00200800`.
+`openvm-extra-executor` runs the guest in OpenVM's SDK executor, with the VM config that ere's
+prover uses and the input as one input vector.
+
 ## Running
 
 ```bash
 ./run extra zisk          # only this suite
 ./run extra sp1
+./run extra openvm
 ./run test zisk           # ACT4 suites, then this suite (EXTRA=0 skips it)
 ```
 
@@ -65,7 +87,7 @@ The results go to `test-results/<zkvm>/results-act4-extra.json` and
    - a `Dockerfile` that builds the vendor library and runs `build.sh <zkvm> /elfs`;
    - a `platform.sh` that sets `CC`, `AR`, `CFLAGS`, `LINKER_SCRIPT`, `VENDOR_LIB`, `LDFLAGS`
      and `LIBS`;
-   - a linker script.
+   - a linker script, unless the vendor links without one (then `LINKER_SCRIPT` is empty).
 2. Teach `act4-runner --io-sidecars` to feed input to that zkVM and read its public output
    (`act4-runner/src/extra.rs`).
 3. Add the emulator binary to `src/extra.sh`.
