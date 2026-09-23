@@ -7,10 +7,11 @@ compliance tests, and serves a results dashboard.
 
 ```
 zkvms/<zkvm>/           # Per-ZKVM: build.Dockerfile, act4.Dockerfile + entrypoint.sh,
-                        #   isa-configs/<isa>/ (ACT4 configs)
+                        #   isa-configs/<isa>/ (ACT4 configs), standards/ (act-extra platform)
 src/                    # Scripts: build.sh, test.sh
 src/act4-runner/        # Host-side ACT4 test runner (Rust)
 src/shared/             # Shared utilities (patch_elfs.py)
+tests/extra/            # act-extra: C guests for the EIP-8025 I/O, accelerator and memory interfaces
 site/                   # Dashboard (GitHub Pages)
 results/history/        # Historical pass/fail tracking (tracked)
 out/                    # Local outputs (not tracked): bin/ binaries, <zkvm>/ ELFs and logs, commits/
@@ -24,6 +25,7 @@ config.json             # ZKVM repo URLs and commit pins
 ./run build sp1             # Build sp1 binary via Docker
 ./run test sp1              # Run ACT4 compliance tests for sp1
 ./run test                  # Run ACT4 tests for all ZKVMs
+./run extra zisk            # Run only the act-extra EIP-8025 interface suite (execute only)
 ./run all sp1               # Build + test
 ./run serve                 # Serve dashboard at localhost:8000
 ./run clean                 # Remove out/bin/ and out/
