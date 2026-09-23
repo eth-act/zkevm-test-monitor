@@ -10,6 +10,7 @@ binaries/               # Built ZK-VM executables (e.g., sp1-binary)
 docker/<zkvm>/          # Per-ZKVM ACT4 test Docker setup (Dockerfile + entrypoint.sh)
 docker/build-<zkvm>/    # Per-ZKVM binary build Dockerfiles
 docker/shared/          # Shared utilities (patch_elfs.py)
+extra-tests/            # act-extra: C guests for the EIP-8025 I/O, accelerator and memory interfaces
 act4-configs/           # Per-ZKVM ACT4 ISA/platform configs
 riscv-arch-test/        # Symlink → /home/cody/riscv-arch-test (act4 branch)
 config.json             # ZKVM repo URLs and commit pins
@@ -25,6 +26,7 @@ data/history/           # Historical pass/fail tracking
 ./run build sp1             # Build sp1 binary via Docker
 ./run test sp1              # Run ACT4 compliance tests for sp1
 ./run test                  # Run ACT4 tests for all ZKVMs
+./run extra zisk            # Run only the act-extra EIP-8025 interface suite (execute only)
 ./run all sp1               # Build + test
 ./run serve                 # Serve dashboard at localhost:8000
 ./run clean                 # Remove binaries/ and test-results/
