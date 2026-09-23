@@ -64,11 +64,21 @@ pub fn matches_zero_padded(actual: &[u8], expected: &[u8]) -> bool {
         && actual[expected.len()..].iter().all(|&b| b == 0)
 }
 
-/// Describe an output mismatch, decoding a guest `FAIL` verdict when present.
+/// Describe an output mismatch, decoding a guest `FAIL` verdict and its
+/// optional text label when present.
 pub fn describe_mismatch(actual: &[u8], expected: &[u8]) -> String {
     if actual.len() >= 8 && &actual[..4] == b"FAIL" {
         let id = u32::from_le_bytes(actual[4..8].try_into().unwrap());
-        return format!("guest check {id} failed");
+        let label: String = actual[8..]
+            .iter()
+            .take_while(|&&b| b != 0)
+            .map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '?' })
+            .collect();
+        return if label.is_empty() {
+            format!("guest check {id} failed")
+        } else {
+            format!("guest check {id} failed: {label}")
+        };
     }
     let shown = actual.len() - actual.iter().rev().take_while(|&&b| b == 0).count();
     let mut detail = format!(
@@ -139,7 +149,8 @@ fn zisk_extra_outcome(ziskemu: &Path, elf_path: &Path) -> Result<(Option<i32>, O
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() || stderr.contains("finished with error") {
         let reason = emulator_error_reason(&stderr);
-        return Ok((exit_code, Some(format!("emulator error (exit {exit_code:?}): {reason}"))));
+        let exit = exit_code.map_or_else(|| "signal".to_owned(), |c| c.to_string());
+        return Ok((exit_code, Some(format!("emulator error (exit {exit}): {reason}"))));
     }
 
     let actual = std::fs::read(&output_path).context("emulator wrote no output file")?;
@@ -208,6 +219,8 @@ mod tests {
         area[..4].copy_from_slice(b"FAIL");
         area[4..8].copy_from_slice(&42u32.to_le_bytes());
         assert_eq!(describe_mismatch(&area, b"PASS"), "guest check 42 failed");
+        area[8..11].copy_from_slice(b"abc");
+        assert_eq!(describe_mismatch(&area, b"PASS"), "guest check 42 failed: abc");
 
         let detail = describe_mismatch(&[0xab, 0, 0, 0], &[1u8; 5]);
         assert!(detail.contains("got ab"), "{detail}");
