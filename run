@@ -78,7 +78,7 @@ Usage: ./run COMMAND [OPTIONS]
 Commands:
   build [zkvm ...]          Build ZKVM binaries
   test [zkvm ...]           Run ACT4 compliance tests
-  extra <zkvm>              Run only the act-extra EIP-8025 interface suite (zisk)
+  extra <zkvm>              Run only the act-extra EIP-8025 interface suite (zisk, sp1)
   all [zkvm ...]            Build + test
   serve                     Start local web server at 0.0.0.0:9586
   clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
@@ -90,7 +90,7 @@ Environment Variables:
   ACT4_MODE=execute|prove|full   Test mode (default: full); applies to
                             zkVMs that support proving (zisk)
   GPU=1                    Build/use GPU variants for Zisk proving
-  EXTRA=0                   Skip the act-extra suite in './run test zisk'
+  EXTRA=0                   Skip the act-extra suite in './run test zisk|sp1'
 
 Examples:
   ./run build sp1
