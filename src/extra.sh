@@ -21,9 +21,11 @@ fi
 # IMAGE_EMULATOR_LIBS: an image directory of shared libraries the emulator
 #   needs, copied to "${EMULATOR}-lib".
 # COMMIT_FILE: the zkVM commit to record for the run.
+# NOTES: a note to record with every run (shown on the dashboard).
 IMAGE_EMULATOR=""
 IMAGE_EMULATOR_LIBS=""
 COMMIT_FILE="data/commits/${ZKVM}.txt"
+NOTES=""
 case "$ZKVM" in
   zisk)
     EMULATOR="binaries/zisk-extra-emu"
@@ -37,6 +39,14 @@ case "$ZKVM" in
     IMAGE_EMULATOR="/usr/local/bin/sp1-extra-executor"
     # The image pins its own SP1 tag (the ISA pin has no C SDK), so record that commit.
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
+    ;;
+  openvm)
+    EMULATOR="binaries/openvm-extra-executor"
+    IMAGE_EMULATOR="/usr/local/bin/openvm-extra-executor"
+    # The image pins OpenVM at the tag eth-act/ere uses and records its commit.
+    COMMIT_FILE="$ELF_DIR/openvm-commit.txt"
+    ERE_COMMIT=$(sed -n 's/^ARG ERE_COMMIT=//p' "$PLATFORM_DIR/Dockerfile")
+    NOTES="OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/${ERE_COMMIT}) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output wrapper (extra-tests/platforms/openvm/vendor). ere caps public output at 256 bytes."
     ;;
   *) echo "  act-extra: no runner backend for $ZKVM"; exit 1 ;;
 esac
@@ -121,6 +131,7 @@ RUN_ENTRY=$(jq -n \
   --arg monitor_commit "$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo unknown)" \
   --arg standards_commit "$(cat extra-tests/include/STANDARDS_COMMIT)" \
   --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
+  --arg notes "$NOTES" \
   --slurpfile results "$RESULTS_FILE" \
   '$results[0] as $r | {
      date: $date, commit: $commit, library_commit: $library_commit,
@@ -128,7 +139,7 @@ RUN_ENTRY=$(jq -n \
      total: $r.total, passed: $r.passed, failed: $r.failed,
      prove_failed: [], verify_failed: [], has_proving: false,
      groups: $r.groups, details: $r.details
-   }')
+   } + (if $notes == "" then {} else {notes: $notes} end)')
 
 if [ -f "$HISTORY_FILE" ]; then
   jq --argjson run "$RUN_ENTRY" '.runs += [$run]' "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" \
