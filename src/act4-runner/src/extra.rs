@@ -161,6 +161,75 @@ fn zisk_extra_outcome(ziskemu: &Path, elf_path: &Path) -> Result<(Option<i32>, O
     }
 }
 
+/// Run one act-extra ELF through `sp1-extra-executor` with its sidecars.
+///
+/// The executor pushes the input as one SP1 stdin chunk and writes the raw
+/// public-values stream, which has an exact length, so the output must equal
+/// the expected bytes.
+pub fn run_sp1_extra(executor: &Path, elf_path: &Path) -> ExtraResult {
+    let start = Instant::now();
+    let (passed, exit_code, detail) = match sp1_extra_outcome(executor, elf_path) {
+        Ok((exit_code, None)) => (true, exit_code, None),
+        Ok((exit_code, Some(detail))) => (false, exit_code, Some(detail)),
+        Err(e) => (false, None, Some(format!("runner error: {e:#}"))),
+    };
+    ExtraResult {
+        run: RunResult {
+            passed,
+            exit_code,
+            duration: start.elapsed(),
+            prove_duration: None,
+            proof_written: false,
+            prove_status: None,
+            verify_status: None,
+        },
+        detail,
+    }
+}
+
+fn sp1_extra_outcome(executor: &Path, elf_path: &Path) -> Result<(Option<i32>, Option<String>)> {
+    let sidecars = load_sidecars(elf_path)?;
+    let tmp = tempfile::tempdir().context("failed to create temp dir")?;
+    let input_path: PathBuf = tmp.path().join("input.bin");
+    let output_path: PathBuf = tmp.path().join("public-values.bin");
+    std::fs::write(&input_path, &sidecars.input)?;
+
+    let output = Command::new(executor)
+        .arg(elf_path)
+        .arg(&input_path)
+        .arg(&output_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+        .with_context(|| format!("failed to run {}", executor.display()))?;
+
+    let exit_code = output.status.code();
+    if !output.status.success() {
+        let reason = emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
+        let exit = exit_code.map_or_else(|| "signal".to_owned(), |c| c.to_string());
+        return Ok((exit_code, Some(format!("executor error (exit {exit}): {reason}"))));
+    }
+
+    let actual = std::fs::read(&output_path).context("executor wrote no public values")?;
+    if actual == sidecars.expected {
+        Ok((exit_code, None))
+    } else {
+        Ok((exit_code, Some(describe_exact_mismatch(&actual, &sidecars.expected))))
+    }
+}
+
+/// Like `describe_mismatch`, but give the output length instead of the
+/// fixed-area note, since an exact comparison can fail on trailing zero bytes
+/// that the hex prefix hides.
+fn describe_exact_mismatch(actual: &[u8], expected: &[u8]) -> String {
+    let detail = describe_mismatch(actual, expected);
+    if actual.starts_with(b"FAIL") && actual.len() >= 8 {
+        return detail;
+    }
+    let detail = detail.split(" (output area").next().unwrap_or_default();
+    format!("{detail} ({} bytes)", actual.len())
+}
+
 /// Pick the most informative stderr line: the message of a Rust panic when
 /// the emulator panicked, else the last line that is not a `note:`.
 fn emulator_error_reason(stderr: &str) -> String {
@@ -225,5 +294,17 @@ mod tests {
         let detail = describe_mismatch(&[0xab, 0, 0, 0], &[1u8; 5]);
         assert!(detail.contains("got ab"), "{detail}");
         assert!(detail.contains("holds only 4 bytes"), "{detail}");
+    }
+
+    #[test]
+    fn exact_mismatch_reports_length() {
+        let detail = describe_exact_mismatch(b"PASS\0", b"PASS");
+        assert!(detail.ends_with("(5 bytes)"), "{detail}");
+        let detail = describe_exact_mismatch(&[1u8; 3], &[1u8; 4]);
+        assert!(!detail.contains("output area"), "{detail}");
+        assert!(detail.ends_with("(3 bytes)"), "{detail}");
+        let mut fail = b"FAIL".to_vec();
+        fail.extend_from_slice(&7u32.to_le_bytes());
+        assert_eq!(describe_exact_mismatch(&fail, b"PASS"), "guest check 7 failed");
     }
 }

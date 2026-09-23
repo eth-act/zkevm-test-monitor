@@ -14,6 +14,8 @@ pub enum Backend {
         gpu: bool,
     },
     OpenVMProve { binary: PathBuf, gpu: bool },
+    /// SP1 act-extra executor; used only with `--io-sidecars`.
+    Sp1Extra { executor: PathBuf },
     Zisk { binary: PathBuf },
     ZiskProve {
         ziskemu: PathBuf,
@@ -76,6 +78,7 @@ impl Backend {
                     Backend::Zisk { binary } => run_zisk(binary, elf_path),
                     Backend::LambdaVM { .. }
                     | Backend::Sp1Prove { .. }
+                    | Backend::Sp1Extra { .. }
                     | Backend::OpenVMProve { .. }
                     | Backend::ZiskProve { .. } => unreachable!(),
                 };

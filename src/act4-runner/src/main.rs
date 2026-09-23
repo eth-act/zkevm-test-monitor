@@ -16,7 +16,7 @@ use crate::results::TestEntry;
 #[command(name = "act4-runner")]
 struct Cli {
     /// ZK-VM backend to use (lambdavm, openvm, openvm-prove, sp1-prove,
-    /// zisk, zisk-prove).
+    /// zisk, zisk-prove; sp1 with --io-sidecars).
     #[arg(long)]
     zkvm: String,
 
@@ -66,7 +66,7 @@ struct Cli {
     gpu: bool,
 
     /// Check each ELF's public output against its `<stem>.expected` sidecar,
-    /// feeding it `<stem>.input` (act-extra suite; zisk only, execute only).
+    /// feeding it `<stem>.input` (act-extra suite; zisk and sp1, execute only).
     #[arg(long)]
     io_sidecars: bool,
 }
@@ -106,6 +106,10 @@ fn main() {
             }),
             gpu: cli.gpu,
         },
+        // SP1 has no ACT4 execute backend here; it runs only the act-extra suite.
+        "sp1" if cli.io_sidecars => Backend::Sp1Extra {
+            executor: require_binary(&cli),
+        },
         "openvm-prove" => Backend::OpenVMProve {
             binary: require_binary(&cli),
             gpu: cli.gpu,
@@ -138,10 +142,15 @@ fn main() {
     });
 
     let run_results: Vec<(PathBuf, backends::RunResult, Option<String>)> = if cli.io_sidecars {
-        let Backend::Zisk { binary } = &backend else {
-            eprintln!("error: --io-sidecars is only supported for zkvm 'zisk'");
-            process::exit(2);
-        };
+        let (run_extra, binary): (fn(&std::path::Path, &std::path::Path) -> extra::ExtraResult, _) =
+            match &backend {
+                Backend::Zisk { binary } => (extra::run_zisk_extra, binary),
+                Backend::Sp1Extra { executor } => (extra::run_sp1_extra, executor),
+                _ => {
+                    eprintln!("error: --io-sidecars is only supported for zkvm 'zisk' and 'sp1'");
+                    process::exit(2);
+                }
+            };
         if mode != Mode::Execute {
             eprintln!("error: --io-sidecars supports only --mode execute");
             process::exit(2);
@@ -149,7 +158,7 @@ fn main() {
         runner::run_tests_with(
             &cli.elf_dir,
             jobs,
-            |elf_path| extra::run_zisk_extra(binary, elf_path),
+            |elf_path| run_extra(binary, elf_path),
             |result| &result.run,
         )
         .into_iter()
