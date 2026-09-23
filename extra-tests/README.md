@@ -29,10 +29,26 @@ and compares its public output with `<name>.expected` (default: the 4 bytes `PAS
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
 
+SP1 public values are a variable-length stream, so on SP1 the output must equal the expected
+bytes exactly.
+
+## Platforms
+
+| zkVM | Vendor library | Host |
+|---|---|---|
+| ZisK | `ziskos-staticlib` at the monitor's ZisK pin | `ziskemu` (`binaries/zisk-binary`) |
+| SP1 | zkEVM SDK `libzkevm.a` + `zkvm.ld` (`make sdk` in `zkevm/`) at upstream tag v6.6.0, the version eth-act/ere pins | `sp1-extra-executor` (`platforms/sp1/executor`) |
+
+The SDK is not in the monitor's SP1 fork (v6.1.0), so the SP1 image pins its own SP1 tag.
+`sp1-extra-executor` is built in the same image and copied to `binaries/`. It runs the guest in
+SP1's minimal executor at that tag and passes the input as one stdin chunk, because
+`read_input` returns only the first chunk.
+
 ## Running
 
 ```bash
 ./run extra zisk          # only this suite
+./run extra sp1
 ./run test zisk           # ACT4 suites, then this suite (EXTRA=0 skips it)
 ```
 
