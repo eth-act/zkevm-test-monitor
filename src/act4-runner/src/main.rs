@@ -1,4 +1,5 @@
 mod backends;
+mod extra;
 mod results;
 mod runner;
 
@@ -63,6 +64,11 @@ struct Cli {
     /// Enable GPU acceleration (openvm-prove, sp1-prove, zisk-prove).
     #[arg(long)]
     gpu: bool,
+
+    /// Check each ELF's public output against its `<stem>.expected` sidecar,
+    /// feeding it `<stem>.input` (act-extra suite; zisk only, execute only).
+    #[arg(long)]
+    io_sidecars: bool,
 }
 
 fn main() {
@@ -131,11 +137,34 @@ fn main() {
         }
     });
 
-    let run_results = runner::run_tests(&backend, &cli.elf_dir, jobs, mode);
+    let run_results: Vec<(PathBuf, backends::RunResult, Option<String>)> = if cli.io_sidecars {
+        let Backend::Zisk { binary } = &backend else {
+            eprintln!("error: --io-sidecars is only supported for zkvm 'zisk'");
+            process::exit(2);
+        };
+        if mode != Mode::Execute {
+            eprintln!("error: --io-sidecars supports only --mode execute");
+            process::exit(2);
+        }
+        runner::run_tests_with(
+            &cli.elf_dir,
+            jobs,
+            |elf_path| extra::run_zisk_extra(binary, elf_path),
+            |result| &result.run,
+        )
+        .into_iter()
+        .map(|(path, result)| (path, result.run, result.detail))
+        .collect()
+    } else {
+        runner::run_tests(&backend, &cli.elf_dir, jobs, mode)
+            .into_iter()
+            .map(|(path, result)| (path, result, None))
+            .collect()
+    };
 
     let entries: Vec<TestEntry> = run_results
         .iter()
-        .map(|(path, result)| {
+        .map(|(path, result, detail)| {
             let extension = path
                 .parent()
                 .and_then(|p| p.file_name())
@@ -155,6 +184,7 @@ fn main() {
                 proof_written: if result.proof_written { Some(true) } else { None },
                 prove_status: result.prove_status.clone(),
                 verify_status: result.verify_status.clone(),
+                detail: detail.clone(),
             }
         })
         .collect();
@@ -165,7 +195,14 @@ fn main() {
     }
 
     if let Err(e) =
-        results::write_results(&cli.output_dir, &cli.label, &cli.zkvm, &cli.suite, &entries)
+        results::write_results(
+            &cli.output_dir,
+            &cli.label,
+            &cli.zkvm,
+            &cli.suite,
+            &entries,
+            cli.io_sidecars,
+        )
     {
         eprintln!("error: failed to write results: {e}");
         process::exit(2);
