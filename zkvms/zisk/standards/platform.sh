@@ -2,7 +2,8 @@
 #
 # The vendor library is ziskos-staticlib built for the standard target
 # riscv64im-unknown-none-elf (see Dockerfile). It provides _start, the I/O
-# interface, the accelerators and the memory operations.
+# interface, the accelerators and the memory operations. link.ld is ZisK's own
+# linker script at the same version.
 
 CC="${CC:-riscv64-unknown-elf-gcc}"
 AR="${AR:-riscv64-unknown-elf-ar}"
