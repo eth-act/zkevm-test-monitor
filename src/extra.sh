@@ -17,22 +17,38 @@ if [ ! -d "$PLATFORM_DIR" ]; then
   exit 0
 fi
 
+# IMAGE_EMULATOR: the emulator is built in the act-extra image and copied out.
+# COMMIT_FILE: the zkVM commit to record for the run.
+IMAGE_EMULATOR=""
+COMMIT_FILE="data/commits/${ZKVM}.txt"
 case "$ZKVM" in
   zisk) EMULATOR="binaries/zisk-binary" ;;
+  sp1)
+    EMULATOR="binaries/sp1-extra-executor"
+    IMAGE_EMULATOR="/usr/local/bin/sp1-extra-executor"
+    # The image pins its own SP1 tag (the ISA pin has no C SDK), so record that commit.
+    COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
+    ;;
   *) echo "  act-extra: no runner backend for $ZKVM"; exit 1 ;;
 esac
-if [ ! -f "$EMULATOR" ]; then
+if [ -z "$IMAGE_EMULATOR" ] && [ ! -f "$EMULATOR" ]; then
   echo "  Error: $EMULATOR not found. Run './run build $ZKVM' first."
   exit 1
 fi
 
 COMMIT=$(jq -r ".zkvms.${ZKVM}.commit" config.json)
-echo "Building act-extra image for $ZKVM (vendor library at ${COMMIT:0:8})..."
+echo "Building act-extra image for $ZKVM..."
 docker build --build-arg COMMIT_HASH="$COMMIT" -t "$IMAGE" \
   -f "$PLATFORM_DIR/Dockerfile" "$PLATFORM_DIR" > "$RESULTS_DIR/extra-image.log" 2>&1 || {
   echo "  Failed to build $IMAGE — check $RESULTS_DIR/extra-image.log"
   exit 1
 }
+
+if [ -n "$IMAGE_EMULATOR" ]; then
+  mkdir -p binaries
+  docker run --rm --entrypoint cat "$IMAGE" "$IMAGE_EMULATOR" > "$EMULATOR"
+  chmod +x "$EMULATOR"
+fi
 
 # The guests are cheap to build, so always rebuild them from current sources.
 rm -rf "$ELF_DIR"
@@ -81,7 +97,7 @@ fi
 
 mkdir -p data/history
 HISTORY_FILE="data/history/${ZKVM}-act-extra.json"
-ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt" 2>/dev/null || echo "unknown")
+ZKVM_COMMIT=$(head -c 8 "$COMMIT_FILE" 2>/dev/null || echo "unknown")
 RUN_ENTRY=$(jq -n \
   --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   --arg commit "$ZKVM_COMMIT" \
