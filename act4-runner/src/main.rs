@@ -1,5 +1,4 @@
 mod backends;
-mod elf_utils;
 mod results;
 mod runner;
 
@@ -15,8 +14,8 @@ use crate::results::TestEntry;
 #[derive(Parser)]
 #[command(name = "act4-runner")]
 struct Cli {
-    /// ZK-VM backend to use (airbender, airbender-prove, jolt, lambdavm,
-    /// openvm, openvm-prove, sp1-prove, zisk, zisk-prove).
+    /// ZK-VM backend to use (lambdavm, openvm, openvm-prove, sp1-prove,
+    /// zisk, zisk-prove).
     #[arg(long)]
     zkvm: String,
 
@@ -45,17 +44,13 @@ struct Cli {
     jobs: Option<usize>,
 
     /// Execution mode: execute (emulation only), prove (emulate + prove),
-    /// full (emulate + prove + verify). Used by jolt-prove and zisk-prove.
+    /// full (emulate + prove + verify). Used by the prove backends.
     #[arg(long, default_value = "execute")]
     mode: String,
 
     /// Path to cargo-zisk binary (for zisk-prove backend).
     #[arg(long)]
     cargo_zisk: Option<PathBuf>,
-
-    /// Path to jolt-prover binary (for jolt-prove backend).
-    #[arg(long)]
-    jolt_prover: Option<PathBuf>,
 
     /// Path to sp1-perf binary (prove+verify; for sp1-prove backend).
     #[arg(long)]
@@ -65,13 +60,9 @@ struct Cli {
     #[arg(long)]
     witness_lib: Option<PathBuf>,
 
-    /// Enable GPU acceleration (airbender-prove, openvm-prove, zisk-prove).
+    /// Enable GPU acceleration (openvm-prove, sp1-prove, zisk-prove).
     #[arg(long)]
     gpu: bool,
-
-    /// Directory for proof output artifacts (airbender-prove only).
-    #[arg(long)]
-    proof_output_dir: Option<PathBuf>,
 }
 
 fn main() {
@@ -95,23 +86,6 @@ fn main() {
     };
 
     let backend = match cli.zkvm.as_str() {
-        "airbender" => Backend::Airbender {
-            binary: require_binary(&cli),
-        },
-        "airbender-prove" => Backend::AirbenderProve {
-            binary: require_binary(&cli),
-            gpu: cli.gpu,
-            proof_dir: cli
-                .proof_output_dir
-                .clone()
-                .unwrap_or_else(|| cli.output_dir.join("proofs")),
-        },
-        "jolt" => Backend::Jolt {
-            jolt_prover: cli.jolt_prover.clone().unwrap_or_else(|| {
-                eprintln!("error: --jolt-prover is required for zkvm 'jolt'");
-                process::exit(2);
-            }),
-        },
         "lambdavm" => Backend::LambdaVM {
             binary: require_binary(&cli),
         },
@@ -143,7 +117,7 @@ fn main() {
             gpu: cli.gpu,
         },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: airbender, airbender-prove, jolt, lambdavm, openvm, openvm-prove, sp1-prove, zisk, zisk-prove");
+            eprintln!("error: unknown zkvm '{other}', expected one of: lambdavm, openvm, openvm-prove, sp1-prove, zisk, zisk-prove");
             process::exit(2);
         }
     };

@@ -2,7 +2,7 @@ name: Nightly Zisk ZKVM Update
 
 on:
   # schedule:
-  #   # Run daily at 3:30 AM UTC (30 minutes after Jolt to avoid conflicts)
+  #   # Run daily at 3:30 AM UTC
   #   - cron: '30 3 * * *'
   workflow_dispatch:  # Allow manual trigger for testing
 

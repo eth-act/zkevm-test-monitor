@@ -82,12 +82,12 @@ Environment Variables:
   ACT4_JOBS=N               Override parallel test jobs inside container
   FORCE=1                   Force regeneration of ELFs / rebuild of binaries
   ACT4_MODE=execute|prove|full   Test mode (default: full); applies to
-                            zkVMs that support proving (zisk, jolt)
+                            zkVMs that support proving (zisk)
   GPU=1                    Build/use GPU variants for Zisk proving
 
 Examples:
   ./run build sp1
-  ./run test sp1 jolt
+  ./run test sp1 zisk
   ./run test                          # test all ZKVMs
   ./run all
   JOBS=8 ./run test zisk

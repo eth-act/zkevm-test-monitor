@@ -11,17 +11,15 @@ Tests are self-checking ELFs: the Sail reference model runs at compile time to e
 | ZK-VM | ISA | Repo |
 |-------|-----|------|
 | SP1 | RV64IM | [succinctlabs/sp1](https://github.com/succinctlabs/sp1) |
-| Jolt | RV64IMAC | [a16z/jolt](https://github.com/a16z/jolt) |
 | OpenVM | RV32IM | [openvm-org/openvm](https://github.com/openvm-org/openvm) |
 | Zisk | RV64IMFDAC | [0xPolygonHermez/zisk](https://github.com/0xPolygonHermez/zisk) |
-| Airbender | RV32IM | [matter-labs/zksync-airbender](https://github.com/matter-labs/zksync-airbender) |
 
 ## Usage
 
 ```bash
 ./run build sp1          # Build binary via Docker
 ./run test sp1           # Run ACT4 tests
-./run test sp1 jolt      # Test multiple
+./run test sp1 zisk      # Test multiple
 ./run test               # Test all
 ./run all sp1            # Build + test
 ./run serve              # Dashboard at localhost:8000
