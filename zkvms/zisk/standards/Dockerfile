@@ -1,9 +1,9 @@
-# Builds act-extra guest ELFs and a host executor for ZisK.
+# Builds eth-act standards guest ELFs and a host executor for ZisK.
 #
 # The image compiles the vendor C library (ziskos-staticlib) for the standard
 # target riscv64im-unknown-none-elf, and ziskemu (execute only: no float
 # feature, no GPU, no proving keys) at the same commit. The container then
-# compiles every guest in /extra-tests against the library and writes the ELFs
+# compiles every guest in /eth-act-standards-tests against the library and writes the ELFs
 # to /elfs.
 #
 # The image pins v1.3.0-alpha, the ZisK version that eth-act/ere pins
@@ -72,4 +72,4 @@ RUN CC=clang CXX=clang++ cargo build --release -p ziskemu --bin ziskemu && \
     rm -rf target
 
 WORKDIR /
-ENTRYPOINT ["/bin/bash", "-c", "/extra-tests/build.sh zisk /elfs && cp /zisk-commit.txt /elfs/vendor-commit.txt"]
+ENTRYPOINT ["/bin/bash", "-c", "/eth-act-standards-tests/build-guests.sh zisk /elfs && cp /zisk-commit.txt /elfs/vendor-commit.txt"]

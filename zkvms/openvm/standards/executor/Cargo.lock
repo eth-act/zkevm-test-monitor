@@ -1969,7 +1969,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "openvm-extra-executor"
+name = "openvm-eth-act-standards-executor"
 version = "0.1.0"
 dependencies = [
  "openvm-sdk",

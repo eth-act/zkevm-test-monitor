@@ -2,7 +2,7 @@
 name = "ere-openvm-c"
 version = "0.1.0"
 edition = "2021"
-description = "Static library for act-extra C guests on OpenVM, built from eth-act/ere's ere-platform-openvm."
+description = "Static library for eth-act standards C test guests on OpenVM, built from eth-act/ere's ere-platform-openvm."
 publish = false
 
 [lib]

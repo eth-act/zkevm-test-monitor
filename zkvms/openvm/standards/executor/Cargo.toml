@@ -1,8 +1,8 @@
 [package]
-name = "openvm-extra-executor"
+name = "openvm-eth-act-standards-executor"
 version = "0.1.0"
 edition = "2021"
-description = "Runs one OpenVM guest ELF with one input vector and writes its public values (act-extra)."
+description = "Runs one OpenVM guest ELF with one input vector and writes its public values (eth-act standards tests)."
 publish = false
 
 # OpenVM at tag v2.1.0-preview, the version eth-act/ere pins. The lockfile

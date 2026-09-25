@@ -2,18 +2,19 @@
 
 Compliance testing for zkVMs with two test suites:
 
-- **ACT4:** RISC-V ISA compliance, with the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
-- **act-extra:** the EIP-8025 guest interfaces (I/O, cryptographic accelerators, memory operations), with small C programs in [`tests/extra/`](tests/extra/README.md).
+- **ISA tests:** RISC-V ISA compliance, with the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
+- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
 
 **Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 
 ## Test pipelines
 
-Both pipelines build test ELFs in Docker and run them on the host with `act4-runner`. They differ
+Both pipelines build test ELFs in Docker and run them on the host with a Rust runner (`act4-runner`
+for the ISA tests, `eth-act-standards-runner` for the standards tests). They differ
 in where the tests come from, what they link against, and how a test passes. (ACT4 zkVMs without
-a split pipeline in `src/test.sh` still run their tests inside Docker.)
+a split pipeline in `src/run-isa-tests.sh` still run their tests inside Docker.)
 
-### ACT4 (ISA compliance)
+### ISA tests (ACT4)
 
 ```mermaid
 flowchart LR
@@ -38,22 +39,22 @@ flowchart LR
 - The Sail reference model runs at compile time and embeds the expected values, so each ELF
   checks itself. It exits 0 on pass and non-zero on fail.
 - In `ACT4_MODE=prove` or `full`, a target test must also prove, and in `full` also verify.
-- `./run test <zkvm>` runs this pipeline. `FORCE=1` regenerates the ELFs.
+- `./run isa-tests <zkvm>` runs this pipeline. `FORCE=1` regenerates the ELFs.
 
-### act-extra (EIP-8025 guest interfaces)
+### eth-act standards tests (guest interfaces)
 
 ```mermaid
 flowchart LR
     subgraph docker["Docker: zkvms/&lt;zkvm&gt;/standards/"]
-        vendor["zkVM C library<br/>at the version eth-act/ere pins"] --> link["compile + link<br/>(tests/extra/build.sh)"]
-        src["tests/extra/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h"] --> link
-        link --> elfs["guest ELFs<br/>+ .input / .expected sidecars"]
+        vendor["zkVM C library<br/>at the version eth-act/ere pins"] --> link["compile + link<br/>(build-guests.sh)"]
+        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h"] --> link
+        link --> elfs["guest ELFs<br/>+ .input / .expected I/O test vectors"]
         exe["zkVM executor<br/>(same version)"]
     end
-    elfs --> runner["Host: act4-runner --io-sidecars"]
+    elfs --> runner["Host: eth-act-standards-runner"]
     exe --> runner
     runner --> verdict{"public output ==<br/>.expected?"}
-    verdict --> hist["results/history/&lt;zkvm&gt;-act-extra.json"]
+    verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]
     hist --> dash["dashboard: I/O, Accelerators, Memory columns"]
 ```
 
@@ -63,10 +64,11 @@ flowchart LR
   `.expected` file (default: `PASS`). A self-checking program writes `FAIL` and a check id on
   failure.
 - The zkVM exit code is not used, because not every zkVM reports the guest's exit code.
-- The suite runs execution only, for ZisK, SP1 and OpenVM. Each act-extra image pins its own zkVM
-  version, independent of `config.json`. See [`tests/extra/README.md`](tests/extra/README.md).
-- `./run extra <zkvm>` runs only this pipeline. `./run test <zkvm>` runs it after ACT4 for these
-  three zkVMs (`EXTRA=0` skips it).
+- The suite runs execution only, for ZisK, SP1 and OpenVM. Each standards test image pins its own
+  zkVM version, independent of `config.json`. See
+  [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md).
+- `./run eth-act-standards-tests <zkvm>` runs this pipeline. `./run tests <zkvm>` runs both
+  pipelines.
 
 ## Supported ZK-VMs
 
@@ -80,11 +82,11 @@ flowchart LR
 
 ```bash
 ./run build sp1          # Build binary via Docker
-./run test sp1           # Run ACT4 tests
-./run test sp1 zisk      # Test multiple
-./run test               # Test all
-./run extra sp1          # Run only the act-extra suite (zisk, sp1, openvm)
-./run all sp1            # Build + test
+./run isa-tests sp1                  # Run the ISA tests
+./run eth-act-standards-tests sp1    # Run the eth-act standards tests (zisk, sp1, openvm)
+./run tests sp1 openvm               # Run both suites for two zkVMs
+./run tests                          # Run both suites for all zkVMs
+./run all sp1                        # Build + both suites
 ./run serve              # Dashboard at localhost:8000
 ./run clean              # Remove artifacts
 ```
@@ -92,13 +94,12 @@ flowchart LR
 ### Environment variables
 
 ```bash
-JOBS=8 ./run test zisk              # Limit CPU cores
-ACT4_JOBS=N ./run test zisk         # Override parallel jobs inside container
-FORCE=1 ./run test zisk             # Regenerate ELFs from scratch
-ACT4_MODE=execute ./run test zisk   # Execution only (no proving); also: prove, full (default)
-EXTRA=0 ./run test zisk             # Skip the act-extra suite
+JOBS=8 ./run tests zisk                 # Limit CPU cores
+ACT4_JOBS=N ./run isa-tests zisk        # Override parallel jobs inside container
+FORCE=1 ./run isa-tests zisk            # Regenerate ISA test ELFs from scratch
+ACT4_MODE=execute ./run isa-tests zisk  # Execution only (no proving); also: prove, full (default)
 GPU=1 ./run build zisk              # Build with GPU support
-GPU=1 ./run test zisk               # Prove with GPU
+GPU=1 ./run isa-tests zisk              # Prove with GPU
 ```
 
 ## Adding a ZK-VM
@@ -107,8 +108,8 @@ GPU=1 ./run test zisk               # Prove with GPU
 2. Create `zkvms/<name>/build.Dockerfile`
 3. Create `zkvms/<name>/act4.Dockerfile` + `entrypoint.sh`
 4. Create `zkvms/<name>/isa-configs/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
-5. Optional: `zkvms/<name>/standards/` for the act-extra tests (see
-   [`tests/extra/README.md`](tests/extra/README.md))
+5. Optional: `zkvms/<name>/standards/` for the eth-act standards tests (see
+   [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md))
 
 ## Project layout
 
@@ -116,14 +117,14 @@ GPU=1 ./run test zisk               # Prove with GPU
 run                       Entry point
 config.json               ZK-VM repo URLs and commit pins (zkVMs, ACT4)
 src/                      Build and test scripts
-src/act4-runner/          Host-side test runner (Rust) for both suites
+src/act4-runner/          Host-side test runners (Rust): act4-runner, eth-act-standards-runner
 src/shared/               Shared utilities (patch_elfs.py)
 zkvms/<zkvm>/             Everything specific to one ZK-VM:
   build.Dockerfile          binary build
   act4.Dockerfile           ACT4 image (+ entrypoint.sh)
   isa-configs/<isa>/        ACT4 ISA/platform configs
-  standards/                act-extra platform
-tests/extra/              act-extra: C guests, headers
+  standards/                eth-act standards platform
+tests/eth-act-standards/  eth-act standards tests: C guests, headers
 site/                     Dashboard (GitHub Pages)
 results/history/          Historical pass/fail tracking (read by the dashboard)
 out/                      Local outputs, not tracked: bin/, <zkvm>/ ELFs and logs,

@@ -1,6 +1,6 @@
-//! Run one OpenVM guest ELF for the act-extra suite (execute only, no proving).
+//! Run one OpenVM guest ELF for the eth-act standards tests (execute only, no proving).
 //!
-//! Usage: openvm-extra-executor <elf> <input> <public-values-out>
+//! Usage: openvm-eth-act-standards-executor <elf> <input> <public-values-out>
 //!
 //! The VM config is the one eth-act/ere's OpenVM prover uses (`sdk_vm_config` in
 //! ere-prover-openvm): OpenVM's standard config with 256 bytes of public values.
@@ -27,7 +27,7 @@ const NUM_PUBLIC_VALUES_BYTES: usize = 256;
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     let [_, elf_path, input_path, output_path] = args.as_slice() else {
-        eprintln!("usage: openvm-extra-executor <elf> <input> <public-values-out>");
+        eprintln!("usage: openvm-eth-act-standards-executor <elf> <input> <public-values-out>");
         return ExitCode::from(2);
     };
     let (elf, input) = match (std::fs::read(elf_path), std::fs::read(input_path)) {

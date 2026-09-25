@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::backends::RunResult;
+
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde::Serialize;
@@ -55,17 +57,37 @@ pub struct TestEntry {
     pub detail: Option<String>,
 }
 
+impl TestEntry {
+    /// Build an entry for the ELF at `path`. The test name is the file stem and
+    /// the group ("extension") is the parent directory name.
+    pub fn from_run(path: &Path, result: &RunResult, detail: Option<String>) -> Self {
+        let file_name = |p: Option<&std::ffi::OsStr>| {
+            p.and_then(|n| n.to_str()).unwrap_or("unknown").to_owned()
+        };
+        TestEntry {
+            name: file_name(path.file_stem()),
+            extension: file_name(path.parent().and_then(|p| p.file_name())),
+            passed: result.passed,
+            prove_duration_secs: result.prove_duration.map(|d| d.as_secs_f64()),
+            proof_written: if result.proof_written { Some(true) } else { None },
+            prove_status: result.prove_status.clone(),
+            verify_status: result.verify_status.clone(),
+            detail,
+        }
+    }
+}
+
 /// Write summary and results JSON files to `dir`.
 ///
 /// Produces two files:
-/// - `summary-act4-{label}.json` — aggregate pass/fail counts
-/// - `results-act4-{label}.json` — tests grouped by outcome (passed/failed/prove_failed/verify_failed)
+/// - `summary-{file_stem}.json` — aggregate pass/fail counts
+/// - `results-{file_stem}.json` — tests grouped by outcome (passed/failed/prove_failed/verify_failed)
 ///
 /// With `grouped`, the results file also maps each test to its group and each
 /// failed test to its failure detail.
 pub fn write_results(
     dir: &Path,
-    label: &str,
+    file_stem: &str,
     zkvm: &str,
     suite: &str,
     entries: &[TestEntry],
@@ -132,7 +154,7 @@ pub fn write_results(
         verified: if has_verify { Some(verified) } else { None },
         verify_failed: if has_verify { Some(verify_failed_count) } else { None },
     };
-    let summary_path = dir.join(format!("summary-act4-{label}.json"));
+    let summary_path = dir.join(format!("summary-{file_stem}.json"));
     let summary_json =
         serde_json::to_string_pretty(&summary).context("failed to serialize summary")?;
     std::fs::write(&summary_path, format!("{summary_json}\n"))
@@ -160,7 +182,7 @@ pub fn write_results(
                 .collect()
         }),
     };
-    let results_path = dir.join(format!("results-act4-{label}.json"));
+    let results_path = dir.join(format!("results-{file_stem}.json"));
     let results_json =
         serde_json::to_string_pretty(&results).context("failed to serialize results")?;
     std::fs::write(&results_path, format!("{results_json}\n"))

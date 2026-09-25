@@ -1,6 +1,6 @@
-//! Run one SP1 guest ELF for the act-extra suite (execute only, no proving).
+//! Run one SP1 guest ELF for the eth-act standards tests (execute only, no proving).
 //!
-//! Usage: sp1-extra-executor <elf> <input> <public-values-out>
+//! Usage: sp1-eth-act-standards-executor <elf> <input> <public-values-out>
 //!
 //! The input file is pushed as ONE stdin chunk, as `SP1Stdin::write_slice`
 //! does, because libzkevm's `read_input` returns only the first chunk. The
@@ -18,7 +18,7 @@ use sp1_core_executor_runner::MinimalExecutorRunner;
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     let [_, elf_path, input_path, output_path] = args.as_slice() else {
-        eprintln!("usage: sp1-extra-executor <elf> <input> <public-values-out>");
+        eprintln!("usage: sp1-eth-act-standards-executor <elf> <input> <public-values-out>");
         return ExitCode::from(2);
     };
     match run(elf_path, input_path, output_path) {

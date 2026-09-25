@@ -1,4 +1,4 @@
-# Builds act-extra guest ELFs and a host executor for OpenVM.
+# Builds eth-act standards guest ELFs and a host executor for OpenVM.
 #
 # OpenVM ships no C library for guests (its own C-interface PRs #3075-#3080 were
 # closed unmerged). This image therefore uses eth-act/ere's ere-platform-openvm,
@@ -10,8 +10,8 @@
 # rustflags, plus one target feature of OpenVM's own target (see below). OpenVM is the version ere pins (tag v2.1.0-preview); the
 # COMMIT_HASH build argument is ignored.
 #
-# The image also builds openvm-extra-executor (./executor), which runs a guest
-# in OpenVM's SDK executor at the same tag; extra.sh copies it to out/bin/.
+# The image also builds openvm-eth-act-standards-executor (./executor), which runs a guest
+# in OpenVM's SDK executor at the same tag; src/run-eth-act-standards-tests.sh copies it to out/bin/.
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -51,7 +51,7 @@ RUN git init /ere && cd /ere && \
 
 COPY executor /executor
 RUN cargo build --release --locked --manifest-path /executor/Cargo.toml && \
-    cp /executor/target/release/openvm-extra-executor /usr/local/bin/ && \
+    cp /executor/target/release/openvm-eth-act-standards-executor /usr/local/bin/ && \
     rm -rf /executor/target
 
 # Start from ere's lockfile so the guest crates resolve to the versions ere tests.
@@ -71,4 +71,4 @@ RUN cp /ere/Cargo.lock Cargo.lock && \
     rm -rf target
 
 WORKDIR /
-ENTRYPOINT ["/bin/bash", "-c", "/extra-tests/build.sh openvm /elfs && cp /ere-commit.txt /elfs/vendor-commit.txt && cp /openvm-commit.txt /elfs/openvm-commit.txt"]
+ENTRYPOINT ["/bin/bash", "-c", "/eth-act-standards-tests/build-guests.sh openvm /elfs && cp /ere-commit.txt /elfs/vendor-commit.txt && cp /openvm-commit.txt /elfs/openvm-commit.txt"]

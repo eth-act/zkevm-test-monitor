@@ -1,4 +1,4 @@
-# SP1 platform for act-extra guests. Sourced by tests/extra/build.sh.
+# SP1 platform for eth-act standards test guests. Sourced by tests/eth-act-standards/build-guests.sh.
 #
 # The vendor library is libzkevm.a from SP1's zkEVM SDK (`make sdk` in
 # zkevm/, see Dockerfile). It provides _start, the I/O interface and the

@@ -1,22 +1,17 @@
-mod backends;
-mod extra;
-mod results;
-mod runner;
-
 use std::path::PathBuf;
 use std::process;
 
+use act4_runner::backends::{Backend, Mode};
+use act4_runner::results::{self, TestEntry};
+use act4_runner::runner;
 use clap::Parser;
-
-use crate::backends::{Backend, Mode};
-use crate::results::TestEntry;
 
 /// ACT4 compliance test runner for RISC-V ZK-VMs.
 #[derive(Parser)]
 #[command(name = "act4-runner")]
 struct Cli {
     /// ZK-VM backend to use (lambdavm, openvm, openvm-prove, sp1-prove,
-    /// zisk, zisk-prove; sp1 with --io-sidecars).
+    /// zisk, zisk-prove).
     #[arg(long)]
     zkvm: String,
 
@@ -65,10 +60,6 @@ struct Cli {
     #[arg(long)]
     gpu: bool,
 
-    /// Check each ELF's public output against its `<stem>.expected` sidecar,
-    /// feeding it `<stem>.input` (act-extra suite; zisk, sp1 and openvm, execute only).
-    #[arg(long)]
-    io_sidecars: bool,
 }
 
 fn main() {
@@ -95,10 +86,6 @@ fn main() {
         "lambdavm" => Backend::LambdaVM {
             binary: require_binary(&cli),
         },
-        // The act-extra suite uses its own executor with ere's VM config.
-        "openvm" if cli.io_sidecars => Backend::OpenVMExtra {
-            executor: require_binary(&cli),
-        },
         "openvm" => Backend::OpenVM {
             binary: require_binary(&cli),
         },
@@ -109,10 +96,6 @@ fn main() {
                 process::exit(2);
             }),
             gpu: cli.gpu,
-        },
-        // SP1 has no ACT4 execute backend here; it runs only the act-extra suite.
-        "sp1" if cli.io_sidecars => Backend::Sp1Extra {
-            executor: require_binary(&cli),
         },
         "openvm-prove" => Backend::OpenVMProve {
             binary: require_binary(&cli),
@@ -145,62 +128,9 @@ fn main() {
         }
     });
 
-    let run_results: Vec<(PathBuf, backends::RunResult, Option<String>)> = if cli.io_sidecars {
-        let (run_extra, binary): (fn(&std::path::Path, &std::path::Path) -> extra::ExtraResult, _) =
-            match &backend {
-                Backend::Zisk { binary } => (extra::run_zisk_extra, binary),
-                Backend::Sp1Extra { executor } => (extra::run_sp1_extra, executor),
-                Backend::OpenVMExtra { executor } => (extra::run_openvm_extra, executor),
-                _ => {
-                    eprintln!("error: --io-sidecars is only supported for zkvm 'zisk', 'sp1' and 'openvm'");
-                    process::exit(2);
-                }
-            };
-        if mode != Mode::Execute {
-            eprintln!("error: --io-sidecars supports only --mode execute");
-            process::exit(2);
-        }
-        runner::run_tests_with(
-            &cli.elf_dir,
-            jobs,
-            |elf_path| run_extra(binary, elf_path),
-            |result| &result.run,
-        )
-        .into_iter()
-        .map(|(path, result)| (path, result.run, result.detail))
-        .collect()
-    } else {
-        runner::run_tests(&backend, &cli.elf_dir, jobs, mode)
-            .into_iter()
-            .map(|(path, result)| (path, result, None))
-            .collect()
-    };
-
-    let entries: Vec<TestEntry> = run_results
+    let entries: Vec<TestEntry> = runner::run_tests(&backend, &cli.elf_dir, jobs, mode)
         .iter()
-        .map(|(path, result, detail)| {
-            let extension = path
-                .parent()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_owned();
-            let name = path
-                .file_stem()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_owned();
-            TestEntry {
-                name,
-                extension,
-                passed: result.passed,
-                prove_duration_secs: result.prove_duration.map(|d| d.as_secs_f64()),
-                proof_written: if result.proof_written { Some(true) } else { None },
-                prove_status: result.prove_status.clone(),
-                verify_status: result.verify_status.clone(),
-                detail: detail.clone(),
-            }
-        })
+        .map(|(path, result)| TestEntry::from_run(path, result, None))
         .collect();
 
     if let Err(e) = std::fs::create_dir_all(&cli.output_dir) {
@@ -208,16 +138,14 @@ fn main() {
         process::exit(2);
     }
 
-    if let Err(e) =
-        results::write_results(
-            &cli.output_dir,
-            &cli.label,
-            &cli.zkvm,
-            &cli.suite,
-            &entries,
-            cli.io_sidecars,
-        )
-    {
+    if let Err(e) = results::write_results(
+        &cli.output_dir,
+        &format!("act4-{}", cli.label),
+        &cli.zkvm,
+        &cli.suite,
+        &entries,
+        false,
+    ) {
         eprintln!("error: failed to write results: {e}");
         process::exit(2);
     }

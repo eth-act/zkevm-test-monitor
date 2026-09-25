@@ -1,4 +1,4 @@
-# OpenVM platform for act-extra guests. Sourced by tests/extra/build.sh.
+# OpenVM platform for eth-act standards test guests. Sourced by tests/eth-act-standards/build-guests.sh.
 #
 # OpenVM ships no C library. The library here is libere_openvm_c.a, built from
 # eth-act/ere's ere-platform-openvm plus a thin I/O wrapper (vendor/lib.rs, see

@@ -1,4 +1,4 @@
-//! C I/O for act-extra guests on OpenVM, on top of eth-act/ere's `ere-platform-openvm`.
+//! C I/O for eth-act standards test guests on OpenVM, on top of eth-act/ere's `ere-platform-openvm`.
 //!
 //! OpenVM ships no C library. This archive links, unchanged:
 //! - ere's `zkvm_accelerators.h` implementation (`zkvm_*`, on OpenVM guest libraries);

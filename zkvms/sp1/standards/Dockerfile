@@ -1,10 +1,10 @@
-# Builds act-extra guest ELFs and a host executor for SP1.
+# Builds eth-act standards guest ELFs and a host executor for SP1.
 #
 # The vendor C library is SP1's zkEVM SDK (`zkevm/` in succinctlabs/sp1):
 # `make sdk` builds libzkevm.a for riscv64im-succinct-zkvm-elf with the
-# succinct Rust toolchain. The image also builds sp1-extra-executor
+# succinct Rust toolchain. The image also builds sp1-eth-act-standards-executor
 # (./executor), which runs a guest in SP1's executor at the same commit.
-# The container compiles every guest in /extra-tests against libzkevm.a and
+# The container compiles every guest in /eth-act-standards-tests against libzkevm.a and
 # writes the ELFs to /elfs.
 #
 # The SDK is not in the monitor's pinned SP1 fork (v6.1.0), so this image
@@ -57,8 +57,8 @@ RUN make sdk && \
 
 COPY executor /executor
 RUN cargo build --release --locked --manifest-path /executor/Cargo.toml && \
-    cp /executor/target/release/sp1-extra-executor /usr/local/bin/ && \
+    cp /executor/target/release/sp1-eth-act-standards-executor /usr/local/bin/ && \
     rm -rf /executor/target
 
 WORKDIR /
-ENTRYPOINT ["/bin/bash", "-c", "/extra-tests/build.sh sp1 /elfs && cp /sp1-commit.txt /elfs/vendor-commit.txt"]
+ENTRYPOINT ["/bin/bash", "-c", "/eth-act-standards-tests/build-guests.sh sp1 /elfs && cp /sp1-commit.txt /elfs/vendor-commit.txt"]

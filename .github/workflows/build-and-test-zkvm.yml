@@ -104,7 +104,7 @@ jobs:
 
           # Run tests
           # A handful of float tests takes >20GB RAM to compile
-          JOBS=1 ./src/test.sh --arch ${ZKVM}
+          JOBS=1 ./src/run-isa-tests.sh --arch ${ZKVM}
         continue-on-error: true
         id: test-zkvm
 

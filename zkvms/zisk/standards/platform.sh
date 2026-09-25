@@ -1,4 +1,4 @@
-# ZisK platform for act-extra guests. Sourced by tests/extra/build.sh.
+# ZisK platform for eth-act standards test guests. Sourced by tests/eth-act-standards/build-guests.sh.
 #
 # The vendor library is ziskos-staticlib built for the standard target
 # riscv64im-unknown-none-elf (see Dockerfile). It provides _start, the I/O
