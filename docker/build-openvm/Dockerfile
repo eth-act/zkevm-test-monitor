@@ -46,8 +46,8 @@ ENV RUST_LOG=info
 # pin lives in Cargo.toml/Cargo.lock). CUDA_ARCH is the comma-separated list of compute
 # capabilities to compile GPU kernels for (bare numbers, dot stripped — e.g. 120 for an
 # RTX 5090 / Blackwell). The openvm-cuda-builder build script reads it from the env.
-ARG REPO_URL=https://github.com/openvm-org/openvm
-ARG COMMIT_HASH=538c5488130da56c8442d33445efe3c1fe5ea8b8
+ARG REPO_URL=https://github.com/han0110/openvm
+ARG COMMIT_HASH=a391b22ebb5305fa52d3394abfd0810df4baff90
 ARG CUDA_ARCH=120
 ENV CUDA_ARCH=${CUDA_ARCH}
 
