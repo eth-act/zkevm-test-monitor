@@ -71,6 +71,10 @@ generate_elfs() {
     fi
     echo "=== $ELF_COUNT ELFs compiled for $CONFIG_NAME ==="
 
+    # Post-process ELFs so ZisK >= 1.2's transpiler doesn't panic on data words
+    # (it decodes ACT4's .word string pointers as compressed instructions).
+    python3 /act4/patch_elfs.py "$ELF_DIR"
+
     # Copy ELFs to output (use find+cat to dereference symlinks reliably —
     # cp -rL fails with "same file" when ACT4's common build cache creates
     # symlinks that resolve to the same inode as the mount destination).
