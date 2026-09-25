@@ -3,8 +3,8 @@
   "act4_version": "4.0.0",
   "zkvms": {
     "sp1": {
-      "repo_url": "https://github.com/codygunton/sp1",
-      "commit": "1099518175f1eb0af3318c5a9be8865da2fc5bd6",
+      "repo_url": "https://github.com/succinctlabs/sp1",
+      "commit": "f5a5bbf6a1cf6007315b410d88678d96fb399fb5",
       "build_cmd": "cargo build --release --bin sp1-perf-executor --bin sp1-perf",
       "binary_name": "sp1-perf-executor",
       "binary_path": "target/release/sp1-perf-executor",
