@@ -118,24 +118,12 @@ fn run_zisk_prove(
 ) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
         // 1. Execute
-        // Note: ziskemu may exit 0 even when the emulator reports an error
-        // (e.g. "Emu::par_run() finished with error"), so also check stderr.
-        let exec_output = Command::new(ziskemu)
-            .arg("--elf")
-            .arg(elf_path)
-            .arg("--inputs")
-            .arg("/dev/null")
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .output()?;
-        let stderr = String::from_utf8_lossy(&exec_output.stderr);
-        let passed = exec_output.status.success()
-            && !stderr.contains("finished with error");
+        let (passed, exit_code) = run_ziskemu(ziskemu, elf_path, &["--inputs", "/dev/null"]);
 
         if mode == Mode::Execute || !passed {
             return Ok(RunResult {
                 passed,
-                exit_code: exec_output.status.code(),
+                exit_code,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -862,11 +850,27 @@ fn kill_openvm_processes() {
 
 /// Zisk: invoke `<binary> -e <elf_path>`.
 fn run_zisk(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
-    // Capture stderr: ziskemu exits 0 even when emulation fails, but prints
-    // "finished with error" to stderr. Check both exit code and stderr.
-    let output = Command::new(binary)
-        .arg("-e")
+    run_ziskemu(binary, elf_path, &[])
+}
+
+/// Runs `ziskemu` on `elf_path` and returns the ACT4 verdict and the exit code.
+///
+/// ZisK >= 1.2 ignores `a0` at the exit ecall, so a failing test exits like a
+/// passing one. The ZisK ACT4 halt macros therefore also write `PASS` or `FAIL`
+/// to public output 0 (act4-configs/zisk/*/rvmodel_macros.h). A test passes only
+/// if ziskemu succeeds, prints no "finished with error" (it can exit 0 after an
+/// emulation error), and its output starts with `PASS`.
+fn run_ziskemu(ziskemu: &Path, elf_path: &Path, extra_args: &[&str]) -> (bool, Option<i32>) {
+    let Ok(tmp_dir) = tempfile::tempdir() else {
+        return (false, None);
+    };
+    let output_path = tmp_dir.path().join("output.bin");
+    let output = Command::new(ziskemu)
+        .arg("--elf")
         .arg(elf_path)
+        .args(extra_args)
+        .arg("--output")
+        .arg(&output_path)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .output();
@@ -875,7 +879,10 @@ fn run_zisk(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
         Ok(o) => {
             let code = o.status.code();
             let stderr = String::from_utf8_lossy(&o.stderr);
-            let passed = o.status.success() && !stderr.contains("finished with error");
+            let verdict_pass = std::fs::read(&output_path)
+                .is_ok_and(|public_output| public_output.starts_with(b"PASS"));
+            let passed =
+                o.status.success() && !stderr.contains("finished with error") && verdict_pass;
             (passed, code)
         }
         Err(_) => (false, None),

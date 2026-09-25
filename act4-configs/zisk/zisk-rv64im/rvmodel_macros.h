@@ -20,13 +20,25 @@
 
 #define RVMODEL_BOOT
 
+// ZisK ignores a0 at the exit ecall (its exit handler tests only a7 == 93), so
+// the verdict is also stored to public output 0 at OUTPUT_ADDR (ZisK >= 1.2):
+// "PASS" = 0x53534150, "FAIL" = 0x4c494146 (little-endian ASCII). ere returns
+// public outputs from execute, prove and verify, so the verdict is proof-committed.
+#define RVMODEL_ZISK_OUTPUT_ADDR 0xa0410000
+
 #define RVMODEL_HALT_PASS  \
+  li t0, RVMODEL_ZISK_OUTPUT_ADDR; \
+  li t1, 0x53534150;       \
+  sw t1, 0(t0);            \
   li a0, 0;                \
   li a7, 93;               \
   ecall;                   \
   j .;
 
 #define RVMODEL_HALT_FAIL \
+  li t0, RVMODEL_ZISK_OUTPUT_ADDR; \
+  li t1, 0x4c494146;       \
+  sw t1, 0(t0);            \
   li a0, 1;                \
   li a7, 93;               \
   ecall;                   \
