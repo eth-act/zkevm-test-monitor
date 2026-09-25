@@ -10,12 +10,13 @@ binaries/               # Built ZK-VM executables (e.g., sp1-binary)
 docker/<zkvm>/          # Per-ZKVM ACT4 test Docker setup (Dockerfile + entrypoint.sh)
 docker/build-<zkvm>/    # Per-ZKVM binary build Dockerfiles
 docker/shared/          # Shared utilities (patch_elfs.py)
-extra-tests/            # act-extra: C guests for the EIP-8025 I/O, accelerator and memory interfaces
+eth-act-standards-tests/ # eth-act standards tests: C guests for the I/O, accelerator and memory interfaces
 act4-configs/           # Per-ZKVM ACT4 ISA/platform configs
 riscv-arch-test/        # Symlink → /home/cody/riscv-arch-test (act4 branch)
 config.json             # ZKVM repo URLs and commit pins
 src/build.sh            # Docker build logic
-src/test.sh             # ACT4 test runner
+src/run-isa-tests.sh    # ISA test (ACT4) pipeline
+src/run-eth-act-standards-tests.sh  # eth-act standards test pipeline
 test-results/           # Per-ZKVM test output
 data/history/           # Historical pass/fail tracking
 ```
@@ -24,15 +25,15 @@ data/history/           # Historical pass/fail tracking
 
 ```bash
 ./run build sp1             # Build sp1 binary via Docker
-./run test sp1              # Run ACT4 compliance tests for sp1
-./run test                  # Run ACT4 tests for all ZKVMs
-./run extra zisk            # Run only the act-extra EIP-8025 interface suite (execute only)
-./run all sp1               # Build + test
+./run isa-tests sp1         # Run the ISA tests (ACT4) for sp1
+./run eth-act-standards-tests zisk  # Run the eth-act standards tests (execute only)
+./run tests                 # Run both suites for all ZKVMs
+./run all sp1               # Build + both suites
 ./run serve                 # Serve dashboard at localhost:8000
 ./run clean                 # Remove binaries/ and test-results/
 ```
 
-Limit CPU cores: `JOBS=8 ./run test zisk`
+Limit CPU cores: `JOBS=8 ./run tests zisk`
 
 ## Adding a New ZKVM
 
@@ -41,7 +42,7 @@ Limit CPU cores: `JOBS=8 ./run test zisk`
 3. Create `docker/<name>/Dockerfile` + `entrypoint.sh` (ACT4 test runner)
 4. Create `act4-configs/<name>/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
 5. Build: `./run build <name>`
-6. Test: `./run test <name>`
+6. Test: `./run isa-tests <name>`
 
 ## ACT4 Framework
 
