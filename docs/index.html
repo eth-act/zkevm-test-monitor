@@ -69,6 +69,7 @@
         }
         .col-group-native { background: #e8f4fd; }
         .col-group-target { background: #f0e8fd; }
+        .col-group-standards { background: #e8fdf0; }
         #loading { text-align: center; padding: 40px; color: #666; }
         #error { text-align: center; padding: 40px; color: #dc3545; display: none; }
     </style>
@@ -123,6 +124,18 @@
         return { prove: proved, verify: verified, total: total };
     }
 
+    // eth-act standards test groups, in dashboard column order.
+    const STANDARDS_GROUPS = [['io', 'I/O'], ['accelerators', 'Accelerators'], ['memory', 'Memory']];
+
+    // Passed and total counts of one eth-act standards test group in a run.
+    function groupCounts(run, group) {
+        if (!run?.groups) return { passed: null, total: null };
+        const names = Object.keys(run.groups).filter(n => run.groups[n] === group);
+        if (names.length === 0) return { passed: null, total: null };
+        const passed = new Set(run.passed || []);
+        return { passed: names.filter(n => passed.has(n)).length, total: names.length };
+    }
+
     function commitShort(commit) {
         if (!commit || commit === 'unknown') return 'unknown';
         return commit.substring(0, 8);
@@ -157,9 +170,11 @@
             const rows = await Promise.all(zkvms.map(async (name) => {
                 const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
                 const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+                const standardsHistory = await fetch(`data/history/${name}-eth-act-standards.json`).then(r => r.json()).catch(() => null);
                 const fullRun = fullHistory?.runs?.at(-1);
                 const stdRun = stdHistory?.runs?.at(-1);
-                return { name, config: config.zkvms[name], fullRun, stdRun };
+                const standardsRun = standardsHistory?.runs?.at(-1);
+                return { name, config: config.zkvms[name], fullRun, stdRun, standardsRun };
             }));
 
             const tbody = rows.map(row => {
@@ -173,9 +188,10 @@
                 const pv = countProveVerify(std);
 
                 // Use most recent date from either suite
-                const lastDate = full?.date || std?.date;
+                const lastDate = [full?.date, std?.date, row.standardsRun?.date].filter(Boolean).sort().at(-1);
 
                 const stdLink = std ? `zkvm.html?name=${row.name}&suite=act4-standard&run=latest` : null;
+                const standardsLink = row.standardsRun ? `zkvm.html?name=${row.name}&suite=eth-act-standards&run=latest` : null;
 
                 function resultCell(passed, total, link) {
                     if (passed == null || total == null) return '<td class="none">&mdash;</td>';
@@ -191,6 +207,10 @@
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
+                    ${STANDARDS_GROUPS.map(([g]) => {
+                        const gc = groupCounts(row.standardsRun, g);
+                        return resultCell(gc.passed, gc.total, standardsLink);
+                    }).join('')}
                     <td>${formatDate(lastDate)}</td>
                 </tr>`;
             }).join('\n');
@@ -203,12 +223,14 @@
                             <th rowspan="2">Commit</th>
                             <th rowspan="2">Full ISA</th>
                             <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a> Tests</th>
+                            <th colspan="3" class="col-group col-group-standards"><a href="https://github.com/eth-act/zkevm-standards/tree/main/standards">eth-act Standards Tests &#x1F517;</a> (Execution)</th>
                             <th rowspan="2">Last Run</th>
                         </tr>
                         <tr>
                             <th class="col-group-target">Execution</th>
                             <th class="col-group-target">Prove</th>
                             <th class="col-group-target">Verify</th>
+                            ${STANDARDS_GROUPS.map(([, label]) => `<th class="col-group-standards">${label}</th>`).join('')}
                         </tr>
                     </thead>
                     <tbody>

@@ -281,6 +281,7 @@ run_zisk_split_pipeline() {
   fi
 
   process_results "$ZKVM"
+
 }
 
 # run_sp1_split_pipeline — ELF generation in Docker, execution + GPU proving on host
@@ -416,6 +417,7 @@ run_sp1_split_pipeline() {
   fi
 
   process_results "$ZKVM"
+
 }
 
 # run_lambdavm_split_pipeline — ELF generation in Docker, test execution + proving on host
@@ -667,6 +669,7 @@ run_openvm_split_pipeline() {
   fi
 
   process_results "$ZKVM"
+
 }
 
 # run_legacy_pipeline <zkvm> — original Docker-based test execution

@@ -187,6 +187,7 @@
     }
 
     function act4Label(run) {
+        if (run?.standards_commit) return 'standards ' + run.standards_commit.substring(0, 8);
         const v = run?.act4_version;
         if (v) return 'v' + v;
         const c = run?.act4_commit;
@@ -195,6 +196,7 @@
     }
 
     function act4Url(run) {
+        if (run?.standards_commit) return `https://github.com/eth-act/zkevm-standards/tree/${run.standards_commit}/standards`;
         const v = run?.act4_version;
         if (v) return `https://github.com/riscv/riscv-arch-test/releases/tag/${v}`;
         const c = run?.act4_commit;
@@ -205,7 +207,38 @@
     function suiteLabel(s) {
         if (s === 'act4-full') return 'Full ISA';
         if (s === 'act4-standard') return 'Standard ISA';
+        if (s === 'eth-act-standards') return 'eth-act Standards Tests';
         return s;
+    }
+
+    // eth-act standards test groups, in display order.
+    const STANDARDS_GROUPS = [['io', 'I/O interface'], ['accelerators', 'Cryptographic accelerators'], ['memory', 'Accelerated memory operations']];
+
+    function escapeHtml(text) {
+        return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Per-group sections for an eth-act standards test run: failures with their detail, then passes.
+    function standardsGroupsHtml(run) {
+        const passed = new Set(run.passed || []);
+        const details = run.details || {};
+        return STANDARDS_GROUPS.map(([group, label]) => {
+            const tests = Object.keys(run.groups).filter(n => run.groups[n] === group).sort();
+            if (tests.length === 0) return '';
+            const ok = tests.filter(n => passed.has(n));
+            const bad = tests.filter(n => !passed.has(n));
+            let html = `<h2>${label} <span class="${bad.length ? 'fail' : 'pass'}">${ok.length}/${tests.length}</span></h2>`;
+            if (bad.length > 0) {
+                html += '<table><thead><tr><th>Test</th><th>Execute</th><th>Detail</th></tr></thead><tbody>';
+                html += bad.map(n => `<tr><td><strong>${n}</strong></td><td><span class="badge badge-fail">fail</span></td>` +
+                    `<td><code>${escapeHtml(details[n] || '')}</code></td></tr>`).join('');
+                html += '</tbody></table>';
+            }
+            if (ok.length > 0) {
+                html += '<div class="pass-list">' + ok.map(n => `<span>${n}</span>`).join('') + '</div>';
+            }
+            return html;
+        }).join('');
     }
 
     // ---- Run History View ----
@@ -222,6 +255,7 @@
 
             const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
             const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+            const standardsHistory = await fetch(`data/history/${name}-eth-act-standards.json`).then(r => r.json()).catch(() => null);
 
             let html = '';
 
@@ -237,6 +271,9 @@
             }
             if (stdHistory?.runs) {
                 stdHistory.runs.forEach((r, idx) => allRuns.push({ ...r, suite: 'act4-standard', runIdx: idx }));
+            }
+            if (standardsHistory?.runs) {
+                standardsHistory.runs.forEach((r, idx) => allRuns.push({ ...r, suite: 'eth-act-standards', runIdx: idx }));
             }
 
             const groups = {};
@@ -256,9 +293,12 @@
                     const cls = p === r.total ? 'pass' : 'fail';
                     const hasData = p != null;
                     const runUrl = `zkvm.html?name=${name}&suite=${r.suite}&run=${r.runIdx}`;
+                    const badgeStyle = 'padding:2px 6px;border-radius:3px;font-size:0.85em';
                     const suiteBadge = r.suite === 'act4-full'
-                        ? '<span style="background:#e8f4fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Full</span>'
-                        : '<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard</span>';
+                        ? `<span style="background:#e8f4fd;${badgeStyle}">Full</span>`
+                        : r.suite === 'eth-act-standards'
+                        ? `<span style="background:#e8fdf0;${badgeStyle}">eth-act Standards</span>`
+                        : `<span style="background:#f0e8fd;${badgeStyle}">Standard</span>`;
 
                     let proveCell = '';
                     let verifyCell = '';
@@ -327,7 +367,7 @@
             }).join('');
 
             html += `<table>
-                <thead><tr><th>Date</th><th>Commit</th><th>ACT4</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
+                <thead><tr><th>Date</th><th>Commit</th><th>Spec version</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
 
@@ -399,7 +439,9 @@
             const passed = Array.isArray(run.passed) ? run.passed : [];
             const totalFailures = failed.length + proveFailed.length + verifyFailed.length;
 
-            if (ep == null) {
+            if (run.groups) {
+                html += standardsGroupsHtml(run);
+            } else if (ep == null) {
                 html += '<p class="none" style="margin-top: 20px;">No per-test data available for this run.</p>';
             } else {
                 // Failures section — unified table with execute/prove/verify columns

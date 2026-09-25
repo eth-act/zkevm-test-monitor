@@ -6,23 +6,48 @@ set -e
 CMD=${1:-help}
 shift || true
 
+# run_eth_act_standards_tests [zkvm ...] — run the eth-act standards tests for the
+# given zkVMs, or for every zkVM that has a platform in eth-act-standards-tests/.
+run_eth_act_standards_tests() {
+    local zkvms="$*"
+    if [ -z "$zkvms" ]; then
+        for dir in eth-act-standards-tests/platforms/*/; do
+            zkvms="$zkvms $(basename "$dir")"
+        done
+    fi
+    for zkvm in $zkvms; do
+        ./src/run-eth-act-standards-tests.sh "$zkvm" \
+            || echo "  Warning: eth-act standards tests failed for $zkvm"
+    done
+}
+
 case "$CMD" in
     build)
         echo "Building ZKVMs: ${@:-all}"
         ./src/build.sh "$@"
         ;;
 
-    test)
-        DISPLAY_TARGETS="${@:-all}"
-        echo "Testing ZKVMs: ${DISPLAY_TARGETS}"
-        ./src/test.sh "$@"
+    isa-tests)
+        echo "Running ISA tests: ${@:-all}"
+        ./src/run-isa-tests.sh "$@"
+        ;;
+
+    eth-act-standards-tests)
+        echo "Running eth-act standards tests: ${@:-all with a platform}"
+        run_eth_act_standards_tests "$@"
+        ;;
+
+    tests)
+        echo "Running ISA tests and eth-act standards tests: ${@:-all}"
+        ./src/run-isa-tests.sh "$@"
+        run_eth_act_standards_tests "$@"
         ;;
 
     all)
-        DISPLAY_TARGETS="${@:-all}"
-        echo "Building and testing: ${DISPLAY_TARGETS}"
+        echo "Building and testing: ${@:-all}"
         ./src/build.sh "$@"
-        ./src/test.sh "$@"
+        ./src/run-isa-tests.sh "$@"
+        run_eth_act_standards_tests "$@"
         ;;
 
     serve)
@@ -62,7 +87,7 @@ http.server.HTTPServer(('0.0.0.0', 9586), H).serve_forever()
             fi
         done
         if [ "$TARGETS" = "all" ]; then
-            rm -f act4-runner/target/release/act4-runner
+            rm -f act4-runner/target/release/act4-runner act4-runner/target/release/eth-act-standards-runner
         fi
         ;;
 
@@ -72,8 +97,12 @@ Usage: ./run COMMAND [OPTIONS]
 
 Commands:
   build [zkvm ...]          Build ZKVM binaries
-  test [zkvm ...]           Run ACT4 compliance tests
-  all [zkvm ...]            Build + test
+  isa-tests [zkvm ...]      Run the ISA tests (ACT4 RISC-V compliance)
+  eth-act-standards-tests [zkvm ...]
+                            Run the eth-act standards tests (I/O, accelerators,
+                            memory operations; zisk, sp1, openvm; execute only)
+  tests [zkvm ...]          Run both test suites
+  all [zkvm ...]            Build + both test suites
   serve                     Start local web server at 0.0.0.0:9586
   clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
 
@@ -87,14 +116,16 @@ Environment Variables:
 
 Examples:
   ./run build sp1
-  ./run test sp1 zisk
-  ./run test                          # test all ZKVMs
+  ./run tests sp1 openvm                   # both suites for two zkVMs
+  ./run tests                              # both suites for all zkVMs
+  ./run isa-tests zisk                     # ISA tests only
+  ./run eth-act-standards-tests sp1        # eth-act standards tests only
   ./run all
-  JOBS=8 ./run test zisk
-  ACT4_MODE=execute ./run test zisk   # emulation only (no proving)
-  GPU=1 ./run build zisk         # build with GPU support
-  GPU=1 ./run test zisk          # use GPU for proving
-  FORCE=1 ./run test zisk             # regenerate ELFs from scratch
+  JOBS=8 ./run tests zisk
+  ACT4_MODE=execute ./run isa-tests zisk   # ISA tests without proving
+  GPU=1 ./run build zisk                   # build with GPU support
+  GPU=1 ./run isa-tests zisk               # use GPU for proving
+  FORCE=1 ./run isa-tests zisk             # regenerate ISA test ELFs
 EOF
         ;;
 esac

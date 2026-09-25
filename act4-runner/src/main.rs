@@ -1,14 +1,10 @@
-mod backends;
-mod results;
-mod runner;
-
 use std::path::PathBuf;
 use std::process;
 
+use act4_runner::backends::{Backend, Mode};
+use act4_runner::results::{self, TestEntry};
+use act4_runner::runner;
 use clap::Parser;
-
-use crate::backends::{Backend, Mode};
-use crate::results::TestEntry;
 
 /// ACT4 compliance test runner for RISC-V ZK-VMs.
 #[derive(Parser)]
@@ -63,6 +59,7 @@ struct Cli {
     /// Enable GPU acceleration (openvm-prove, sp1-prove, zisk-prove).
     #[arg(long)]
     gpu: bool,
+
 }
 
 fn main() {
@@ -131,32 +128,9 @@ fn main() {
         }
     });
 
-    let run_results = runner::run_tests(&backend, &cli.elf_dir, jobs, mode);
-
-    let entries: Vec<TestEntry> = run_results
+    let entries: Vec<TestEntry> = runner::run_tests(&backend, &cli.elf_dir, jobs, mode)
         .iter()
-        .map(|(path, result)| {
-            let extension = path
-                .parent()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_owned();
-            let name = path
-                .file_stem()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_owned();
-            TestEntry {
-                name,
-                extension,
-                passed: result.passed,
-                prove_duration_secs: result.prove_duration.map(|d| d.as_secs_f64()),
-                proof_written: if result.proof_written { Some(true) } else { None },
-                prove_status: result.prove_status.clone(),
-                verify_status: result.verify_status.clone(),
-            }
-        })
+        .map(|(path, result)| TestEntry::from_run(path, result, None))
         .collect();
 
     if let Err(e) = std::fs::create_dir_all(&cli.output_dir) {
@@ -164,9 +138,14 @@ fn main() {
         process::exit(2);
     }
 
-    if let Err(e) =
-        results::write_results(&cli.output_dir, &cli.label, &cli.zkvm, &cli.suite, &entries)
-    {
+    if let Err(e) = results::write_results(
+        &cli.output_dir,
+        &format!("act4-{}", cli.label),
+        &cli.zkvm,
+        &cli.suite,
+        &entries,
+        false,
+    ) {
         eprintln!("error: failed to write results: {e}");
         process::exit(2);
     }
