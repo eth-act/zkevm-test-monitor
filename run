@@ -25,6 +25,10 @@ case "$CMD" in
         ./src/test.sh "$@"
         ;;
 
+    elfs)
+        ./src/elfs.sh "$@"
+        ;;
+
     serve)
         echo "Server at http://0.0.0.0:9586/"
         echo "   Press Ctrl+C to stop"
@@ -74,6 +78,7 @@ Commands:
   build [zkvm ...]          Build ZKVM binaries
   test [zkvm ...]           Run ACT4 compliance tests
   all [zkvm ...]            Build + test
+  elfs <zkvm> [--force]     Generate ACT4 ELFs only; prints one JSON line (used by ere)
   serve                     Start local web server at 0.0.0.0:9586
   clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
 

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+source "$(dirname "$0")/elfs.sh"
+
 # Parse targets (positional args only; no suite flag needed)
 TARGETS=""
 while [[ $# -gt 0 ]]; do
@@ -164,46 +166,7 @@ run_zisk_split_pipeline() {
     fi
   fi
 
-  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
-    local NATIVE_COUNT
-    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
-    if [ "$NATIVE_COUNT" -gt 0 ]; then
-      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
-    fi
-  else
-    echo "Building Docker image for $ZKVM (ELF generation)..."
-    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
-      echo "Failed to build Docker image for $ZKVM"
-      return 1
-    }
-
-    # Clean old ELFs before regenerating (Docker creates files as root,
-    # so use a Docker container to remove them if rm -rf fails).
-    rm -rf "$ELF_DIR" 2>/dev/null || \
-      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
-    rm -rf "$ELF_DIR" 2>/dev/null
-    mkdir -p "$ELF_DIR"
-
-    JOBS_ARG=""
-    if [ -n "${ACT4_JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-    elif [ -n "${JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
-    fi
-
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
-    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    docker run --rm --name zkvm-${ZKVM}-elfgen \
-      ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
-      -v "$PWD/$ELF_DIR:/elfs" \
-      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
-      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
-      return 1
-    }
-  fi
+  generate_act4_elfs "$ZKVM" "$ELF_DIR" || return 1
 
   # Build act4-runner if needed
   local RUNNER="act4-runner/target/release/act4-runner"
@@ -305,46 +268,7 @@ run_sp1_split_pipeline() {
   fi
   chmod +x binaries/sp1-binary binaries/sp1-prover 2>/dev/null || true
 
-  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
-    local NATIVE_COUNT
-    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
-    if [ "$NATIVE_COUNT" -gt 0 ]; then
-      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
-    fi
-  else
-    echo "Building Docker image for $ZKVM (ELF generation)..."
-    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
-      echo "Failed to build Docker image for $ZKVM"
-      return 1
-    }
-
-    # Clean old ELFs before regenerating (Docker creates files as root).
-    rm -rf "$ELF_DIR" 2>/dev/null || \
-      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
-    rm -rf "$ELF_DIR" 2>/dev/null
-    mkdir -p "$ELF_DIR"
-
-    JOBS_ARG=""
-    if [ -n "${ACT4_JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-    elif [ -n "${JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
-    fi
-
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
-    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    mkdir -p "test-results/${ZKVM}"
-    docker run --rm --name zkvm-${ZKVM}-elfgen \
-      ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
-      -v "$PWD/$ELF_DIR:/elfs" \
-      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
-      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
-      return 1
-    }
-  fi
+  generate_act4_elfs "$ZKVM" "$ELF_DIR" || return 1
 
   # Build act4-runner if needed
   local RUNNER="act4-runner/target/release/act4-runner"
@@ -434,46 +358,7 @@ run_lambdavm_split_pipeline() {
     return 1
   fi
 
-  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
-    local NATIVE_COUNT
-    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
-    if [ "$NATIVE_COUNT" -gt 0 ]; then
-      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
-    fi
-  else
-    echo "Building Docker image for $ZKVM (ELF generation)..."
-    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
-      echo "Failed to build Docker image for $ZKVM"
-      return 1
-    }
-
-    # Clean old ELFs before regenerating
-    rm -rf "$ELF_DIR" 2>/dev/null || \
-      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
-    rm -rf "$ELF_DIR" 2>/dev/null
-    mkdir -p "$ELF_DIR"
-
-    JOBS_ARG=""
-    if [ -n "${ACT4_JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-    elif [ -n "${JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
-    fi
-
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
-    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    mkdir -p "test-results/${ZKVM}"
-    docker run --rm --name zkvm-${ZKVM}-elfgen \
-      ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
-      -v "$PWD/$ELF_DIR:/elfs" \
-      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
-      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
-      return 1
-    }
-  fi
+  generate_act4_elfs "$ZKVM" "$ELF_DIR" || return 1
 
   # Build act4-runner if needed
   local RUNNER="act4-runner/target/release/act4-runner"
@@ -545,46 +430,7 @@ run_openvm_split_pipeline() {
     return 1
   fi
 
-  # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
-    local NATIVE_COUNT
-    NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
-    if [ "$NATIVE_COUNT" -gt 0 ]; then
-      echo "  Reusing $NATIVE_COUNT existing ELFs in $ELF_DIR/native (set FORCE=1 to regenerate)"
-    fi
-  else
-    echo "Building Docker image for $ZKVM (ELF generation)..."
-    ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
-      echo "Failed to build Docker image for $ZKVM"
-      return 1
-    }
-
-    # Clean old ELFs before regenerating
-    rm -rf "$ELF_DIR" 2>/dev/null || \
-      docker run --rm -v "$PWD/$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
-    rm -rf "$ELF_DIR" 2>/dev/null
-    mkdir -p "$ELF_DIR"
-
-    JOBS_ARG=""
-    if [ -n "${ACT4_JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-    elif [ -n "${JOBS:-}" ]; then
-      JOBS_ARG="-e ACT4_JOBS=${JOBS}"
-    fi
-
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
-    echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    mkdir -p "test-results/${ZKVM}"
-    docker run --rm --name zkvm-${ZKVM}-elfgen \
-      ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
-      -v "$PWD/$ELF_DIR:/elfs" \
-      "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
-      echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
-      return 1
-    }
-  fi
+  generate_act4_elfs "$ZKVM" "$ELF_DIR" || return 1
 
   # Build act4-runner if needed
   local RUNNER="act4-runner/target/release/act4-runner"
