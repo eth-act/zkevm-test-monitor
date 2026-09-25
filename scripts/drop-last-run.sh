@@ -3,7 +3,7 @@
 # Usage: ZKVM=zisk ./drop-last-run.sh
 set -eu
 
-ZKVM="${ZKVM:?Set ZKVM=<name> (e.g. zisk, sp1, jolt, ...)}"
+ZKVM="${ZKVM:?Set ZKVM=<name> (e.g. zisk, sp1, openvm, ...)}"
 
 for SUITE in full standard; do
   FILE="data/history/${ZKVM}-act4-${SUITE}.json"

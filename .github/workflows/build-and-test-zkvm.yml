@@ -6,7 +6,7 @@ on:
       zkvm:
         required: true
         type: string
-        description: 'Name of the ZKVM to update (e.g., jolt, zisk)'
+        description: 'Name of the ZKVM to update (e.g., sp1, zisk)'
       runner:
         type: string
         required: false

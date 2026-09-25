@@ -10,14 +10,6 @@
       "binary_path": "target/release/sp1-perf-executor",
       "isa": "RV64IM"
     },
-    "jolt": {
-      "repo_url": "https://github.com/codygunton/jolt",
-      "commit": "3adde10f",
-      "build_cmd": "cargo build --release -p tracer --bin jolt-emu",
-      "binary_name": "jolt-emu",
-      "binary_path": "target/release/jolt-emu",
-      "isa": "RV64IMAC"
-    },
     "openvm": {
       "repo_url": "https://github.com/openvm-org/openvm",
       "commit": "538c5488130da56c8442d33445efe3c1fe5ea8b8",
@@ -33,14 +25,6 @@
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
       "isa": "RV64IMFDAC_Zicclsm"
-    },
-    "airbender": {
-      "repo_url": "https://github.com/codygunton/zksync-airbender",
-      "commit": "riscof-dev",
-      "build_cmd": "cargo build --profile test-release --bin cli",
-      "binary_name": "airbender-binary",
-      "binary_path": "target/test-release/cli",
-      "isa": "RV32IM"
     },
     "lambdavm": {
       "repo_url": "https://github.com/yetanotherco/lambda_vm",

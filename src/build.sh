@@ -100,17 +100,7 @@ for ZKVM in $ZKVMS; do
   docker rm -f zkvm-${ZKVM}-build 2>/dev/null || true
   CONTAINER_ID=$(docker create --name zkvm-${ZKVM}-build zkvm-${ZKVM}:latest)
 
-  if [ "$ZKVM" = "jolt" ]; then
-    # Jolt produces both jolt-emu (emulator) and jolt-prover (proving CLI)
-    docker cp "$CONTAINER_ID:/usr/local/bin/jolt-emu" "binaries/jolt-binary" || {
-      echo "  ❌ Failed to extract jolt-emu for $ZKVM"
-      docker rm "$CONTAINER_ID" > /dev/null 2>&1
-      continue
-    }
-    docker cp "$CONTAINER_ID:/usr/local/bin/jolt-prover" "binaries/jolt-prover" 2>/dev/null || \
-      echo "  Warning: jolt-prover not found (proving will not work)"
-    chmod +x binaries/jolt-binary binaries/jolt-prover 2>/dev/null || true
-  elif [ "$ZKVM" = "sp1" ]; then
+  if [ "$ZKVM" = "sp1" ]; then
     # SP1 produces sp1-perf-executor (execute-only → sp1-binary) and
     # sp1-perf (execute + GPU prove + verify → sp1-prover).
     docker cp "$CONTAINER_ID:/usr/local/bin/sp1-perf-executor" "binaries/sp1-binary" || {
