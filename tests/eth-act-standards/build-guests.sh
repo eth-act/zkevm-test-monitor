@@ -14,12 +14,20 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 PLATFORM="${1:?usage: build-guests.sh <platform> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <platform> <out-dir>}"
 PLATFORM_DIR="$HERE/platforms/$PLATFORM"
+# The standard headers come from the eth-act/zkevm-standards submodule.
+STANDARDS="$HERE/external/zkevm-standards/standards"
+INCLUDES="-I $HERE/include -I $STANDARDS/io-interface -I $STANDARDS/c-interface-accelerators"
 
 # shellcheck source=/dev/null
 source "$PLATFORM_DIR/platform.sh"
 
 if [ ! -f "$VENDOR_LIB" ]; then
   echo "error: vendor library not found: $VENDOR_LIB" >&2
+  exit 1
+fi
+
+if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
+  echo "error: $STANDARDS is empty; run 'git submodule update --init tests/eth-act-standards/external/zkevm-standards'" >&2
   exit 1
 fi
 
@@ -43,7 +51,7 @@ for src in "$HERE"/*/*.c; do
   fi
 
   # shellcheck disable=SC2086
-  $CC $CFLAGS -I "$HERE/include" "$src" ${LINKER_SCRIPT:+-T "$LINKER_SCRIPT"} $LDFLAGS \
+  $CC $CFLAGS $INCLUDES "$src" ${LINKER_SCRIPT:+-T "$LINKER_SCRIPT"} $LDFLAGS \
     $pre_libs "$VENDOR_LIB" $LIBS -o "$OUT/$group/$name.elf"
 
   for vector in input expected; do

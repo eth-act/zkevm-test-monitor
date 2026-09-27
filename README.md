@@ -47,7 +47,7 @@ flowchart LR
 flowchart LR
     subgraph docker["Docker: zkvms/&lt;zkvm&gt;/standards/"]
         vendor["zkVM C library<br/>at the version eth-act/ere pins"] --> link["compile + link<br/>(build-guests.sh)"]
-        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h"] --> link
+        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(zkevm-standards submodule)"] --> link
         link --> elfs["guest ELFs<br/>+ .input / .expected I/O test vectors"]
         exe["zkVM executor<br/>(same version)"]
     end

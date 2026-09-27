@@ -3,8 +3,10 @@
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
 asks of each zkVM. It covers three
-[eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items, pinned in
-`include/STANDARDS_COMMIT`:
+[eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items. The standards
+repository is the git submodule `external/zkevm-standards`, pinned at one commit. The guests
+include `zkvm_io.h` and `zkvm_accelerators.h` from it. `src/run-eth-act-standards-tests.sh`
+initialises the submodule if necessary and records its commit with each run.
 
 | Group | Standard | Tests |
 |---|---|---|
@@ -17,7 +19,7 @@ The suite runs execution only. It does not prove.
 ## How a test works
 
 Each test is a small, standalone C program. It links only against the vendor's static library,
-through the standard headers in `include/`. The host feeds it the test's I/O test vectors:
+through the standard headers. The host feeds it the test's I/O test vectors:
 `<name>.input` is the private input (default: empty), and the public output must equal
 `<name>.expected` (default: the 4 bytes `PASS`).
 

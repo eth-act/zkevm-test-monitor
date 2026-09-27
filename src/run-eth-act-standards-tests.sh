@@ -11,6 +11,7 @@ ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
 PLATFORM_DIR="zkvms/${ZKVM}/standards"
 ELF_DIR="out/${ZKVM}/elfs/eth-act-standards"
 RESULTS_DIR="out/${ZKVM}"
+STANDARDS_DIR="tests/eth-act-standards/external/zkevm-standards"
 IMAGE="${ZKVM}-eth-act-standards:latest"
 
 if [ ! -d "$PLATFORM_DIR" ]; then
@@ -54,6 +55,15 @@ esac
 if [ -z "$IMAGE_EMULATOR" ] && [ ! -f "$EMULATOR" ]; then
   echo "  Error: $EMULATOR not found. Run './run build $ZKVM' first."
   exit 1
+fi
+
+# The guests include the standard headers from the eth-act/zkevm-standards submodule.
+if [ ! -f "$STANDARDS_DIR/standards/io-interface/zkvm_io.h" ]; then
+  echo "Initialising the $STANDARDS_DIR submodule..."
+  git submodule update --init "$STANDARDS_DIR" || {
+    echo "  Error: $STANDARDS_DIR is not initialised; run 'git submodule update --init $STANDARDS_DIR'"
+    exit 1
+  }
 fi
 
 COMMIT=$(jq -r ".zkvms.${ZKVM}.commit" config.json)
@@ -126,7 +136,7 @@ RUN_ENTRY=$(jq -n \
   --arg commit "$ZKVM_COMMIT" \
   --arg library_commit "$(head -c 8 "$ELF_DIR/vendor-commit.txt" 2>/dev/null || echo unknown)" \
   --arg monitor_commit "$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo unknown)" \
-  --arg standards_commit "$(cat tests/eth-act-standards/include/STANDARDS_COMMIT)" \
+  --arg standards_commit "$(git -C "$STANDARDS_DIR" rev-parse HEAD)" \
   --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
   --arg notes "$NOTES" \
   --slurpfile results "$RESULTS_FILE" \
