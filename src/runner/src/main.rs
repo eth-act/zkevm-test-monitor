@@ -1,21 +1,28 @@
 use std::path::PathBuf;
 use std::process;
 
-use act4_runner::backends::{Backend, Mode};
-use act4_runner::results::{self, TestEntry};
-use act4_runner::runner;
 use clap::Parser;
+use runner::backends::{Backend, Mode};
+use runner::results::{self, TestEntry};
+use runner::runner as suite;
 
-/// ACT4 compliance test runner for RISC-V ZK-VMs.
+/// Test runner for RISC-V ZK-VMs: the ACT4 ISA tests and the eth-act
+/// standards tests.
+///
+/// Every ELF may have `<stem>.input`, `<stem>.expected` and `<stem>.outcome`
+/// files next to it (see the `io` module).
 #[derive(Parser)]
-#[command(name = "act4-runner")]
+#[command(name = "runner")]
 struct Cli {
-    /// ZK-VM backend to use (lambdavm, openvm, openvm-prove, sp1-prove,
-    /// zisk, zisk-prove).
+    /// ZK-VM backend to use. ISA tests: lambdavm, openvm, openvm-prove,
+    /// sp1-prove, zisk, zisk-prove. eth-act standards tests: zisk-standards,
+    /// sp1-standards, openvm-standards.
     #[arg(long)]
     zkvm: String,
 
-    /// Path to the ZK-VM binary executable.
+    /// Path to the ZK-VM binary executable (for the standards backends:
+    /// ziskemu, sp1-eth-act-standards-executor or
+    /// openvm-eth-act-standards-executor).
     #[arg(long)]
     binary: Option<PathBuf>,
 
@@ -27,13 +34,20 @@ struct Cli {
     #[arg(long)]
     output_dir: PathBuf,
 
-    /// Test suite name (e.g. "act4" or "act4-target").
+    /// Test suite name (e.g. "act4-full" or "eth-act-standards").
     #[arg(long)]
     suite: String,
 
-    /// Output file label (e.g. "full-isa" or "standard-isa").
+    /// ISA output file label (e.g. "full-isa" or "standard-isa"): the files are
+    /// `summary-act4-<label>.json` and `results-act4-<label>.json`. Without
+    /// it, the files are `summary-<suite>.json` and `results-<suite>.json`.
     #[arg(long)]
-    label: String,
+    label: Option<String>,
+
+    /// Also record each test's group (its parent directory) and failure
+    /// detail in the results file.
+    #[arg(long)]
+    groups: bool,
 
     /// Number of parallel test jobs (default: auto-detect).
     #[arg(short = 'j', long = "jobs")]
@@ -113,8 +127,20 @@ fn main() {
             witness_lib: cli.witness_lib.clone(),
             gpu: cli.gpu,
         },
+        "zisk-standards" => Backend::ZiskStandards {
+            binary: require_binary(&cli),
+        },
+        "sp1-standards" => Backend::Sp1Standards {
+            executor: require_binary(&cli),
+        },
+        "openvm-standards" => Backend::OpenVMStandards {
+            executor: require_binary(&cli),
+        },
         other => {
-            eprintln!("error: unknown zkvm '{other}', expected one of: lambdavm, openvm, openvm-prove, sp1-prove, zisk, zisk-prove");
+            eprintln!(
+                "error: unknown zkvm '{other}', expected one of: lambdavm, openvm, openvm-prove, sp1-prove, \
+                 zisk, zisk-prove, zisk-standards, sp1-standards, openvm-standards"
+            );
             process::exit(2);
         }
     };
@@ -124,13 +150,13 @@ fn main() {
         if mode != Mode::Execute {
             1
         } else {
-            runner::default_jobs(&cli.zkvm)
+            suite::default_jobs(&cli.zkvm)
         }
     });
 
-    let entries: Vec<TestEntry> = runner::run_tests(&backend, &cli.elf_dir, jobs, mode)
+    let entries: Vec<TestEntry> = suite::run_tests(&backend, &cli.elf_dir, jobs, mode)
         .iter()
-        .map(|(path, result)| TestEntry::from_run(path, result, None))
+        .map(|(path, result)| TestEntry::from_run(path, result))
         .collect();
 
     if let Err(e) = std::fs::create_dir_all(&cli.output_dir) {
@@ -138,13 +164,17 @@ fn main() {
         process::exit(2);
     }
 
+    let file_stem = match &cli.label {
+        Some(label) => format!("act4-{label}"),
+        None => cli.suite.clone(),
+    };
     if let Err(e) = results::write_results(
         &cli.output_dir,
-        &format!("act4-{}", cli.label),
+        &file_stem,
         &cli.zkvm,
         &cli.suite,
         &entries,
-        false,
+        cli.groups,
     ) {
         eprintln!("error: failed to write results: {e}");
         process::exit(2);

@@ -5,7 +5,7 @@ set -eu
 #
 # Compiles the self-checking ELFs for the native (I,M) and target (I,M,Misalign)
 # suites, patches them, and copies them to the /elfs mount. Test execution +
-# GPU proving happen on the HOST via act4-runner (the GPU is not available inside
+# GPU proving happen on the HOST via src/runner/ (the GPU is not available inside
 # this container), so no DUT binary is needed here.
 #
 # patch_elfs.py replaces embedded data words in executable sections with NOPs —

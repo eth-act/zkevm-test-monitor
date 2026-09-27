@@ -87,7 +87,7 @@ http.server.HTTPServer(('0.0.0.0', 9586), H).serve_forever()
             fi
         done
         if [ "$TARGETS" = "all" ]; then
-            rm -f src/act4-runner/target/release/act4-runner src/act4-runner/target/release/eth-act-standards-runner
+            rm -f src/runner/target/release/runner
         fi
         ;;
 

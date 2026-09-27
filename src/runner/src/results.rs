@@ -60,7 +60,7 @@ pub struct TestEntry {
 impl TestEntry {
     /// Build an entry for the ELF at `path`. The test name is the file stem and
     /// the group ("extension") is the parent directory name.
-    pub fn from_run(path: &Path, result: &RunResult, detail: Option<String>) -> Self {
+    pub fn from_run(path: &Path, result: &RunResult) -> Self {
         let file_name = |p: Option<&std::ffi::OsStr>| {
             p.and_then(|n| n.to_str()).unwrap_or("unknown").to_owned()
         };
@@ -72,7 +72,7 @@ impl TestEntry {
             proof_written: if result.proof_written { Some(true) } else { None },
             prove_status: result.prove_status.clone(),
             verify_status: result.verify_status.clone(),
-            detail,
+            detail: result.detail.clone(),
         }
     }
 }

@@ -3,7 +3,7 @@
 # (execute only).
 #
 # Builds the C test guests in tests/eth-act-standards/ against the zkVM's own
-# library in Docker, runs them on the host with eth-act-standards-runner, and
+# library in Docker, runs them on the host with runner (a standards backend), and
 # appends a run to results/history/<zkvm>-eth-act-standards.json.
 set -euo pipefail
 
@@ -30,6 +30,7 @@ COMMIT_FILE="out/commits/${ZKVM}.txt"
 NOTES=""
 case "$ZKVM" in
   zisk)
+    BACKEND="zisk-standards"
     EMULATOR="out/bin/zisk-eth-act-standards-emu"
     IMAGE_EMULATOR="/usr/local/bin/ziskemu"
     IMAGE_EMULATOR_LIBS="/usr/local/lib/ziskemu"
@@ -37,12 +38,14 @@ case "$ZKVM" in
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   sp1)
+    BACKEND="sp1-standards"
     EMULATOR="out/bin/sp1-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/sp1-eth-act-standards-executor"
     # The image pins its own SP1 tag (the ISA pin has no C SDK), so record that commit.
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   openvm)
+    BACKEND="openvm-standards"
     EMULATOR="out/bin/openvm-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/openvm-eth-act-standards-executor"
     # The image pins OpenVM at the tag eth-act/ere uses and records its commit.
@@ -99,10 +102,10 @@ docker run --rm --user "$(id -u):$(id -g)" \
   exit 1
 }
 
-RUNNER="src/act4-runner/target/release/eth-act-standards-runner"
+RUNNER="src/runner/target/release/runner"
 if [ ! -x "$RUNNER" ]; then
-  echo "  Building eth-act-standards-runner..."
-  cargo build --release --manifest-path src/act4-runner/Cargo.toml --bin eth-act-standards-runner
+  echo "  Building runner..."
+  cargo build --release --manifest-path src/runner/Cargo.toml
 fi
 
 RUNNER_JOBS=""
@@ -117,9 +120,10 @@ fi
 echo "Running $ZKVM eth-act standards tests (execute only)..."
 # shellcheck disable=SC2086
 "$RUNNER" \
-  --zkvm "$ZKVM" --executor "$EMULATOR" \
+  --zkvm "$BACKEND" --binary "$EMULATOR" \
   --elf-dir "$ELF_DIR" \
   --output-dir "$RESULTS_DIR" \
+  --suite eth-act-standards --groups \
   $RUNNER_JOBS || true
 
 RESULTS_FILE="$RESULTS_DIR/results-eth-act-standards.json"

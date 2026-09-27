@@ -138,7 +138,7 @@ elfs_reusable() {
   fi
 }
 
-# run_zisk_split_pipeline — ELF generation in Docker, test execution on host via act4-runner
+# run_zisk_split_pipeline — ELF generation in Docker, test execution on host via runner
 run_zisk_split_pipeline() {
   local ZKVM=zisk
   local ELF_DIR="out/${ZKVM}/elfs"
@@ -217,19 +217,19 @@ run_zisk_split_pipeline() {
     echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
-  # Build act4-runner if needed
-  local RUNNER="src/act4-runner/target/release/act4-runner"
+  # Build runner if needed
+  local RUNNER="src/runner/target/release/runner"
   if [ ! -x "$RUNNER" ]; then
-    echo "  Building act4-runner..."
-    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
-      echo "  Failed to build act4-runner"
+    echo "  Building runner..."
+    cargo build --release --manifest-path src/runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build runner"
       return 1
     }
   fi
 
   mkdir -p "out/${ZKVM}"
 
-  # Determine job count for act4-runner
+  # Determine job count for runner
   local RUNNER_JOBS=""
   if [ -n "${ACT4_JOBS:-}" ]; then
     RUNNER_JOBS="-j ${ACT4_JOBS}"
@@ -361,19 +361,19 @@ run_sp1_split_pipeline() {
     echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
-  # Build act4-runner if needed
-  local RUNNER="src/act4-runner/target/release/act4-runner"
+  # Build runner if needed
+  local RUNNER="src/runner/target/release/runner"
   if [ ! -x "$RUNNER" ]; then
-    echo "  Building act4-runner..."
-    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
-      echo "  Failed to build act4-runner"
+    echo "  Building runner..."
+    cargo build --release --manifest-path src/runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build runner"
       return 1
     }
   fi
 
   mkdir -p "out/${ZKVM}"
 
-  # Determine job count for act4-runner (native execute; prove is forced to 1)
+  # Determine job count for runner (native execute; prove is forced to 1)
   local RUNNER_JOBS=""
   if [ -n "${ACT4_JOBS:-}" ]; then
     RUNNER_JOBS="-j ${ACT4_JOBS}"
@@ -493,19 +493,19 @@ run_lambdavm_split_pipeline() {
     echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
-  # Build act4-runner if needed
-  local RUNNER="src/act4-runner/target/release/act4-runner"
+  # Build runner if needed
+  local RUNNER="src/runner/target/release/runner"
   if [ ! -x "$RUNNER" ]; then
-    echo "  Building act4-runner..."
-    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
-      echo "  Failed to build act4-runner"
+    echo "  Building runner..."
+    cargo build --release --manifest-path src/runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build runner"
       return 1
     }
   fi
 
   mkdir -p "out/${ZKVM}"
 
-  # Determine job count for act4-runner
+  # Determine job count for runner
   local RUNNER_JOBS=""
   if [ -n "${ACT4_JOBS:-}" ]; then
     RUNNER_JOBS="-j ${ACT4_JOBS}"
@@ -606,19 +606,19 @@ run_openvm_split_pipeline() {
     echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
-  # Build act4-runner if needed
-  local RUNNER="src/act4-runner/target/release/act4-runner"
+  # Build runner if needed
+  local RUNNER="src/runner/target/release/runner"
   if [ ! -x "$RUNNER" ]; then
-    echo "  Building act4-runner..."
-    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
-      echo "  Failed to build act4-runner"
+    echo "  Building runner..."
+    cargo build --release --manifest-path src/runner/Cargo.toml 2>&1 || {
+      echo "  Failed to build runner"
       return 1
     }
   fi
 
   mkdir -p "out/${ZKVM}"
 
-  # Determine job count for act4-runner
+  # Determine job count for runner
   local RUNNER_JOBS=""
   if [ -n "${ACT4_JOBS:-}" ]; then
     RUNNER_JOBS="-j ${ACT4_JOBS}"

@@ -91,10 +91,9 @@ The results go to `out/<zkvm>/results-eth-act-standards.json` and
    - a `platform.sh` that sets `CC`, `AR`, `CFLAGS`, `LINKER_SCRIPT`, `VENDOR_LIB`, `LDFLAGS`
      and `LIBS`;
    - a linker script, unless the vendor links without one (then `LINKER_SCRIPT` is empty).
-2. Add a `run_<zkvm>` function to `src/act4-runner/src/eth_act_standards.rs` that feeds the input to
-   that zkVM and reads its public output, and add it to `eth-act-standards-runner`
-   (`src/act4-runner/src/bin/eth-act-standards-runner.rs`).
-3. Add the executor to `src/run-eth-act-standards-tests.sh`.
+2. Add a `<zkvm>-standards` backend to `runner/src/backends.rs` that feeds the input to that
+   zkVM and reads its public output, and add its name to `runner/src/main.rs`.
+3. Add the backend and the executor to `src/run-eth-act-standards-tests.sh`.
 
 ## Accelerator vectors
 

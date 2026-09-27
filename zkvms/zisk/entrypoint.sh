@@ -4,7 +4,7 @@ set -eu
 # ACT4 Zisk ELF generator (split pipeline).
 #
 # Compiles self-checking ELFs and copies them to the /elfs mount. No DUT binary
-# is needed — test execution happens on the host via act4-runner.
+# is needed — test execution happens on the host via src/runner/.
 #
 # Expected mounts:
 #   /act4/config/zisk               — Zisk ACT4 config directory (host zkvms/zisk/isa-configs)

@@ -9,8 +9,8 @@ Compliance testing for zkVMs with two test suites:
 
 ## Test pipelines
 
-Both pipelines build test ELFs in Docker and run them on the host with a Rust runner (`act4-runner`
-for the ISA tests, `eth-act-standards-runner` for the standards tests). They differ
+Both pipelines build test ELFs in Docker and run them on the host with one Rust runner
+([`src/runner/`](src/runner/)), through a backend per zkVM and suite. They differ
 in where the tests come from, what they link against, and how a test passes. (ACT4 zkVMs without
 a split pipeline in `src/run-isa-tests.sh` still run their tests inside Docker.)
 
@@ -25,7 +25,7 @@ flowchart LR
     end
     elfs --> native["native suite<br/>(full ISA, execute)"]
     elfs --> target["target suite<br/>(standard ISA)"]
-    subgraph host["Host: act4-runner"]
+    subgraph host["Host: runner (ISA backends)"]
         native --> emu["zkVM emulator"]
         target --> emu
         target --> prove["prove + verify<br/>(ACT4_MODE=full)"]
@@ -51,7 +51,7 @@ flowchart LR
         link --> elfs["guest ELFs<br/>+ .input / .expected I/O test vectors"]
         exe["zkVM executor<br/>(same version)"]
     end
-    elfs --> runner["Host: eth-act-standards-runner"]
+    elfs --> runner["Host: runner<br/>(standards backends)"]
     exe --> runner
     runner --> verdict{"public output ==<br/>.expected?"}
     verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]
@@ -115,20 +115,20 @@ GPU=1 ./run isa-tests zisk              # Prove with GPU
 
 ```
 run                       Entry point
-config.json               ZK-VM repo URLs and commit pins (zkVMs, ACT4)
+config.json               ZK-VM repo URLs and commit pins (zkVMs, ACT4, zkevm-standards)
 src/                      Build and test scripts
-src/act4-runner/          Host-side test runners (Rust): act4-runner, eth-act-standards-runner
+src/runner/               Host-side test runner (Rust) for both suites
 src/shared/               Shared utilities (patch_elfs.py)
 zkvms/<zkvm>/             Everything specific to one ZK-VM:
   build.Dockerfile          binary build
   act4.Dockerfile           ACT4 image (+ entrypoint.sh)
   isa-configs/<isa>/        ACT4 ISA/platform configs
-  standards/                eth-act standards platform
-tests/eth-act-standards/  eth-act standards tests: C guests, headers
+  standards/                eth-act standards platform: C library, executor, link.ld
+tests/eth-act-standards/  eth-act standards tests: C guests, headers, vector tools
 site/                     Dashboard (GitHub Pages)
 results/history/          Historical pass/fail tracking (read by the dashboard)
 out/                      Local outputs, not tracked: bin/, <zkvm>/ ELFs and logs,
-                          commits/
+                          commits/, deps/
 ```
 
 ## Requirements
