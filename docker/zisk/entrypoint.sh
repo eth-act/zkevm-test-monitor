@@ -54,6 +54,11 @@ generate_elfs() {
     echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
 
+    # Install the minimal failure handler. riscv_arch_test.h includes
+    # "failure_code.h" with quotes, so tests/env/ wins over dut_include_dir.
+    # The default handler reads the words that patch_elfs.py replaces with NOPs.
+    cp "/act4/$(dirname "$CONFIG")/failure_code.h" /act4/tests/env/failure_code.h
+
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
@@ -70,6 +75,10 @@ generate_elfs() {
         return
     fi
     echo "=== $ELF_COUNT ELFs compiled for $CONFIG_NAME ==="
+
+    # Post-process ELFs so ZisK >= 1.2's transpiler doesn't panic on data words
+    # (it decodes ACT4's .word string pointers as compressed instructions).
+    python3 /act4/patch_elfs.py "$ELF_DIR"
 
     # Copy ELFs to output (use find+cat to dereference symlinks reliably —
     # cp -rL fails with "same file" when ACT4's common build cache creates
@@ -111,6 +120,11 @@ run_act4_suite() {
     mkdir -p "$WORKDIR/$CONFIG_NAME"
     echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
+
+    # Install the minimal failure handler. riscv_arch_test.h includes
+    # "failure_code.h" with quotes, so tests/env/ wins over dut_include_dir.
+    # The default handler reads the words that patch_elfs.py replaces with NOPs.
+    cp "/act4/$(dirname "$CONFIG")/failure_code.h" /act4/tests/env/failure_code.h
 
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="

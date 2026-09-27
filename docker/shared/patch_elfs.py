@@ -6,8 +6,10 @@ ACT4's SELFCHECK mechanism places .word string pointers after jal failedtest_*
 calls in .text. ZKVMs that scan every word in executable segments at load time
 (SP1, OpenVM, LambdaVM) panic on these non-instruction words.
 
-The failure handler itself is handled separately via a per-DUT failure_code.h
-override in each VM's dut_include_dir.
+ACT4 includes "failure_code.h" with quotes, so tests/env/failure_code.h wins
+over a failure_code.h in dut_include_dir. ZisK's entrypoint copies its minimal
+override over tests/env/failure_code.h, so a failing test halts at once. The
+other VMs keep ACT4's default handler, which reads these words (now NOPs).
 
 Usage:
   python3 patch_elfs.py <elf_directory>

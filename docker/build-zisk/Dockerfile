@@ -55,7 +55,7 @@ ENV CXXFLAGS="-std=c++17"
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/0xPolygonHermez/zisk.git
-ARG COMMIT_HASH=4b9f758f
+ARG COMMIT_HASH=02d2ae7b
 ARG GPU=0
 ARG CUDA_ARCH=sm_89
 
@@ -74,12 +74,12 @@ RUN git clone "$REPO_URL" zisk && \
 # CPU by default, opt-in `gpu` feature. The zisk-witness crate is also gone in
 # v0.17.0 (folded into the main build).
 WORKDIR /workspace/zisk
-# --features zisk-core/float: v1.0.0 moved RV64 F/D (float) support behind the
-# `float` cargo feature on zisk-core (was always-on in v0.18.0's RV64IMFDAC).
-# Both the emulator and the prover convert ELF→ZisK ROM via zisk-core's
-# riscv2zisk, which panics on any word decoding to an F/D instruction when the
-# feature is off — and it decodes data words too, so even I/M-only ELFs trip it.
-# zisk-core is a workspace member, so the member/feature form works from the root.
+# --features zisk-transpiler-riscv/float: RV64 F/D (float) support is behind a
+# `float` cargo feature (always-on in v0.18.0). v1.0.0 put it on zisk-core; v1.3.0
+# moved the RISC-V decoder into transpilers/ (zisk-riscv, zisk-transpiler-*), and
+# zisk-transpiler-riscv/float now enables float in zisk-riscv and zisk-core too.
+# Both the emulator and the prover convert ELF→ZisK ROM through this decoder,
+# which panics on any F/D instruction when the feature is off (e.g. `flw`).
 # lib-float's build.rs rebuilds its committed RISC-V float lib (libziskfloat.a /
 # ziskfloat.elf) via a *nested* `docker build` whenever a C source looks newer
 # than the artifact — which always happens after `git clone` equalizes mtimes,
@@ -90,7 +90,7 @@ WORKDIR /workspace/zisk
 RUN if [ "$GPU" = "1" ]; then export CUDA_ARCH="$CUDA_ARCH"; fi && \
     touch lib-float/c/lib/libziskfloat.a lib-float/c/lib/ziskfloat.elf && \
     cargo build --release --bin ziskemu --bin cargo-zisk --bin cargo-zisk-dev \
-      --features zisk-core/float
+      --features zisk-transpiler-riscv/float
 
 # Build witness lib if the crate still exists (pre-v0.17.0).
 RUN if cargo metadata --no-deps --format-version 1 2>/dev/null | \
