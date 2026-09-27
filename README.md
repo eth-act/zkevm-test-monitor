@@ -62,7 +62,7 @@ flowchart LR
   zkVM's own static library, the way an EIP-8025 guest does.
 - The runner gives each program its `.input` file and compares its public output with its
   `.expected` file (default: `PASS`). A self-checking program writes `FAIL` and a check id on
-  failure.
+  failure. A program with the `.outcome` `fail` must panic instead (the NULL-pointer tests).
 - The zkVM exit code is not used, because not every zkVM reports the guest's exit code.
 - The suite runs execution only, for ZisK, SP1 and OpenVM. Each standards test image pins its own
   zkVM version, independent of `config.json`. See

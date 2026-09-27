@@ -11,7 +11,7 @@ initialises the submodule if necessary and records its commit with each run.
 | Group | Standard | Tests |
 |---|---|---|
 | `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence; echo; split, byte-wise and zero-length writes; outputs of 257 and 1024 bytes |
-| `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases |
+| `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp` over all alignments and lengths 0..72, plus link resolution against weak decoys |
 
 The suite runs execution only. It does not prove.
@@ -28,6 +28,11 @@ through the standard headers. The host feeds it the test's I/O test vectors:
 - An I/O program writes data-dependent output. `io/write_io_vectors.py` writes its input and its
   expected output.
 - If the program never finishes, its output does not match, so the test fails.
+- `<name>.outcome` can hold `fail`. Then the program must terminate abnormally (a panic or a
+  failed execution), and a normal finish fails the test with the detail `did not panic`. The
+  `accel-null-*` programs use this: the standard says that a function called with a NULL
+  pointer SHOULD panic. If the call returns, the program writes check 1 (it returned
+  `ZKVM_EOK`) or check 2 (it returned an error status).
 
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.

@@ -3,8 +3,9 @@
 #
 # Usage: build-guests.sh <platform> <out-dir>
 #
-# Every <group>/<name>.c becomes <out-dir>/<group>/<name>.elf. The I/O test
-# vectors <name>.input and <name>.expected are copied next to the ELF; a group
+# Every <group>/<name>.c becomes <out-dir>/<group>/<name>.elf. The test
+# vectors <name>.input, <name>.expected and <name>.outcome are copied next to
+# the ELF; a group
 # may instead write them with <group>/write_io_vectors.py <out-dir>/<group>.
 # A source that contains the marker "eth-act-standards: link-decoy-memops" is linked
 # with a decoy archive of weak memory functions placed before the vendor library.
@@ -54,7 +55,7 @@ for src in "$HERE"/*/*.c; do
   $CC $CFLAGS $INCLUDES "$src" ${LINKER_SCRIPT:+-T "$LINKER_SCRIPT"} $LDFLAGS \
     $pre_libs "$VENDOR_LIB" $LIBS -o "$OUT/$group/$name.elf"
 
-  for vector in input expected; do
+  for vector in input expected outcome; do
     if [ -f "$HERE/$group/$name.$vector" ]; then
       cp "$HERE/$group/$name.$vector" "$OUT/$group/$name.$vector"
     fi

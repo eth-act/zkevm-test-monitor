@@ -64,4 +64,14 @@ static inline bool accel_verdict_ok(int expect, zkvm_status status, bool verifie
     CHECK_LABEL(CASE_ID(i, STEP_VERDICT), cases[i].label, \
                 accel_verdict_ok(cases[i].expect, status, verified))
 
+/*
+ * The NULL-pointer tests (accel-null-*.c) expect the call to panic, so their
+ * expected outcome is "fail". If the call returns, the guest reports check 1
+ * (it returned ZKVM_EOK) or check 2 (it returned an error status).
+ */
+#define NULL_CALL_RETURNED(status, call)                                  \
+    test_fail_label((status) == ZKVM_EOK ? 1 : 2,                         \
+                    (status) == ZKVM_EOK ? call " returned ZKVM_EOK"      \
+                                         : call " returned an error status")
+
 #endif /* ACCEL_H */
