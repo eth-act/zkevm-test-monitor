@@ -669,62 +669,6 @@ run_openvm_split_pipeline() {
   process_results "$ZKVM"
 }
 
-# run_legacy_pipeline <zkvm> — original Docker-based test execution
-run_legacy_pipeline() {
-  local ZKVM="$1"
-
-  if [ ! -f "binaries/${ZKVM}-binary" ]; then
-    echo "  Warning: No binary found for $ZKVM at binaries/${ZKVM}-binary, skipping"
-    return
-  fi
-
-  chmod +x "binaries/${ZKVM}-binary" 2>/dev/null || true
-
-  DOCKER_DIR="docker/${ZKVM}"
-  if [ ! -d "$DOCKER_DIR" ]; then
-    echo "  Warning: No Docker config at $DOCKER_DIR, skipping $ZKVM"
-    return
-  fi
-
-  echo "Building Docker image for $ZKVM..."
-  ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-  docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
-    echo "Failed to build Docker image for $ZKVM"
-    return
-  }
-
-  mkdir -p "test-results/${ZKVM}"
-
-  CPUSET_ARG=""
-  if [ -n "${JOBS:-}" ]; then
-    LAST_CORE=$((JOBS - 1))
-    CPUSET_ARG="--cpuset-cpus=0-${LAST_CORE}"
-    echo "  Limiting to cores 0-${LAST_CORE} (${JOBS} cores total)"
-  fi
-
-  JOBS_ARG=""
-  if [ -n "${ACT4_JOBS:-}" ]; then
-    JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
-  elif [ -n "${JOBS:-}" ]; then
-    JOBS_ARG="-e ACT4_JOBS=${JOBS}"
-  fi
-
-  LOG_FILE="test-results/${ZKVM}/act4.log"
-  echo "Running tests for $ZKVM... (log: $LOG_FILE)"
-  docker run --rm --name zkvm-${ZKVM}-test \
-    ${CPUSET_ARG} \
-    ${JOBS_ARG} \
-    -v "$PWD/binaries/${ZKVM}-binary:/dut/${ZKVM}-binary" \
-    -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
-    -v "$PWD/test-results/${ZKVM}:/results" \
-    "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
-    echo "  Container failed for $ZKVM — check $LOG_FILE"
-    return
-  }
-
-  process_results "$ZKVM"
-}
-
 for ZKVM in $ZKVMS; do
   if [ "$ZKVM" = "zisk" ]; then
     run_zisk_split_pipeline || true
@@ -735,6 +679,6 @@ for ZKVM in $ZKVMS; do
   elif [ "$ZKVM" = "openvm" ]; then
     run_openvm_split_pipeline || true
   else
-    run_legacy_pipeline "$ZKVM" || true
+    echo "  Warning: No test pipeline for $ZKVM, skipping"
   fi
 done

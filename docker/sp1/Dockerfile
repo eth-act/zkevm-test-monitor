@@ -49,9 +49,6 @@ RUN python3 -c "s=open('tests/env/rvtest_setup.h').read();n=s.replace('  .option
 # 4.0.0: test sources are pre-generated and checked in — no make tests step needed.
 # UDB submodule removed in 4.0.0 — no submodule init needed.
 
-# Create mount points for DUT binary and results
-RUN mkdir -p /dut /results
-
 COPY docker/shared/patch_elfs.py /act4/patch_elfs.py
 COPY docker/sp1/entrypoint.sh /act4/entrypoint.sh
 RUN chmod +x /act4/entrypoint.sh
