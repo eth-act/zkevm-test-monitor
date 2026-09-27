@@ -9,8 +9,11 @@ Writes tests/eth-act-standards/accelerators/vectors/<function>.h. The headers ar
 in; this script records where every value comes from and regenerates them.
 
 Sources:
-- go-ethereum core/vm/testdata/precompiles at GETH_COMMIT, for the EVM
-  precompiles. Their EVM byte encodings are converted to the C interface of
+- go-ethereum core/vm/testdata/precompiles, for the EVM precompiles. The
+  files are pinned in accel_vector_sources.json: the script downloads each
+  file at the pinned commit, checks its sha256 and caches it in
+  ~/.cache/eth-act-standards-vectors. Their EVM byte encodings are converted
+  to the C interface of
   eth-act/zkevm-standards (the external/zkevm-standards submodule):
     * EIP-2537 field elements drop their 16 zero padding bytes (64 -> 48).
     * EIP-196/197 points keep the EVM encoding; G2 is (x_im, x_re, y_im, y_re).
@@ -27,6 +30,7 @@ Each case has one expectation:
 
 import hashlib
 import json
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -34,23 +38,32 @@ import ecdsa
 from Crypto.Hash import RIPEMD160, keccak
 from ecdsa.util import sigdecode_string, sigencode_string
 
-GETH_COMMIT = "f5fa8e2767f171cf01e58675fd2d02d3751f5bfc"
-GETH_URL = "https://raw.githubusercontent.com/ethereum/go-ethereum/{}/core/vm/testdata/precompiles/{}.json"
-
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "accelerators" / "vectors"
-CACHE = Path.home() / ".cache" / "eth-act-standards-geth" / GETH_COMMIT
+SOURCES = json.loads((Path(__file__).resolve().parent / "accel_vector_sources.json").read_text())["sources"]
+CACHE = Path.home() / ".cache" / "eth-act-standards-vectors"
 
 BLS_R = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
 
 
+def pinned_file(source, name):
+    """The bytes of a pinned file, downloaded once and checked against its sha256."""
+    src = SOURCES[source]
+    sha256 = src["files"][name]["sha256"]
+    path = CACHE / sha256  # content-addressed, so a changed pin never reuses a stale file
+    if path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() == sha256:
+        return path.read_bytes()
+    with urllib.request.urlopen(f"{src['url']}/{name}") as resp:
+        data = resp.read()
+    if hashlib.sha256(data).hexdigest() != sha256:
+        sys.exit(f"error: {source} {name}: sha256 mismatch (expected {sha256})")
+    CACHE.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return data
+
+
 def geth(name):
-    path = CACHE / f"{name}.json"
-    if not path.exists():
-        CACHE.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(GETH_URL.format(GETH_COMMIT, name)) as resp:
-            path.write_bytes(resp.read())
-    return {c["Name"]: c for c in json.loads(path.read_text())}
+    return {c["Name"]: c for c in json.loads(pinned_file("go-ethereum", f"{name}.json"))}
 
 
 def unhex(s):

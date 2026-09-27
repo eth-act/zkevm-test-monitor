@@ -105,7 +105,12 @@ uv run --no-project --with pycryptodome --with ecdsa tests/eth-act-standards/too
 ```
 
 The script lists the sources for every case. Most cases come from go-ethereum's precompile
-test data, converted to the C interface. Where the C interface does not define a behavior, the
+test data, converted to the C interface. `tools/accel_vector_sources.json` pins these files: the
+go-ethereum commit (tag v1.17.6) and the sha256 of each file. The script downloads each file at
+that commit, checks the sha256, and stops on a mismatch. It caches the files in
+`~/.cache/eth-act-standards-vectors`.
+
+Where the C interface does not define a behavior, the
 tests follow the EVM precompile:
 
 - EIP-2537 field elements are 48 bytes, without the 16 zero bytes of padding.
