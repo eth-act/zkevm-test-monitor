@@ -296,6 +296,16 @@ fn run_zisk_prove(
 /// `stdin` is 24 zero bytes (a bincode-serialized empty `SP1Stdin`). `--mode cuda`
 /// spawns the host-native `sp1-gpu-server`; see run_zisk_prove for the analogous
 /// host-GPU serialization (one prove at a time via jobs=1).
+/// Parses the guest exit code from sp1-perf-executor's "exit code: N, cycles: M"
+/// line. Upstream sp1-perf-executor always exits 0, so this line is the only
+/// place where a failing ACT4 test (`a0 = 1` at halt) shows.
+fn sp1_guest_exit_code(output: &str) -> Option<u32> {
+    output.lines().find_map(|line| {
+        let rest = line.trim().strip_prefix("exit code: ")?;
+        rest.split(',').next()?.trim().parse().ok()
+    })
+}
+
 fn run_sp1_prove(
     executor: &Path,
     sp1_perf: &Path,
@@ -310,7 +320,7 @@ fn run_sp1_prove(
         let stdin_path = tmp_dir.path().join("stdin.bin");
         std::fs::write(&stdin_path, [0u8; 24])?;
 
-        // 1. Execute (exit-code + unimplemented-instruction check).
+        // 1. Execute (guest exit code + unimplemented-instruction check).
         let exec_output = Command::new(executor)
             .arg("--program")
             .arg(elf_path)
@@ -322,6 +332,7 @@ fn run_sp1_prove(
             .output()?;
         let exec_combined = combined_output(&exec_output);
         let passed = exec_output.status.success()
+            && sp1_guest_exit_code(&exec_combined) == Some(0)
             && !exec_combined.to_lowercase().contains("unimplemented instruction");
 
         if mode == Mode::Execute || !passed {
@@ -964,5 +975,19 @@ fn wait_for_gpu_free(timeout: Duration) {
             return;
         }
         std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sp1_guest_exit_code;
+
+    #[test]
+    fn parses_sp1_guest_exit_code() {
+        let pass = "MinimalExecutor creation time: 1ms\nexit code: 0, cycles: 4321\n";
+        let fail = "exit code: 1, cycles: 12\nexecution time: 2ms\n";
+        assert_eq!(sp1_guest_exit_code(pass), Some(0));
+        assert_eq!(sp1_guest_exit_code(fail), Some(1));
+        assert_eq!(sp1_guest_exit_code("no such line\n"), None);
     }
 }

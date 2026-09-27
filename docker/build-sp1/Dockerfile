@@ -32,16 +32,13 @@ ENV RUST_BACKTRACE=1
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
-# Build arguments for repository and commit
-# Fork rebases upstream v6.1.0 with:
-#   1. Remove test-artifacts dep from sp1-perf Cargo.toml
-#   2. Propagate MinimalExecutor exit code as non-zero process exit
-# Additional Dockerfile patch: stubs out test-artifacts (replaces build.rs + lib.rs with no-ops)
-# since cargo compiles all workspace members and test-artifacts requires the succinct toolchain.
-ARG REPO_URL=https://github.com/codygunton/sp1
-ARG COMMIT_HASH=1099518175f1eb0af3318c5a9be8865da2fc5bd6
+# Build arguments for repository and commit: upstream SP1, no fork.
+# act4-runner reads the guest exit code from sp1-perf-executor's "exit code: N"
+# line, because the executor itself always exits 0.
+ARG REPO_URL=https://github.com/succinctlabs/sp1
+ARG COMMIT_HASH=f5a5bbf6a1cf6007315b410d88678d96fb399fb5
 
-# Clone the fork at the specific commit
+# Clone SP1 at the specific commit
 # This layer will be cached until COMMIT_HASH changes
 RUN git clone "$REPO_URL" sp1 && \
     cd sp1 && \
@@ -51,18 +48,24 @@ RUN git clone "$REPO_URL" sp1 && \
 WORKDIR /workspace/sp1
 
 # Stub out test-artifacts so it compiles without the succinct RISC-V toolchain.
-# test-artifacts builds guest ELFs that require the succinct toolchain; we don't need
-# them for sp1-perf-executor, so we replace the build script and library with no-ops.
+# test-artifacts builds guest ELFs that require the succinct toolchain. sp1-perf
+# imports a few of its constants (FIBONACCI_ELF etc.), but the binaries we run
+# never use them. So the build script becomes a no-op, and every ELF constant
+# becomes an empty static ELF.
 RUN python3 - << 'EOF'
-# No-op build script: skip all guest program compilation
+import re
+
 with open("crates/test-artifacts/build.rs", "w") as f:
     f.write("fn main() {}\n")
 
-# Empty library: remove all include_elf! calls that reference non-existent ELF files
-with open("crates/test-artifacts/src/lib.rs", "w") as f:
-    f.write("// Stubbed: guest ELFs not compiled (succinct toolchain unavailable)\n")
+path = "crates/test-artifacts/src/lib.rs"
+src = open(path).read()
+src, n = re.subn(r'include_elf!\("[^"]*"\)', "Elf::Static(&[])", src)
+src = src.replace("use sp1_build::{include_elf, Elf};", "use sp1_build::Elf;")
+assert n > 0, "no include_elf! calls found"
+open(path, "w").write(src)
 
-print("test-artifacts stubbed successfully")
+print(f"test-artifacts stubbed: {n} ELF constants")
 EOF
 
 # Build SP1.
