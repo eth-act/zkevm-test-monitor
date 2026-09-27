@@ -54,6 +54,11 @@ generate_elfs() {
     echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
 
+    # Install the minimal failure handler. riscv_arch_test.h includes
+    # "failure_code.h" with quotes, so tests/env/ wins over dut_include_dir.
+    # The default handler reads the words that patch_elfs.py replaces with NOPs.
+    cp "/act4/$(dirname "$CONFIG")/failure_code.h" /act4/tests/env/failure_code.h
+
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
@@ -115,6 +120,11 @@ run_act4_suite() {
     mkdir -p "$WORKDIR/$CONFIG_NAME"
     echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
     touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
+
+    # Install the minimal failure handler. riscv_arch_test.h includes
+    # "failure_code.h" with quotes, so tests/env/ wins over dut_include_dir.
+    # The default handler reads the words that patch_elfs.py replaces with NOPs.
+    cp "/act4/$(dirname "$CONFIG")/failure_code.h" /act4/tests/env/failure_code.h
 
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="

@@ -97,7 +97,8 @@ impl Backend {
 /// Zisk proving via `cargo-zisk prove [--verify-proofs]`.
 ///
 /// Lifecycle:
-/// 1. Execute: `ziskemu --elf <path>` — exit code 0 = pass
+/// 1. Execute: `ziskemu --elf <path> --output <file>` — pass = exit code 0, no
+///    "finished with error", and output starts with `PASS`
 /// 2. Prove:   `cargo-zisk prove --elf <path> -o <file> [--verify-proof] [--gpu]`
 ///
 /// As of zisk v0.17.0, `-o/--output` is a file path (not a directory) and proofs
@@ -848,7 +849,7 @@ fn kill_openvm_processes() {
     std::thread::sleep(Duration::from_secs(3));
 }
 
-/// Zisk: invoke `<binary> -e <elf_path>`.
+/// Zisk: invoke `<binary> --elf <elf_path> --output <file>` via `run_ziskemu`.
 fn run_zisk(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
     run_ziskemu(binary, elf_path, &[])
 }
