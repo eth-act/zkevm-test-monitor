@@ -7,7 +7,8 @@
 # ACT4's riscv_arch_test.h includes "failure_code.h" with quotes, which
 # resolves tests/env/failure_code.h before dut_include_dir. The ZisK
 # entrypoint therefore copies this file over tests/env/failure_code.h.
-# The verdict is the PASS/FAIL marker that RVMODEL_HALT_PASS/FAIL store
+# The handler jumps to rvmodel_halt_fail (RVMODEL_HALT_FAIL). The verdict
+# is the PASS/FAIL marker that RVMODEL_HALT_PASS/FAIL store
 # at OUTPUT_ADDR, so the diagnostic strings are not needed.
 # This file must define every symbol that ACT4 references outside
 # failure_code.h (signature.h, rvtest_setup.h, rvtest_trap_handler.h).
@@ -23,7 +24,7 @@
     failedtest_fflags_x5_x4:
     failedtest_fflags_x8_x7:
     failedtest_fflags_x13_x12:
-        RVMODEL_HALT_FAIL
+        j rvmodel_halt_fail
 .endm
 
 .macro RVTEST_FAILURE_DATA
