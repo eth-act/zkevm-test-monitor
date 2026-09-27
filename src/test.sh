@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-source "$(dirname "$0")/elfs.sh"
+source "$(dirname "$0")/generate_elfs.sh"
 
 # Parse targets (positional args only; no suite flag needed)
 TARGETS=""

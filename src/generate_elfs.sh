@@ -1,8 +1,8 @@
 #!/bin/bash
-# elfs.sh - ACT4 self-checking ELF generation, shared by src/test.sh and `./run elfs`.
+# generate_elfs.sh - ACT4 self-checking ELF generation, shared by src/test.sh and `./run elfs`.
 #
 # Sourced:  defines generate_act4_elfs.
-# Executed: ./src/elfs.sh <zkvm> [--force]
+# Executed: ./src/generate_elfs.sh <zkvm> [--force]
 #   Generates ELFs into test-results/<zkvm>/elfs/{native,target}, sends progress to
 #   stderr, and prints exactly one JSON line on stdout for machine consumers (ere):
 #   {"zkvm", "elf_dir", "act4_commit", "act4_version", "native", "target"}
@@ -36,9 +36,14 @@ generate_act4_elfs() {
     # so use a Docker container to remove them if rm -rf fails).
     rm -rf "$ELF_DIR" 2>/dev/null || \
       docker run --rm -v "$ELF_DIR:/elfs" ubuntu:24.04 sh -c 'rm -rf /elfs/*'
+    # The container empties the directory; remove the now-empty directory too.
     rm -rf "$ELF_DIR" 2>/dev/null
+    # The log below goes to test-results/<zkvm>/, which may not exist yet.
     mkdir -p "$ELF_DIR" "test-results/${ZKVM}"
 
+    # Pass the job count (ACT4_JOBS, else JOBS) to the container as ACT4_JOBS.
+    # The entrypoints differ: openvm and lambdavm use it (default: nproc), zisk
+    # reads only JOBS and otherwise sizes itself from free memory, sp1 ignores it.
     JOBS_ARG=""
     if [ -n "${ACT4_JOBS:-}" ]; then
       JOBS_ARG="-e ACT4_JOBS=${ACT4_JOBS}"
@@ -46,6 +51,12 @@ generate_act4_elfs() {
       JOBS_ARG="-e ACT4_JOBS=${JOBS}"
     fi
 
+    # Generate the ELFs. The entrypoint compiles the ACT4 tests with the zkVM's
+    # config (act4-configs/<zkvm>, mounted at /act4/config/<zkvm>), patches them
+    # where the zkVM needs it, and writes native/ and target/ into /elfs. No zkVM
+    # binary is involved. (The zisk entrypoint also has a legacy test mode; it
+    # selects ELF-only mode because /elfs is a mount point.) The full output goes
+    # to the log file.
     LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
     echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
     docker run --rm --name zkvm-${ZKVM}-elfgen \
@@ -59,15 +70,23 @@ generate_act4_elfs() {
   fi
 }
 
+# Executed mode (`./run elfs`): run the function above for one zkVM.
+# When src/test.sh sources this file, BASH_SOURCE[0] is this file and $0 is
+# src/test.sh, so this block does not run.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   set -e
   ZKVM="${1:?usage: $0 <zkvm> [--force]}"
   [ "${2:-}" = "--force" ] && export FORCE=1
+  # Each zkVM with ACT4 support has an ELF-generation image in docker/<zkvm>/.
   [ -d "docker/${ZKVM}" ] || { echo "Unknown ZKVM: $ZKVM (no docker/${ZKVM}/)" >&2; exit 1; }
 
+  # Same location as `./run test`, so both commands share the ELFs.
   ELF_DIR="test-results/${ZKVM}/elfs"
+  # All progress goes to stderr, so stdout carries only the JSON line below.
   generate_act4_elfs "$ZKVM" "$ELF_DIR" >&2
 
+  # The one-line result for machine consumers: where the ELFs are, the ACT4
+  # version they come from (from config.json), and how many there are.
   jq -cn \
     --arg zkvm "$ZKVM" \
     --arg elf_dir "$(realpath "$ELF_DIR")" \

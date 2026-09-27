@@ -26,7 +26,7 @@ case "$CMD" in
         ;;
 
     elfs)
-        ./src/elfs.sh "$@"
+        ./src/generate_elfs.sh "$@"
         ;;
 
     serve)
