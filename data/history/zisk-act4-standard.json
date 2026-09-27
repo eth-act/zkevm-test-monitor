@@ -439,9 +439,9 @@
       "notes": "I-auipc-00 prove fails: known zisk circuit bug \u2014 AUIPC constraints fail for PC values with bit 12 set (test code at 0x80001xxx). Execution is 72/72; only prove is affected. Reported upstream; fix expected in zisk 1.0.0-beta."
     },
     {
-      "date": "2026-09-25T22:53:18Z",
+      "date": "2026-09-27T18:53:29Z",
       "commit": "02d2ae7b",
-      "monitor_commit": "dc07042e",
+      "monitor_commit": "94abfb47",
       "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
       "act4_version": "4.0.0",
       "isa": "RV64IMFDAC_Zicclsm",
