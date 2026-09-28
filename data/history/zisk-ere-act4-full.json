@@ -340,7 +340,7 @@
       "sdk_version": "v1.3.0-alpha",
       "resource": "cpu",
       "mode": "execute",
-      "notes": "23 F/D tests (D, F, Zcd) fail through ere because ere's ZisK server is built without float decoding (zisk-transpiler-riscv/float): the transpiler panics when it loads the ELF. The native build enables float and passes them (139/318). The other failures match the native run: the Sail fflags reference gap (eth-act/zkevm-test-monitor#25) and Zalrsc sc.d/sc.w."
+      "notes": "23 F/D tests (D, F, Zcd) fail through ere: ere builds ZisK without its optional float support, because ere targets RV64IMA, so the transpiler panics when it loads an F/D ELF. Enabling float in ere would link ZisK's float library into every program's ROM and change every ZisK program verifying key. The native build enables float and passes these tests (139/318). The other failures match the native run: the Sail fflags reference gap (eth-act/zkevm-test-monitor#25) and Zalrsc sc.d/sc.w."
     }
   ]
 }
