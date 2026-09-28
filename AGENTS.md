@@ -11,7 +11,7 @@ docker/<zkvm>/          # Per-ZKVM ACT4 test Docker setup (Dockerfile + entrypoi
 docker/build-<zkvm>/    # Per-ZKVM binary build Dockerfiles
 docker/shared/          # Shared utilities (patch_elfs.py)
 act4-configs/           # Per-ZKVM ACT4 ISA/platform configs
-riscv-arch-test/        # Symlink → /home/cody/riscv-arch-test (act4 branch)
+riscv-arch-test/        # Symlink → /home/cody/riscv-arch-test (pinned tag: config.json .act4_version)
 config.json             # ZKVM repo URLs and commit pins
 src/build.sh            # Docker build logic
 src/test.sh             # ACT4 test runner

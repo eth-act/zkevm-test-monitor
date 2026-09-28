@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../external/riscv-unified-db/spec/schemas/config_schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/riscv/riscv-unified-db/main/spec/schemas/config_schema.json
 ---
 $schema: config_schema.json#
 kind: architecture configuration
@@ -7,8 +7,13 @@ name: openvm-rv64im
 description: OpenVM RV64IM ZK-VM
 
 implemented_extensions:
-  - { name: I,     version: "= 2.1" }
-  - { name: M,     version: "= 2.0" }
+  - { name: I,       version: "= 2.1" }
+  - { name: M,       version: "= 2.0" }
+  - { name: Zmmul,   version: "= 1.0.0" }
+  # Sm and Zicsr are required by UDB to define MXLEN (UDB_MXLEN). OpenVM has no CSRs;
+  # rvmodel_macros.h leaves STANDARD_SM_SUPPORTED undefined, so no CSR code is emitted.
+  - { name: Zicsr,   version: "= 2.0" }
+  - { name: Sm,      version: "= 1.12.0" }
 
 params:
   # M params
@@ -48,7 +53,16 @@ params:
   MTVEC_MODES: [0]
   MTVEC_BASE_ALIGNMENT_DIRECT: 4
   MTVEC_ILLEGAL_WRITE_BEHAVIOR: retain
-  COUNTINHIBIT_EN:
+  NUM_PMP_ENTRIES: 0
+  MCOUNTINHIBIT_IMPLEMENTED: false
+  HPM_COUNTER_EN:
+    [
+      false, false, false, false, false, false, false, false,
+      false, false, false, false, false, false, false, false,
+      false, false, false, false, false, false, false, false,
+      false, false, false, false, false, false, false, false,
+    ]
+  MCOUNTENABLE_EN:
     [
       false, false, false, false, false, false, false, false,
       false, false, false, false, false, false, false, false,
