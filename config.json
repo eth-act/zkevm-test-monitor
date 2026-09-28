@@ -8,7 +8,13 @@
       "build_cmd": "cargo build --release --bin sp1-perf-executor --bin sp1-perf",
       "binary_name": "sp1-perf-executor",
       "binary_path": "target/release/sp1-perf-executor",
-      "isa": "RV64IM"
+      "isa": "RV64IM",
+      "ere": {
+        "suites": [
+          "act4-standard"
+        ],
+        "sdk_repo_url": "https://github.com/succinctlabs/sp1"
+      }
     },
     "openvm": {
       "repo_url": "https://github.com/han0110/openvm",
@@ -16,7 +22,13 @@
       "build_cmd": "cargo build --release --locked",
       "binary_name": "openvm-binary",
       "binary_path": "target/release/openvm-binary",
-      "isa": "RV64IM_Zicclsm"
+      "isa": "RV64IM_Zicclsm",
+      "ere": {
+        "suites": [
+          "act4-standard"
+        ],
+        "sdk_repo_url": "https://github.com/openvm-org/openvm"
+      }
     },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",
@@ -24,7 +36,13 @@
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",
-      "isa": "RV64IMFDAC_Zicclsm"
+      "isa": "RV64IMFDAC_Zicclsm",
+      "ere": {
+        "suites": [
+          "act4-standard"
+        ],
+        "sdk_repo_url": "https://github.com/0xPolygonHermez/zisk"
+      }
     },
     "lambdavm": {
       "repo_url": "https://github.com/yetanotherco/lambda_vm",
