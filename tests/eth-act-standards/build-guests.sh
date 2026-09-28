@@ -10,6 +10,7 @@
 #   /platform                 zkvms/<zkvm>/standards (read-only)
 #   /vendor                   the zkVM's C library (read-only)
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
+#   /cache                    download cache for the accelerator vector sources and uv
 #
 # Every <group>/<name>.c (group: io, accelerators, memory) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
@@ -64,6 +65,11 @@ cp -r /act4/tests/env "$TESTS/env"
 for group in $GROUPS_LIST; do
   cp -r "$HERE/$group" "$TESTS/rv64i/$group"
 done
+
+# The accelerator known-answer vectors are generated from pinned, sha256-checked
+# go-ethereum and execution-specs files (tools/accel_vector_sources.json).
+UV_CACHE_DIR=/cache/uv uv run --no-project --with pycryptodome --with ecdsa \
+  "$HERE/tools/gen_accel_vectors.py" --out "$TESTS/rv64i/accelerators/vectors" --cache /cache/vectors
 
 (cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
   --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")

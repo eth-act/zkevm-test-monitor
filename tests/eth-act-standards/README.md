@@ -118,7 +118,9 @@ config.
 
 ## Accelerator vectors
 
-`accelerators/vectors/*.h` are generated files. Regenerate them with:
+The accelerator tests include `accelerators/vectors/<function>.h`. These headers are not checked
+in: `build-guests.sh` generates them for every guest build, in the ACT4 image (about 1 s, or 10 s
+with an empty download cache in `out/deps/accel-vectors`). To look at them locally, run:
 
 ```bash
 uv run --no-project --with pycryptodome --with ecdsa tests/eth-act-standards/tools/gen_accel_vectors.py
@@ -132,13 +134,16 @@ data, converted to the C interface:
   EIP-7883 modexp and EIP-4844 KZG vectors. EEST has no JSON vectors for bn254, blake2f and
   ecrecover (only Python test parameters), so those come from go-ethereum only.
 
-The script keeps the go-ethereum cases and adds selected EEST cases. It skips a case whose input
-is already present, and each case label starts with its source (`geth` or `eest`). An EEST KZG
+The script takes every case of every pinned file that the C interface can express: about 1,780
+cases in total. It skips a case whose input is already present, and each case label starts with
+its source (`geth` or `eest`). The fixed-size C types cannot express some cases: a wrong input
+length, an EIP-2537 field element with nonzero padding, or an ecrecover `v` other than 27 or 28.
+The script skips those cases and prints how many it skipped per file. An EEST KZG
 input error (`output: null`) is expected to be rejected, like an invalid proof.
 
 `tools/accel_vector_sources.json` pins these files: the commit of each source and the sha256 of
 each file. The script downloads each file at that commit, checks the sha256, and stops on a
-mismatch. It caches the files in `~/.cache/eth-act-standards-vectors`.
+mismatch. It caches the files in `~/.cache/eth-act-standards-vectors`, or in the `--cache` directory.
 
 Where the C interface does not define a behavior, the
 tests follow the EVM precompile:

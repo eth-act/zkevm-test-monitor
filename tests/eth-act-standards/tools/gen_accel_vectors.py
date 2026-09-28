@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """Generate known-answer vectors for the accelerator tests.
 
-Usage (from the repository root):
+Usage:
     uv run --no-project --with pycryptodome --with ecdsa \\
-        tests/eth-act-standards/tools/gen_accel_vectors.py
+        tests/eth-act-standards/tools/gen_accel_vectors.py [--out DIR] [--cache DIR]
 
-Writes tests/eth-act-standards/accelerators/vectors/<function>.h. The headers are checked
-in; this script records where every value comes from and regenerates them.
+Writes DIR/<function>.h (default: accelerators/vectors/). The headers are
+not checked in: build-guests.sh generates them for every guest build. This
+script records where every value comes from.
 
 Sources:
 - go-ethereum core/vm/testdata/precompiles, for the EVM precompiles. The
   files are pinned in accel_vector_sources.json: the script downloads each
-  file at the pinned commit, checks its sha256 and caches it in
-  ~/.cache/eth-act-standards-vectors. Their EVM byte encodings are converted
+  file at the pinned commit, checks its sha256 and caches it (default:
+  ~/.cache/eth-act-standards-vectors). Their EVM byte encodings are converted
   to the C interface of
   eth-act/zkevm-standards (config.json zkevm_standards_commit):
     * EIP-2537 field elements drop their 16 zero padding bytes (64 -> 48).
@@ -21,9 +22,12 @@ Sources:
 - ethereum/execution-specs (EEST) tests/ at tag tests@v20.0.2, also pinned in
   accel_vector_sources.json: the EIP-2537 BLS12-381 vectors, the EIP-7883
   modexp vectors and the EIP-4844 go_kzg_4844_verify_kzg_proof.json vectors.
-  The two sources are combined: every go-ethereum pick stays, and selected
-  EEST cases are added. A case whose input bytes are already present is
-  skipped, and each label starts with its source ("geth" or "eest").
+  Every case of both sources is used when the C interface can express it:
+  go-ethereum first, then EEST. A case whose input bytes are already present
+  is skipped, and each label starts with its source ("geth" or "eest"). A
+  case the fixed-size C types cannot express (a wrong input length, an
+  EIP-2537 field element with nonzero padding, an ecrecover v other than 27
+  or 28) is skipped; the script prints how many cases it skipped per file.
   KZG outputs map as: true -> TRUE, false -> REJECT, null (an input error)
   -> REJECT; error cases with a wrong field length are skipped, since the C
   types have a fixed size.
@@ -39,6 +43,7 @@ Each case has one expectation:
     EFAIL   status ZKVM_EFAIL (an invalid input to a function with an output)
 """
 
+import argparse
 import hashlib
 import json
 import sys
@@ -86,6 +91,14 @@ def eest(path):
 EEST_BLS = "prague/eip2537_bls_12_381_precompiles/vectors/"
 EEST_MODEXP = "osaka/eip7883_modexp_gas_increase/vector/"
 EEST_KZG = "cancun/eip4844_blobs/point_evaluation_vectors/go_kzg_4844_verify_kzg_proof.json"
+
+
+SKIPPED = {}
+
+
+def skip(source):
+    """Count a case the C interface cannot express."""
+    SKIPPED[source] = SKIPPED.get(source, 0) + 1
 
 
 def unhex(s):
@@ -282,7 +295,8 @@ def gen_secp256k1():
         data = unhex(case["Input"]).ljust(128, b"\0")
         digest, v, r, s = data[:32], int.from_bytes(data[32:64], "big"), data[64:96], data[96:128]
         if v not in (27, 28):
-            continue  # the C interface takes a recovery id, not an EVM v
+            skip("geth ecRecover")  # the C interface takes a recovery id, not an EVM v
+            continue
         expected = unhex(case["Expected"])
         if not expected:
             rec.case(f"geth {name}", "EFAIL", msg=digest, sig=r + s, recid=v - 27, out=bytes(64))
@@ -305,32 +319,26 @@ def gen_modexp():
     h = Header("zkvm_modexp", [("base", "bytes"), ("exp", "bytes"), ("mod", "bytes"), ("out", "bytes")],
                "go-ethereum modexp.json and modexp_eip2565.json, execution-specs EIP-7883 "
                "vectors.json and legacy.json; edge cases computed with pow()")
-    cases = {**geth("modexp"), **{f"eip2565 {k}": v for k, v in geth("modexp_eip2565").items()}}
-    for name in ["eip_example1", "eip_example2", "nagydani-1-square", "nagydani-1-pow0x10001",
-                 "nagydani-2-qube", "eip2565 marius-1-even", "eip2565 guido-4-even",
-                 "eip2565 marcin-1-exp-heavy", "eip2565 mod_vul_pawel_3_exp_8"]:
-        base, exp, mod = modexp_parts(unhex(cases[name]["Input"]))
-        out = unhex(cases[name]["Expected"])
-        assert out == pow(int.from_bytes(base, "big"), int.from_bytes(exp, "big"),
-                          int.from_bytes(mod, "big")).to_bytes(len(mod), "big"), name
-        h.case(f"geth {name}", "OK", base=base, exp=exp, mod=mod, out=out)
+    def add(label, case):
+        base, exp, mod = modexp_parts(unhex(case["Input"]))
+        out = unhex(case["Expected"])
+        m = int.from_bytes(mod, "big")
+        assert out == (pow(int.from_bytes(base, "big"), int.from_bytes(exp, "big"), m) if m else 0).to_bytes(
+            len(mod), "big"), label
+        h.case(label, "OK", base=base, exp=exp, mod=mod, out=out)
+
+    for name, case in geth("modexp").items():
+        add(f"geth {name}", case)
+    for name, case in geth("modexp_eip2565").items():
+        add(f"geth eip2565 {name}", case)
 
     def own(label, base, exp, mod):
         m = int.from_bytes(mod, "big")
         value = 0 if m == 0 else pow(int.from_bytes(base, "big"), int.from_bytes(exp, "big"), m)
         h.case(label, "OK", base=base, exp=exp, mod=mod, out=value.to_bytes(len(mod), "big"))
 
-    eest_cases = {**eest(EEST_MODEXP + "vectors.json"), **eest(EEST_MODEXP + "legacy.json")}
-    for name in ["zero-exponent-32bytes", "zero-length-base-mod", "unequal-base-mod-lengths",
-                 "word-boundary-7bytes", "32byte-boundary-31-32-33", "exponent-with-leading-zeros",
-                 "large-exponent-80bytes", "256byte-all-params", "legacy-case-10", "legacy-case-13",
-                 "legacy-case-27", "legacy-case-33"]:
-        base, exp, mod = modexp_parts(unhex(eest_cases[name]["Input"]))
-        out = unhex(eest_cases[name]["Expected"])
-        m = int.from_bytes(mod, "big")
-        assert out == (pow(int.from_bytes(base, "big"), int.from_bytes(exp, "big"), m) if m else 0).to_bytes(
-            len(mod), "big"), name
-        h.case(f"eest {name}", "OK", base=base, exp=exp, mod=mod, out=out)
+    for name, case in {**eest(EEST_MODEXP + "vectors.json"), **eest(EEST_MODEXP + "legacy.json")}.items():
+        add(f"eest {name}", case)
 
     own("zero modulus gives zero (EVM)", pattern(32, 2), pattern(8, 3), bytes(32))
     own("empty base", b"", pattern(4, 4), pattern(32, 5))
@@ -342,32 +350,29 @@ def gen_modexp():
 
 def gen_bn254():
     add = Header("zkvm_bn254_g1_add", [("p1", "bytes"), ("p2", "bytes"), ("out", "bytes")],
-                 "go-ethereum bn256Add.json (EIP-196), inputs of exactly 128 bytes")
+                 "go-ethereum bn256Add.json (EIP-196); inputs padded or cut to 128 bytes, as the EVM does")
     for name, case in geth("bn256Add").items():
-        data = unhex(case["Input"])
-        if len(data) == 128:
-            add.case(f"geth {name}", "OK", p1=data[:64], p2=data[64:], out=unhex(case["Expected"]))
+        data = unhex(case["Input"]).ljust(128, b"\0")[:128]
+        add.case(f"geth {name}", "OK", p1=data[:64], p2=data[64:], out=unhex(case["Expected"]))
     off_curve = (1).to_bytes(32, "big") + (3).to_bytes(32, "big")
     generator = (1).to_bytes(32, "big") + (2).to_bytes(32, "big")
     add.case("point not on curve", "EFAIL", p1=off_curve, p2=generator, out=bytes(64))
     add.write()
 
     mul = Header("zkvm_bn254_g1_mul", [("point", "bytes"), ("scalar", "bytes"), ("out", "bytes")],
-                 "go-ethereum bn256ScalarMul.json (EIP-196), inputs of exactly 96 bytes")
+                 "go-ethereum bn256ScalarMul.json (EIP-196); inputs padded or cut to 96 bytes, as the EVM does")
     for name, case in geth("bn256ScalarMul").items():
-        data = unhex(case["Input"])
-        if len(data) == 96:
-            mul.case(f"geth {name}", "OK", point=data[:64], scalar=data[64:], out=unhex(case["Expected"]))
+        data = unhex(case["Input"]).ljust(96, b"\0")[:96]
+        mul.case(f"geth {name}", "OK", point=data[:64], scalar=data[64:], out=unhex(case["Expected"]))
     mul.case("point not on curve", "EFAIL", point=off_curve, scalar=(2).to_bytes(32, "big"), out=bytes(64))
     mul.write()
 
     pairing = Header("zkvm_bn254_pairing", [("pairs", "bytes")],
                      "go-ethereum bn256Pairing.json (EIP-197); G2 as (x_im, x_re, y_im, y_re)")
     cases = geth("bn256Pairing")
-    for name in ["jeff1", "jeff2", "jeff6", "empty_data", "one_point", "two_point_match_2",
-                 "two_point_match_3", "ten_point_match_1"]:
-        verdict = int.from_bytes(unhex(cases[name]["Expected"]), "big")
-        pairing.case(f"geth {name}", "TRUE" if verdict == 1 else "REJECT", pairs=unhex(cases[name]["Input"]))
+    for name, case in cases.items():
+        verdict = int.from_bytes(unhex(case["Expected"]), "big")
+        pairing.case(f"geth {name}", "TRUE" if verdict == 1 else "REJECT", pairs=unhex(case["Input"]))
     jeff1 = bytearray(unhex(cases["jeff1"]["Input"]))
     jeff1[63] ^= 1
     pairing.case("G1 point not on curve", "REJECT", pairs=bytes(jeff1))
@@ -387,9 +392,11 @@ def gen_blake2f():
         h.case(f"geth {name}", "OK", rounds=rounds, h=hh, m=m, t=t, f=f, out=unhex(case["Expected"]))
     for name, case in geth("fail-blake2f").items():
         data = unhex(case["Input"])
-        if len(data) == 213:
-            rounds, hh, m, t, f = split(data)
-            h.case(f"geth {name}", "EFAIL", rounds=rounds, h=hh, m=m, t=t, f=f, out=hh)
+        if len(data) != 213:
+            skip("geth fail-blake2f")
+            continue
+        rounds, hh, m, t, f = split(data)
+        h.case(f"geth {name}", "EFAIL", rounds=rounds, h=hh, m=m, t=t, f=f, out=hh)
     h.write()
 
 
@@ -410,70 +417,28 @@ def gen_kzg():
     # false -> REJECT, null (an input error) -> REJECT: the C function may return
     # a failure status or verified == false. Error cases with a wrong field
     # length cannot be expressed with the fixed-size C types and are skipped.
-    per_kind = {"correct_proof": 2, "correct_proof_point_at_infinity_for_twos_poly": 1,
-                "correct_proof_point_at_infinity_for_zero_poly": 1, "incorrect_proof": 2,
-                "incorrect_proof_point_at_infinity": 1, "invalid_commitment": 99, "invalid_proof": 99,
-                "invalid_y": 99, "invalid_z": 99}
-    taken = {}
     for case in eest(EEST_KZG):
         name = case["name"].removeprefix("verify_kzg_proof_case_")
-        kind = name.rsplit("_", 1)[0]
         fields = {k: unhex(case["input"][k]) for k in ("commitment", "z", "y", "proof")}
-        if [len(v) for v in fields.values()] != [48, 32, 32, 48] or taken.get(kind, 0) >= per_kind[kind]:
+        if [len(v) for v in fields.values()] != [48, 32, 32, 48]:
+            skip("eest go_kzg_4844_verify_kzg_proof")
             continue
-        if h.case(f"eest {name}", "TRUE" if case["output"] is True else "REJECT", **fields):
-            taken[kind] = taken.get(kind, 0) + 1
+        h.case(f"eest {name}", "TRUE" if case["output"] is True else "REJECT", **fields)
     h.write()
 
 
-def take(cases, count, predicate=lambda c: True):
-    return [(n, c) for n, c in cases.items() if predicate(c)][:count]
-
-
-# EEST picks per function: (valid files, valid names, fail files, fail names).
-# Cases whose input bytes are already present (most EEST cases are also in
-# go-ethereum) are skipped by Header.case. Three EEST names are misleading:
-# fail-add_G1_bls.json calls its G1 invalid-field-element case
-# "bls_g2add_invalid_field_element", and msm_G2_bls.json calls its G2
-# infinity case "bls_g1msm_(inf+inf)", and fail-msm_G2_bls.json calls its
-# G2 subgroup case "bls_pairing_g2_not_in_correct_subgroup"; the labels keep
-# EEST's names.
-EEST_BLS_PICKS = {
-    "zkvm_bls12_g1_add": (
-        ["add_G1_bls"], ["bls_g1add_g1+p1", "bls_g1add_(g1+0=g1)", "bls_g1add_(g1-g1=0)"],
-        ["fail-add_G1_bls"], ["bls_g1add_point_not_on_curve", "bls_g2add_invalid_field_element"]),
-    "zkvm_bls12_g2_add": (
-        ["add_G2_bls"], ["bls_g2add_g2+p2", "bls_g2add_(g2+0=g2)", "bls_g2add_(g2-g2=0)"],
-        ["fail-add_G2_bls"], ["bls_g2add_point_not_on_curve", "bls_g2add_invalid_field_element"]),
-    "zkvm_bls12_g1_msm": (
-        ["msm_G1_bls", "mul_G1_bls"],
-        ["bls_g1msm_(0*g1=inf)", "bls_g1msm_(x*inf=inf)", "bls_g1msm_(2g1+inf)", "bls_g1msm_(inf+inf)",
-         "bls_g1msm_(2g1+2p1)", "bls_g1msm_multiple_with_point_at_infinity",
-         "bls_g1msm_random*g1_unnormalized_scalar", "bls_g1mul_random*g1"],
-        ["fail-msm_G1_bls", "fail-mul_G1_bls"],
-        ["bls_g1msm_invalid_field_element", "bls_g1msm_point_not_on_curve",
-         "bls_g1msm_g1_not_in_correct_subgroup", "bls_g1mul_g1_not_in_correct_subgroup"]),
-    "zkvm_bls12_g2_msm": (
-        ["msm_G2_bls", "mul_G2_bls"],
-        ["bls_g2msm_(0*g2=inf)", "bls_g2msm_(x*inf=inf)", "bls_g2msm_(2g2+inf)", "bls_g1msm_(inf+inf)",
-         "bls_g2msm_(2g2+2p2)", "bls_g2msm_multiple_with_point_at_infinity",
-         "bls_g2msm_random*g2_unnormalized_scalar", "bls_g2mul_random*g2"],
-        ["fail-msm_G2_bls", "fail-mul_G2_bls"],
-        ["bls_g2msm_invalid_field_element", "bls_g2msm_point_not_on_curve",
-         "bls_pairing_g2_not_in_correct_subgroup", "bls_g2mul_g2_not_in_correct_subgroup"]),
-    "zkvm_bls12_pairing": (
-        ["pairing_check_bls"],
-        ["bls_pairing_e(0,0)", "bls_pairing_e(0,0)=e(0,0)", "bls_pairing_e(0,G2)", "bls_pairing_e(G1,0)",
-         "bls_pairing_e(0,-G2)!=e(-G1,G2)", "bls_pairing_e(G1,0)!=e(-G1,G2)",
-         "bls_pairing_e(G1,G2)*e(0,0)*e(G1,-G2)=1", "bls_pairing_e(G1,G2)*e(0,0)*e(G1,G2)=0"],
-        ["fail-pairing_check_bls"],
-        ["bls_pairing_e(G1_field_element_equal_to_modulus,G2)", "bls_pairing_e(G1_invalid_field_element,G2)",
-         "bls_pairing_e(G1,G2_invalid_field_element)", "bls_pairing_e(G1_not_on_curve,G2)",
-         "bls_pairing_e(G1,G2_not_on_curve)", "bls_pairing_e(G1_not_in_correct_subgroup,G2)",
-         "bls_pairing_e(G1,G2_not_in_correct_subgroup)", "bls_pairing_e(G1_not_in_correct_subgroup,0)",
-         "bls_pairing_e(0,G2_not_in_correct_subgroup)"]),
-    "zkvm_bls12_map_fp_to_g1": (["map_fp_to_G1_bls"], ["bls_g1map_616263", "bls_g1map_6162636465663031"], [], []),
-    "zkvm_bls12_map_fp2_to_g2": (["map_fp2_to_G2_bls"], ["bls_g2map_616263", "bls_g2map_6162636465663031"], [], []),
+# EEST EIP-2537 files per function: (valid files, fail files). The mul_*
+# files are single-pair MSMs. Some EEST names are misleading (for example,
+# fail-add_G1_bls.json calls a G1 case "bls_g2add_invalid_field_element");
+# the labels keep EEST's names.
+EEST_BLS_FILES = {
+    "zkvm_bls12_g1_add": (["add_G1_bls"], ["fail-add_G1_bls"]),
+    "zkvm_bls12_g2_add": (["add_G2_bls"], ["fail-add_G2_bls"]),
+    "zkvm_bls12_g1_msm": (["msm_G1_bls", "mul_G1_bls"], ["fail-msm_G1_bls", "fail-mul_G1_bls"]),
+    "zkvm_bls12_g2_msm": (["msm_G2_bls", "mul_G2_bls"], ["fail-msm_G2_bls", "fail-mul_G2_bls"]),
+    "zkvm_bls12_pairing": (["pairing_check_bls"], ["fail-pairing_check_bls"]),
+    "zkvm_bls12_map_fp_to_g1": (["map_fp_to_G1_bls"], ["fail-map_fp_to_G1_bls"]),
+    "zkvm_bls12_map_fp2_to_g2": (["map_fp2_to_G2_bls"], ["fail-map_fp2_to_G2_bls"]),
 }
 
 
@@ -500,27 +465,30 @@ def bls_fields(kind, data):
     return None if fp is None else {"fp": fp}
 
 
-def add_eest_bls(h, function, kind):
-    valid_files, valid_names, fail_files, fail_names = EEST_BLS_PICKS[function]
-    load = lambda files: {n: c for f in files for n, c in eest(f"{EEST_BLS}{f}.json").items()}
-    valid, fail = load(valid_files), load(fail_files)
+def add_bls_cases(h, kind, source, valid, fail):
+    """Add every valid and every failing case that the C fields can express."""
     out_size = 96 if kind in ("G1Add", "G1MSM", "MapG1") else 192
-    for name in valid_names + fail_names:
-        ok = name in valid_names
-        case = (valid if ok else fail)[name]
-        fields = bls_fields(kind, unhex(case["Input"]))
-        assert fields is not None, name
-        if kind == "Pairing":
-            expect = "TRUE" if ok and unhex(case["Expected"])[-1] == 1 else "REJECT"
-            h.case(f"eest {name}", expect, **fields)
-        else:
-            out = fps(unhex(case["Expected"])) if ok else bytes(out_size)
-            h.case(f"eest {name}", "OK" if ok else "EFAIL", out=out, **fields)
+    for group, cases in (("valid", valid), ("fail", fail)):
+        for name, case in cases.items():
+            fields = bls_fields(kind, unhex(case["Input"]))
+            if fields is None:
+                skip(f"{source} {kind} {group}")
+                continue
+            label = f"{source} {name}"
+            if kind == "Pairing":
+                ok = group == "valid" and unhex(case["Expected"])[-1] == 1
+                h.case(label, "TRUE" if ok else "REJECT", **fields)
+            elif group == "valid":
+                out = fps(unhex(case["Expected"]))
+                assert out is not None, label
+                h.case(label, "OK", out=out, **fields)
+            else:
+                h.case(label, "EFAIL", out=bytes(out_size), **fields)
 
 
 def gen_bls():
     specs = [
-        # function, geth name, point size (EIP-2537 bytes), fields, splitter
+        # function, go-ethereum name, kind
         ("zkvm_bls12_g1_add", "blsG1Add", "G1Add"),
         ("zkvm_bls12_g2_add", "blsG2Add", "G2Add"),
         ("zkvm_bls12_g1_msm", "blsG1MultiExp", "G1MSM"),
@@ -529,87 +497,33 @@ def gen_bls():
         ("zkvm_bls12_map_fp_to_g1", "blsMapG1", "MapG1"),
         ("zkvm_bls12_map_fp2_to_g2", "blsMapG2", "MapG2"),
     ]
+    fields = {
+        "G1Add": [("p1", "bytes"), ("p2", "bytes"), ("out", "bytes")],
+        "G2Add": [("p1", "bytes"), ("p2", "bytes"), ("out", "bytes")],
+        "G1MSM": [("pairs", "bytes"), ("out", "bytes")],
+        "G2MSM": [("pairs", "bytes"), ("out", "bytes")],
+        "Pairing": [("pairs", "bytes")],
+        "MapG1": [("fp", "bytes"), ("out", "bytes")],
+        "MapG2": [("fp", "bytes"), ("out", "bytes")],
+    }
     for function, name, kind in specs:
-        valid = geth(name)
-        fail = geth("fail-" + name)
-        if kind in ("G1Add", "G2Add"):
-            item = 128 if kind == "G1Add" else 256
-            h = Header(function, [("p1", "bytes"), ("p2", "bytes"), ("out", "bytes")],
-                       f"go-ethereum {name}.json and fail-{name}.json, execution-specs EIP-2537 vectors")
-
-            def emit(label, data, expect, out):
-                p1, p2 = fps(data[:item]), fps(data[item:])
-                if p1 is not None and p2 is not None:
-                    h.case(label, expect, p1=p1, p2=p2, out=out)
-
-            for n, c in take(valid, 6):
-                emit(f"geth {n}", unhex(c["Input"]), "OK", fps(unhex(c["Expected"])))
-            for n, c in fail.items():
-                if len(unhex(c["Input"])) == 2 * item:
-                    emit(f"geth {n}", unhex(c["Input"]), "EFAIL", bytes(item * 3 // 4))
-        elif kind in ("G1MSM", "G2MSM"):
-            item = 128 if kind == "G1MSM" else 256
-            size = item + 32
-            h = Header(function, [("pairs", "bytes"), ("out", "bytes")],
-                       f"go-ethereum {name}.json and fail-{name}.json, execution-specs EIP-2537 vectors")
-            singles = take(valid, 3, lambda c: len(unhex(c["Input"])) == size)
-            multis = take(valid, 3, lambda c: len(unhex(c["Input"])) > size)
-            for n, c in singles + multis:
-                h.case(f"geth {n} (k={len(unhex(c['Input'])) // size})", "OK",
-                       pairs=bls_items(unhex(c["Input"]), item, True), out=fps(unhex(c["Expected"])))
-            for n, c in fail.items():
-                data = unhex(c["Input"])
-                if data and len(data) % size == 0:
-                    pairs = bls_items(data, item, True)
-                    if pairs is not None:
-                        h.case(f"geth {n}", "EFAIL", pairs=pairs, out=bytes(item * 3 // 4))
-        elif kind == "Pairing":
-            h = Header(function, [("pairs", "bytes")],
-                       f"go-ethereum {name}.json and fail-{name}.json, execution-specs EIP-2537 vectors")
-
-            def convert(data):
-                out = b""
-                for i in range(0, len(data), 384):
-                    g1, g2 = fps(data[i : i + 128]), fps(data[i + 128 : i + 384])
-                    if g1 is None or g2 is None:
-                        return None
-                    out += g1 + g2
-                return out
-
-            ones = take(valid, 3, lambda c: unhex(c["Expected"])[-1] == 1)
-            zeros = take(valid, 2, lambda c: unhex(c["Expected"])[-1] == 0)
-            for n, c in ones + zeros:
-                verdict = "TRUE" if unhex(c["Expected"])[-1] == 1 else "REJECT"
-                h.case(f"geth {n}", verdict, pairs=convert(unhex(c["Input"])))
-            for n, c in fail.items():
-                data = unhex(c["Input"])
-                if data and len(data) % 384 == 0:
-                    pairs = convert(data)
-                    if pairs is not None:
-                        h.case(f"geth {n}", "REJECT", pairs=pairs)
-        else:
-            width = 64 if kind == "MapG1" else 128
-            out_size = 96 if kind == "MapG1" else 192
-            h = Header(function, [("fp", "bytes"), ("out", "bytes")],
-                       f"go-ethereum {name}.json and fail-{name}.json, execution-specs EIP-2537 vectors")
-            for n, c in take(valid, 5):
-                h.case(f"geth {n}", "OK", fp=fps(unhex(c["Input"])), out=fps(unhex(c["Expected"])))
-            for n, c in fail.items():
-                data = unhex(c["Input"])
-                if len(data) == width and fps(data) is not None:
-                    h.case(f"geth {n}", "EFAIL", fp=fps(data), out=bytes(out_size))
-        add_eest_bls(h, function, kind)
+        h = Header(function, fields[kind],
+                   f"go-ethereum {name}.json and fail-{name}.json, execution-specs EIP-2537 vectors")
+        add_bls_cases(h, kind, "geth", geth(name), geth("fail-" + name))
+        valid_files, fail_files = EEST_BLS_FILES[function]
+        load = lambda files: {n: c for f in files for n, c in eest(f"{EEST_BLS}{f}.json").items()}
+        add_bls_cases(h, kind, "eest", load(valid_files), load(fail_files))
         h.write()
 
 
 def gen_p256():
     h = Header("zkvm_secp256r1_verify", [("msg", "bytes"), ("sig", "bytes"), ("pubkey", "bytes")],
                "go-ethereum p256Verify.json (EIP-7212, Wycheproof-derived)")
-    cases = geth("p256Verify")
-    valid = take(cases, 4, lambda c: unhex(c["Expected"]) != b"")
-    invalid = take(cases, 4, lambda c: unhex(c["Expected"]) == b"" and len(unhex(c["Input"])) == 160)
-    for n, c in valid + invalid:
+    for n, c in geth("p256Verify").items():
         data = unhex(c["Input"])
+        if len(data) != 160:
+            skip("geth p256Verify")  # EIP-7212 rejects other lengths; the C types are fixed-size
+            continue
         expect = "TRUE" if unhex(c["Expected"]) else "REJECT"
         label = n.split(": ", 1)[-1] if ": " in n else n
         h.case(f"geth {label}", expect, msg=data[:32], sig=data[32:96], pubkey=data[96:160])
@@ -617,6 +531,12 @@ def gen_p256():
 
 
 def main():
+    global OUT, CACHE
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--out", type=Path, default=OUT, help="directory for the <function>.h headers")
+    parser.add_argument("--cache", type=Path, default=CACHE, help="download cache for the pinned files")
+    args = parser.parse_args()
+    OUT, CACHE = args.out, args.cache
     gen_hashes()
     gen_secp256k1()
     gen_modexp()
@@ -625,6 +545,8 @@ def main():
     gen_kzg()
     gen_bls()
     gen_p256()
+    for source, count in sorted(SKIPPED.items()):
+        print(f"skipped {count:4d} inexpressible cases: {source}")
 
 
 if __name__ == "__main__":

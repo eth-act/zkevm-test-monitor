@@ -15,6 +15,7 @@ PLATFORM_DIR="zkvms/${ZKVM}/standards"
 ELF_DIR="out/${ZKVM}/elfs/eth-act-standards"
 RESULTS_DIR="out/${ZKVM}"
 STANDARDS_DIR="out/deps/zkevm-standards"
+VECTOR_CACHE="out/deps/accel-vectors"
 IMAGE="${ZKVM}-eth-act-standards:latest"
 
 if [ ! -d "$PLATFORM_DIR" ]; then
@@ -122,7 +123,7 @@ docker build --build-arg ARCH_TEST_COMMIT="$(jq -r .act4_commit config.json)" \
 
 # The guests are cheap to build, so always rebuild them from current sources.
 rm -rf "$ELF_DIR"
-mkdir -p "$ELF_DIR"
+mkdir -p "$ELF_DIR" "$VECTOR_CACHE"
 echo "Building eth-act standards test guests for $ZKVM..."
 # ACT runs as root in its image (uv and UDB write inside /act4); the outputs
 # are handed back to the calling user.
@@ -130,10 +131,11 @@ docker run --rm --entrypoint bash \
   -v "$PWD/tests/eth-act-standards:/eth-act-standards-tests:ro" \
   -v "$PWD/$PLATFORM_DIR:/platform:ro" \
   -v "$PWD/$STANDARDS_DIR:/zkevm-standards:ro" \
+  -v "$PWD/$VECTOR_CACHE:/cache" \
   -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4-config:ro" \
   -v "$PWD/$VENDOR_DIR:/vendor:ro" \
   -v "$PWD/$ELF_DIR:/elfs" \
-  "$ACT_IMAGE" -c "/eth-act-standards-tests/build-guests.sh $ZKVM /elfs; status=\$?; chown -R $(id -u):$(id -g) /elfs; exit \$status" \
+  "$ACT_IMAGE" -c "/eth-act-standards-tests/build-guests.sh $ZKVM /elfs; status=\$?; chown -R $(id -u):$(id -g) /elfs /cache; exit \$status" \
   > "$RESULTS_DIR/eth-act-standards-build.log" 2>&1 || {
   echo "  Failed to build eth-act standards test guests — check $RESULTS_DIR/eth-act-standards-build.log"
   exit 1
