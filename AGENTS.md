@@ -47,7 +47,7 @@ the native path, execute only (`./run build <zkvm>` first).
 - `BACKEND=native ./run test <zkvm>` builds the zkVM in this repository's containers from
   `config.json` (`./run build <zkvm>` first), for reproducing bugs and testing forks or
   branches. Native results go to `results/history/<zkvm>-act4-*.json`. For zkVMs that run
-  through ere, the site shows only the native Full ISA results, labelled "(native)".
+  through ere, the site shows only the native Full ISA results.
   LambdaVM is native only.
 
 ## Adding a New ZKVM
