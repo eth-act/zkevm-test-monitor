@@ -197,8 +197,8 @@
 
                 const pv = countProveVerify(std);
 
-                // Use most recent date from either suite
-                const lastDate = full?.date || std?.date;
+                // Date of the run whose results the row shows (Standard ISA).
+                const lastDate = std?.date || full?.date;
 
                 const stdLink = std ? `zkvm.html?name=${row.name}&suite=act4-standard&run=latest` : null;
 
