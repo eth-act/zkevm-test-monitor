@@ -3,10 +3,10 @@
   "suite": "act4-standard",
   "runs": [
     {
-      "date": "2026-09-28T03:48:47Z",
-      "monitor_commit": "23b03226",
-      "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
-      "act4_version": "4.0.0",
+      "date": "2026-09-28T11:56:36Z",
+      "monitor_commit": "adf16300",
+      "act4_commit": "6e8a45123f14cebfb3df151a0e7b849b4389b33b",
+      "act4_version": "4.1.0",
       "isa": "RV64IMFDAC_Zicclsm",
       "total": 72,
       "passed": [

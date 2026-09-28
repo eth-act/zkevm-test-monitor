@@ -3,10 +3,10 @@
   "suite": "act4-standard",
   "runs": [
     {
-      "date": "2026-09-28T02:56:41Z",
-      "monitor_commit": "27d065f6",
-      "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
-      "act4_version": "4.0.0",
+      "date": "2026-09-28T12:33:50Z",
+      "monitor_commit": "adf16300",
+      "act4_commit": "6e8a45123f14cebfb3df151a0e7b849b4389b33b",
+      "act4_version": "4.1.0",
       "isa": "RV64IM",
       "total": 72,
       "passed": [
@@ -95,7 +95,7 @@
       "sdk_version": "v6.6.0",
       "resource": "gpu",
       "mode": "full",
-      "notes": "I-fence-00 executes, but SP1 v6.6.0's prover rejects FENCE as an unimplemented opcode and the prove call never returns; recorded as prove failed after the server container was removed. I-auipc-00 and the 8 Misalign-* tests fail at execute, as on the native path."
+      "notes": "I-fence-00 executes, but SP1 v6.6.0's prover rejects FENCE as an unimplemented opcode and the prove call does not return; recorded as prove failed at the 900 s limit. I-auipc-00 and the 8 Misalign-* tests fail at execute, as on the native path."
     }
   ]
 }
