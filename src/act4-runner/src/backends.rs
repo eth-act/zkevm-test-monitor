@@ -21,6 +21,9 @@ pub enum Backend {
         witness_lib: Option<PathBuf>,
         gpu: bool,
     },
+    /// Runs on the official images of the pinned ere revision (`--features ere`).
+    #[cfg(feature = "ere")]
+    Ere(Box<crate::ere::EreBackend>),
 }
 
 /// Execution mode for test runs.
@@ -70,6 +73,8 @@ impl Backend {
             Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
+            #[cfg(feature = "ere")]
+            Backend::Ere(ere) => ere.run_elf(elf_path, mode, start),
             _ => {
                 let (passed, exit_code) = match self {
                     Backend::OpenVM { binary } => run_openvm(binary, elf_path),
@@ -78,6 +83,8 @@ impl Backend {
                     | Backend::Sp1Prove { .. }
                     | Backend::OpenVMProve { .. }
                     | Backend::ZiskProve { .. } => unreachable!(),
+                    #[cfg(feature = "ere")]
+                    Backend::Ere(_) => unreachable!(),
                 };
 
                 RunResult {
