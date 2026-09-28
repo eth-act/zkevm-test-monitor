@@ -1,16 +1,16 @@
 #!/bin/bash
 set -eu
 
-# ACT4 OpenVM ELF generator (split pipeline).
+# ACT4 LambdaVM ELF generator (split pipeline).
 #
 # Compiles self-checking ELFs and copies them to /elfs/{native,target}. Test
 # execution happens on the host via act4-runner, so no DUT binary is needed here.
 #
 # Expected mounts:
-#   /act4/config/openvm             — OpenVM ACT4 config directory (host act4-configs/openvm)
+#   /act4/config/lambdavm          — LambdaVM ACT4 config directory (host zkvms/lambdavm/isa-configs)
 #   /elfs/                          — output directory for generated ELFs
 
-ZKVM=openvm
+ZKVM=lambdavm
 WORKDIR=/act4/work
 
 if [ ! -d /elfs ]; then
@@ -41,6 +41,7 @@ generate_elfs() {
         --workdir "$WORKDIR" \
         --test-dir tests \
         --extensions "$EXTENSIONS"
+
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     local ELF_COUNT
     ELF_COUNT=$(find "$ELF_DIR" -name "*.elf" 2>/dev/null | wc -l)
@@ -50,10 +51,10 @@ generate_elfs() {
     fi
     echo "=== Generated $ELF_COUNT ELFs for $CONFIG_NAME ==="
 
-    # Patch non-instruction data words in executable sections with NOPs. OpenVM's
-    # transpiler pre-decodes every word of every executable segment; ACT4 embeds
-    # .word data after jal failedtest_* calls, which would otherwise make the
-    # transpiler panic. See patch_elfs.py.
+    # Patch non-instruction data words in executable sections with NOPs.
+    # LambdaVM's InstructionCache decodes every word of every executable segment
+    # at construction time; ACT4 embeds .word data after jal failedtest_* calls,
+    # which would otherwise fail to decode (UnknownOpcode).
     echo "=== Patching ELFs for $CONFIG_NAME (replacing data words with NOPs) ==="
     python3 /act4/patch_elfs.py "$ELF_DIR"
 }
@@ -78,17 +79,18 @@ run_act4_suite() {
 }
 
 # Run each suite; allow failures without aborting (set -e is active globally)
-# ─── Run 1: Native ISA (rv64im) ───
+# ─── Run 1: Native ISA (rv64im-zicclsm) ───
+# LambdaVM natively supports Zicclsm (misaligned LD/ST), so include Misalign tests.
 run_act4_suite \
-    "config/openvm/openvm-rv64im/test_config.yaml" \
-    "openvm-rv64im" \
-    "I,M" \
+    "config/lambdavm/lambdavm-rv64im-zicclsm/test_config.yaml" \
+    "lambdavm-rv64im-zicclsm" \
+    "I,M,Misalign" \
     "native" || true
 
 # ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
 run_act4_suite \
-    "config/openvm/openvm-rv64im-zicclsm/test_config.yaml" \
-    "openvm-rv64im-zicclsm" \
+    "config/lambdavm/lambdavm-rv64im-zicclsm/test_config.yaml" \
+    "lambdavm-rv64im-zicclsm" \
     "I,M,Misalign" \
     "target" || true
 

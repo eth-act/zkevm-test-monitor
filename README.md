@@ -40,25 +40,26 @@ GPU=1 ./run test zisk               # Prove with GPU
 ## Adding a ZK-VM
 
 1. Add entry to `config.json`
-2. Create `docker/build-<name>/Dockerfile`
-3. Create `docker/<name>/Dockerfile` + `entrypoint.sh`
-4. Create `act4-configs/<name>/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
+2. Create `zkvms/<name>/build.Dockerfile`
+3. Create `zkvms/<name>/act4.Dockerfile` + `entrypoint.sh`
+4. Create `zkvms/<name>/isa-configs/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
 
 ## Project layout
 
 ```
-run                     Entry point
-config.json             ZK-VM repo URLs and commit pins
-src/                    Build and test scripts
-docker/<zkvm>/          Per-ZK-VM ACT4 test Docker setup
-docker/build-<zkvm>/    Per-ZK-VM binary build Dockerfiles
-docker/shared/          Shared utilities (patch_elfs.py)
-act4-configs/           Per-ZK-VM ACT4 ISA/platform configs
-act4-runner/            Host-side test runner (Rust, used for proving)
-docs/                   Dashboard (generated)
-data/history/           Historical pass/fail tracking
-scripts/                Utility scripts
-notes/                  Reference documents and notes
+run                       Entry point
+config.json               ZK-VM repo URLs and commit pins (zkVMs, ACT4)
+src/                      Build and test scripts
+src/act4-runner/          Host-side test runner (Rust, used for proving)
+src/shared/               Shared utilities (patch_elfs.py)
+zkvms/<zkvm>/             Everything specific to one ZK-VM:
+  build.Dockerfile          binary build
+  act4.Dockerfile           ACT4 image (+ entrypoint.sh)
+  isa-configs/<isa>/        ACT4 ISA/platform configs
+site/                     Dashboard (GitHub Pages)
+results/history/          Historical pass/fail tracking (read by the dashboard)
+out/                      Local outputs, not tracked: bin/, <zkvm>/ ELFs and logs,
+                          commits/
 ```
 
 ## Requirements

@@ -1,7 +1,7 @@
 # OpenVM GPU prover build.
 #
 # Builds the standalone `openvm-binary` (execute/prove/verify) against the OpenVM SDK
-# pinned in openvm-elf-runner/Cargo.toml, with the `cuda` feature always on — so the
+# pinned in elf-runner/Cargo.toml, with the `cuda` feature always on — so the
 # proof/verify path runs on the GPU. The SDK's GPU backend (openvm-cuda-backend)
 # compiles .cu kernels with nvcc at build time, so the builder needs the full CUDA
 # toolkit. CUDA 12.9 matches OpenVM's documented/tested toolkit.
@@ -52,7 +52,7 @@ ARG CUDA_ARCH=120
 ENV CUDA_ARCH=${CUDA_ARCH}
 
 # Copy standalone runner source (Cargo.toml + Cargo.lock pin the SDK + stark-backend).
-COPY docker/build-openvm/openvm-elf-runner/ /workspace/openvm-elf-runner/
+COPY zkvms/openvm/elf-runner/ /workspace/openvm-elf-runner/
 
 WORKDIR /workspace/openvm-elf-runner
 RUN echo "${COMMIT_HASH}" | head -c 8 > /workspace/commit.txt

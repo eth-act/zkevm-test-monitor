@@ -15,12 +15,8 @@ TARGETS="${TARGETS# }"
 # Determine which ZKVMs to test
 if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ]; then
   ZKVMS=""
-  for dir in docker/*/; do
-    name=$(basename "$dir")
-    # Skip build-* and shared
-    [[ "$name" == build-* ]] && continue
-    [[ "$name" == "shared" ]] && continue
-    [ -d "$dir" ] && ZKVMS="$ZKVMS $name"
+  for dir in zkvms/*/; do
+    ZKVMS="$ZKVMS $(basename "$dir")"
   done
   ZKVMS="${ZKVMS# }"
 else
@@ -32,22 +28,22 @@ process_results() {
   local ZKVM="$1"
   local NOTES="${2:-}"
 
-  mkdir -p data/history
+  mkdir -p results/history
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
   RUN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   ACT4_COMMIT_VAL=$(jq -r '.act4_commit // "unknown"' config.json)
   ACT4_VERSION_VAL=$(jq -r '.act4_version // ""' config.json)
 
   # Resolve commit from the binary that actually ran the tests.
-  # Primary source: data/commits/<zkvm>.txt written by build.sh.
+  # Primary source: out/commits/<zkvm>.txt written by build.sh.
   # Fallback: resolve from the Docker image used for building.
-  if [ -f "data/commits/${ZKVM}.txt" ]; then
-    ZKVM_COMMIT=$(cat "data/commits/${ZKVM}.txt")
+  if [ -f "out/commits/${ZKVM}.txt" ]; then
+    ZKVM_COMMIT=$(cat "out/commits/${ZKVM}.txt")
   else
     ZKVM_COMMIT=$(docker run --rm --entrypoint cat "zkvm-${ZKVM}:latest" /commit.txt 2>/dev/null | head -c 8 || echo "unknown")
     if [ "$ZKVM_COMMIT" != "unknown" ]; then
-      mkdir -p data/commits
-      echo "$ZKVM_COMMIT" > "data/commits/${ZKVM}.txt"
+      mkdir -p out/commits
+      echo "$ZKVM_COMMIT" > "out/commits/${ZKVM}.txt"
     fi
   fi
 
@@ -60,8 +56,8 @@ process_results() {
       SUITE="act4-standard"
     fi
 
-    SUMMARY_FILE="test-results/${ZKVM}/summary-act4-${FILE_LABEL}.json"
-    RESULTS_FILE="test-results/${ZKVM}/results-act4-${FILE_LABEL}.json"
+    SUMMARY_FILE="out/${ZKVM}/summary-act4-${FILE_LABEL}.json"
+    RESULTS_FILE="out/${ZKVM}/results-act4-${FILE_LABEL}.json"
 
     if [ ! -f "$SUMMARY_FILE" ]; then
       if [ "$SUITE_TYPE" = "full" ]; then
@@ -99,7 +95,7 @@ process_results() {
     echo "  ACT4 ${ZKVM} (${SUITE}): ${TOTAL} tests"
     echo "     ${STATUS_EMOJI} ${PASSED_COUNT}/${TOTAL} passed"
 
-    HISTORY_FILE="data/history/${ZKVM}-${SUITE}.json"
+    HISTORY_FILE="results/history/${ZKVM}-${SUITE}.json"
 
     # Build run entry as JSON
     RUN_ENTRY=$(jq -n \
@@ -145,33 +141,33 @@ elfs_reusable() {
 # run_zisk_split_pipeline — ELF generation in Docker, test execution on host via act4-runner
 run_zisk_split_pipeline() {
   local ZKVM=zisk
-  local ELF_DIR="test-results/${ZKVM}/elfs"
-  local DOCKER_DIR="docker/${ZKVM}"
+  local ELF_DIR="out/${ZKVM}/elfs"
+  local DOCKER_DIR="zkvms/${ZKVM}"
 
   # Test mode: execute (emulate only), prove (emulate + prove), or full
   # (emulate + prove + verify, default). Set via ACT4_MODE env var.
   local MODE="${ACT4_MODE:-full}"
 
   # Check required binaries (built by ./run build zisk)
-  if [ ! -f "binaries/zisk-binary" ]; then
-    echo "  Error: binaries/zisk-binary not found. Run './run build zisk' first."
+  if [ ! -f "out/bin/zisk-binary" ]; then
+    echo "  Error: out/bin/zisk-binary not found. Run './run build zisk' first."
     return 1
   fi
   if [ "$MODE" != "execute" ]; then
-    if [ ! -f "binaries/cargo-zisk" ]; then
-      echo "  Error: binaries/cargo-zisk not found (required for mode=$MODE). Run './run build zisk' first."
+    if [ ! -f "out/bin/cargo-zisk" ]; then
+      echo "  Error: out/bin/cargo-zisk not found (required for mode=$MODE). Run './run build zisk' first."
       return 1
     fi
-    if [ ! -f "binaries/libzisk_witness.so" ]; then
-      echo "  Warning: binaries/libzisk_witness.so not found (may be required for proving)"
+    if [ ! -f "out/bin/libzisk_witness.so" ]; then
+      echo "  Warning: out/bin/libzisk_witness.so not found (may be required for proving)"
     fi
   fi
 
   # GPU binary selection
-  local CARGO_ZISK="binaries/cargo-zisk"
+  local CARGO_ZISK="out/bin/cargo-zisk"
   if [ -n "${GPU:-}" ]; then
-    if [ -f "binaries/cargo-zisk-cuda" ]; then
-      CARGO_ZISK="binaries/cargo-zisk-cuda"
+    if [ -f "out/bin/cargo-zisk-cuda" ]; then
+      CARGO_ZISK="out/bin/cargo-zisk-cuda"
     else
       echo "  Error: GPU requested but cargo-zisk-cuda not found. Run 'GPU=1 ./run build zisk' first."
       return 1
@@ -189,7 +185,7 @@ run_zisk_split_pipeline() {
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
     ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/act4.Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -208,11 +204,11 @@ run_zisk_split_pipeline() {
       JOBS_ARG="-e ACT4_JOBS=${JOBS}"
     fi
 
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    LOG_FILE="out/${ZKVM}/act4-elfgen.log"
     echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
     docker run --rm --name zkvm-${ZKVM}-elfgen \
       ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
       "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
@@ -222,16 +218,16 @@ run_zisk_split_pipeline() {
   fi
 
   # Build act4-runner if needed
-  local RUNNER="act4-runner/target/release/act4-runner"
+  local RUNNER="src/act4-runner/target/release/act4-runner"
   if [ ! -x "$RUNNER" ]; then
     echo "  Building act4-runner..."
-    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
       echo "  Failed to build act4-runner"
       return 1
     }
   fi
 
-  mkdir -p "test-results/${ZKVM}"
+  mkdir -p "out/${ZKVM}"
 
   # Determine job count for act4-runner
   local RUNNER_JOBS=""
@@ -250,11 +246,11 @@ run_zisk_split_pipeline() {
   # Set LD_LIBRARY_PATH for bundled Zisk shared libs (built in Docker).
   # Host CUDA libs (/usr/local/cuda/lib64) must come first for GPU proving —
   # the Docker-bundled libcudart may not match the host driver exactly.
-  if [ -d "binaries/zisk-lib" ]; then
+  if [ -d "out/bin/zisk-lib" ]; then
     if [ -d "/usr/local/cuda/lib64" ]; then
-      export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+      export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$PWD/out/bin/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     else
-      export LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+      export LD_LIBRARY_PATH="$PWD/out/bin/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     fi
   fi
 
@@ -262,9 +258,9 @@ run_zisk_split_pipeline() {
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
-      --zkvm zisk --binary binaries/zisk-binary \
+      --zkvm zisk --binary out/bin/zisk-binary \
       --elf-dir "$ELF_DIR/native" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-full \
       --label full-isa \
       --mode execute \
@@ -275,13 +271,13 @@ run_zisk_split_pipeline() {
   if [ -d "$ELF_DIR/target" ]; then
     local TARGET_ZKVM_ARG TARGET_PROVE_ARGS
     if [ "$MODE" = "execute" ]; then
-      TARGET_ZKVM_ARG="--zkvm zisk --binary binaries/zisk-binary"
+      TARGET_ZKVM_ARG="--zkvm zisk --binary out/bin/zisk-binary"
       TARGET_PROVE_ARGS=""
     else
-      TARGET_ZKVM_ARG="--zkvm zisk-prove --binary binaries/zisk-binary --cargo-zisk $CARGO_ZISK"
+      TARGET_ZKVM_ARG="--zkvm zisk-prove --binary out/bin/zisk-binary --cargo-zisk $CARGO_ZISK"
       TARGET_PROVE_ARGS="$GPU_ARG"
-      if [ -f "binaries/libzisk_witness.so" ]; then
-        TARGET_ZKVM_ARG="$TARGET_ZKVM_ARG --witness-lib binaries/libzisk_witness.so"
+      if [ -f "out/bin/libzisk_witness.so" ]; then
+        TARGET_ZKVM_ARG="$TARGET_ZKVM_ARG --witness-lib out/bin/libzisk_witness.so"
       fi
     fi
 
@@ -289,7 +285,7 @@ run_zisk_split_pipeline() {
     "$RUNNER" \
       $TARGET_ZKVM_ARG \
       --elf-dir "$ELF_DIR/target" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-standard \
       --label standard-isa \
       --mode "$MODE" \
@@ -302,24 +298,24 @@ run_zisk_split_pipeline() {
 # run_sp1_split_pipeline — ELF generation in Docker, execution + GPU proving on host
 run_sp1_split_pipeline() {
   local ZKVM=sp1
-  local ELF_DIR="test-results/${ZKVM}/elfs"
-  local DOCKER_DIR="docker/${ZKVM}"
+  local ELF_DIR="out/${ZKVM}/elfs"
+  local DOCKER_DIR="zkvms/${ZKVM}"
 
   # Test mode: execute (emulate only), prove (emulate + prove), or full
   # (emulate + prove + verify, default). Set via ACT4_MODE env var.
   local MODE="${ACT4_MODE:-full}"
 
   # sp1-binary = sp1-perf-executor (execute-only). Required for every mode.
-  if [ ! -f "binaries/sp1-binary" ]; then
-    echo "  Error: binaries/sp1-binary not found. Run './run build sp1' first."
+  if [ ! -f "out/bin/sp1-binary" ]; then
+    echo "  Error: out/bin/sp1-binary not found. Run './run build sp1' first."
     return 1
   fi
   # sp1-prover = sp1-perf (execute + GPU prove + verify). Required for prove/full.
-  if [ "$MODE" != "execute" ] && [ ! -f "binaries/sp1-prover" ]; then
-    echo "  Error: binaries/sp1-prover not found (required for mode=$MODE). Run './run build sp1' first."
+  if [ "$MODE" != "execute" ] && [ ! -f "out/bin/sp1-prover" ]; then
+    echo "  Error: out/bin/sp1-prover not found (required for mode=$MODE). Run './run build sp1' first."
     return 1
   fi
-  chmod +x binaries/sp1-binary binaries/sp1-prover 2>/dev/null || true
+  chmod +x out/bin/sp1-binary out/bin/sp1-prover 2>/dev/null || true
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
   if elfs_reusable "$ELF_DIR"; then
@@ -332,7 +328,7 @@ run_sp1_split_pipeline() {
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
     ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/act4.Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -350,12 +346,12 @@ run_sp1_split_pipeline() {
       JOBS_ARG="-e ACT4_JOBS=${JOBS}"
     fi
 
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    LOG_FILE="out/${ZKVM}/act4-elfgen.log"
     echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    mkdir -p "test-results/${ZKVM}"
+    mkdir -p "out/${ZKVM}"
     docker run --rm --name zkvm-${ZKVM}-elfgen \
       ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
       "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
@@ -365,16 +361,16 @@ run_sp1_split_pipeline() {
   fi
 
   # Build act4-runner if needed
-  local RUNNER="act4-runner/target/release/act4-runner"
+  local RUNNER="src/act4-runner/target/release/act4-runner"
   if [ ! -x "$RUNNER" ]; then
     echo "  Building act4-runner..."
-    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
       echo "  Failed to build act4-runner"
       return 1
     }
   fi
 
-  mkdir -p "test-results/${ZKVM}"
+  mkdir -p "out/${ZKVM}"
 
   # Determine job count for act4-runner (native execute; prove is forced to 1)
   local RUNNER_JOBS=""
@@ -407,9 +403,9 @@ run_sp1_split_pipeline() {
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
-      --zkvm sp1-prove --binary binaries/sp1-binary --sp1-perf binaries/sp1-prover \
+      --zkvm sp1-prove --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
       --elf-dir "$ELF_DIR/native" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-full \
       --label full-isa \
       --mode execute \
@@ -424,9 +420,9 @@ run_sp1_split_pipeline() {
     fi
     echo "Running $ZKVM target suite (mode: $MODE)..."
     "$RUNNER" \
-      --zkvm sp1-prove --binary binaries/sp1-binary --sp1-perf binaries/sp1-prover \
+      --zkvm sp1-prove --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
       --elf-dir "$ELF_DIR/target" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-standard \
       --label standard-isa \
       --mode "$MODE" \
@@ -439,16 +435,16 @@ run_sp1_split_pipeline() {
 # run_lambdavm_split_pipeline — ELF generation in Docker, test execution + proving on host
 run_lambdavm_split_pipeline() {
   local ZKVM=lambdavm
-  local ELF_DIR="test-results/${ZKVM}/elfs"
-  local DOCKER_DIR="docker/${ZKVM}"
+  local ELF_DIR="out/${ZKVM}/elfs"
+  local DOCKER_DIR="zkvms/${ZKVM}"
 
   # Test mode: execute (emulate only), prove (emulate + prove), or full
   # (emulate + prove + verify, default). Set via ACT4_MODE env var.
   local MODE="${ACT4_MODE:-full}"
 
   # A single binary (the lambdavm cli) handles execute, prove, and verify.
-  if [ ! -f "binaries/lambdavm-binary" ]; then
-    echo "  Error: binaries/lambdavm-binary not found. Run './run build lambdavm' first."
+  if [ ! -f "out/bin/lambdavm-binary" ]; then
+    echo "  Error: out/bin/lambdavm-binary not found. Run './run build lambdavm' first."
     return 1
   fi
 
@@ -463,7 +459,7 @@ run_lambdavm_split_pipeline() {
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
     ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/act4.Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -481,12 +477,12 @@ run_lambdavm_split_pipeline() {
       JOBS_ARG="-e ACT4_JOBS=${JOBS}"
     fi
 
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    LOG_FILE="out/${ZKVM}/act4-elfgen.log"
     echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    mkdir -p "test-results/${ZKVM}"
+    mkdir -p "out/${ZKVM}"
     docker run --rm --name zkvm-${ZKVM}-elfgen \
       ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
       "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
@@ -496,16 +492,16 @@ run_lambdavm_split_pipeline() {
   fi
 
   # Build act4-runner if needed
-  local RUNNER="act4-runner/target/release/act4-runner"
+  local RUNNER="src/act4-runner/target/release/act4-runner"
   if [ ! -x "$RUNNER" ]; then
     echo "  Building act4-runner..."
-    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
       echo "  Failed to build act4-runner"
       return 1
     }
   fi
 
-  mkdir -p "test-results/${ZKVM}"
+  mkdir -p "out/${ZKVM}"
 
   # Determine job count for act4-runner
   local RUNNER_JOBS=""
@@ -519,9 +515,9 @@ run_lambdavm_split_pipeline() {
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
-      --zkvm lambdavm --binary binaries/lambdavm-binary \
+      --zkvm lambdavm --binary out/bin/lambdavm-binary \
       --elf-dir "$ELF_DIR/native" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-full \
       --label full-isa \
       --mode execute \
@@ -532,9 +528,9 @@ run_lambdavm_split_pipeline() {
   if [ -d "$ELF_DIR/target" ]; then
     echo "Running $ZKVM target suite (mode: $MODE)..."
     "$RUNNER" \
-      --zkvm lambdavm --binary binaries/lambdavm-binary \
+      --zkvm lambdavm --binary out/bin/lambdavm-binary \
       --elf-dir "$ELF_DIR/target" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-standard \
       --label standard-isa \
       --mode "$MODE" \
@@ -552,16 +548,16 @@ run_lambdavm_split_pipeline() {
 # Full and Standard dashboard results because those categories coincide for OpenVM.
 run_openvm_split_pipeline() {
   local ZKVM=openvm
-  local ELF_DIR="test-results/${ZKVM}/elfs"
-  local DOCKER_DIR="docker/${ZKVM}"
+  local ELF_DIR="out/${ZKVM}/elfs"
+  local DOCKER_DIR="zkvms/${ZKVM}"
 
   # Test mode: execute (emulate only), prove (emulate + prove), or full
   # (emulate + prove + verify, default). Set via ACT4_MODE env var.
   local MODE="${ACT4_MODE:-full}"
 
   # A single binary (openvm-binary) handles execute, prove, and verify.
-  if [ ! -f "binaries/openvm-binary" ]; then
-    echo "  Error: binaries/openvm-binary not found. Run './run build openvm' first."
+  if [ ! -f "out/bin/openvm-binary" ]; then
+    echo "  Error: out/bin/openvm-binary not found. Run './run build openvm' first."
     return 1
   fi
 
@@ -576,7 +572,7 @@ run_openvm_split_pipeline() {
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
     ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/act4.Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -594,12 +590,12 @@ run_openvm_split_pipeline() {
       JOBS_ARG="-e ACT4_JOBS=${JOBS}"
     fi
 
-    LOG_FILE="test-results/${ZKVM}/act4-elfgen.log"
+    LOG_FILE="out/${ZKVM}/act4-elfgen.log"
     echo "Generating ELFs for $ZKVM... (log: $LOG_FILE)"
-    mkdir -p "test-results/${ZKVM}"
+    mkdir -p "out/${ZKVM}"
     docker run --rm --name zkvm-${ZKVM}-elfgen \
       ${JOBS_ARG} \
-      -v "$PWD/act4-configs/${ZKVM}:/act4/config/${ZKVM}" \
+      -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4/config/${ZKVM}" \
       -v "$PWD/$ELF_DIR:/elfs" \
       "${ZKVM}:latest" > "$LOG_FILE" 2>&1 || {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
@@ -609,16 +605,16 @@ run_openvm_split_pipeline() {
   fi
 
   # Build act4-runner if needed
-  local RUNNER="act4-runner/target/release/act4-runner"
+  local RUNNER="src/act4-runner/target/release/act4-runner"
   if [ ! -x "$RUNNER" ]; then
     echo "  Building act4-runner..."
-    cargo build --release --manifest-path act4-runner/Cargo.toml 2>&1 || {
+    cargo build --release --manifest-path src/act4-runner/Cargo.toml 2>&1 || {
       echo "  Failed to build act4-runner"
       return 1
     }
   fi
 
-  mkdir -p "test-results/${ZKVM}"
+  mkdir -p "out/${ZKVM}"
 
   # Determine job count for act4-runner
   local RUNNER_JOBS=""
@@ -633,8 +629,8 @@ run_openvm_split_pipeline() {
   # used; the host driver's libcuda.so is resolved from the default loader paths. Host
   # CUDA dirs are appended as a fallback. Needed even for execute (the binary links the
   # CUDA libs at load time regardless of whether a proof runs).
-  if [ -d "binaries/openvm-lib" ]; then
-    export LD_LIBRARY_PATH="$PWD/binaries/openvm-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  if [ -d "out/bin/openvm-lib" ]; then
+    export LD_LIBRARY_PATH="$PWD/out/bin/openvm-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
   fi
   for cuda_dir in /opt/cuda/lib64 /usr/local/cuda/lib64; do
     [ -d "$cuda_dir" ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$cuda_dir"
@@ -645,9 +641,9 @@ run_openvm_split_pipeline() {
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
-      --zkvm openvm --binary binaries/openvm-binary \
+      --zkvm openvm --binary out/bin/openvm-binary \
       --elf-dir "$ELF_DIR/native" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-native \
       --label native-isa \
       --mode execute \
@@ -658,10 +654,10 @@ run_openvm_split_pipeline() {
   if [ -d "$ELF_DIR/target" ]; then
     local TARGET_ZKVM_ARG TARGET_PROVE_ARGS
     if [ "$MODE" = "execute" ]; then
-      TARGET_ZKVM_ARG="--zkvm openvm --binary binaries/openvm-binary"
+      TARGET_ZKVM_ARG="--zkvm openvm --binary out/bin/openvm-binary"
       TARGET_PROVE_ARGS=""
     else
-      TARGET_ZKVM_ARG="--zkvm openvm-prove --binary binaries/openvm-binary"
+      TARGET_ZKVM_ARG="--zkvm openvm-prove --binary out/bin/openvm-binary"
       TARGET_PROVE_ARGS="--gpu"
     fi
 
@@ -669,7 +665,7 @@ run_openvm_split_pipeline() {
     "$RUNNER" \
       $TARGET_ZKVM_ARG \
       --elf-dir "$ELF_DIR/target" \
-      --output-dir "test-results/${ZKVM}" \
+      --output-dir "out/${ZKVM}" \
       --suite act4-standard \
       --label standard-isa \
       --mode "$MODE" \
@@ -677,14 +673,14 @@ run_openvm_split_pipeline() {
 
     # Full == Standard for OpenVM. Reuse the one target execution/proof result
     # for both dashboard categories, changing only the suite metadata.
-    if [ -f "test-results/${ZKVM}/summary-act4-standard-isa.json" ] &&
-       [ -f "test-results/${ZKVM}/results-act4-standard-isa.json" ]; then
+    if [ -f "out/${ZKVM}/summary-act4-standard-isa.json" ] &&
+       [ -f "out/${ZKVM}/results-act4-standard-isa.json" ]; then
       jq '.suite = "act4-full"' \
-        "test-results/${ZKVM}/summary-act4-standard-isa.json" \
-        > "test-results/${ZKVM}/summary-act4-full-isa.json"
+        "out/${ZKVM}/summary-act4-standard-isa.json" \
+        > "out/${ZKVM}/summary-act4-full-isa.json"
       jq '.suite = "act4-full"' \
-        "test-results/${ZKVM}/results-act4-standard-isa.json" \
-        > "test-results/${ZKVM}/results-act4-full-isa.json"
+        "out/${ZKVM}/results-act4-standard-isa.json" \
+        > "out/${ZKVM}/results-act4-full-isa.json"
     fi
   fi
 

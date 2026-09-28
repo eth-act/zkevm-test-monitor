@@ -21,14 +21,14 @@ for ZKVM in $ZKVMS; do
   echo "Building $ZKVM..."
 
   # Check if already built (unless forced)
-  if [ -f "binaries/${ZKVM}-binary" ] && [ "$FORCE" != "1" ]; then
+  if [ -f "out/bin/${ZKVM}-binary" ] && [ "$FORCE" != "1" ]; then
     echo "  ✓ Binary exists (set FORCE=1 to rebuild)"
     continue
   fi
 
   # Check if Dockerfile exists
-  if [ ! -f "docker/build-${ZKVM}/Dockerfile" ]; then
-    echo "  ❌ No Dockerfile found for $ZKVM at docker/build-${ZKVM}/Dockerfile"
+  if [ ! -f "zkvms/${ZKVM}/build.Dockerfile" ]; then
+    echo "  ❌ No Dockerfile found for $ZKVM at zkvms/${ZKVM}/build.Dockerfile"
     continue
   fi
 
@@ -79,7 +79,7 @@ for ZKVM in $ZKVMS; do
     --build-arg COMMIT_HASH="$COMMIT" \
     $EXTRA_BUILD_ARGS \
     --cache-from zkvm-${ZKVM}:latest \
-    -f docker/build-${ZKVM}/Dockerfile \
+    -f zkvms/${ZKVM}/build.Dockerfile \
     -t zkvm-${ZKVM}:latest \
     . || {
     echo "  ❌ Docker build failed for $ZKVM"
@@ -89,11 +89,11 @@ for ZKVM in $ZKVMS; do
   ACTUAL_COMMIT=$(docker run --rm --entrypoint cat zkvm-${ZKVM}:latest /commit.txt 2>/dev/null || echo "$COMMIT")
   echo "  Built from commit: ${ACTUAL_COMMIT:0:8}"
 
-  mkdir -p data/commits
-  echo "${ACTUAL_COMMIT:0:8}" > "data/commits/${ZKVM}.txt"
+  mkdir -p out/commits
+  echo "${ACTUAL_COMMIT:0:8}" > "out/commits/${ZKVM}.txt"
 
   # Extract binary using docker cp (needed to test CI using act)
-  mkdir -p binaries
+  mkdir -p out/bin
   BINARY_NAME=$(jq -r ".zkvms.${ZKVM}.binary_name" config.json)
 
   # Create a temporary container, copy binaries, and clean up
@@ -103,53 +103,53 @@ for ZKVM in $ZKVMS; do
   if [ "$ZKVM" = "sp1" ]; then
     # SP1 produces sp1-perf-executor (execute-only → sp1-binary) and
     # sp1-perf (execute + GPU prove + verify → sp1-prover).
-    docker cp "$CONTAINER_ID:/usr/local/bin/sp1-perf-executor" "binaries/sp1-binary" || {
+    docker cp "$CONTAINER_ID:/usr/local/bin/sp1-perf-executor" "out/bin/sp1-binary" || {
       echo "  ❌ Failed to extract sp1-perf-executor for $ZKVM"
       docker rm "$CONTAINER_ID" > /dev/null 2>&1
       continue
     }
-    docker cp "$CONTAINER_ID:/usr/local/bin/sp1-perf" "binaries/sp1-prover" 2>/dev/null || \
+    docker cp "$CONTAINER_ID:/usr/local/bin/sp1-perf" "out/bin/sp1-prover" 2>/dev/null || \
       echo "  Warning: sp1-perf not found (GPU proving will not work)"
-    chmod +x binaries/sp1-binary binaries/sp1-prover 2>/dev/null || true
+    chmod +x out/bin/sp1-binary out/bin/sp1-prover 2>/dev/null || true
   elif [ "$ZKVM" = "zisk" ]; then
     # Zisk produces multiple artifacts via /output/ entrypoint
-    docker cp "$CONTAINER_ID:/usr/local/bin/ziskemu" "binaries/zisk-binary" || {
+    docker cp "$CONTAINER_ID:/usr/local/bin/ziskemu" "out/bin/zisk-binary" || {
       echo "  ❌ Failed to extract ziskemu for $ZKVM"
       docker rm "$CONTAINER_ID" > /dev/null 2>&1
       continue
     }
-    docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk" "binaries/cargo-zisk" || {
+    docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk" "out/bin/cargo-zisk" || {
       echo "  ❌ Failed to extract cargo-zisk for $ZKVM"
       docker rm "$CONTAINER_ID" > /dev/null 2>&1
       continue
     }
     # Extract cargo-zisk-dev (v1.0.0 CLI split: owns check-setup / per-program setup)
-    docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk-dev" "binaries/cargo-zisk-dev" 2>/dev/null || \
+    docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk-dev" "out/bin/cargo-zisk-dev" 2>/dev/null || \
       echo "  Warning: cargo-zisk-dev not found (pre-v1.0.0 bundle; check-setup falls back to cargo-zisk)"
     # Extract witness lib (required for v0.15.0 proving)
-    docker cp "$CONTAINER_ID:/usr/local/bin/libzisk_witness.so" "binaries/libzisk_witness.so" 2>/dev/null || true
+    docker cp "$CONTAINER_ID:/usr/local/bin/libzisk_witness.so" "out/bin/libzisk_witness.so" 2>/dev/null || true
     # Extract bundled shared libraries for cargo-zisk (libsodium, libomp)
-    rm -rf binaries/zisk-lib && mkdir -p binaries/zisk-lib
-    docker cp "$CONTAINER_ID:/usr/local/bin/lib/." "binaries/zisk-lib/" 2>/dev/null || true
+    rm -rf out/bin/zisk-lib && mkdir -p out/bin/zisk-lib
+    docker cp "$CONTAINER_ID:/usr/local/bin/lib/." "out/bin/zisk-lib/" 2>/dev/null || true
     # GPU variants (optional — only present if GPU=1 was set during build)
-    docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk-cuda" "binaries/cargo-zisk-cuda" 2>/dev/null || true
-    chmod +x binaries/zisk-binary binaries/cargo-zisk binaries/cargo-zisk-dev 2>/dev/null || true
-    chmod +x binaries/cargo-zisk-cuda 2>/dev/null || true
+    docker cp "$CONTAINER_ID:/usr/local/bin/cargo-zisk-cuda" "out/bin/cargo-zisk-cuda" 2>/dev/null || true
+    chmod +x out/bin/zisk-binary out/bin/cargo-zisk out/bin/cargo-zisk-dev 2>/dev/null || true
+    chmod +x out/bin/cargo-zisk-cuda 2>/dev/null || true
 
     # Auto-install proving keys if version changed
-    if [ -f "binaries/cargo-zisk" ]; then
+    if [ -f "out/bin/cargo-zisk" ]; then
       # Capture the full semver including any prerelease suffix (e.g. 1.0.0-alpha).
       # Proving-key tarballs are named with the exact version (matching ziskup:
       # zisk-provingkey-<version>.tar.gz), so we must NOT strip "-alpha".
-      ZISK_VERSION=$(LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-        binaries/cargo-zisk --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?' | head -1 || true)
+      ZISK_VERSION=$(LD_LIBRARY_PATH="$PWD/out/bin/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+        out/bin/cargo-zisk --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?' | head -1 || true)
       if [ -n "$ZISK_VERSION" ]; then
         SETUP_KEY_FILE="zisk-provingkey-${ZISK_VERSION}.tar.gz"
         SETUP_URL="https://storage.googleapis.com/zisk-setup/${SETUP_KEY_FILE}"
         # check-setup moved to cargo-zisk-dev in the v1.0.0 CLI split; fall back
         # to cargo-zisk for older bundles where it still lives on the main binary.
-        CHECK_ZISK="binaries/cargo-zisk-dev"
-        [ -x "$CHECK_ZISK" ] || CHECK_ZISK="binaries/cargo-zisk"
+        CHECK_ZISK="out/bin/cargo-zisk-dev"
+        [ -x "$CHECK_ZISK" ] || CHECK_ZISK="out/bin/cargo-zisk"
         MARKER_FILE="$HOME/.zisk/.zisk-setup-version"
         CURRENT_MARKER=$(cat "$MARKER_FILE" 2>/dev/null || true)
 
@@ -171,16 +171,16 @@ for ZKVM in $ZKVMS; do
             tar -xzf "/tmp/${SETUP_KEY_FILE}" -C "$HOME/.zisk/"
             rm -f "/tmp/${SETUP_KEY_FILE}"
             echo "  Running check-setup to generate CPU constant trees..."
-            LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            LD_LIBRARY_PATH="$PWD/out/bin/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
               "$CHECK_ZISK" check-setup --proving-key "$HOME/.zisk/provingKey" -a || {
               echo "  Warning: check-setup failed — proving may not work"
             }
             # Generate GPU constant trees if this was a GPU build. GPU is now a
             # runtime flag (--gpu) rather than a separate binary; cargo-zisk-cuda
             # is just an alias, so its presence signals "GPU build requested".
-            if [ -f "binaries/cargo-zisk-cuda" ]; then
+            if [ -f "out/bin/cargo-zisk-cuda" ]; then
               echo "  Running check-setup to generate GPU constant trees..."
-              LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+              LD_LIBRARY_PATH="$PWD/out/bin/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
                 "$CHECK_ZISK" check-setup --gpu --proving-key "$HOME/.zisk/provingKey" -a || {
                 echo "  Warning: GPU check-setup failed — GPU proving may not work"
               }
@@ -192,9 +192,9 @@ for ZKVM in $ZKVMS; do
             echo "  Proving keys installed for Zisk v${ZISK_VERSION}"
           fi
         # Re-run GPU check-setup if GPU binary was added after initial setup
-        elif [ -f "binaries/cargo-zisk-cuda" ] && [ "$CURRENT_GPU_MARKER" != "1" ]; then
+        elif [ -f "out/bin/cargo-zisk-cuda" ] && [ "$CURRENT_GPU_MARKER" != "1" ]; then
           echo "  Generating GPU constant trees for Zisk v${ZISK_VERSION}..."
-          LD_LIBRARY_PATH="$PWD/binaries/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+          LD_LIBRARY_PATH="$PWD/out/bin/zisk-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             "$CHECK_ZISK" check-setup --gpu --proving-key "$HOME/.zisk/provingKey" -a || {
             echo "  Warning: GPU check-setup failed — GPU proving may not work"
           }
@@ -208,21 +208,21 @@ for ZKVM in $ZKVMS; do
     # OpenVM produces the single openvm-binary (execute/prove/verify) plus bundled CUDA
     # runtime libs (version-matched fallback for hosts whose CUDA toolkit differs from
     # the 12.9 build image; the host driver's libcuda.so is always used at runtime).
-    docker cp "$CONTAINER_ID:/usr/local/bin/openvm-binary" "binaries/openvm-binary" || {
+    docker cp "$CONTAINER_ID:/usr/local/bin/openvm-binary" "out/bin/openvm-binary" || {
       echo "  ❌ Failed to extract openvm-binary for $ZKVM"
       docker rm "$CONTAINER_ID" > /dev/null 2>&1
       continue
     }
-    chmod +x binaries/openvm-binary
-    rm -rf binaries/openvm-lib && mkdir -p binaries/openvm-lib
-    docker cp "$CONTAINER_ID:/usr/local/bin/lib/." "binaries/openvm-lib/" 2>/dev/null || true
+    chmod +x out/bin/openvm-binary
+    rm -rf out/bin/openvm-lib && mkdir -p out/bin/openvm-lib
+    docker cp "$CONTAINER_ID:/usr/local/bin/lib/." "out/bin/openvm-lib/" 2>/dev/null || true
   else
-    docker cp "$CONTAINER_ID:/usr/local/bin/$BINARY_NAME" "binaries/$BINARY_NAME" || {
+    docker cp "$CONTAINER_ID:/usr/local/bin/$BINARY_NAME" "out/bin/$BINARY_NAME" || {
       echo "  ❌ Failed to extract binary for $ZKVM"
       docker rm "$CONTAINER_ID" > /dev/null 2>&1
       continue
     }
-    chmod +x "binaries/$BINARY_NAME"
+    chmod +x "out/bin/$BINARY_NAME"
   fi
 
   docker rm "$CONTAINER_ID" > /dev/null 2>&1 || true

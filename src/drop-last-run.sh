@@ -1,12 +1,12 @@
 #!/bin/bash
 # Drop the most recent run entry from both history files for a ZKVM.
-# Usage: ZKVM=zisk ./drop-last-run.sh
+# Usage: ZKVM=zisk src/drop-last-run.sh
 set -eu
 
 ZKVM="${ZKVM:?Set ZKVM=<name> (e.g. zisk, sp1, openvm, ...)}"
 
 for SUITE in full standard; do
-  FILE="data/history/${ZKVM}-act4-${SUITE}.json"
+  FILE="results/history/${ZKVM}-act4-${SUITE}.json"
   if [ ! -f "$FILE" ]; then
     echo "skip: $FILE not found"
     continue

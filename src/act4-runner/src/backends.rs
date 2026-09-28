@@ -869,7 +869,7 @@ fn run_zisk(binary: &Path, elf_path: &Path) -> (bool, Option<i32>) {
 ///
 /// ZisK >= 1.2 ignores `a0` at the exit ecall, so a failing test exits like a
 /// passing one. The ZisK ACT4 halt macros therefore also write `PASS` or `FAIL`
-/// to public output 0 (act4-configs/zisk/*/rvmodel_macros.h). A test passes only
+/// to public output 0 (zkvms/zisk/isa-configs/*/rvmodel_macros.h). A test passes only
 /// if ziskemu succeeds, prints no "finished with error" (it can exit 0 after an
 /// emulation error), and its output starts with `PASS`.
 fn run_ziskemu(ziskemu: &Path, elf_path: &Path, extra_args: &[&str]) -> (bool, Option<i32>) {

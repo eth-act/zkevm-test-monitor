@@ -18,10 +18,10 @@ target/
 # Test outputs
 riscof_work/
 results/
-test-results-*
+out/
 
 # Dashboard and data
-data/compliance/
+site/
 docs/
 standalone/
 .github/workflows/

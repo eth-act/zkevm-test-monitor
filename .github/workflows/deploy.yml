@@ -28,7 +28,7 @@ jobs:
       - name: Build site
         run: |
           mkdir -p _site
-          cp -rL docs/. _site/
+          cp -rL site/. _site/
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

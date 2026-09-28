@@ -7,7 +7,7 @@ set -eu
 # is needed — test execution happens on the host via act4-runner.
 #
 # Expected mounts:
-#   /act4/config/zisk               — Zisk ACT4 config directory (host act4-configs/zisk)
+#   /act4/config/zisk               — Zisk ACT4 config directory (host zkvms/zisk/isa-configs)
 #   /elfs/                          — output directory for compiled ELFs
 
 ZKVM=zisk
