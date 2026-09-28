@@ -3,10 +3,10 @@
   "suite": "eth-act-standards",
   "runs": [
     {
-      "date": "2026-09-28T06:18:10Z",
+      "date": "2026-09-28T20:42:01Z",
       "commit": "538c5488",
       "library_commit": "e49696e5",
-      "monitor_commit": "62658ea5",
+      "monitor_commit": "abfc90ed",
       "standards_commit": "d1191c57b5c19c13e4ad3520adf08fa75bb8db4d",
       "isa": "RV64IM_Zicclsm",
       "total": 38,
@@ -104,7 +104,7 @@
         "io-write-257-bytes": "executor error (exit 1): execution failed: VM error: execution error: program exit code 1",
         "mem-link-resolution": "executor error (exit 1): execution failed: VM error: execution error: program exit code 1"
       },
-      "notes": "OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/e49696e5e1bfedbfd6a8f4009140b72005ce72e3) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output wrapper (eth-act-standards-tests/platforms/openvm/vendor). ere caps public output at 256 bytes."
+      "notes": "OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/e49696e5e1bfedbfd6a8f4009140b72005ce72e3) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output wrapper (zkvms/openvm/standards/vendor). ere caps public output at 256 bytes."
     }
   ]
 }

@@ -3,10 +3,10 @@
   "suite": "eth-act-standards",
   "runs": [
     {
-      "date": "2026-09-28T06:16:39Z",
+      "date": "2026-09-28T20:39:24Z",
       "commit": "f5a5bbf6",
       "library_commit": "f5a5bbf6",
-      "monitor_commit": "62658ea5",
+      "monitor_commit": "abfc90ed",
       "standards_commit": "d1191c57b5c19c13e4ad3520adf08fa75bb8db4d",
       "isa": "RV64IM",
       "total": 38,
