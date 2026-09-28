@@ -14,7 +14,7 @@ Sources:
   file at the pinned commit, checks its sha256 and caches it in
   ~/.cache/eth-act-standards-vectors. Their EVM byte encodings are converted
   to the C interface of
-  eth-act/zkevm-standards (the external/zkevm-standards submodule):
+  eth-act/zkevm-standards (config.json zkevm_standards_commit):
     * EIP-2537 field elements drop their 16 zero padding bytes (64 -> 48).
     * EIP-196/197 points keep the EVM encoding; G2 is (x_im, x_re, y_im, y_re).
     * Boolean precompile results become the `verified` flag.

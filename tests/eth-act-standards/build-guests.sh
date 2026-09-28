@@ -9,6 +9,7 @@
 #   /act4-config              zkvms/<zkvm>/isa-configs (read-only)
 #   /platform                 zkvms/<zkvm>/standards (read-only)
 #   /vendor                   the zkVM's C library (read-only)
+#   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #
 # Every <group>/<name>.c (group: io, accelerators, memory) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
@@ -19,12 +20,12 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
-PLATFORM_DIR="$HERE/platforms/$ZKVM"
-STANDARDS="$HERE/external/zkevm-standards/standards"
+PLATFORM_DIR="/platform"
+STANDARDS="/zkevm-standards/standards"
 GROUPS_LIST="io accelerators memory"
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
-  echo "error: $STANDARDS is empty; run 'git submodule update --init tests/eth-act-standards/external/zkevm-standards'" >&2
+  echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
   exit 1
 fi
 

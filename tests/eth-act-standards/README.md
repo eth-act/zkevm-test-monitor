@@ -4,9 +4,9 @@ These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
 asks of each zkVM. It covers three
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items. The standards
-repository is the git submodule `external/zkevm-standards`, pinned at one commit. The guests
-include `zkvm_io.h` and `zkvm_accelerators.h` from it. `src/run-eth-act-standards-tests.sh`
-initialises the submodule if necessary and records its commit with each run.
+repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
+`zkvm_io.h` and `zkvm_accelerators.h` from it. `src/run-eth-act-standards-tests.sh` fetches that
+commit into `out/deps/zkevm-standards` and records it with each run.
 
 | Group | Standard | Tests |
 |---|---|---|

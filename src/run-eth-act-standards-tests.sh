@@ -14,7 +14,7 @@ ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
 PLATFORM_DIR="zkvms/${ZKVM}/standards"
 ELF_DIR="out/${ZKVM}/elfs/eth-act-standards"
 RESULTS_DIR="out/${ZKVM}"
-STANDARDS_DIR="tests/eth-act-standards/external/zkevm-standards"
+STANDARDS_DIR="out/deps/zkevm-standards"
 IMAGE="${ZKVM}-eth-act-standards:latest"
 
 if [ ! -d "$PLATFORM_DIR" ]; then
@@ -71,13 +71,16 @@ if [ -z "$IMAGE_EMULATOR" ] && [ ! -f "$EMULATOR" ]; then
   exit 1
 fi
 
-# The guests include the standard headers from the eth-act/zkevm-standards submodule.
-if [ ! -f "$STANDARDS_DIR/standards/io-interface/zkvm_io.h" ]; then
-  echo "Initialising the $STANDARDS_DIR submodule..."
-  git submodule update --init "$STANDARDS_DIR" || {
-    echo "  Error: $STANDARDS_DIR is not initialised; run 'git submodule update --init $STANDARDS_DIR'"
-    exit 1
-  }
+# The guests include the standard headers from eth-act/zkevm-standards at the
+# commit config.json pins, fetched once into a local cache.
+STANDARDS_COMMIT=$(jq -r .zkevm_standards_commit config.json)
+if [ "$(git -C "$STANDARDS_DIR" rev-parse HEAD 2>/dev/null)" != "$STANDARDS_COMMIT" ]; then
+  echo "Fetching eth-act/zkevm-standards at ${STANDARDS_COMMIT:0:8}..."
+  rm -rf "$STANDARDS_DIR"
+  mkdir -p "$STANDARDS_DIR"
+  git -C "$STANDARDS_DIR" init -q
+  git -C "$STANDARDS_DIR" fetch -q --depth 1 https://github.com/eth-act/zkevm-standards "$STANDARDS_COMMIT"
+  git -C "$STANDARDS_DIR" checkout -q FETCH_HEAD
 fi
 
 COMMIT=$(jq -r ".zkvms.${ZKVM}.commit" config.json)
@@ -125,6 +128,8 @@ echo "Building eth-act standards test guests for $ZKVM..."
 # are handed back to the calling user.
 docker run --rm --entrypoint bash \
   -v "$PWD/tests/eth-act-standards:/eth-act-standards-tests:ro" \
+  -v "$PWD/$PLATFORM_DIR:/platform:ro" \
+  -v "$PWD/$STANDARDS_DIR:/zkevm-standards:ro" \
   -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4-config:ro" \
   -v "$PWD/$VENDOR_DIR:/vendor:ro" \
   -v "$PWD/$ELF_DIR:/elfs" \
@@ -175,7 +180,7 @@ RUN_ENTRY=$(jq -n \
   --arg commit "$ZKVM_COMMIT" \
   --arg library_commit "$(head -c 8 "$ELF_DIR/vendor-commit.txt" 2>/dev/null || echo unknown)" \
   --arg monitor_commit "$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo unknown)" \
-  --arg standards_commit "$(git -C "$STANDARDS_DIR" rev-parse HEAD)" \
+  --arg standards_commit "$STANDARDS_COMMIT" \
   --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
   --arg notes "$NOTES" \
   --slurpfile results "$RESULTS_FILE" \

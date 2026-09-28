@@ -49,8 +49,8 @@ flowchart LR
         vendor["zkVM C library<br/>at the version eth-act/ere pins"]
         exe["zkVM executor<br/>(same version)"]
     end
-    subgraph act["Docker: zkvms/&lt;zkvm&gt;/act4.Dockerfile (ACT4)"]
-        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(zkevm-standards submodule)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
+    subgraph act["Docker: zkvms/&lt;zkvm&gt;/act4.Dockerfile"]
+        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(eth-act/zkevm-standards, pinned in config.json)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
         build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
     end
     vendor --> build

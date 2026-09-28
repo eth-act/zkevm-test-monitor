@@ -1,3 +1,0 @@
-[submodule "tests/eth-act-standards/external/zkevm-standards"]
-	path = tests/eth-act-standards/external/zkevm-standards
-	url = https://github.com/eth-act/zkevm-standards
