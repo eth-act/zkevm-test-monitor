@@ -30,6 +30,11 @@ generate_elfs() {
         return
     fi
 
+    # Install the minimal failure handler. riscv_arch_test.h includes
+    # "rvtest_failure_code.h" with quotes, so tests/env/ wins over dut_include_dir.
+    # The default handler reads the words that patch_elfs.py replaces with NOPs.
+    cp "/act4/$(dirname "$CONFIG")/rvtest_failure_code.h" /act4/tests/env/rvtest_failure_code.h
+
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
