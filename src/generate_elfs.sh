@@ -3,9 +3,8 @@
 #
 # Sourced:  defines generate_act4_elfs.
 # Executed: ./src/generate_elfs.sh <zkvm> [--force]
-#   Generates ELFs into test-results/<zkvm>/elfs/{native,target}, sends progress to
-#   stderr, and prints exactly one JSON line on stdout for machine consumers (ere):
-#   {"zkvm", "elf_dir", "act4_commit", "act4_version", "native", "target"}
+#   Generates ELFs into test-results/<zkvm>/elfs/{native,target} and prints how many
+#   there are. It needs no zkVM binary and runs no tests.
 
 # generate_act4_elfs <zkvm> <elf_dir>
 #
@@ -82,17 +81,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 
   # Same location as `./run test`, so both commands share the ELFs.
   ELF_DIR="test-results/${ZKVM}/elfs"
-  # All progress goes to stderr, so stdout carries only the JSON line below.
-  generate_act4_elfs "$ZKVM" "$ELF_DIR" >&2
+  generate_act4_elfs "$ZKVM" "$ELF_DIR"
 
-  # The one-line result for machine consumers: where the ELFs are, the ACT4
-  # version they come from (from config.json), and how many there are.
-  jq -cn \
-    --arg zkvm "$ZKVM" \
-    --arg elf_dir "$(realpath "$ELF_DIR")" \
-    --arg act4_commit "$(jq -r '.act4_commit // ""' config.json)" \
-    --arg act4_version "$(jq -r '.act4_version // ""' config.json)" \
-    --argjson native "$(find "$ELF_DIR/native" -name '*.elf' 2>/dev/null | wc -l)" \
-    --argjson target "$(find "$ELF_DIR/target" -name '*.elf' 2>/dev/null | wc -l)" \
-    '{zkvm: $zkvm, elf_dir: $elf_dir, act4_commit: $act4_commit, act4_version: $act4_version, native: $native, target: $target}'
+  echo "ELFs for $ZKVM in $ELF_DIR:" \
+    "$(find "$ELF_DIR/native" -name '*.elf' 2>/dev/null | wc -l) native," \
+    "$(find "$ELF_DIR/target" -name '*.elf' 2>/dev/null | wc -l) target"
 fi
