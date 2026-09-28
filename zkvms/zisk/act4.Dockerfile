@@ -53,8 +53,8 @@ RUN mise install ruby gem:bundler uv && \
     BUNDLE_GEMFILE=/act4/framework/src/act/data/Gemfile bundle install && \
     uv sync
 
-COPY docker/shared/patch_elfs.py /act4/patch_elfs.py
-COPY docker/sp1/entrypoint.sh /act4/entrypoint.sh
+COPY src/shared/patch_elfs.py /act4/patch_elfs.py
+COPY zkvms/zisk/entrypoint.sh /act4/entrypoint.sh
 RUN chmod +x /act4/entrypoint.sh
 
 ENTRYPOINT ["/act4/entrypoint.sh"]

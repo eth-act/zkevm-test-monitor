@@ -89,7 +89,7 @@ jobs:
           ZKVM="${{ inputs.zkvm }}"
           echo "🔨 Building ${ZKVM} ZKVM..."
           # Force rebuild by removing existing binary
-          rm -f binaries/${ZKVM}-binary
+          rm -f out/bin/${ZKVM}-binary
 
           # Run the build script
           FORCE=1 ./src/build.sh ${ZKVM}
@@ -115,9 +115,9 @@ jobs:
           echo "🐛 Testing debug command for ${ZKVM}..."
 
           # Debug: Check what test results exist
-          echo "📁 Checking test-results directory..."
-          ls -la test-results/${ZKVM}/ || echo "test-results/${ZKVM} doesn't exist"
-          find test-results/${ZKVM} -name "my.elf" 2>/dev/null || echo "No my.elf found"
+          echo "📁 Checking the out/ directory..."
+          ls -la out/${ZKVM}/ || echo "out/${ZKVM} doesn't exist"
+          find out/${ZKVM} -name "my.elf" 2>/dev/null || echo "No my.elf found"
 
           # Run debug command test after full test suite completes
           ./src/test_debug.sh ${ZKVM}
@@ -130,17 +130,17 @@ jobs:
           ZKVM="${{ inputs.zkvm }}"
 
           # Create summary file indicating test failure
-          mkdir -p test-results/${ZKVM}
+          mkdir -p out/${ZKVM}
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -n \
             --arg zkvm "$ZKVM" \
             --arg suite "arch" \
             --arg timestamp "$TIMESTAMP" \
             '{zkvm: $zkvm, suite: $suite, timestamp: $timestamp, passed: 0, failed: 0, total: 0}' \
-            > test-results/${ZKVM}/summary-arch.json
+            > out/${ZKVM}/summary-arch.json
 
           # Create placeholder report indicating failure
-          cp src/report-not-generated-template.html test-results/${ZKVM}/report-arch.html
+          cp src/report-not-generated-template.html out/${ZKVM}/report-arch.html
 
       - name: Update dashboard
         if: steps.zkvm-commit.outputs.needs_update == 'true'
@@ -175,7 +175,7 @@ jobs:
           LATEST_COMMIT=${{ steps.zkvm-commit.outputs.latest_commit }}
 
           # Add all modified files (only tracked files that should be committed)
-          git add config.json data/ docs/ index.html || true
+          git add config.json results/ || true
 
           # Create commit message with build/test status
           COMMIT_MSG="chore: update ${ZKVM} ZKVM from $CURRENT_COMMIT to $LATEST_COMMIT"

@@ -13,7 +13,7 @@ set -eu
 # panics on the .word string pointers ACT4 emits after failedtest_* calls.
 #
 # Expected mounts:
-#   /act4/config/sp1  — SP1 ACT4 config directory (host act4-configs/sp1)
+#   /act4/config/sp1  — SP1 ACT4 config directory (host zkvms/sp1/isa-configs)
 #   /elfs/            — output directory for compiled+patched ELFs (native/, target/)
 
 ZKVM=sp1

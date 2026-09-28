@@ -28,7 +28,7 @@ case "$CMD" in
     serve)
         echo "Server at http://0.0.0.0:9586/"
         echo "   Press Ctrl+C to stop"
-        cd docs && python3 -c "
+        cd site && python3 -c "
 import http.server
 class H(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -43,26 +43,26 @@ http.server.HTTPServer(('0.0.0.0', 9586), H).serve_forever()
         if [ "$TARGETS" = "all" ]; then
             echo "Cleaning all artifacts"
             ZKVMS=""
-            for dir in test-results/*/; do
-                [ -d "$dir" ] && ZKVMS="$ZKVMS $(basename "$dir")"
+            for dir in zkvms/*/; do
+                ZKVMS="$ZKVMS $(basename "$dir")"
             done
         else
             echo "Cleaning artifacts for: $TARGETS"
             ZKVMS="$TARGETS"
         fi
         for zkvm in $ZKVMS; do
-            if [ -d "test-results/$zkvm/elfs" ]; then
-                docker run --rm -v "$PWD/test-results/$zkvm/elfs:/elfs" ubuntu:24.04 rm -rf /elfs/native /elfs/target 2> /dev/null || true
+            if [ -d "out/$zkvm/elfs" ]; then
+                docker run --rm -v "$PWD/out/$zkvm/elfs:/elfs" ubuntu:24.04 rm -rf /elfs/native /elfs/target 2> /dev/null || true
             fi
-            rm -rf "test-results/$zkvm"
-            rm -f "binaries/${zkvm}-binary"
+            rm -rf "out/$zkvm"
+            rm -f "out/bin/${zkvm}-binary"
             if [ "$zkvm" = "zisk" ]; then
-                rm -f binaries/cargo-zisk binaries/cargo-zisk-cuda binaries/libzisk_witness.so
-                rm -rf binaries/zisk-lib
+                rm -f out/bin/cargo-zisk out/bin/cargo-zisk-cuda out/bin/libzisk_witness.so
+                rm -rf out/bin/zisk-lib
             fi
         done
         if [ "$TARGETS" = "all" ]; then
-            rm -f act4-runner/target/release/act4-runner
+            rm -f src/act4-runner/target/release/act4-runner
         fi
         ;;
 
