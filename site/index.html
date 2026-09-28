@@ -192,7 +192,6 @@
                 const c = row.config;
                 const full = row.fullRun;
                 const std = row.stdRun;
-                const isa = c.isa || full?.isa || 'unknown';
 
                 const pv = countProveVerify(std);
 
@@ -211,7 +210,6 @@
                 return `<tr>
                     <td><strong><a href="zkvm.html?name=${row.name}">${row.name.toUpperCase()}</a></strong></td>
                     <td>${versionHtml(c, std || full)}</td>
-                    <td><code>${isa}</code></td>
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
@@ -225,7 +223,6 @@
                         <tr>
                             <th rowspan="2">ZKVM</th>
                             <th rowspan="2">Version</th>
-                            <th rowspan="2">Full ISA</th>
                             <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a> Tests</th>
                             <th rowspan="2">Last Run</th>
                         </tr>

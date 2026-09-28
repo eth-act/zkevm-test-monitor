@@ -170,6 +170,10 @@
 
     // Suites listed in config.json `zkvms.<name>.ere.suites` run through ere; their
     // ere runs are in data/history/<name>-ere-<suite>.json.
+    // The Standard ISA suite tests this ISA on every zkVM; the Full ISA suite tests
+    // the zkVM's own ISA (the run's `isa`).
+    const STANDARD_ISA = 'RV64IM_Zicclsm';
+
     function isEre(zkvm, suite) {
         return !!zkvm?.ere?.suites?.includes(suite);
     }
@@ -411,6 +415,7 @@
             html += `<div class="suite-header">
                 <span><strong>Date:</strong> ${formatDate(run.date)}</span>
                 <span><strong>Version:</strong> ${versionHtml(zkvm, run)}</span>
+                <span><strong>ISA:</strong> <code>${suite === 'act4-standard' ? STANDARD_ISA : (run.isa || zkvm.isa)}</code></span>
                 ${run.ere_image ? `<span><strong>Image:</strong> <code title="${run.ere_image}">${(run.ere_image.split('@')[1] || '').substring(0, 19)}</code></span>` : ''}
                 ${run.mode ? `<span><strong>Stages:</strong> ${run.mode} on ${run.resource}</span>` : ''}
                 ${monitorHtml}
