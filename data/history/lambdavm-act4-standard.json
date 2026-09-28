@@ -261,9 +261,9 @@
       "notes": "Replaced 2026-06-13 run (66/72): branch test failures were caused by missing SUBALIGN(4) in link.ld, which left a zero-filled inter-section gap in the executable segment that LambdaVM’s instruction scanner hit at load time. Fixed in test configuration."
     },
     {
-      "date": "2026-09-28T02:57:49Z",
+      "date": "2026-09-28T11:12:47Z",
       "commit": "09ef37d9",
-      "monitor_commit": "054fb282",
+      "monitor_commit": "e3a83840",
       "act4_commit": "6e8a45123f14cebfb3df151a0e7b849b4389b33b",
       "act4_version": "4.1.0",
       "isa": "RV64IM_Zicclsm",
