@@ -168,13 +168,39 @@
         return Array.isArray(run.passed) ? run.passed.length : run.passed;
     }
 
+    // Suites listed in config.json `zkvms.<name>.ere.suites` run through ere; the
+    // site reads them from data/history/<name>-ere-<suite>.json.
+    function isEre(zkvm, suite) {
+        return !!zkvm?.ere?.suites?.includes(suite);
+    }
+
+    function historyFile(name, zkvm, suite) {
+        return `data/history/${name}${isEre(zkvm, suite) ? '-ere' : ''}-${suite}.json`;
+    }
+
+    // Version of the zkVM that a run tested: the SDK version and ere revision for
+    // an ere run, the build commit for a native run.
+    function versionHtml(zkvm, run) {
+        const stop = 'onclick="event.stopPropagation()"';
+        if (run?.ere_rev) {
+            const sdkUrl = `${zkvm.ere?.sdk_repo_url || zkvm.repo_url}/tree/${run.sdk_version}`;
+            const ereUrl = `https://github.com/eth-act/ere/commit/${run.ere_rev}`;
+            return `<a href="${sdkUrl}" class="commit-link" ${stop}>${run.sdk_version}</a>` +
+                ` via ere <a href="${ereUrl}" class="commit-link" ${stop}>${run.ere_rev}</a>`;
+        }
+        const commit = run?.commit || run?.zkvm_commit;
+        if (!commit || commit === 'unknown') return '<span class="none">&mdash;</span>';
+        return `<a href="${zkvm.repo_url}/commit/${commit}" class="commit-link" ${stop}>${commit.substring(0, 8)}</a>` +
+            ' <span class="none">native</span>';
+    }
+
     function commitShort(commit) {
         if (!commit || commit === 'unknown') return 'unknown';
         return commit.substring(0, 8);
     }
 
     function getCommit(run) {
-        return run?.commit || run?.zkvm_commit || 'unknown';
+        return run?.commit || run?.zkvm_commit || run?.ere_rev || 'unknown';
     }
 
     // Escape HTML, then turn URLs and GitHub owner/repo#N refs into clickable links.
@@ -220,8 +246,8 @@
             const zkvm = config.zkvms[name];
             if (!zkvm) throw new Error(`Unknown ZKVM: ${name}`);
 
-            const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
-            const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+            const fullHistory = await fetch(historyFile(name, zkvm, 'act4-full')).then(r => r.json()).catch(() => null);
+            const stdHistory = await fetch(historyFile(name, zkvm, 'act4-standard')).then(r => r.json()).catch(() => null);
 
             let html = '';
 
@@ -248,17 +274,17 @@
             const sortedGroups = Object.values(groups).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
             const rows = sortedGroups.map((g, gi) => {
-                const commit = g.commit;
-                const commitUrl = zkvm.repo_url ? `${zkvm.repo_url}/commit/${commit}` : '#';
                 const notes = [...new Set(g.runs.map(r => r.notes).filter(Boolean))].join(' ');
                 const suiteRows = g.runs.sort((a, b) => a.suite.localeCompare(b.suite)).map(r => {
                     const p = execPassedCount(r);
                     const cls = p === r.total ? 'pass' : 'fail';
                     const hasData = p != null;
                     const runUrl = `zkvm.html?name=${name}&suite=${r.suite}&run=${r.runIdx}`;
+                    // For zkVMs that run through ere, mark the suites that still run native.
+                    const nativeTag = zkvm.ere && !isEre(zkvm, r.suite) ? ' (native)' : '';
                     const suiteBadge = r.suite === 'act4-full'
-                        ? '<span style="background:#e8f4fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Full</span>'
-                        : '<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard</span>';
+                        ? `<span style="background:#e8f4fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Full${nativeTag}</span>`
+                        : `<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard${nativeTag}</span>`;
 
                     let proveCell = '';
                     let verifyCell = '';
@@ -316,7 +342,7 @@
                 const firstRow = first.replace('<tr', `<tr`).replace(
                     /<td>.*?<\/td>/,
                     `<td rowspan="${rowspan}" class="group-date">${formatDate(g.date)}</td>` +
-                    `<td rowspan="${rowspan}"><a href="${commitUrl}" class="commit-link" onclick="event.stopPropagation()">${commitShort(commit)}</a></td>` +
+                    `<td rowspan="${rowspan}">${versionHtml(zkvm, g.runs[0])}</td>` +
                     `<td rowspan="${rowspan}">${act4Html}</td>` +
                     '$&'
                 );
@@ -327,7 +353,7 @@
             }).join('');
 
             html += `<table>
-                <thead><tr><th>Date</th><th>Commit</th><th>ACT4</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
+                <thead><tr><th>Date</th><th>Version</th><th>ACT4</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
 
@@ -361,7 +387,7 @@
             const zkvm = config.zkvms[name];
             if (!zkvm) throw new Error(`Unknown ZKVM: ${name}`);
 
-            const history = await fetch(`data/history/${name}-${suite}.json`).then(r => r.json()).catch(() => null);
+            const history = await fetch(historyFile(name, zkvm, suite)).then(r => r.json()).catch(() => null);
             if (!history?.runs || history.runs.length === 0) throw new Error('No run data available');
 
             const runIdx = runParam === 'latest' ? history.runs.length - 1 : parseInt(runParam, 10);
@@ -383,7 +409,9 @@
 
             html += `<div class="suite-header">
                 <span><strong>Date:</strong> ${formatDate(run.date)}</span>
-                <span><strong>Commit:</strong> <a href="${zkvm.repo_url}/commit/${commit}" class="commit-link">${commitShort(commit)}</a></span>
+                <span><strong>Version:</strong> ${versionHtml(zkvm, run)}</span>
+                ${run.ere_image ? `<span><strong>Image:</strong> <code title="${run.ere_image}">${(run.ere_image.split('@')[1] || '').substring(0, 19)}</code></span>` : ''}
+                ${run.mode ? `<span><strong>Stages:</strong> ${run.mode} on ${run.resource}</span>` : ''}
                 ${monitorHtml}
                 <span class="${p === run.total ? 'pass' : 'fail'}"><strong>${p}/${run.total}</strong> passed</span>
             </div>`;
