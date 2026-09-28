@@ -32,7 +32,9 @@ const IMAGE_REGISTRY: &str = "ghcr.io/eth-act/ere";
 const SETUP: Duration = Duration::from_secs(900);
 const HEALTH: Duration = Duration::from_secs(600);
 const EXECUTE: Duration = Duration::from_secs(600);
-const PROVE: Duration = Duration::from_secs(3600);
+// Real proves take 1-60 s; SP1 v6.6.0 never returns from proving FENCE, so a
+// long limit only delays that result.
+const PROVE: Duration = Duration::from_secs(900);
 const VERIFY: Duration = Duration::from_secs(600);
 
 /// What was tested: recorded next to the results of each run.
