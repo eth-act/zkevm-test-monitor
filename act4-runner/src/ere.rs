@@ -288,10 +288,11 @@ impl EreBackend {
 
     /// Runs `f` (which starts or switches the server) with the `SETUP` limit.
     ///
-    /// The pinned `ere-dockerized` has no limit on some startup requests, and a
-    /// server that stops answering then blocks forever. On timeout, remove the
-    /// server container: that makes the pending request fail, so `f` returns
-    /// and its thread ends.
+    /// The pinned `ere-dockerized` waits up to `health_timeout` even when the
+    /// server container has already exited (for example, the server panics on an
+    /// ELF it cannot load), and has no limit on some startup requests. So poll
+    /// the container: if it has exited, fail at once with the end of its log. On
+    /// timeout, remove it and fail.
     fn guarded<T: Send + 'static>(
         &self,
         f: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
@@ -300,12 +301,22 @@ impl EreBackend {
         thread::spawn(move || {
             let _ = tx.send(f());
         });
-        match rx.recv_timeout(SETUP) {
-            Ok(result) => result,
-            Err(_) => {
+        let started = Instant::now();
+        loop {
+            match rx.recv_timeout(Duration::from_secs(2)) {
+                Ok(result) => return result,
+                Err(mpsc::RecvTimeoutError::Disconnected) => bail!("setup thread panicked"),
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+            }
+            // In both cases the thread of `f` stays blocked until its own limit
+            // and then ends by itself; the next test does not wait for it.
+            if let Some(log_tail) = exited_container_log(self.kind) {
                 remove_container(self.kind);
-                let _ = rx.recv_timeout(Duration::from_secs(30));
-                bail!("server did not start within {SETUP:?}; container removed")
+                bail!("server exited during setup: {log_tail}");
+            }
+            if started.elapsed() >= SETUP {
+                remove_container(self.kind);
+                bail!("server did not start within {SETUP:?}; container removed");
             }
         }
     }
@@ -350,6 +361,28 @@ fn pull_image(kind: zkVMKind, gpu: bool) -> anyhow::Result<String> {
         .context("failed to run docker")?;
     ensure!(output.status.success(), "failed to inspect {image}");
     Ok(String::from_utf8(output.stdout)?.trim().to_string())
+}
+
+/// If the server container of `kind` has exited, returns the last lines of its
+/// log (they hold the reason, e.g. a panic); otherwise `None`.
+fn exited_container_log(kind: zkVMKind) -> Option<String> {
+    let name = format!("ere-server-{kind}");
+    let status = Command::new("docker")
+        .args(["inspect", "--format", "{{.State.Status}}", &name])
+        .output()
+        .ok()?;
+    let status = String::from_utf8_lossy(&status.stdout);
+    if !matches!(status.trim(), "exited" | "dead") {
+        return None;
+    }
+    let logs = Command::new("docker")
+        .args(["logs", "--tail", "4", &name])
+        .output()
+        .ok()?;
+    let text = [logs.stdout, logs.stderr].concat();
+    let tail = String::from_utf8_lossy(&text);
+    let lines = Vec::from_iter(tail.lines().map(str::trim).filter(|line| !line.is_empty()));
+    Some(lines.join(" | "))
 }
 
 /// Removes the server container of `kind`; `ere-dockerized` names it
