@@ -128,6 +128,20 @@ process_results() {
   done
 }
 
+# elfs_reusable <elf-dir> — true if the cached ELFs can be reused: FORCE is
+# unset and the ELFs were generated at the ACT4 commit that config.json pins.
+elfs_reusable() {
+  local ELF_DIR="$1"
+  [ -z "${FORCE:-}" ] && [ -d "$ELF_DIR/native" ] || return 1
+  local WANT HAVE
+  WANT=$(jq -r '.act4_commit // "act4"' config.json)
+  HAVE=$(cat "$ELF_DIR/act4-commit.txt" 2>/dev/null || true)
+  if [ "$HAVE" != "$WANT" ]; then
+    echo "  Cached ELFs are from ACT4 commit '${HAVE:-unknown}', config.json pins '$WANT': regenerating"
+    return 1
+  fi
+}
+
 # run_zisk_split_pipeline — ELF generation in Docker, test execution on host via act4-runner
 run_zisk_split_pipeline() {
   local ZKVM=zisk
@@ -165,7 +179,7 @@ run_zisk_split_pipeline() {
   fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+  if elfs_reusable "$ELF_DIR"; then
     local NATIVE_COUNT
     NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$NATIVE_COUNT" -gt 0 ]; then
@@ -204,6 +218,7 @@ run_zisk_split_pipeline() {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
       return 1
     }
+    echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
   # Build act4-runner if needed
@@ -307,7 +322,7 @@ run_sp1_split_pipeline() {
   chmod +x binaries/sp1-binary binaries/sp1-prover 2>/dev/null || true
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+  if elfs_reusable "$ELF_DIR"; then
     local NATIVE_COUNT
     NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$NATIVE_COUNT" -gt 0 ]; then
@@ -346,6 +361,7 @@ run_sp1_split_pipeline() {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
       return 1
     }
+    echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
   # Build act4-runner if needed
@@ -437,7 +453,7 @@ run_lambdavm_split_pipeline() {
   fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+  if elfs_reusable "$ELF_DIR"; then
     local NATIVE_COUNT
     NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$NATIVE_COUNT" -gt 0 ]; then
@@ -476,6 +492,7 @@ run_lambdavm_split_pipeline() {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
       return 1
     }
+    echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
   # Build act4-runner if needed
@@ -549,7 +566,7 @@ run_openvm_split_pipeline() {
   fi
 
   # Skip ELF generation if ELFs already exist (set FORCE=1 to regenerate)
-  if [ -d "$ELF_DIR/native" ] && [ -z "${FORCE:-}" ]; then
+  if elfs_reusable "$ELF_DIR"; then
     local NATIVE_COUNT
     NATIVE_COUNT=$(find "$ELF_DIR/native" -name "*.elf" 2>/dev/null | wc -l)
     if [ "$NATIVE_COUNT" -gt 0 ]; then
@@ -588,6 +605,7 @@ run_openvm_split_pipeline() {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
       return 1
     }
+    echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 
   # Build act4-runner if needed
