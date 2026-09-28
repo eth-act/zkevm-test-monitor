@@ -4,9 +4,11 @@
 Usage: write_io_vectors.py <out-dir>
 
 An I/O test vector is a test's private input (<name>.input) and its expected
-public output (<name>.expected). They are defined here, so the guest sources
-stay small. A test without one of the two files gets the runner's default:
-empty input, or the verdict "PASS" as expected output.
+public output (<name>.expected). The data is the byte pattern of io_pattern()
+in pattern.h, which the guests use to check their input and to write their
+output, so it is generated here instead of checked in. A test without an
+input gets an empty input. A test without an expected output is judged by
+its ACT4 halt verdict (rvtest_pass / print_error).
 """
 
 import sys
@@ -17,8 +19,6 @@ def pattern(n):
     """Match io_pattern() in pattern.h."""
     return bytes((i * 37 + 11 + (i >> 8)) & 0xFF for i in range(n))
 
-
-PASS = b"PASS"
 
 # name -> (input bytes or None, expected output bytes or None)
 CASES = {
