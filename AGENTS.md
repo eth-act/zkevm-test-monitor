@@ -40,7 +40,9 @@ Limit CPU cores: `JOBS=8 ./run test zisk`
 - Needs Docker; `ACT4_MODE=full` (default) or `prove` also needs an NVIDIA GPU.
   `ACT4_MODE=execute` runs on the CPU images.
 - Results: `out/<zkvm>/ere/` (including `details-act4-*.json`, the outcome and
-  error of each test) and `results/history/<zkvm>-ere-act4-{standard,full}.json`.
+  error of each test) and `results/history/<zkvm>-ere-act4-standard.json`.
+- ere runs the Standard ISA suite (RV64IM_Zicclsm) only. The Full ISA suite runs on
+  the native path.
 - The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the
   ere history files.
 - `BACKEND=native` (default for now) builds the zkVM in this repository's containers from

@@ -28,7 +28,7 @@ fi
 # process_results <zkvm> [notes] [native|ere] — reads summary/results JSON and updates
 # history. The ere path reads out/<zkvm>/ere/, writes
 # results/history/<zkvm>-ere-<suite>.json, and records the ere provenance of the run
-# (ere-act4-<label>.json) and its mode (ERE_MODE_FULL / ERE_MODE_STANDARD)
+# (ere-act4-<label>.json) and its mode (ERE_MODE)
 # instead of the native build commit.
 process_results() {
   local ZKVM="$1"
@@ -59,7 +59,9 @@ process_results() {
     fi
   fi
 
-  for SUITE_TYPE in full standard; do
+  local SUITE_TYPES="full standard"
+  [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="standard"
+  for SUITE_TYPE in $SUITE_TYPES; do
     if [ "$SUITE_TYPE" = "full" ]; then
       FILE_LABEL="full-isa"
       SUITE="act4-full"
@@ -128,8 +130,6 @@ process_results() {
       '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
 
     if [ "$BACKEND_KIND" = "ere" ]; then
-      local ERE_MODE="$ERE_MODE_STANDARD"
-      [ "$SUITE_TYPE" = "full" ] && ERE_MODE="$ERE_MODE_FULL"
       RUN_ENTRY=$(jq -c --slurpfile ere "${RESULTS_DIR}/ere-act4-${FILE_LABEL}.json" \
         --arg mode "$ERE_MODE" \
         'del(.commit) + $ere[0] + {mode: $mode}' <<< "$RUN_ENTRY")
@@ -557,22 +557,8 @@ run_ere_pipeline() {
   "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/target" --output-dir "$OUT_DIR" \
     --suite act4-standard --label standard-isa --mode "$MODE" $GPU_ARG || true
 
-  if [ "$ZKVM" = "openvm" ]; then
-    # Full == Standard for OpenVM (see run_openvm_split_pipeline): reuse the target run.
-    for kind in summary results; do
-      jq '.suite = "act4-full"' "$OUT_DIR/${kind}-act4-standard-isa.json" > "$OUT_DIR/${kind}-act4-full-isa.json"
-    done
-    cp "$OUT_DIR/ere-act4-standard-isa.json" "$OUT_DIR/ere-act4-full-isa.json"
-    ERE_MODE_FULL="$MODE"
-  else
-    # Full ISA runs execute only, like the native path.
-    echo "Running $ZKVM native suite on ere (mode: execute)..."
-    "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/native" --output-dir "$OUT_DIR" \
-      --suite act4-full --label full-isa --mode execute || true
-    ERE_MODE_FULL=execute
-  fi
-
-  ERE_MODE_STANDARD="$MODE" process_results "$ZKVM" "" ere
+  # ere runs the Standard ISA (RV64IM_Zicclsm) only; Full ISA stays on the native path.
+  ERE_MODE="$MODE" process_results "$ZKVM" "" ere
 }
 
 # BACKEND=ere runs OpenVM, SP1 and ZisK through ere; BACKEND=native (default) builds
