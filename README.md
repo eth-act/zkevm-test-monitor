@@ -1,6 +1,6 @@
 # zkevm-test-monitor
 
-RISC-V compliance testing zkVMs using the the [ACT4](https://github.com/riscv-non-isa/riscv-arch-test/tree/act4) framework.
+RISC-V compliance testing zkVMs using the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
 
 **Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 

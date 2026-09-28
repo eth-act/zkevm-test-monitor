@@ -14,7 +14,7 @@ The current ACT4 test pipeline is a **Docker-based, shell-orchestrated system** 
 |---|---|---|
 | **1. ZKVM binary build** | `docker/build-*/Dockerfile` | Ere compiles *guest programs* from Rust source, not pre-built binaries. N/A for arch tests. |
 | **2. ACT4 test generation** | `uv run act <config>` → compiles .S tests with Sail reference values baked in | **None.** Ere has no concept of ACT4 configs, Sail, or self-checking ELF generation. |
-| **3. ELF patching** | `patch_elfs.py` (NOP replacement for OpenVM, JAL rewrite for Zisk) | **None.** Ere's compilers produce from Rust source; they don't post-process arbitrary ELFs. |
+| **3. ELF patching** | `patch_elfs.py` (NOP replacement of data words in executable sections; Zisk also uses a minimal `rvtest_failure_code.h`) | **None.** Ere's compilers produce from Rust source; they don't post-process arbitrary ELFs. |
 | **4. ELF execution** | Per-ZKVM wrapper scripts invoking binaries with correct flags | **Strong match.** `zkvm.execute()` is exactly this. |
 | **5. Result collection** | Shell scripts parsing stdout, writing JSON summaries | **Partial.** Ere returns exit status and cycle counts but doesn't parse ACT4-format results. |
 | **6. Dashboard/history** | `src/update.py`, `data/history/` JSON files | **None.** Out of scope for Ere. |
@@ -56,7 +56,7 @@ ELF → patch_elfs.py (NOP data words) → openvm-binary <elf>
 
 **Gaps:**
 1. **ELF patching still required.** OpenVM pre-processes all words as instructions. ACT4 ELFs embed `.word <ptr>` data in `.text` sections. Ere doesn't address this — it expects well-formed guest programs.
-2. **Memory layout mismatch.** ACT4 uses `link.ld` with entry at `0x00000000`. Ere's OpenVM backend expects programs compiled for `riscv32im-risc0-zkvm-elf` target with the standard OpenVM memory map.
+2. **Memory layout mismatch.** ACT4 uses `link.ld` with entry at OpenVM's `TEXT_START` `0x00200800`. Ere's OpenVM backend expects programs compiled for `riscv32im-risc0-zkvm-elf` target with the standard OpenVM memory map.
 3. **Halt mechanism.** ACT4 uses custom opcode `0x0b`. Ere's OpenVM backend uses the standard OpenVM halt. The ACT4 ELFs already encode this, so if Ere can load them, it should work.
 
 **Feasibility:** Medium. The transpiler step adds complexity — ACT4 ELFs aren't compiled for OpenVM's expected target, so the ELF→VmExe conversion might reject them or produce wrong results. Would require testing to see if `CpuSdk` can handle arbitrary ELFs with OpenVM's custom linker layout.
@@ -65,15 +65,15 @@ ELF → patch_elfs.py (NOP data words) → openvm-binary <elf>
 
 **Current flow:**
 ```
-ELF → patch_elfs.py --zisk (JAL rewrite) → zisk-binary -e <elf>
+ELF → patch_elfs.py (NOP data words) → zisk-binary -e <elf>
 ```
 
 **Ere equivalent:**
 `ere-zisk` uses `ZiskSdk` which calls `ziskemu` CLI. The execute path writes the ELF to a cache dir and spawns `ziskemu`.
 
 **Gaps:**
-1. **ELF patching still required.** Zisk maps `.text.init` execute-only; the failure handler reads instruction bytes. The `--zisk` patch (rewriting `failedtest_saveresults` entry to jump to `failedtest_terminate`) is still necessary.
-2. **ISA mismatch.** Zisk is RV64IMA. Ere's Zisk compiler targets `riscv64ima-zisk-zkvm-elf`. ACT4 tests are compiled with `riscv64-unknown-elf-gcc` and a custom linker script placing data at `0xa0010000`. Ere expects a different ABI/memory layout.
+1. **ELF patching still required.** ZisK's transpiler cannot decode the `.word` data ACT4 places after each `jal failedtest_*`, so `patch_elfs.py` replaces it with NOPs. The ZisK config also installs a minimal `rvtest_failure_code.h` so that a failing test jumps straight to `RVMODEL_HALT_FAIL` instead of reading the patched words.
+2. **ISA mismatch.** Zisk is RV64IMA. Ere's Zisk compiler targets `riscv64ima-zisk-zkvm-elf`. ACT4 tests are compiled with `riscv64-unknown-elf-gcc` and a custom linker script placing data at `0xa0430000`. Ere expects a different ABI/memory layout.
 3. **Server overhead.** Ere's Zisk backend starts a gRPC server for proving. For execution-only (which is all ACT4 needs), this is unnecessary overhead. The `ziskemu` CLI path is more direct — but Ere wraps it with ROM setup and caching infrastructure.
 4. **RAM-aware parallelism.** Current infra auto-scales test parallelism based on available RAM (ziskemu pre-allocates ~8 GB). Ere has no equivalent; parallelism would need external management.
 
@@ -111,7 +111,7 @@ ACT4 only cares about exit codes. Ere can surface these, but it's using a sledge
 
 ### 3.3 Test Discovery and Orchestration
 
-ACT4 uses `act` (Python CLI) for test configuration, generation, and discovery. Results are parsed from `run_tests.py` output. Ere has no equivalent test orchestration — it's an execution engine, not a test framework.
+ACT4 uses `act` (Python CLI) for test configuration, generation, and discovery. Results come from the exit codes that `act4-runner` collects. Ere has no equivalent test orchestration — it's an execution engine, not a test framework.
 
 ---
 
