@@ -76,7 +76,8 @@ Usage: ./run COMMAND [OPTIONS]
 
 Commands:
   build [zkvm ...]          Build ZKVM binaries
-  test [zkvm ...]           Run ACT4 compliance tests
+  test [zkvm ...]           Run ACT4 compliance tests (OpenVM/SP1/ZisK through ere;
+                            BACKEND=native builds and runs them locally)
   all [zkvm ...]            Build + test
   elfs <zkvm> [--force]     Generate ACT4 ELFs only (no zkVM binary, no test run)
   serve                     Start local web server at 0.0.0.0:9586

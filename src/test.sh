@@ -561,9 +561,10 @@ run_ere_pipeline() {
   ERE_MODE="$MODE" process_results "$ZKVM" "" ere
 }
 
-# BACKEND=ere runs OpenVM, SP1 and ZisK through ere; BACKEND=native (default) builds
-# them in this repository's containers (for reproducing bugs and testing branches).
-BACKEND="${BACKEND:-native}"
+# BACKEND=ere (default) runs OpenVM, SP1 and ZisK through ere. BACKEND=native builds
+# them in this repository's containers, for reproducing bugs and testing branches.
+# LambdaVM always runs native until ere supports it.
+BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
   native|ere) ;;
   *) echo "Unknown BACKEND=$BACKEND (expected native or ere)" >&2; exit 2 ;;

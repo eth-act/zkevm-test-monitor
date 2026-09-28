@@ -31,9 +31,9 @@ config.json             # ZKVM repo URLs and commit pins
 
 Limit CPU cores: `JOBS=8 ./run test zisk`
 
-## ere path (`BACKEND=ere`)
+## ere path (default) and native path (`BACKEND=native`)
 
-`BACKEND=ere ./run test <openvm|sp1|zisk>` runs the ACT4 ELFs on the official
+`./run test <openvm|sp1|zisk>` runs the ACT4 ELFs on the official
 `ghcr.io/eth-act/ere` images of the ere revision that `src/act4-runner/Cargo.toml` pins
 (`ere-dockerized`). ere builds and runs the zkVM; there is no local zkVM build.
 
@@ -45,8 +45,10 @@ Limit CPU cores: `JOBS=8 ./run test zisk`
   the native path.
 - The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the
   ere history files.
-- `BACKEND=native` (default for now) builds the zkVM in this repository's containers from
-  `config.json`, for reproducing bugs and testing branches. LambdaVM is native only.
+- `BACKEND=native ./run test <zkvm>` builds the zkVM in this repository's containers from
+  `config.json` (`./run build <zkvm>` first), for reproducing bugs and testing forks or
+  branches. Native results go to `results/history/<zkvm>-act4-*.json`, which the site does not
+  show for zkVMs that run through ere. LambdaVM is native only.
 
 ## Adding a New ZKVM
 
