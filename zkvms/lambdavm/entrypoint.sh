@@ -4,7 +4,7 @@ set -eu
 # ACT4 LambdaVM ELF generator (split pipeline).
 #
 # Compiles self-checking ELFs and copies them to /elfs/{native,target}. Test
-# execution happens on the host via act4-runner, so no DUT binary is needed here.
+# execution happens on the host via the runner (src/runner/), so no DUT binary is needed here.
 #
 # Expected mounts:
 #   /act4/config/lambdavm          — LambdaVM ACT4 config directory (host zkvms/lambdavm/isa-configs)

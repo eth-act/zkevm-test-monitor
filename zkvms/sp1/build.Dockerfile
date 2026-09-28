@@ -33,7 +33,7 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV RUST_LOG=info
 
 # Build arguments for repository and commit: upstream SP1, no fork.
-# act4-runner reads the guest exit code from sp1-perf-executor's "exit code: N"
+# The runner (src/runner/) reads the guest exit code from sp1-perf-executor's "exit code: N"
 # line, because the executor itself always exits 0.
 ARG REPO_URL=https://github.com/succinctlabs/sp1
 ARG COMMIT_HASH=f5a5bbf6a1cf6007315b410d88678d96fb399fb5

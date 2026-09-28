@@ -4,7 +4,7 @@ set -eu
 # ACT4 OpenVM ELF generator (split pipeline).
 #
 # Compiles self-checking ELFs and copies them to /elfs/{native,target}. Test
-# execution happens on the host via act4-runner, so no DUT binary is needed here.
+# execution happens on the host via the runner (src/runner/), so no DUT binary is needed here.
 #
 # Expected mounts:
 #   /act4/config/openvm             — OpenVM ACT4 config directory (host zkvms/openvm/isa-configs)

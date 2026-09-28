@@ -184,7 +184,8 @@ impl Backend {
 /// Zisk proving via `cargo-zisk prove [--verify-proofs]`.
 ///
 /// Lifecycle:
-/// 1. Execute: `ziskemu --elf <path>` — exit code 0 = pass
+/// 1. Execute: `ziskemu --elf <path> --output <file>` — pass = exit code 0, no
+///    "finished with error", and output starts with `PASS`
 /// 2. Prove:   `cargo-zisk prove --elf <path> -o <file> [--verify-proof] [--gpu]`
 ///
 /// As of zisk v0.17.0, `-o/--output` is a file path (not a directory) and proofs
@@ -205,24 +206,12 @@ fn run_zisk_prove(
 ) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
         // 1. Execute
-        // Note: ziskemu may exit 0 even when the emulator reports an error
-        // (e.g. "Emu::par_run() finished with error"), so also check stderr.
-        let exec_output = Command::new(ziskemu)
-            .arg("--elf")
-            .arg(elf_path)
-            .arg("--inputs")
-            .arg("/dev/null")
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .output()?;
-        let stderr = String::from_utf8_lossy(&exec_output.stderr);
-        let passed = exec_output.status.success()
-            && !stderr.contains("finished with error");
+        let (passed, exit_code) = run_ziskemu(ziskemu, elf_path, &["--inputs", "/dev/null"]);
 
         if mode == Mode::Execute || !passed {
             return Ok(RunResult {
                 passed,
-                exit_code: exec_output.status.code(),
+                exit_code,
                 duration: start.elapsed(),
                 prove_duration: None,
                 proof_written: false,
@@ -391,6 +380,16 @@ fn run_zisk_prove(
 /// `stdin` is 24 zero bytes (a bincode-serialized empty `SP1Stdin`). `--mode cuda`
 /// spawns the host-native `sp1-gpu-server`; see run_zisk_prove for the analogous
 /// host-GPU serialization (one prove at a time via jobs=1).
+/// Parses the guest exit code from sp1-perf-executor's "exit code: N, cycles: M"
+/// line. Upstream sp1-perf-executor always exits 0, so this line is the only
+/// place where a failing ACT4 test (`a0 = 1` at halt) shows.
+fn sp1_guest_exit_code(output: &str) -> Option<u32> {
+    output.lines().find_map(|line| {
+        let rest = line.trim().strip_prefix("exit code: ")?;
+        rest.split(',').next()?.trim().parse().ok()
+    })
+}
+
 fn run_sp1_prove(
     executor: &Path,
     sp1_perf: &Path,
@@ -405,7 +404,7 @@ fn run_sp1_prove(
         let stdin_path = tmp_dir.path().join("stdin.bin");
         std::fs::write(&stdin_path, [0u8; 24])?;
 
-        // 1. Execute (exit-code + unimplemented-instruction check).
+        // 1. Execute (guest exit code + unimplemented-instruction check).
         let exec_output = Command::new(executor)
             .arg("--program")
             .arg(elf_path)
@@ -417,6 +416,7 @@ fn run_sp1_prove(
             .output()?;
         let exec_combined = combined_output(&exec_output);
         let passed = exec_output.status.success()
+            && sp1_guest_exit_code(&exec_combined) == Some(0)
             && !exec_combined.to_lowercase().contains("unimplemented instruction");
 
         if mode == Mode::Execute || !passed {
@@ -976,11 +976,16 @@ fn kill_openvm_processes() {
     std::thread::sleep(Duration::from_secs(3));
 }
 
-/// Zisk: invoke `<binary> -e <elf_path>`, with `-i` (the framed input) and
-/// `-o` (the public output) when the test has I/O vectors.
+/// Zisk: invoke `<binary> -e <elf_path> -o <file>`, with `-i` (the framed input)
+/// when the test has an input vector.
 ///
-/// ZisK's public output is a fixed area of 64 u32 words with zero padding, so
-/// the output must equal the expected bytes followed by zero bytes.
+/// Verdict on the public output:
+/// - with an expected-output vector: ZisK's public output is a fixed area of 64
+///   u32 words with zero padding, so it must equal the expected bytes followed by
+///   zero bytes;
+/// - without one (ISA tests): ZisK >= 1.2 ignores `a0` at the exit ecall, so the
+///   ZisK ACT4 halt macros write `PASS` or `FAIL` to public output 0
+///   (zkvms/zisk/isa-configs/*/rvmodel_macros.h), and the output must start with `PASS`.
 fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
         let tmp = tempfile::tempdir().context("failed to create temp dir")?;
@@ -993,9 +998,7 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
             std::fs::write(&input_path, io::zisk_frame_input(input))?;
             cmd.arg("-i").arg(&input_path);
         }
-        if vectors.expected.is_some() {
-            cmd.arg("-o").arg(&output_path);
-        }
+        cmd.arg("-o").arg(&output_path);
         // Capture stderr: ziskemu exits 0 even when emulation fails, but prints
         // "finished with error" to stderr. Check both exit code and stderr.
         let output = cmd
@@ -1011,16 +1014,52 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
             return Ok(RunResult::executed(start, exit_code, Termination::Abnormal, Some(detail)));
         }
 
+        let actual = std::fs::read(&output_path).context("emulator wrote no output file")?;
         let detail = match &vectors.expected {
-            None => None,
+            None => (!actual.starts_with(b"PASS")).then(|| "public output does not start with the PASS marker".to_owned()),
             Some(expected) => {
-                let actual = std::fs::read(&output_path).context("emulator wrote no output file")?;
                 (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected))
             }
         };
         Ok(RunResult::executed(start, exit_code, Termination::Normal, detail))
     };
     inner().unwrap_or_else(|e| RunResult::not_run(start, format!("runner error: {e:#}")))
+}
+
+/// Runs `ziskemu` on `elf_path` and returns the ACT4 verdict and the exit code.
+///
+/// ZisK >= 1.2 ignores `a0` at the exit ecall, so a failing test exits like a
+/// passing one. The ZisK ACT4 halt macros therefore also write `PASS` or `FAIL`
+/// to public output 0 (zkvms/zisk/isa-configs/*/rvmodel_macros.h). A test passes only
+/// if ziskemu succeeds, prints no "finished with error" (it can exit 0 after an
+/// emulation error), and its output starts with `PASS`.
+fn run_ziskemu(ziskemu: &Path, elf_path: &Path, extra_args: &[&str]) -> (bool, Option<i32>) {
+    let Ok(tmp_dir) = tempfile::tempdir() else {
+        return (false, None);
+    };
+    let output_path = tmp_dir.path().join("output.bin");
+    let output = Command::new(ziskemu)
+        .arg("--elf")
+        .arg(elf_path)
+        .args(extra_args)
+        .arg("--output")
+        .arg(&output_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output();
+
+    match output {
+        Ok(o) => {
+            let code = o.status.code();
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            let verdict_pass = std::fs::read(&output_path)
+                .is_ok_and(|public_output| public_output.starts_with(b"PASS"));
+            let passed =
+                o.status.success() && !stderr.contains("finished with error") && verdict_pass;
+            (passed, code)
+        }
+        Err(_) => (false, None),
+    }
 }
 
 /// How a standards executor's public output compares with the expected bytes.
@@ -1167,5 +1206,19 @@ fn wait_for_gpu_free(timeout: Duration) {
             return;
         }
         std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sp1_guest_exit_code;
+
+    #[test]
+    fn parses_sp1_guest_exit_code() {
+        let pass = "MinimalExecutor creation time: 1ms\nexit code: 0, cycles: 4321\n";
+        let fail = "exit code: 1, cycles: 12\nexecution time: 2ms\n";
+        assert_eq!(sp1_guest_exit_code(pass), Some(0));
+        assert_eq!(sp1_guest_exit_code(fail), Some(1));
+        assert_eq!(sp1_guest_exit_code("no such line\n"), None);
     }
 }
