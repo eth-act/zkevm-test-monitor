@@ -1,6 +1,6 @@
 {
-  "act4_commit": "a7c99303516f4e668f7488f172043392e23b9dfd",
-  "act4_version": "4.0.0",
+  "act4_commit": "6e8a45123f14cebfb3df151a0e7b849b4389b33b",
+  "act4_version": "4.1.0",
   "zkvms": {
     "sp1": {
       "repo_url": "https://github.com/succinctlabs/sp1",

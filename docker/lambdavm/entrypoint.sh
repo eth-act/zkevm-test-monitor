@@ -20,31 +20,21 @@ fi
 
 cd /act4
 
-# generate_elfs <config-path> <config-name> <extensions-list> <extensions-txt-entries> <elf-output-label>
+# generate_elfs <config-path> <config-name> <extensions-list>
 #
-# Generates Makefiles and compiles self-checking ELFs.
-# elf-output-label: "native" or "target" (used for /elfs/ subdirectory in ELF-only mode)
+# Compiles self-checking ELFs (act runs UDB validation, Sail and GCC) and patches them.
 generate_elfs() {
     local CONFIG="$1"
     local CONFIG_NAME="$2"
     local EXTENSIONS="$3"
-    local EXT_TXT="$4"
 
     if [ ! -f "/act4/$CONFIG" ]; then
         echo "Warning: Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
         return 1
     fi
 
-    # Pre-generate extensions.txt to skip UDB validation (which requires Podman/Docker
-    # inside the container). The ACT framework skips UDB calls when this file exists
-    # and is newer than the UDB config.
-    mkdir -p "$WORKDIR/$CONFIG_NAME"
-    echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
-    # Touch with future timestamp to ensure it's always newer than the mounted config
-    touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
-
-    # Generate self-checking ELFs. The 'act' tool generates the Makefiles
-    # (invoking Sail for expected values); `make compile` then builds the ELFs.
+    # Generate self-checking ELFs. The 'act' tool builds the ELFs directly
+    # (invoking Sail for expected values).
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
     uv run act "$CONFIG" \
@@ -69,17 +59,16 @@ generate_elfs() {
     python3 /act4/patch_elfs.py "$ELF_DIR"
 }
 
-# run_act4_suite <config-path> <config-name> <extensions-list> <extensions-txt-entries> <elf-output-label>
+# run_act4_suite <config-path> <config-name> <extensions-list> <elf-output-label>
 #
 # Generates ELFs and copies them to /elfs/<elf-output-label>.
 run_act4_suite() {
     local CONFIG="$1"
     local CONFIG_NAME="$2"
     local EXTENSIONS="$3"
-    local EXT_TXT="$4"
-    local OUTPUT_LABEL="$5"
+    local OUTPUT_LABEL="$4"
 
-    generate_elfs "$CONFIG" "$CONFIG_NAME" "$EXTENSIONS" "$EXT_TXT" || return
+    generate_elfs "$CONFIG" "$CONFIG_NAME" "$EXTENSIONS" || return
 
     local ELF_DIR="$WORKDIR/$CONFIG_NAME/elfs"
     mkdir -p "/elfs/$OUTPUT_LABEL"
@@ -96,7 +85,6 @@ run_act4_suite \
     "config/lambdavm/lambdavm-rv64im-zicclsm/test_config.yaml" \
     "lambdavm-rv64im-zicclsm" \
     "I,M,Misalign" \
-    "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
     "native" || true
 
 # ─── Run 2: ETH-ACT Target (rv64im-zicclsm) ───
@@ -104,7 +92,6 @@ run_act4_suite \
     "config/lambdavm/lambdavm-rv64im-zicclsm/test_config.yaml" \
     "lambdavm-rv64im-zicclsm" \
     "I,M,Misalign" \
-    "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
     "target" || true
 
 echo ""

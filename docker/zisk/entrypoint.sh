@@ -15,30 +15,20 @@ WORKDIR=/act4/work
 
 cd /act4
 
-# generate_elfs <config-path> <config-name> <extensions-list> <extensions-txt-entries> <output-subdir>
+# generate_elfs <config-path> <config-name> <extensions-list> <output-subdir>
 #
-# Generates Makefiles, compiles self-checking ELFs, patches them, and copies to output.
+# Compiles self-checking ELFs (act runs UDB validation, Sail and GCC), patches them,
+# and copies them to output.
 generate_elfs() {
     local CONFIG="$1"
     local CONFIG_NAME="$2"
     local EXTENSIONS="$3"
-    local EXT_TXT="$4"
-    local OUTPUT_SUBDIR="$5"
+    local OUTPUT_SUBDIR="$4"
 
     if [ ! -f "/act4/$CONFIG" ]; then
         echo "Warning: Config not found at /act4/$CONFIG, skipping $CONFIG_NAME"
         return
     fi
-
-    # Pre-generate extensions.txt to skip UDB validation
-    mkdir -p "$WORKDIR/$CONFIG_NAME"
-    echo "$EXT_TXT" > "$WORKDIR/$CONFIG_NAME/extensions.txt"
-    touch -t 209901010000 "$WORKDIR/$CONFIG_NAME/extensions.txt"
-
-    # Install the minimal failure handler. riscv_arch_test.h includes
-    # "failure_code.h" with quotes, so tests/env/ wins over dut_include_dir.
-    # The default handler reads the words that patch_elfs.py replaces with NOPs.
-    cp "/act4/$(dirname "$CONFIG")/failure_code.h" /act4/tests/env/failure_code.h
 
     echo ""
     echo "=== Generating self-checking ELFs for $CONFIG_NAME ==="
@@ -92,7 +82,6 @@ generate_elfs \
     "config/zisk/zisk-rv64im/test_config.yaml" \
     "zisk-rv64im" \
     "I,M,F,D,Zca,Zcf,Zcd,Zaamo,Zalrsc" \
-    "$(printf 'I\nM\nZaamo\nZalrsc\nF\nD\nZca\nZcd\nZicsr\nSm')" \
     "native" || true
 
 # Target ISA
@@ -100,7 +89,6 @@ generate_elfs \
     "config/zisk/zisk-rv64im-zicclsm/test_config.yaml" \
     "zisk-rv64im-zicclsm" \
     "I,M,Misalign" \
-    "$(printf 'I\nM\nZicclsm\nMisalign')" \
     "target" || true
 
 echo ""

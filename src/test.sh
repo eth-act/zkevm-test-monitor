@@ -174,7 +174,8 @@ run_zisk_split_pipeline() {
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -315,7 +316,8 @@ run_sp1_split_pipeline() {
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -444,7 +446,8 @@ run_lambdavm_split_pipeline() {
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }
@@ -555,7 +558,8 @@ run_openvm_split_pipeline() {
   else
     echo "Building Docker image for $ZKVM (ELF generation)..."
     ACT4_COMMIT=$(jq -r '.act4_commit // "act4"' config.json)
-    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
+    ACT4_VERSION=$(jq -r '.act4_version // "act4"' config.json)
+    docker build --build-arg ARCH_TEST_COMMIT="$ACT4_COMMIT" --build-arg ARCH_TEST_VERSION="$ACT4_VERSION" -t "${ZKVM}:latest" -f "$DOCKER_DIR/Dockerfile" . || {
       echo "Failed to build Docker image for $ZKVM"
       return 1
     }

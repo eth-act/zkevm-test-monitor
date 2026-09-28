@@ -19,7 +19,7 @@ set -eu
 ZKVM=sp1
 cd /act4
 
-# generate_elfs <config-path> <config-name> <extensions> <extensions-txt> <output-subdir> <workdir>
+# generate_elfs <config-path> <config-name> <extensions> <output-subdir> <workdir>
 #
 # SP1 uses one DUT config for both suites, so each suite gets its own workdir to
 # avoid clobbering the other's compiled ELFs.
@@ -27,20 +27,13 @@ generate_elfs() {
     local CONFIG="$1"
     local CONFIG_NAME="$2"
     local EXTENSIONS="$3"
-    local EXT_TXT="$4"
-    local OUTPUT_SUBDIR="$5"
-    local SUITE_WORKDIR="$6"
+    local OUTPUT_SUBDIR="$4"
+    local SUITE_WORKDIR="$5"
 
     if [ ! -f "/act4/$CONFIG" ]; then
         echo "Warning: Config not found at /act4/$CONFIG, skipping $OUTPUT_SUBDIR"
         return
     fi
-
-    # Pre-generate extensions.txt to skip UDB validation (needs Podman/Docker
-    # inside the container). ACT skips UDB when this file exists and is newer.
-    mkdir -p "$SUITE_WORKDIR/$CONFIG_NAME"
-    echo "$EXT_TXT" > "$SUITE_WORKDIR/$CONFIG_NAME/extensions.txt"
-    touch -t 209901010000 "$SUITE_WORKDIR/$CONFIG_NAME/extensions.txt"
 
     echo ""
     echo "=== Generating self-checking ELFs for $OUTPUT_SUBDIR ($CONFIG_NAME) ==="
@@ -90,7 +83,6 @@ generate_elfs \
     "config/sp1/sp1-rv64im-zicclsm/test_config.yaml" \
     "sp1-rv64im-zicclsm" \
     "I,M" \
-    "$(printf 'I\nM\nZicsr\nSm')" \
     "native" \
     "/act4/work-native" || true
 
@@ -99,7 +91,6 @@ generate_elfs \
     "config/sp1/sp1-rv64im-zicclsm/test_config.yaml" \
     "sp1-rv64im-zicclsm" \
     "I,M,Misalign" \
-    "$(printf 'I\nM\nZicsr\nZicclsm\nSm\nMisalign')" \
     "target" \
     "/act4/work-target" || true
 
