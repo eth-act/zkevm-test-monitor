@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_sha256 with NULL data and a non-zero length should panic
  * (zkvm_accelerators.h: "If a function is called with a NULL pointer, the

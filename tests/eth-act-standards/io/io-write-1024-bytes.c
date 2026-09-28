@@ -1,5 +1,10 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /* The public output is not capped: the guest writes 1024 bytes in one call. */
-#include "test_verdict.h"
+#include "checks.h"
 #include "pattern.h"
 
 #define OUTPUT_SIZE 1024

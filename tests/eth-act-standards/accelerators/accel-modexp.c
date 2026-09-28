@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_modexp: arbitrary-precision (base^exp) mod m, with empty operands and a zero modulus.
  */
@@ -15,6 +20,6 @@ int main(void) {
         /* Only mod_len bytes may be written. */
         CHECK_LABEL(CASE_ID(i, 4), cases[i].label, out[cases[i].mod_len] == OUTPUT_MARKER);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

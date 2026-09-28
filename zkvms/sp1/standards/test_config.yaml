@@ -1,0 +1,13 @@
+# ACT4 DUT config for building the eth-act standards test guests for sp1.
+# build-guests.sh assembles the DUT directory: this file and link.ld, plus
+# rvmodel_macros.h, the UDB config and sail.json of the ISA config
+# zkvms/sp1/isa-configs/sp1-rv64im-zicclsm/, plus the standard zkvm_*.h headers.
+name: sp1-eth-act-standards
+# riscv64-unknown-elf-gcc with -std=gnu11 appended: ACT compiles C tests with
+# -std=gnu99, but zkvm_accelerators.h requires C11.
+compiler_exe: riscv64-unknown-elf-gcc-gnu11
+objdump_exe: riscv64-unknown-elf-objdump
+ref_model_exe: sail_riscv_sim
+udb_config: sp1-rv64im-zicclsm.yaml
+linker_script: link.ld
+dut_include_dir: .

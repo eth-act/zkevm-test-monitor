@@ -7,16 +7,13 @@
 //!   must terminate abnormally (panic, failed execution). A normal finish fails
 //!   the test with a "did not panic" detail.
 //!
-//! The standards backends default a missing input to empty and a missing
-//! expected output to the verdict `PASS`. The ISA backends have no defaults, so
-//! an ISA test without these files runs exactly as before.
+//! The standards backends default a missing input to empty. Without an
+//! expected output, a test is judged like an ISA test: by the ACT4 halt verdict.
+//! The ISA backends have no defaults.
 
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-
-/// Expected public output of a self-checking guest that passed.
-pub const PASS_VERDICT: &[u8] = b"PASS";
 
 /// Show at most this many bytes of output in a failure detail.
 const DETAIL_BYTES: usize = 48;
@@ -40,7 +37,7 @@ pub struct IoVectors {
 
 impl IoVectors {
     /// Load the vectors next to `elf_path`. With `standards`, a missing input
-    /// is empty and a missing expected output is `PASS`.
+    /// is empty.
     pub fn load(elf_path: &Path, standards: bool) -> Result<Self> {
         let read_optional = |ext: &str| -> Result<Option<Vec<u8>>> {
             let path = elf_path.with_extension(ext);
@@ -60,10 +57,9 @@ impl IoVectors {
             },
         };
         let mut input = read_optional("input")?;
-        let mut expected = read_optional("expected")?;
+        let expected = read_optional("expected")?;
         if standards {
             input.get_or_insert_with(Vec::new);
-            expected.get_or_insert_with(|| PASS_VERDICT.to_vec());
         }
         Ok(IoVectors { input, expected, outcome })
     }
@@ -92,22 +88,8 @@ pub fn matches_zero_padded(actual: &[u8], expected: &[u8]) -> bool {
         && actual[expected.len()..].iter().all(|&b| b == 0)
 }
 
-/// Describe an output mismatch, decoding a guest `FAIL` verdict and its
-/// optional text label when present.
+/// Describe an output mismatch.
 pub fn describe_mismatch(actual: &[u8], expected: &[u8]) -> String {
-    if actual.len() >= 8 && &actual[..4] == b"FAIL" {
-        let id = u32::from_le_bytes(actual[4..8].try_into().unwrap());
-        let label: String = actual[8..]
-            .iter()
-            .take_while(|&&b| b != 0)
-            .map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '?' })
-            .collect();
-        return if label.is_empty() {
-            format!("guest check {id} failed")
-        } else {
-            format!("guest check {id} failed: {label}")
-        };
-    }
     let shown = actual.len() - actual.iter().rev().take_while(|&&b| b == 0).count();
     let mut detail = format!(
         "output mismatch: expected {} bytes {}, got {}",
@@ -126,9 +108,6 @@ pub fn describe_mismatch(actual: &[u8], expected: &[u8]) -> String {
 /// that the hex prefix hides.
 pub fn describe_exact_mismatch(actual: &[u8], expected: &[u8]) -> String {
     let detail = describe_mismatch(actual, expected);
-    if actual.starts_with(b"FAIL") && actual.len() >= 8 {
-        return detail;
-    }
     let detail = detail.split(" (output area").next().unwrap_or_default();
     format!("{detail} ({} bytes)", actual.len())
 }
@@ -197,14 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn describes_guest_failure_and_mismatch() {
-        let mut area = vec![0u8; 16];
-        area[..4].copy_from_slice(b"FAIL");
-        area[4..8].copy_from_slice(&42u32.to_le_bytes());
-        assert_eq!(describe_mismatch(&area, b"PASS"), "guest check 42 failed");
-        area[8..11].copy_from_slice(b"abc");
-        assert_eq!(describe_mismatch(&area, b"PASS"), "guest check 42 failed: abc");
-
+    fn describes_mismatch() {
         let detail = describe_mismatch(&[0xab, 0, 0, 0], &[1u8; 5]);
         assert!(detail.contains("got ab"), "{detail}");
         assert!(detail.contains("holds only 4 bytes"), "{detail}");
@@ -217,9 +189,6 @@ mod tests {
         let detail = describe_exact_mismatch(&[1u8; 3], &[1u8; 4]);
         assert!(!detail.contains("output area"), "{detail}");
         assert!(detail.ends_with("(3 bytes)"), "{detail}");
-        let mut fail = b"FAIL".to_vec();
-        fail.extend_from_slice(&7u32.to_le_bytes());
-        assert_eq!(describe_exact_mismatch(&fail, b"PASS"), "guest check 7 failed");
     }
 
     #[test]
@@ -234,7 +203,7 @@ mod tests {
 
         let standards = IoVectors::load(&elf, true).unwrap();
         assert_eq!(standards.input.as_deref(), Some(&[][..]));
-        assert_eq!(standards.expected.as_deref(), Some(PASS_VERDICT));
+        assert_eq!(standards.expected, None);
 
         std::fs::write(dir.path().join("t.input"), b"in").unwrap();
         std::fs::write(dir.path().join("t.expected"), b"out").unwrap();

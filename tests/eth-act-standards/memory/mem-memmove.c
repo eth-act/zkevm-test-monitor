@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * memmove behaves as if it copied through a temporary buffer: correct for
  * disjoint regions and for overlap in both directions, for every alignment
@@ -32,6 +37,6 @@ int main(void) {
             }
         }
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

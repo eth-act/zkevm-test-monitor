@@ -1,4 +1,6 @@
-# Builds eth-act standards guest ELFs and a host executor for OpenVM.
+# Builds the OpenVM C library and host executor for the eth-act standards tests.
+# The guests themselves are built as ACT4 C tests in the OpenVM ACT4 image (see
+# tests/eth-act-standards/build-guests.sh), which links /opt/openvm/lib/libere_openvm_c.a.
 #
 # OpenVM ships no C library for guests (its own C-interface PRs #3075-#3080 were
 # closed unmerged). This image therefore uses eth-act/ere's ere-platform-openvm,
@@ -71,4 +73,3 @@ RUN cp /ere/Cargo.lock Cargo.lock && \
     rm -rf target
 
 WORKDIR /
-ENTRYPOINT ["/bin/bash", "-c", "/eth-act-standards-tests/build-guests.sh openvm /elfs && cp /ere-commit.txt /elfs/vendor-commit.txt && cp /openvm-commit.txt /elfs/openvm-commit.txt"]

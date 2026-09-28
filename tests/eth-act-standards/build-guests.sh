@@ -1,31 +1,27 @@
 #!/bin/bash
-# Build the eth-act standards test guest ELFs for one platform.
+# Build the eth-act standards test guests for one zkVM as ACT4 C tests.
 #
-# Usage: build-guests.sh <platform> <out-dir>
+# Usage: build-guests.sh <zkvm> <out-dir>
 #
-# Every <group>/<name>.c becomes <out-dir>/<group>/<name>.elf. The test
-# vectors <name>.input, <name>.expected and <name>.outcome are copied next to
-# the ELF; a group
-# may instead write them with <group>/write_io_vectors.py <out-dir>/<group>.
-# A source that contains the marker "eth-act-standards: link-decoy-memops" is linked
-# with a decoy archive of weak memory functions placed before the vendor library.
+# Runs inside the zkVM's ACT4 image (zkvms/<zkvm>/act4.Dockerfile, ACT4 >= 4.1.0),
+# with these mounts:
+#   /eth-act-standards-tests  this directory (read-only)
+#   /act4-config              zkvms/<zkvm>/isa-configs (read-only)
+#   /platform                 zkvms/<zkvm>/standards (read-only)
+#   /vendor                   the zkVM's C library (read-only)
+#
+# Every <group>/<name>.c (group: io, accelerators, memory) becomes
+# <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
+# and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
+# writes the rest of the I/O vectors.
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
-PLATFORM="${1:?usage: build-guests.sh <platform> <out-dir>}"
-OUT="${2:?usage: build-guests.sh <platform> <out-dir>}"
-PLATFORM_DIR="$HERE/platforms/$PLATFORM"
-# The standard headers come from the eth-act/zkevm-standards submodule.
+ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
+OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
+PLATFORM_DIR="$HERE/platforms/$ZKVM"
 STANDARDS="$HERE/external/zkevm-standards/standards"
-INCLUDES="-I $HERE/include -I $STANDARDS/io-interface -I $STANDARDS/c-interface-accelerators"
-
-# shellcheck source=/dev/null
-source "$PLATFORM_DIR/platform.sh"
-
-if [ ! -f "$VENDOR_LIB" ]; then
-  echo "error: vendor library not found: $VENDOR_LIB" >&2
-  exit 1
-fi
+GROUPS_LIST="io accelerators memory"
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS is empty; run 'git submodule update --init tests/eth-act-standards/external/zkevm-standards'" >&2
@@ -35,38 +31,64 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# shellcheck disable=SC2086
-$CC $CFLAGS -c "$HERE/tools/decoy_memops.c" -o "$WORK/decoy_memops.o"
-$AR rcs "$WORK/libdecoy_memops.a" "$WORK/decoy_memops.o"
+# DUT directory: this platform's test_config.yaml and link.ld, the rest of the
+# zkVM's ISA config (rvmodel_macros.h, UDB config, sail.json, ...), the
+# standard headers and our checks.h.
+DUT="$WORK/dut"
+mkdir -p "$DUT"
+ISA_CONFIG=$(sed -n 's/^udb_config: *\([^ ]*\)\.yaml.*/\1/p' "$PLATFORM_DIR/test_config.yaml")
+for f in /act4-config/"$ISA_CONFIG"/*; do
+  case "$(basename "$f")" in
+    test_config.yaml | link.ld) ;;
+    *) cp "$f" "$DUT/" ;;
+  esac
+done
+cp "$PLATFORM_DIR/test_config.yaml" "$PLATFORM_DIR/link.ld" "$DUT/"
+cp "$STANDARDS/io-interface/zkvm_io.h" "$STANDARDS/c-interface-accelerators/zkvm_accelerators.h" \
+  "$HERE/include/checks.h" "$DUT/"
+
+# ACT compiles C tests with -std=gnu99; zkvm_accelerators.h requires C11. The
+# last -std option wins, so the wrapper appends -std=gnu11.
+cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<'EOF'
+#!/bin/sh
+exec riscv64-unknown-elf-gcc "$@" -std=gnu11
+EOF
+chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
+export PATH="$DUT:$PATH"
+
+# Test tree in ACT's layout: env/ from ACT, and one directory per group.
+TESTS="$WORK/tests"
+mkdir -p "$TESTS/rv64i"
+cp -r /act4/tests/env "$TESTS/env"
+for group in $GROUPS_LIST; do
+  cp -r "$HERE/$group" "$TESTS/rv64i/$group"
+done
+
+(cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
+  --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
+
+ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
+# SP1 and OpenVM decode every word of the code segment; replace the data words
+# that ACT places in code with NOPs, as for the ISA tests.
+python3 /act4/patch_elfs.py "$ELF_ROOT"
 
 count=0
-for src in "$HERE"/*/*.c; do
-  group=$(basename "$(dirname "$src")")
-  [ "$group" = "tools" ] && continue
-  name=$(basename "$src" .c)
+for group in $GROUPS_LIST; do
   mkdir -p "$OUT/$group"
-
-  pre_libs=""
-  if grep -q "eth-act-standards: link-decoy-memops" "$src"; then
-    pre_libs="$WORK/libdecoy_memops.a"
-  fi
-
-  # shellcheck disable=SC2086
-  $CC $CFLAGS $INCLUDES "$src" ${LINKER_SCRIPT:+-T "$LINKER_SCRIPT"} $LDFLAGS \
-    $pre_libs "$VENDOR_LIB" $LIBS -o "$OUT/$group/$name.elf"
-
-  for vector in input expected outcome; do
-    if [ -f "$HERE/$group/$name.$vector" ]; then
-      cp "$HERE/$group/$name.$vector" "$OUT/$group/$name.$vector"
-    fi
+  for elf in "$ELF_ROOT/$group"/*.elf; do
+    name=$(basename "$elf" .elf)
+    # cat, not cp: ACT's build cache may leave the ELFs as symlinks.
+    cat "$elf" > "$OUT/$group/$name.elf"
+    for vector in input expected outcome; do
+      if [ -f "$HERE/$group/$name.$vector" ]; then
+        cp "$HERE/$group/$name.$vector" "$OUT/$group/$name.$vector"
+      fi
+    done
+    count=$((count + 1))
   done
-  count=$((count + 1))
+  if [ -f "$HERE/$group/write_io_vectors.py" ]; then
+    python3 "$HERE/$group/write_io_vectors.py" "$OUT/$group"
+  fi
 done
 
-for gen in "$HERE"/*/write_io_vectors.py; do
-  [ -f "$gen" ] || continue
-  group=$(basename "$(dirname "$gen")")
-  python3 "$gen" "$OUT/$group"
-done
-
-echo "Built $count eth-act standards test ELFs for $PLATFORM in $OUT"
+echo "Built $count eth-act standards test ELFs for $ZKVM in $OUT"

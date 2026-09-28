@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_bls12_pairing: BLS12-381 pairing check (EIP-2537); invalid, off-curve and non-subgroup points must not verify.
  */
@@ -11,6 +16,6 @@ int main(void) {
         zkvm_status status = zkvm_bls12_pairing((const zkvm_bls12_381_pairing_pair *)cases[i].pairs, num_pairs, &verified);
         CHECK_VERDICT(i, status, verified);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

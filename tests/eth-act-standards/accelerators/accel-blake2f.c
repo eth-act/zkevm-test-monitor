@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_blake2f: BLAKE2 compression F (EIP-152) in place, for 0 to 8000000 rounds; a final flag other than 0 or 1 must fail.
  */
@@ -12,6 +17,6 @@ int main(void) {
                                           (const zkvm_blake2f_offset *)cases[i].t, (uint8_t)cases[i].f);
         CHECK_OUTPUT(i, status, &h, cases[i].out, cases[i].out_len);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

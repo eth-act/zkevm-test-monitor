@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * memcpy copies exactly n bytes for every source and destination alignment,
  * including n == 0, returns dest, and writes nothing outside [dest, dest + n).
@@ -44,6 +49,6 @@ int main(void) {
     if (!check_copy(mem_case(1, 0, 0, 0), 0, 0, BIG)) {
         return 0;
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

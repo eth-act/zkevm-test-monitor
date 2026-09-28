@@ -1,5 +1,15 @@
-/* ZisK v1.3.0-alpha ziskbuild/zisk_linker_script.ld (eth-act/ere vendors the
-   same file), with two changes for the C guests:
+/* Linker script for the eth-act standards test guests on ZisK, built as ACT4 C
+   tests.
+
+   Based on ZisK v1.3.0-alpha ziskbuild/zisk_linker_script.ld (eth-act/ere
+   vendors the same file), with these changes:
+   - INPUT() links the vendor library (libziskos_staticlib.a), because ACT's
+     link line takes no libraries.
+   - ENTRY(_start) stays the vendor's: ZisK's _start initializes the runtime
+     and calls main. ACT's own C start code (rvtest_entry_point) is linked but
+     not run.
+   - The symbols that ACT's C runtime references (__bss_*, __stack_*,
+     __num_harts) are provided from ZisK's.
    - .srodata goes in .rodata.
    - .data and .bss share one PT_LOAD. A guest without initialized data has
      an empty .data, and GNU ld then emits an empty PT_LOAD at address 0,
@@ -10,6 +20,7 @@
    0xa0430000. The heap ends below the float RAM at 0xbfff0000. */
 OUTPUT_FORMAT("elf64-littleriscv")
 OUTPUT_ARCH("riscv")
+INPUT(/vendor/libziskos_staticlib.a)
 ENTRY(_start)
 
 MEMORY {
@@ -95,6 +106,14 @@ SECTIONS
   PROVIDE(_heap_bottom = .);
   PROVIDE(_heap_top = ORIGIN(ram) + LENGTH(ram) - _float_ram_data_size);
   PROVIDE(_heap_size = _heap_top - _heap_bottom);
+
+  /* Symbols referenced by ACT's C runtime (tests/env/c_test_start.S). */
+  PROVIDE(__bss_start = _bss_start);
+  PROVIDE(__bss_end = _bss_end);
+  PROVIDE(__stack_bottom = _init_stack_bottom);
+  PROVIDE(__stack_top = _init_stack_top);
+  PROVIDE(__stack_size = _init_stack_top - _init_stack_bottom);
+  PROVIDE(__num_harts = 1);
 
   _end = .;
 }

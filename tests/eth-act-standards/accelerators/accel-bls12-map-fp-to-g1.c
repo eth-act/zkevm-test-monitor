@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_bls12_map_fp_to_g1: BLS12-381 map from Fp to G1 (EIP-2537); a non-canonical field element must fail.
  */
@@ -11,6 +16,6 @@ int main(void) {
         zkvm_status status = zkvm_bls12_map_fp_to_g1((const zkvm_bls12_381_fp *)cases[i].fp, &out);
         CHECK_OUTPUT(i, status, &out, cases[i].out, cases[i].out_len);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

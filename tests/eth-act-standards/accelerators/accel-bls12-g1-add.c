@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_bls12_g1_add: BLS12-381 G1 addition (EIP-2537, 48-byte field elements); invalid encodings and off-curve points must fail.
  */
@@ -11,6 +16,6 @@ int main(void) {
         zkvm_status status = zkvm_bls12_g1_add((const zkvm_bls12_381_g1_point *)cases[i].p1, (const zkvm_bls12_381_g1_point *)cases[i].p2, &out);
         CHECK_OUTPUT(i, status, &out, cases[i].out, cases[i].out_len);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

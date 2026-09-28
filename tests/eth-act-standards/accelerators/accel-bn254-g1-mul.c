@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_bn254_g1_mul: BN254 G1 scalar multiplication (EIP-196), including zero and large scalars.
  */
@@ -12,6 +17,6 @@ int main(void) {
                                                (const zkvm_bn254_scalar *)cases[i].scalar, &out);
         CHECK_OUTPUT(i, status, &out, cases[i].out, cases[i].out_len);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

@@ -1106,7 +1106,10 @@ fn run_io_executor(
             return Ok(RunResult::executed(start, exit_code, Termination::Abnormal, Some(detail)));
         }
 
-        let expected = vectors.expected.as_deref().unwrap_or(io::PASS_VERDICT);
+        // Without an expected output, the ACT4 halt verdict (the exit code) decides.
+        let Some(expected) = vectors.expected.as_deref() else {
+            return Ok(RunResult::executed(start, exit_code, Termination::Normal, None));
+        };
         let actual = std::fs::read(&output_path).context("executor wrote no public values")?;
         let detail = match area {
             OutputArea::Exact => (actual != expected).then(|| io::describe_exact_mismatch(&actual, expected)),

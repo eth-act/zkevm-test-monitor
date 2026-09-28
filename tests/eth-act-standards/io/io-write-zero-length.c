@@ -1,5 +1,10 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /* Zero-length writes between non-empty writes add nothing to the output. */
-#include "test_verdict.h"
+#include "checks.h"
 #include "pattern.h"
 
 #define OUTPUT_SIZE 10

@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_bn254_pairing: BN254 pairing check (EIP-197) for 0 to 10 pairs; G2 uses the EVM (imaginary, real) order.
  */
@@ -11,6 +16,6 @@ int main(void) {
         zkvm_status status = zkvm_bn254_pairing((const zkvm_bn254_pairing_pair *)cases[i].pairs, num_pairs, &verified);
         CHECK_VERDICT(i, status, verified);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

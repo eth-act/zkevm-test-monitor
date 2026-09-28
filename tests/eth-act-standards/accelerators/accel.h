@@ -12,7 +12,7 @@
 #ifndef ACCEL_H
 #define ACCEL_H
 
-#include "test_verdict.h"
+#include "checks.h"
 #include "zkvm_accelerators.h"
 
 enum { EXPECT_OK, EXPECT_TRUE, EXPECT_REJECT, EXPECT_EFAIL };
@@ -66,12 +66,12 @@ static inline bool accel_verdict_ok(int expect, zkvm_status status, bool verifie
 
 /*
  * The NULL-pointer tests (accel-null-*.c) expect the call to panic, so their
- * expected outcome is "fail". If the call returns, the guest reports check 1
- * (it returned ZKVM_EOK) or check 2 (it returned an error status).
+ * expected outcome is "fail" (<test>.outcome). If the call returns, the guest
+ * prints what it returned and ends normally, which the runner reports as
+ * "did not panic".
  */
-#define NULL_CALL_RETURNED(status, call)                                  \
-    test_fail_label((status) == ZKVM_EOK ? 1 : 2,                         \
-                    (status) == ZKVM_EOK ? call " returned ZKVM_EOK"      \
-                                         : call " returned an error status")
+#define NULL_CALL_RETURNED(status, call)                                         \
+    printf("%s\n", (status) == ZKVM_EOK ? call " returned ZKVM_EOK"             \
+                                        : call " returned an error status")
 
 #endif /* ACCEL_H */

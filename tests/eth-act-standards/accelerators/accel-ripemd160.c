@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_ripemd160: RIPEMD-160 digests, returned in the last 20 of 32 bytes after 12 zero bytes.
  */
@@ -11,6 +16,6 @@ int main(void) {
         zkvm_status status = zkvm_ripemd160(cases[i].data, cases[i].data_len, &out);
         CHECK_OUTPUT(i, status, &out, cases[i].out, cases[i].out_len);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_kzg_point_eval: KZG point evaluation (EIP-4844); a wrong evaluation, proof or field element must not verify.
  */
@@ -13,6 +18,6 @@ int main(void) {
                                                  (const zkvm_kzg_proof *)cases[i].proof, &verified);
         CHECK_VERDICT(i, status, verified);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_secp256r1_verify: ECDSA verification on P-256 (EIP-7212), with valid and invalid signatures.
  */
@@ -13,6 +18,6 @@ int main(void) {
                                                    &verified);
         CHECK_VERDICT(i, status, verified);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

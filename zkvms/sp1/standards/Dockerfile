@@ -1,11 +1,11 @@
-# Builds eth-act standards guest ELFs and a host executor for SP1.
+# Builds the SP1 C library and host executor for the eth-act standards tests.
 #
 # The vendor C library is SP1's zkEVM SDK (`zkevm/` in succinctlabs/sp1):
 # `make sdk` builds libzkevm.a for riscv64im-succinct-zkvm-elf with the
 # succinct Rust toolchain. The image also builds sp1-eth-act-standards-executor
 # (./executor), which runs a guest in SP1's executor at the same commit.
-# The container compiles every guest in /eth-act-standards-tests against libzkevm.a and
-# writes the ELFs to /elfs.
+# The guests themselves are built as ACT4 C tests in the SP1 ACT4 image (see
+# tests/eth-act-standards/build-guests.sh), which links /opt/sp1/libzkevm.a.
 #
 # The SDK is not in the monitor's pinned SP1 fork (v6.1.0), so this image
 # pins upstream tag v6.6.0 (the version eth-act/ere pins, including its
@@ -61,4 +61,3 @@ RUN cargo build --release --locked --manifest-path /executor/Cargo.toml && \
     rm -rf /executor/target
 
 WORKDIR /
-ENTRYPOINT ["/bin/bash", "-c", "/eth-act-standards-tests/build-guests.sh sp1 /elfs && cp /sp1-commit.txt /elfs/vendor-commit.txt"]

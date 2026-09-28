@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * zkvm_secp256k1_verify: ECDSA verification on secp256k1, with valid, altered and malformed signatures and keys.
  */
@@ -13,6 +18,6 @@ int main(void) {
                                                    &verified);
         CHECK_VERDICT(i, status, verified);
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

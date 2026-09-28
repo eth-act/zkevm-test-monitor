@@ -8,7 +8,7 @@
 #ifndef MEMOPS_H
 #define MEMOPS_H
 
-#include "test_verdict.h"
+#include "checks.h"
 
 void *memcpy(void *dest, const void *src, size_t n);
 void *memmove(void *dest, const void *src, size_t n);

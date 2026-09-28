@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * memset fills n bytes with (unsigned char)c for every alignment and n == 0,
  * returns dest, and writes nothing outside [dest, dest + n).
@@ -38,6 +43,6 @@ int main(void) {
     if (!check_set(mem_case(7, 5, 0, 0), 5, 0x5a, BIG - 3)) {
         return 0;
     }
-    test_pass();
+    rvtest_pass();
     return 0;
 }

@@ -1,3 +1,8 @@
+// START_TEST_CONFIG
+// REQUIRED_EXTENSIONS: ['I', 'M']
+// MARCH: rv64im_zicsr_zifencei
+// NEEDS_SIGNATURE: false
+// END_TEST_CONFIG
 /*
  * memcmp compares bytes as unsigned char, stops at the first difference,
  * ignores bytes at and after n, and returns 0 for n == 0. The sign of the
@@ -49,6 +54,6 @@ int main(void) {
     /* n == 0 compares nothing. */
     CHECK(7, memcmp(hi, lo, 0) == 0);
 
-    test_pass();
+    rvtest_pass();
     return 0;
 }
