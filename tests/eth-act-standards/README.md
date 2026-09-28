@@ -108,11 +108,21 @@ The results go to `out/<zkvm>/results-eth-act-standards.json` and
 uv run --no-project --with pycryptodome --with ecdsa tests/eth-act-standards/tools/gen_accel_vectors.py
 ```
 
-The script lists the sources for every case. Most cases come from go-ethereum's precompile
-test data, converted to the C interface. `tools/accel_vector_sources.json` pins these files: the
-go-ethereum commit (tag v1.17.6) and the sha256 of each file. The script downloads each file at
-that commit, checks the sha256, and stops on a mismatch. It caches the files in
-`~/.cache/eth-act-standards-vectors`.
+The script lists the sources for every case. Most cases come from two sets of precompile test
+data, converted to the C interface:
+
+- go-ethereum `core/vm/testdata/precompiles` at tag v1.17.6, for every precompile;
+- ethereum/execution-specs (EEST) `tests/` at tag `tests@v20.0.2`, for the EIP-2537 BLS12-381,
+  EIP-7883 modexp and EIP-4844 KZG vectors. EEST has no JSON vectors for bn254, blake2f and
+  ecrecover (only Python test parameters), so those come from go-ethereum only.
+
+The script keeps the go-ethereum cases and adds selected EEST cases. It skips a case whose input
+is already present, and each case label starts with its source (`geth` or `eest`). An EEST KZG
+input error (`output: null`) is expected to be rejected, like an invalid proof.
+
+`tools/accel_vector_sources.json` pins these files: the commit of each source and the sha256 of
+each file. The script downloads each file at that commit, checks the sha256, and stops on a
+mismatch. It caches the files in `~/.cache/eth-act-standards-vectors`.
 
 Where the C interface does not define a behavior, the
 tests follow the EVM precompile:
