@@ -18,21 +18,33 @@ The suite runs execution only. It does not prove.
 
 ## How a test works
 
-Each test is a small, standalone C program. It links only against the vendor's static library,
-through the standard headers. The host feeds it the test's I/O test vectors:
-`<name>.input` is the private input (default: empty), and the public output must equal
-`<name>.expected` (default: the 4 bytes `PASS`).
+Each test is a small, standalone C program. It is an ACT4 C test (ACT4 4.1.0 or later), so it
+has the ACT4 test header (`START_TEST_CONFIG`) and uses ACT4's C test runtime (`c_test.h`). It
+links against the vendor's static library and calls it only through the standard headers.
 
-- A self-checking program writes `PASS`. On failure it writes `FAIL`, a little-endian u32
-  check id and an optional label (`include/test_verdict.h`).
-- An I/O program writes data-dependent output. `io/write_io_vectors.py` writes its input and its
-  expected output.
-- If the program never finishes, its output does not match, so the test fails.
-- `<name>.outcome` can hold `fail`. Then the program must terminate abnormally (a panic or a
-  failed execution), and a normal finish fails the test with the detail `did not panic`. The
-  `accel-null-*` programs use this: the standard says that a function called with a NULL
-  pointer SHOULD panic. If the call returns, the program writes check 1 (it returned
-  `ZKVM_EOK`) or check 2 (it returned an error status).
+`build-guests.sh` compiles the programs with ACT4 (`act`) in the zkVM's ACT4 image
+(`zkvms/<zkvm>/act4.Dockerfile`). It uses the zkVM's ISA config (`zkvms/<zkvm>/isa-configs/`) with the
+`test_config.yaml` and `link.ld` in `zkvms/<zkvm>/standards/`. The linker script puts the vendor's
+static library on the link line, so the vendor's `_start` runs `main`. The test ends through the
+zkVM's ACT4 halt macros, the same as an ISA test.
+
+The runner judges a test in one of three ways:
+
+- **ACT4 verdict.** A self-checking program calls `rvtest_pass()`, and a failed check calls
+  `print_error()` (`include/checks.h`). The runner reads the verdict as for an ISA test:
+  the `PASS` marker in the public output on ZisK, the exit code on SP1 and OpenVM.
+- **Expected output.** An I/O write program returns from `main`. Its public output must equal
+  `<name>.expected`. `io/write_io_vectors.py` writes the input and the expected output.
+- **Expected panic.** `<name>.outcome` holds `fail`. The program must terminate abnormally (a
+  panic or a failed execution), and a normal finish fails the test with the detail
+  `did not panic`. The `accel-null-*` programs use this: the standard says that a function
+  called with a NULL pointer SHOULD panic. If the call returns, the program prints the status.
+
+`<name>.input` is the private input (default: empty). If a program never finishes, it has no
+verdict, so the test fails.
+
+`mem-link-resolution` defines weak `memcpy`, `memmove`, `memset` and `memcmp` functions that give
+wrong results. The vendor's strong definitions must replace them at link time.
 
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
@@ -73,7 +85,7 @@ handler, the `zkvm_*` accelerators, and `openvm-mem` for `memcpy` and friends), 
 - `write_output` appends to a buffer and reveals the whole buffer again, because ere reveals
   from byte 0 on each call. ere limits the output to 256 bytes.
 
-There is no linker script: OpenVM guests link with the default layout and `-Ttext=0x00200800`.
+The OpenVM linker script puts the program at `0x00200800`, where OpenVM guests start.
 `openvm-eth-act-standards-executor` runs the guest in OpenVM's SDK executor, with the VM config that ere's
 prover uses and the input as one input vector.
 
@@ -91,14 +103,18 @@ The results go to `out/<zkvm>/results-eth-act-standards.json` and
 
 ## Adding a zkVM
 
-1. Add `platforms/<zkvm>/`:
-   - a `Dockerfile` that builds the vendor library and runs `build-guests.sh <zkvm> /elfs`;
-   - a `platform.sh` that sets `CC`, `AR`, `CFLAGS`, `LINKER_SCRIPT`, `VENDOR_LIB`, `LDFLAGS`
-     and `LIBS`;
-   - a linker script, unless the vendor links without one (then `LINKER_SCRIPT` is empty).
-2. Add a `<zkvm>-standards` backend to `runner/src/backends.rs` that feeds the input to that
-   zkVM and reads its public output, and add its name to `runner/src/main.rs`.
-3. Add the backend and the executor to `src/run-eth-act-standards-tests.sh`.
+The zkVM must have an ACT4 ISA config (`zkvms/<zkvm>/isa-configs/`) with the `rv64im-zicclsm` UDB
+config.
+
+1. Add `zkvms/<zkvm>/standards/`:
+   - a `Dockerfile` that builds the vendor library and the host executor;
+   - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
+   - a `link.ld` that includes the vendor library (`INPUT(/vendor/<lib>.a)`) and defines the
+     `__stack_*`, `__bss_*` and `__num_harts` symbols that ACT4's C runtime needs.
+2. Add a `<zkvm>-standards` backend to `src/runner/src/backends.rs` that feeds the input to that
+   zkVM and reads its verdict and public output, and add its name to `src/runner/src/main.rs`.
+3. Add the vendor library path, the backend and the executor to
+   `src/run-eth-act-standards-tests.sh`.
 
 ## Accelerator vectors
 

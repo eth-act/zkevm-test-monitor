@@ -45,25 +45,29 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    subgraph docker["Docker: zkvms/&lt;zkvm&gt;/standards/"]
-        vendor["zkVM C library<br/>at the version eth-act/ere pins"] --> link["compile + link<br/>(build-guests.sh)"]
-        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(zkevm-standards submodule)"] --> link
-        link --> elfs["guest ELFs<br/>+ .input / .expected I/O test vectors"]
+    subgraph image["Docker: zkvms/&lt;zkvm&gt;/standards/"]
+        vendor["zkVM C library<br/>at the version eth-act/ere pins"]
         exe["zkVM executor<br/>(same version)"]
     end
+    subgraph act["Docker: zkvms/&lt;zkvm&gt;/act4.Dockerfile (ACT4)"]
+        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(zkevm-standards submodule)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
+        build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
+    end
+    vendor --> build
     elfs --> runner["Host: runner<br/>(standards backends)"]
     exe --> runner
-    runner --> verdict{"public output ==<br/>.expected?"}
+    runner --> verdict{"ACT4 verdict,<br/>or output == .expected"}
     verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]
     hist --> dash["dashboard: I/O, Accelerators, Memory columns"]
 ```
 
-- Each test is a small C program that uses only the standard headers. It links against the
-  zkVM's own static library, the way an EIP-8025 guest does.
-- The runner gives each program its `.input` file and compares its public output with its
-  `.expected` file (default: `PASS`). A self-checking program writes `FAIL` and a check id on
-  failure. A program with the `.outcome` `fail` must panic instead (the NULL-pointer tests).
-- The zkVM exit code is not used, because not every zkVM reports the guest's exit code.
+- Each test is a small C program that uses only the standard headers. ACT4 builds it as a C
+  test, with the zkVM's ISA config, and links it against the zkVM's own static library, the way
+  an EIP-8025 guest does.
+- A self-checking program ends through the zkVM's ACT4 halt macros, so the runner reads its
+  verdict as for an ISA test. An I/O write program must write its `.expected` public output. A
+  program with the `.outcome` `fail` must panic (the NULL-pointer tests). The runner gives each
+  program its `.input` file.
 - The suite runs execution only, for ZisK, SP1 and OpenVM. Each standards test image pins its own
   zkVM version, independent of `config.json`. See
   [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md).
