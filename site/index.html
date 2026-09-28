@@ -134,7 +134,7 @@
     }
 
     // Version of the zkVM that a run tested: the SDK version and ere revision for
-    // an ere run, the build commit for a native run.
+    // an ere run ("via ere <rev>"), the build commit otherwise.
     function versionHtml(zkvm, run) {
         const stop = 'onclick="event.stopPropagation()"';
         if (run?.ere_rev) {
@@ -145,8 +145,7 @@
         }
         const commit = run?.commit || run?.zkvm_commit;
         if (!commit || commit === 'unknown') return '<span class="none">&mdash;</span>';
-        return `<a href="${zkvm.repo_url}/commit/${commit}" class="commit-link" ${stop}>${commit.substring(0, 8)}</a>` +
-            ' <span class="none">native</span>';
+        return `<a href="${zkvm.repo_url}/commit/${commit}" class="commit-link" ${stop}>${commit.substring(0, 8)}</a>`;
     }
 
     function commitShort(commit) {

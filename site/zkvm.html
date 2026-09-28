@@ -179,7 +179,7 @@
     }
 
     // Version of the zkVM that a run tested: the SDK version and ere revision for
-    // an ere run, the build commit for a native run.
+    // an ere run ("via ere <rev>"), the build commit otherwise.
     function versionHtml(zkvm, run) {
         const stop = 'onclick="event.stopPropagation()"';
         if (run?.ere_rev) {
@@ -190,8 +190,7 @@
         }
         const commit = run?.commit || run?.zkvm_commit;
         if (!commit || commit === 'unknown') return '<span class="none">&mdash;</span>';
-        return `<a href="${zkvm.repo_url}/commit/${commit}" class="commit-link" ${stop}>${commit.substring(0, 8)}</a>` +
-            ' <span class="none">native</span>';
+        return `<a href="${zkvm.repo_url}/commit/${commit}" class="commit-link" ${stop}>${commit.substring(0, 8)}</a>`;
     }
 
     function commitShort(commit) {
@@ -280,11 +279,9 @@
                     const cls = p === r.total ? 'pass' : 'fail';
                     const hasData = p != null;
                     const runUrl = `zkvm.html?name=${name}&suite=${r.suite}&run=${r.runIdx}`;
-                    // For zkVMs that run through ere, mark the suites that still run native.
-                    const nativeTag = zkvm.ere && !isEre(zkvm, r.suite) ? ' (native)' : '';
                     const suiteBadge = r.suite === 'act4-full'
-                        ? `<span style="background:#e8f4fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Full${nativeTag}</span>`
-                        : `<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard${nativeTag}</span>`;
+                        ? `<span style="background:#e8f4fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Full</span>`
+                        : `<span style="background:#f0e8fd;padding:2px 6px;border-radius:3px;font-size:0.85em">Standard</span>`;
 
                     let proveCell = '';
                     let verifyCell = '';
