@@ -1,4 +1,10 @@
-mod backends;
+mod zkvm_backends;
+// The ere backend is behind the `ere` cargo feature, so the native path's build does
+// not fetch or compile ere-dockerized (a git dependency with its own Docker and HTTP
+// client crates). src/test.sh builds the ere runner with `--features ere` into
+// target/ere. See the `[features]` note in Cargo.toml.
+#[cfg(feature = "ere")]
+mod ere_backend;
 mod results;
 mod runner;
 
@@ -7,7 +13,7 @@ use std::process;
 
 use clap::Parser;
 
-use crate::backends::{Backend, Mode};
+use crate::zkvm_backends::{Backend, Mode};
 use crate::results::TestEntry;
 
 /// ACT4 compliance test runner for RISC-V ZK-VMs.
@@ -15,7 +21,7 @@ use crate::results::TestEntry;
 #[command(name = "act4-runner")]
 struct Cli {
     /// ZK-VM backend to use (lambdavm, openvm, openvm-prove, sp1-prove,
-    /// zisk, zisk-prove).
+    /// zisk, zisk-prove; with `--features ere`: ere-openvm, ere-sp1, ere-zisk).
     #[arg(long)]
     zkvm: String,
 
@@ -85,7 +91,24 @@ fn main() {
         })
     };
 
+    // ere path: provenance of the run, written next to the results.
+    #[cfg(feature = "ere")]
+    let mut ere_provenance = None;
+
     let backend = match cli.zkvm.as_str() {
+        #[cfg(feature = "ere")]
+        zkvm if zkvm.starts_with("ere-") => {
+            match ere_backend::EreBackend::new(&zkvm["ere-".len()..], cli.gpu) {
+                Ok((backend, provenance)) => {
+                    ere_provenance = Some(provenance);
+                    Backend::Ere(Box::new(backend))
+                }
+                Err(err) => {
+                    eprintln!("error: {err:#}");
+                    process::exit(2);
+                }
+            }
+        }
         "lambdavm" => Backend::LambdaVM {
             binary: require_binary(&cli),
         },
@@ -122,8 +145,13 @@ fn main() {
         }
     };
 
-    // For prove/full modes, default to 1 job (proving is resource-intensive)
-    let jobs = cli.jobs.unwrap_or_else(|| {
+    // For prove/full modes, default to 1 job (proving is resource-intensive).
+    // The ere backend always runs one test at a time: one server per zkVM.
+    #[cfg(feature = "ere")]
+    let jobs_override = matches!(backend, Backend::Ere(_)).then_some(1);
+    #[cfg(not(feature = "ere"))]
+    let jobs_override: Option<usize> = None;
+    let jobs = jobs_override.or(cli.jobs).unwrap_or_else(|| {
         if mode != Mode::Execute {
             1
         } else {
@@ -169,6 +197,14 @@ fn main() {
     {
         eprintln!("error: failed to write results: {e}");
         process::exit(2);
+    }
+
+    #[cfg(feature = "ere")]
+    if let (Backend::Ere(ere), Some(provenance)) = (&backend, &ere_provenance) {
+        if let Err(e) = ere.finish(&cli.output_dir, &cli.label, provenance) {
+            eprintln!("error: failed to write ere run records: {e:#}");
+            process::exit(2);
+        }
     }
 
     let passed = entries.iter().filter(|e| e.passed).count();

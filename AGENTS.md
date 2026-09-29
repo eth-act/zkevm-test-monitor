@@ -31,6 +31,23 @@ config.json             # ZKVM repo URLs and commit pins
 
 Limit CPU cores: `JOBS=8 ./run test zisk`
 
+## ere path (`BACKEND=ere`)
+
+`BACKEND=ere ./run test <openvm|sp1|zisk>` runs the ACT4 ELFs on the official
+`ghcr.io/eth-act/ere` images of the ere revision that `src/act4-runner/Cargo.toml` pins
+(`ere-dockerized`). ere builds and runs the zkVM; there is no local zkVM build.
+
+- Needs Docker; `ACT4_MODE=full` (default) or `prove` also needs an NVIDIA GPU.
+  `ACT4_MODE=execute` runs on the CPU images.
+- Results: `out/<zkvm>/ere/` (including `details-act4-*.json`, the outcome and
+  error of each test) and `results/history/<zkvm>-ere-act4-standard.json`.
+- ere runs the Standard ISA suite (RV64IM_Zicclsm) only. The Full ISA suite runs on
+  the native path.
+- The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the
+  ere history files.
+- `BACKEND=native` (default for now) builds the zkVM in this repository's containers from
+  `config.json`, for reproducing bugs and testing branches. LambdaVM is native only.
+
 ## Adding a New ZKVM
 
 1. Add entry to `config.json` with `repo_url`, `commit`, `binary_name`
