@@ -74,15 +74,15 @@ impl std::fmt::Display for Verdict {
 
 impl std::error::Error for Verdict {}
 
-struct State {
-    zkvm: Option<DockerizedzkVM>,
-    details: Vec<TestDetail>,
-}
-
 pub struct EreBackend {
     kind: zkVMKind,
     resource: ProverResource,
-    state: Mutex<State>,
+    /// The running server, kept for the next test; `None` before the first test
+    /// and after an error that can leave it broken. The lock also makes tests
+    /// run one at a time.
+    server: Mutex<Option<DockerizedzkVM>>,
+    /// Outcome, error and time of each test, for the details file.
+    details: Mutex<Vec<TestDetail>>,
 }
 
 impl EreBackend {
@@ -125,16 +125,14 @@ impl EreBackend {
         let backend = Self {
             kind,
             resource: if gpu { ProverResource::Gpu } else { ProverResource::Cpu },
-            state: Mutex::new(State {
-                zkvm: None,
-                details: Vec::new(),
-            }),
+            server: Mutex::new(None),
+            details: Mutex::new(Vec::new()),
         };
         Ok((backend, provenance))
     }
 
     pub fn run_elf(&self, elf_path: &Path, mode: Mode, start: Instant) -> RunResult {
-        let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        let mut server = self.server.lock().unwrap_or_else(|err| err.into_inner());
         let mut detail = TestDetail {
             name: elf_path
                 .file_stem()
@@ -159,14 +157,14 @@ impl EreBackend {
             verify_status: None,
         };
 
-        if let Err((stage, err)) = self.run_stages(&mut state, elf_path, mode, &mut detail, &mut result)
+        if let Err((stage, err)) = self.run_stages(&mut server, elf_path, mode, &mut detail, &mut result)
         {
             detail.outcome = stage;
             detail.error = Some(format!("{err:#}"));
             eprintln!("    {}: {stage}: {err:#}", detail.name);
         }
         result.duration = start.elapsed();
-        state.details.push(detail);
+        self.details.lock().unwrap_or_else(|err| err.into_inner()).push(detail);
         result
     }
 
@@ -174,7 +172,7 @@ impl EreBackend {
     /// first stage that fails. Returns the failed stage's outcome name.
     fn run_stages(
         &self,
-        state: &mut State,
+        server: &mut Option<DockerizedzkVM>,
         elf_path: &Path,
         mode: Mode,
         detail: &mut TestDetail,
@@ -186,7 +184,7 @@ impl EreBackend {
 
         // Setup: switch the running server to this ELF, or start one.
         let started = Instant::now();
-        let setup = match state.zkvm.take() {
+        let setup = match server.take() {
             Some(mut zkvm) => zkvm.setup(Elf(elf)).map(|()| zkvm),
             None => {
                 let config = DockerizedzkVMConfig {
@@ -249,7 +247,7 @@ impl EreBackend {
             }
         };
         if keep {
-            state.zkvm = Some(zkvm);
+            *server = Some(zkvm);
         }
         outcome
     }
@@ -279,9 +277,10 @@ impl EreBackend {
     /// Writes the per-test details and the provenance of this run to
     /// `<dir>/details-act4-<label>.json` and `<dir>/ere-act4-<label>.json`.
     pub fn finish(&self, dir: &Path, label: &str, provenance: &Provenance) -> anyhow::Result<()> {
-        let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
-        state.zkvm = None;
-        write_json(&dir.join(format!("details-act4-{label}.json")), &state.details)?;
+        // Dropping the server removes its container.
+        *self.server.lock().unwrap_or_else(|err| err.into_inner()) = None;
+        let details = self.details.lock().unwrap_or_else(|err| err.into_inner());
+        write_json(&dir.join(format!("details-act4-{label}.json")), &*details)?;
         write_json(&dir.join(format!("ere-act4-{label}.json")), provenance)
     }
 }
