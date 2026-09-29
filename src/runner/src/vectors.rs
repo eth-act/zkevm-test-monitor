@@ -105,28 +105,31 @@ pub fn matches_zero_padded(actual: &[u8], expected: &[u8]) -> bool {
         && actual[expected.len()..].iter().all(|&b| b == 0)
 }
 
-/// Describe an output mismatch.
+/// Describe an output mismatch for a zero-padded output area.
 pub fn describe_mismatch(actual: &[u8], expected: &[u8]) -> String {
-    let shown = actual.len() - actual.iter().rev().take_while(|&&b| b == 0).count();
-    let mut detail = format!(
-        "output mismatch: expected {} bytes {}, got {}",
-        expected.len(),
-        hex_prefix(expected),
-        hex_prefix(&actual[..shown]),
-    );
+    let mut detail = mismatch_summary(actual, expected);
     if expected.len() > actual.len() {
         detail.push_str(&format!(" (output area holds only {} bytes)", actual.len()));
     }
     detail
 }
 
-/// Like `describe_mismatch`, but give the output length instead of the
-/// fixed-area note, since an exact comparison can fail on trailing zero bytes
-/// that the hex prefix hides.
+/// Describe an output mismatch for an exact comparison. It gives the output
+/// length, since the comparison can fail on trailing zero bytes that the hex
+/// prefix hides.
 pub fn describe_exact_mismatch(actual: &[u8], expected: &[u8]) -> String {
-    let detail = describe_mismatch(actual, expected);
-    let detail = detail.split(" (output area").next().unwrap_or_default();
-    format!("{detail} ({} bytes)", actual.len())
+    format!("{} ({} bytes)", mismatch_summary(actual, expected), actual.len())
+}
+
+/// The expected bytes and the output without its trailing zero bytes.
+fn mismatch_summary(actual: &[u8], expected: &[u8]) -> String {
+    let shown = actual.len() - actual.iter().rev().take_while(|&&b| b == 0).count();
+    format!(
+        "output mismatch: expected {} bytes {}, got {}",
+        expected.len(),
+        hex_prefix(expected),
+        hex_prefix(&actual[..shown]),
+    )
 }
 
 fn hex_prefix(bytes: &[u8]) -> String {
