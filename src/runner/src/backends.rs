@@ -1008,14 +1008,24 @@ fn emulator_error_reason(stderr: &str) -> String {
         .unwrap_or_default()
 }
 
+/// Whether `ziskemu`'s stderr shows that it rejected the guest's execution:
+/// a memory access outside the guest's sections (`core/src/mem.rs`), a jump
+/// outside the program (`core/src/zisk_rom.rs`), or an emulation that
+/// "finished with error". Any other failure (a file that is not an ELF, a
+/// loader or usage error) happened before the guest ran.
+fn zisk_guest_fault(stderr: &str) -> bool {
+    stderr.contains("invalid addr") || stderr.contains("is out of range") || stderr.contains("finished with error")
+}
+
 /// Zisk: invoke `<binary> -e <elf_path> -o <file>`, with `-i` (the framed input)
 /// when the test has an input vector.
 ///
 /// Termination:
 /// - ZisK reports no error code: ZisK >= 1.2 ignores `a0` at the exit ecall.
-///   A non-zero `ziskemu` exit or "finished with error" on stderr (it can exit 0
-///   after an emulation error) means that ZisK rejected the execution, so the
-///   guest terminated abnormally without a code.
+///   A guest fault on stderr (`zisk_guest_fault`; "finished with error" can
+///   come with exit 0) means that ZisK rejected the execution, so the guest
+///   terminated abnormally without a code. A non-zero exit without a guest
+///   fault is a host error.
 /// - Without an expected-output vector (ACT4 verdict), the ZisK ACT4 halt
 ///   macros write `PASS` or `FAIL` to public output 0
 ///   (zkvms/zisk/isa-configs/*/rvmodel_macros.h). `FAIL` is an abnormal
@@ -1052,6 +1062,9 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
         }
         if !output.status.success() || stderr.contains("finished with error") {
             let detail = format!("emulator error (exit {}): {reason}", exit_text(exit_code));
+            if !zisk_guest_fault(&stderr) {
+                return Ok(RunResult::host_error(start, exit_code, detail));
+            }
             let failure = Termination::Failure { code: None };
             return Ok(RunResult::executed(start, exit_code, failure, Some(detail)));
         }
@@ -1454,6 +1467,16 @@ mod tests {
 
     #[test]
     fn zisk_host_errors() {
+        // Failures before the guest runs: not an ELF, a loader error.
+        let r = ziskemu(
+            "echo 'Error during emulation: Unknown(\"ROM file is not a valid ELF file\")' >&2; exit 1",
+            None,
+        );
+        assert_eq!(r.termination, Termination::HostError);
+        let r = ziskemu("echo 'error while loading shared libraries: libmissing.so' >&2; exit 127", None);
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.exit_code, Some(127));
+
         let r = ziskemu("kill -9 $$", None);
         assert_eq!(r.termination, Termination::HostError);
         assert!(r.detail.unwrap().starts_with("emulator killed by a signal"));
@@ -1492,6 +1515,29 @@ mod tests {
         let r = run("echo 'error: usage' >&2; exit 2", "fail\n");
         assert!(!r.passed);
         assert_eq!(r.detail.as_deref(), Some("executor error (exit 2): error: usage"));
+    }
+
+    #[test]
+    fn zisk_panic_test_needs_a_guest_fault() {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(&elf, b"").unwrap();
+        std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
+        let run = |body: &str| {
+            let binary = fake(dir.path(), &format!("ziskemu-{}", body.len()), body);
+            crate::runner::run_one(&Backend::ZiskStandards { binary }, &elf, Mode::Execute)
+        };
+
+        let fault = "echo \"thread 'main' panicked at core/src/mem.rs:669:13:\" >&2
+            echo 'Mem::write_silent() invalid addr=0=0 write section start=a0000000 end=c0000000' >&2
+            exit 101";
+        assert!(run(fault).passed);
+
+        let not_an_elf = "echo 'Error during emulation: Unknown(\"ROM file is not a valid ELF file\")' >&2; exit 1";
+        assert!(!run(not_an_elf).passed);
+        let loader = "echo 'error while loading shared libraries: libmissing.so' >&2; exit 127";
+        assert!(!run(loader).passed);
     }
 
     #[test]
