@@ -6,9 +6,9 @@
 //!   against its I/O test vectors.
 //!
 //! Every backend reads the optional per-ELF files `<stem>.input`,
-//! `<stem>.expected` and `<stem>.outcome` (see `test_io_and_outcome`).
+//! `<stem>.expected` and `<stem>.outcome` (see `io_and_expected_failures`).
 
 pub mod backends;
-pub mod test_io_and_outcome;
+pub mod io_and_expected_failures;
 pub mod results;
 pub mod runner;
