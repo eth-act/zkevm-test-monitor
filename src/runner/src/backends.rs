@@ -992,13 +992,43 @@ fn emulator_error_reason(stderr: &str) -> String {
         .unwrap_or_default()
 }
 
-/// Whether `ziskemu`'s stderr shows that it rejected the guest's execution:
-/// a memory access outside the guest's sections (`core/src/mem.rs`), a jump
-/// outside the program (`core/src/zisk_rom.rs`), or an emulation that
-/// "finished with error". Any other failure (a file that is not an ELF, a
-/// loader or usage error) happened before the guest ran.
-fn zisk_guest_fault(stderr: &str) -> bool {
-    stderr.contains("invalid addr") || stderr.contains("is out of range") || stderr.contains("finished with error")
+/// The line `ziskemu` prints when an emulation that exits 0 hit an error
+/// (`emulator/src/emu.rs`: "Emu::run() finished with error at step=...").
+fn zisk_emulation_error(stderr: &str) -> bool {
+    stderr.lines().map(str::trim).any(|l| l.starts_with("Emu::") && l.contains("() finished with error at step="))
+}
+
+/// Whether `ziskemu` rejected the guest's execution, from its exit code and
+/// stderr. Only complete fault records count:
+/// - exit 101 with a Rust panic in `core/src/mem.rs` whose message is a
+///   `Mem::... invalid addr` record (a memory access outside the guest's
+///   sections), or in `core/src/zisk_rom.rs` whose message is a
+///   `ZiskRom::get_instruction() pc=... is out of range` record (a jump
+///   outside the program);
+/// - exit 0 with an "Emu::...() finished with error" line.
+///
+/// A loader error (`error while loading shared libraries`) or any other
+/// failure happened before the guest ran.
+fn zisk_guest_fault(exit_code: Option<i32>, stderr: &str) -> bool {
+    if stderr.contains("error while loading shared libraries") {
+        return false;
+    }
+    match exit_code {
+        Some(0) => zisk_emulation_error(stderr),
+        Some(101) => {
+            let lines: Vec<&str> = stderr.lines().map(str::trim).collect();
+            lines.windows(2).any(|pair| {
+                let (header, message) = (pair[0], pair[1]);
+                (header.contains(" panicked at core/src/mem.rs:")
+                    && message.starts_with("Mem::")
+                    && message.contains(" invalid addr"))
+                    || (header.contains(" panicked at core/src/zisk_rom.rs:")
+                        && message.starts_with("ZiskRom::get_instruction() pc=")
+                        && message.contains(" is out of range"))
+            })
+        }
+        _ => false,
+    }
 }
 
 /// Zisk: invoke `<binary> -e <elf_path> -o <file>`, with `-i` (the framed input)
@@ -1006,10 +1036,9 @@ fn zisk_guest_fault(stderr: &str) -> bool {
 ///
 /// Termination:
 /// - ZisK reports no error code: ZisK >= 1.2 ignores `a0` at the exit ecall.
-///   A guest fault on stderr (`zisk_guest_fault`; "finished with error" can
-///   come with exit 0) means that ZisK rejected the execution, so the guest
-///   terminated abnormally without a code. A non-zero exit without a guest
-///   fault is a host error.
+///   A guest fault (`zisk_guest_fault`; "finished with error" comes with
+///   exit 0) means that ZisK rejected the execution, so the guest terminated
+///   abnormally without a code. Any other non-zero exit is a host error.
 /// - The ZisK ACT4 halt macros write `PASS` or `FAIL` to public output 0
 ///   (zkvms/zisk/isa-configs/*/rvmodel_macros.h). `FAIL` is an abnormal
 ///   termination, and `PASS` shows the pass halt. Without a marker, the guest
@@ -1043,9 +1072,9 @@ fn run_zisk(binary: &Path, elf_path: &Path, input: Option<&[u8]>) -> Execution {
             let detail = format!("emulator killed by a signal: {reason}");
             return Ok(Execution::host_error(exit_code, detail));
         }
-        if !output.status.success() || stderr.contains("finished with error") {
+        if !output.status.success() || zisk_emulation_error(&stderr) {
             let detail = format!("emulator error (exit {}): {reason}", exit_text(exit_code));
-            if !zisk_guest_fault(&stderr) {
+            if !zisk_guest_fault(exit_code, &stderr) {
                 return Ok(Execution::host_error(exit_code, detail));
             }
             return Ok(Execution::failure(exit_code, None, detail));
@@ -1397,13 +1426,26 @@ mod tests {
     #[test]
     fn zisk_rejected_execution_is_a_failure_without_a_code() {
         let r = ziskemu(
-            "echo \"thread 'main' panicked at mem.rs:1:1:\" >&2; echo 'invalid addr' >&2; exit 101",
+            "echo \"thread 'main' (7) panicked at core/src/mem.rs:669:13:\" >&2
+             echo 'Mem::write_silent() invalid addr=0=0 write section start=a0000000 end=c0000000' >&2
+             exit 101",
             None,
         );
         assert_eq!(r.termination, failure(None));
-        assert_eq!(r.detail.as_deref(), Some("emulator error (exit 101): invalid addr"));
+        assert_eq!(
+            r.detail.as_deref(),
+            Some("emulator error (exit 101): Mem::write_silent() invalid addr=0=0 write section start=a0000000 end=c0000000")
+        );
 
-        let r = ziskemu("printf PASS > \"$out\"; echo 'Emulation finished with error' >&2", None);
+        let r = ziskemu(
+            "echo \"thread 'main' panicked at core/src/zisk_rom.rs:372:21:\" >&2
+             echo 'ZiskRom::get_instruction() pc=0x80001BC0 (0) is out of range rom_bios_instructions' >&2
+             exit 101",
+            None,
+        );
+        assert_eq!(r.termination, failure(None));
+
+        let r = ziskemu("printf PASS > \"$out\"; echo 'Emu::run() finished with error at step=5 pc=0x10' >&2", None);
         assert_eq!(r.termination, failure(None));
         assert_eq!(r.exit_code, Some(0));
     }
@@ -1483,6 +1525,18 @@ mod tests {
         assert!(!run(not_an_elf).passed);
         let loader = "echo 'error while loading shared libraries: libmissing.so' >&2; exit 127";
         assert!(!run(loader).passed);
+
+        // A loader error whose text contains fault fragments (a library named
+        // `libis out of range.so`), and fragments without a fault record.
+        let collision = "echo 'ziskemu: error while loading shared libraries: libis out of range.so: \
+            cannot open shared object file' >&2; exit 127";
+        assert!(!run(collision).passed);
+        let fragments = "echo 'invalid addr is out of range finished with error' >&2; exit 101";
+        assert!(!run(fragments).passed);
+        let wrong_file = "echo \"thread 'main' panicked at core/src/other.rs:1:1:\" >&2
+            echo 'Mem::read() invalid addr:0x0' >&2
+            exit 101";
+        assert!(!run(wrong_file).passed);
     }
 
     #[test]
