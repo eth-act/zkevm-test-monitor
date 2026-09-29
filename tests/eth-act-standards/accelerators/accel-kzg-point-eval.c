@@ -11,7 +11,7 @@
 
 int main(void) {
     for (size_t i = 0; i < NUM_CASES; i++) {
-        bool verified = false;
+        bool verified = accel_verdict_init(cases[i].expect);
         zkvm_status status = zkvm_kzg_point_eval((const zkvm_kzg_commitment *)cases[i].commitment,
                                                  (const zkvm_kzg_field_element *)cases[i].z,
                                                  (const zkvm_kzg_field_element *)cases[i].y,

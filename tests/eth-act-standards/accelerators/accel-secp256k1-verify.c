@@ -11,7 +11,7 @@
 
 int main(void) {
     for (size_t i = 0; i < NUM_CASES; i++) {
-        bool verified = false;
+        bool verified = accel_verdict_init(cases[i].expect);
         zkvm_status status = zkvm_secp256k1_verify((const zkvm_secp256k1_hash *)cases[i].msg,
                                                    (const zkvm_secp256k1_signature *)cases[i].sig,
                                                    (const zkvm_secp256k1_pubkey *)cases[i].pubkey,
