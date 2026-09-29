@@ -5,104 +5,80 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context;
 
-use crate::io::{self, IoVectors};
+use crate::io;
 
-/// Supported ZK-VMs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Zkvm {
-    LambdaVM,
-    OpenVM,
-    Sp1,
-    Zisk,
-}
+/// The `--zkvm` names.
+pub const ZKVMS: [&str; 4] = ["lambdavm", "openvm", "sp1", "zisk"];
 
-/// Test suites a backend can run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Suite {
-    /// The ACT4 ISA tests: pass = clean exit, optionally prove and verify.
-    Isa,
-    /// The eth-act standards tests: check the guest's public output.
-    Standards,
-}
-
-/// A ZK-VM backend: the zkVM, the suite it runs and, for the prove
-/// backends, the prover.
+/// A zkVM backend: it runs a guest ELF and, with its prover tools, proves
+/// and verifies it.
 ///
-/// Build it with `Backend::new`, which rejects unsupported combinations.
-pub struct Backend {
-    pub zkvm: Zkvm,
-    pub suite: Suite,
-    /// The emulator or executor that runs the ELF.
-    pub binary: PathBuf,
-    /// The prover; `None` = execute only.
-    pub prove: Option<Prover>,
+/// A backend reports what the zkVM did. The runner judges the result against
+/// the test's expectations (`runner::judge`), the same way for both suites.
+pub trait Zkvm: Sync {
+    /// The zkVM's name for `--zkvm`.
+    fn name(&self) -> &'static str;
+
+    /// Whether `execute` can feed an input and report the public output.
+    fn supports_io(&self) -> bool;
+
+    /// Whether the backend has the tools to prove.
+    fn can_prove(&self) -> bool;
+
+    /// Run the ELF once. `input` is `None` unless `supports_io`.
+    fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution;
+
+    /// Prove the ELF, and verify the proof with `verify`. The runner calls
+    /// this only after an execution that passed. An error is a runner error.
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof>;
 }
 
-/// The prover of a prove backend. `Mode` decides whether it proves and
-/// verifies.
-pub struct Prover {
+/// The tool paths from the command line. Each zkVM uses the ones it needs.
+#[derive(Default)]
+pub struct Tools {
+    /// The zkVM's own executor (`--binary`).
+    pub binary: Option<PathBuf>,
+    /// An eth-act standards executor (`--io-executor`).
+    pub io_executor: Option<PathBuf>,
+    pub sp1_perf: Option<PathBuf>,
+    pub cargo_zisk: Option<PathBuf>,
+    pub witness_lib: Option<PathBuf>,
     pub gpu: bool,
-    pub tools: ProverTools,
 }
 
-/// The extra tools each prover needs besides `Backend::binary`.
-pub enum ProverTools {
-    /// `sp1-perf` proves and verifies.
-    Sp1 { sp1_perf: PathBuf },
-    /// `Backend::binary` also proves and verifies.
-    OpenVM,
-    /// `cargo-zisk` proves and verifies.
-    Zisk { cargo_zisk: PathBuf, witness_lib: Option<PathBuf> },
-}
-
-impl Zkvm {
-    /// The zkVM's name, the stem of its `--zkvm` names.
-    pub fn name(self) -> &'static str {
-        match self {
-            Zkvm::LambdaVM => "lambdavm",
-            Zkvm::OpenVM => "openvm",
-            Zkvm::Sp1 => "sp1",
-            Zkvm::Zisk => "zisk",
+/// Build the backend for `--zkvm <name>`.
+pub fn build(name: &str, tools: Tools) -> anyhow::Result<Box<dyn Zkvm>> {
+    let Tools { binary, io_executor, sp1_perf, cargo_zisk, witness_lib, gpu } = tools;
+    let executor = || -> anyhow::Result<Executor> {
+        match (binary.clone(), io_executor.clone()) {
+            (Some(binary), None) => Ok(Executor::Cli(binary)),
+            (None, Some(executor)) => Ok(Executor::Io(executor)),
+            (Some(_), Some(_)) => anyhow::bail!("give --binary or --io-executor for zkvm '{name}', not both"),
+            (None, None) => anyhow::bail!("--binary or --io-executor is required for zkvm '{name}'"),
         }
-    }
-
-    fn from_name(name: &str) -> Option<Self> {
-        [Zkvm::LambdaVM, Zkvm::OpenVM, Zkvm::Sp1, Zkvm::Zisk].into_iter().find(|z| z.name() == name)
-    }
-}
-
-impl ProverTools {
-    fn zkvm(&self) -> Zkvm {
-        match self {
-            ProverTools::Sp1 { .. } => Zkvm::Sp1,
-            ProverTools::OpenVM => Zkvm::OpenVM,
-            ProverTools::Zisk { .. } => Zkvm::Zisk,
-        }
-    }
-}
-
-/// Whether a backend exists for this zkVM, suite and prover presence.
-fn is_supported(zkvm: Zkvm, suite: Suite, prove: bool) -> bool {
-    match (zkvm, suite, prove) {
-        (Zkvm::LambdaVM | Zkvm::OpenVM | Zkvm::Zisk, Suite::Isa, false) => true,
-        (Zkvm::OpenVM | Zkvm::Sp1 | Zkvm::Zisk, Suite::Isa, true) => true,
-        (Zkvm::OpenVM | Zkvm::Sp1 | Zkvm::Zisk, Suite::Standards, false) => true,
-        _ => false,
-    }
-}
-
-/// Parse a `--zkvm` name into its zkVM, suite and whether it proves.
-/// Returns `None` for an unknown name or an unsupported combination.
-pub fn parse_name(name: &str) -> Option<(Zkvm, Suite, bool)> {
-    let (stem, suite, prove) = if let Some(stem) = name.strip_suffix("-standards") {
-        (stem, Suite::Standards, false)
-    } else if let Some(stem) = name.strip_suffix("-prove") {
-        (stem, Suite::Isa, true)
-    } else {
-        (name, Suite::Isa, false)
     };
-    let zkvm = Zkvm::from_name(stem)?;
-    is_supported(zkvm, suite, prove).then_some((zkvm, suite, prove))
+    let binary_only = || -> anyhow::Result<PathBuf> {
+        if io_executor.is_some() {
+            anyhow::bail!("zkvm '{name}' takes no --io-executor");
+        }
+        binary.clone().ok_or_else(|| anyhow::anyhow!("--binary is required for zkvm '{name}'"))
+    };
+    Ok(match name {
+        "lambdavm" => Box::new(LambdaVM { binary: binary_only()? }),
+        "openvm" => Box::new(OpenVM { executor: executor()?, gpu }),
+        "sp1" => Box::new(Sp1 { executor: executor()?, sp1_perf, gpu }),
+        "zisk" => Box::new(Zisk { ziskemu: binary_only()?, cargo_zisk, witness_lib }),
+        other => anyhow::bail!("unknown zkvm '{other}', expected one of: {}", ZKVMS.join(", ")),
+    })
+}
+
+/// The program that runs a guest ELF, for a zkVM that has two.
+pub enum Executor {
+    /// The zkVM's own executor (`--binary`). It takes no input.
+    Cli(PathBuf),
+    /// An eth-act standards executor (`--io-executor`):
+    /// `<executor> <elf> <input file> <public output file> <exit code file>`.
+    Io(PathBuf),
 }
 
 /// Execution mode for test runs.
@@ -139,6 +115,97 @@ impl Termination {
     }
 }
 
+/// Whether the guest reached the ACT4 pass halt (`RVMODEL_HALT_PASS`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PassHalt {
+    /// The zkVM cannot tell the pass halt from another successful
+    /// termination, such as a return from `main`.
+    Unknown,
+    Reached,
+    /// The guest terminated successfully without the pass halt; the string
+    /// says why the zkVM knows.
+    Missed(String),
+}
+
+/// A guest's public output.
+pub struct PublicOutput {
+    pub bytes: Vec<u8>,
+    pub area: OutputArea,
+}
+
+/// What a backend reports about one run of a guest.
+pub struct Execution {
+    pub termination: Termination,
+    /// The executor's exit code (`None`: killed by a signal, or not run).
+    pub exit_code: Option<i32>,
+    /// The public output of a successful termination, if the zkVM reports one.
+    pub output: Option<PublicOutput>,
+    pub pass_halt: PassHalt,
+    /// Why the guest terminated abnormally, or why the host failed.
+    pub detail: Option<String>,
+}
+
+impl Execution {
+    /// An execution that only the executor's exit status reports.
+    fn from_status(exit_code: Option<i32>, success: bool) -> Self {
+        Execution {
+            termination: Termination::from_success(success),
+            exit_code,
+            output: None,
+            pass_halt: PassHalt::Unknown,
+            detail: None,
+        }
+    }
+
+    /// A successful termination with its public output.
+    fn success(exit_code: Option<i32>, output: PublicOutput, pass_halt: PassHalt) -> Self {
+        Execution { termination: Termination::Success, exit_code, output: Some(output), pass_halt, detail: None }
+    }
+
+    /// An abnormal termination.
+    fn failure(exit_code: Option<i32>, code: Option<i32>, detail: String) -> Self {
+        Execution {
+            termination: Termination::Failure { code },
+            exit_code,
+            output: None,
+            pass_halt: PassHalt::Unknown,
+            detail: Some(detail),
+        }
+    }
+
+    /// The host could not run the guest to an outcome.
+    pub fn host_error(exit_code: Option<i32>, detail: String) -> Self {
+        Execution {
+            termination: Termination::HostError,
+            exit_code,
+            output: None,
+            pass_halt: PassHalt::Unknown,
+            detail: Some(detail),
+        }
+    }
+}
+
+/// The result of `Zkvm::prove`.
+pub struct Proof {
+    pub duration: Duration,
+    pub written: bool,
+    pub proved: bool,
+    /// `None`: not verified.
+    pub verified: Option<bool>,
+}
+
+impl Proof {
+    /// Proving succeeded, and verification gave `verified`.
+    fn proved(duration: Duration, written: bool, verified: Option<bool>) -> Self {
+        Proof { duration, written, proved: true, verified }
+    }
+
+    /// Proving failed.
+    fn failed(duration: Duration) -> Self {
+        Proof { duration, written: false, proved: false, verified: None }
+    }
+}
+
 /// Outcome of running a single test ELF through a backend.
 #[allow(dead_code)]
 pub struct RunResult {
@@ -158,7 +225,7 @@ pub struct RunResult {
 
 impl RunResult {
     /// The result of an execution without proving.
-    fn executed(
+    pub fn executed(
         start: Instant,
         exit_code: Option<i32>,
         termination: Termination,
@@ -181,96 +248,184 @@ impl RunResult {
     pub fn host_error(start: Instant, exit_code: Option<i32>, detail: String) -> Self {
         Self::executed(start, exit_code, Termination::HostError, Some(detail))
     }
+
+    /// Add the result of proving.
+    pub fn with_proof(self, proof: Proof) -> Self {
+        let status = |ok: bool| if ok { "success" } else { "failed" }.to_owned();
+        RunResult {
+            prove_duration: Some(proof.duration),
+            proof_written: proof.written,
+            prove_status: Some(status(proof.proved)),
+            verify_status: proof.verified.map(status),
+            ..self
+        }
+    }
 }
 
-impl Backend {
-    /// Build a backend. Fails for an unsupported combination, or when the
-    /// prover tools belong to another zkVM.
-    pub fn new(zkvm: Zkvm, suite: Suite, binary: PathBuf, prove: Option<Prover>) -> anyhow::Result<Self> {
-        if !is_supported(zkvm, suite, prove.is_some()) {
-            let what = if prove.is_some() { "a prover" } else { "an executor" };
-            anyhow::bail!("{} has no {suite:?} backend with {what}", zkvm.name());
-        }
-        if let Some(prover) = &prove {
-            if prover.tools.zkvm() != zkvm {
-                anyhow::bail!("{} prover tools given for {}", prover.tools.zkvm().name(), zkvm.name());
-            }
-        }
-        Ok(Backend { zkvm, suite, binary, prove })
+/// Fail `prove` for a prover that takes no input.
+fn no_prover_input(name: &str, input: Option<&[u8]>) -> anyhow::Result<()> {
+    if input.is_some() {
+        anyhow::bail!("the {name} prover cannot take an input");
+    }
+    Ok(())
+}
+
+/// LambdaVM: the `lambdavm` CLI (`--binary`) executes, proves and verifies
+/// (see `prove_lambdavm`).
+pub struct LambdaVM {
+    pub binary: PathBuf,
+}
+
+impl Zkvm for LambdaVM {
+    fn name(&self) -> &'static str {
+        "lambdavm"
     }
 
-    /// The backend's name for `--zkvm`.
-    pub fn name(&self) -> String {
-        match (self.suite, &self.prove) {
-            (Suite::Standards, _) => format!("{}-standards", self.zkvm.name()),
-            (Suite::Isa, Some(_)) => format!("{}-prove", self.zkvm.name()),
-            (Suite::Isa, None) => self.zkvm.name().to_owned(),
-        }
-    }
-
-    /// Whether this backend runs the eth-act standards tests. Their guests
-    /// default to an empty input and the expected output `PASS`.
-    pub fn is_standards(&self) -> bool {
-        self.suite == Suite::Standards
-    }
-
-    /// Whether this backend can feed `.input` and check `.expected`.
     fn supports_io(&self) -> bool {
-        self.is_standards() || (self.zkvm == Zkvm::Zisk && self.prove.is_none())
+        false
     }
 
-    /// Execute an ELF test through the backend and return the result.
-    ///
-    /// For most backends, `mode` is ignored (execute-only). The prove
-    /// backends use `mode` to control whether to prove
-    /// and/or verify.
-    pub fn run_elf(&self, elf_path: &Path, mode: Mode, vectors: &IoVectors) -> RunResult {
-        let start = Instant::now();
+    fn can_prove(&self) -> bool {
+        true
+    }
 
-        if vectors.has_io() && !self.supports_io() {
-            return RunResult::host_error(
-                start,
-                None,
-                format!("the {} backend cannot feed .input or check .expected", self.name()),
-            );
+    fn execute(&self, elf_path: &Path, _input: Option<&[u8]>) -> Execution {
+        let output = Command::new(&self.binary)
+            .arg("execute")
+            .arg(elf_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output();
+        match output {
+            Ok(o) => Execution::from_status(o.status.code(), o.status.success()),
+            Err(e) => runner_error(elf_path, e.into()),
         }
+    }
 
-        let binary = &self.binary;
-        match (self.zkvm, self.suite, &self.prove) {
-            (Zkvm::LambdaVM, Suite::Isa, None) => {
-                run_lambdavm(binary, elf_path, mode, start)
-            }
-            (Zkvm::Sp1, Suite::Isa, Some(Prover { gpu, tools: ProverTools::Sp1 { sp1_perf } })) => {
-                run_sp1_prove(binary, sp1_perf, elf_path, mode, *gpu, start)
-            }
-            (Zkvm::OpenVM, Suite::Isa, Some(Prover { gpu, tools: ProverTools::OpenVM })) => {
-                run_openvm_prove(binary, elf_path, mode, *gpu, start)
-            }
-            (Zkvm::Zisk, Suite::Isa, Some(Prover { gpu, tools: ProverTools::Zisk { cargo_zisk, witness_lib } })) => {
-                run_zisk_prove(binary, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
-            }
-            (Zkvm::OpenVM, Suite::Isa, None) => run_openvm(binary, elf_path, start),
-            (Zkvm::Zisk, Suite::Isa | Suite::Standards, None) => {
-                run_zisk(binary, elf_path, vectors, start)
-            }
-            (Zkvm::Sp1, Suite::Standards, None) => {
-                run_io_executor(binary, elf_path, vectors, OutputArea::Exact, start)
-            }
-            (Zkvm::OpenVM, Suite::Standards, None) => {
-                run_io_executor(binary, elf_path, vectors, OutputArea::ZeroPadded, start)
-            }
-            // `Backend::new` rejects every other combination.
-            _ => RunResult::host_error(start, None, format!("runner error: unsupported backend {}", self.name())),
-        }
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+        no_prover_input(self.name(), input)?;
+        prove_lambdavm(&self.binary, elf_path, verify)
     }
 }
 
-/// Zisk proving via `cargo-zisk prove [--verify-proofs]`.
-///
-/// Lifecycle:
-/// 1. Execute: `ziskemu --elf <path> --output <file>` — pass = exit code 0, no
-///    "finished with error", and output starts with `PASS`
-/// 2. Prove:   `cargo-zisk prove --elf <path> -o <file> [--verify-proof] [--gpu]`
+/// OpenVM: `openvm-binary` (`--binary`) executes, proves and verifies; the
+/// eth-act standards executor (`--io-executor`) runs a guest with I/O.
+pub struct OpenVM {
+    pub executor: Executor,
+    pub gpu: bool,
+}
+
+impl Zkvm for OpenVM {
+    fn name(&self) -> &'static str {
+        "openvm"
+    }
+
+    fn supports_io(&self) -> bool {
+        matches!(self.executor, Executor::Io(_))
+    }
+
+    fn can_prove(&self) -> bool {
+        matches!(self.executor, Executor::Cli(_))
+    }
+
+    fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution {
+        match &self.executor {
+            Executor::Cli(binary) => run_openvm(binary, elf_path),
+            Executor::Io(executor) => run_io_executor(executor, elf_path, input, OutputArea::ZeroPadded),
+        }
+    }
+
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+        no_prover_input(self.name(), input)?;
+        let Executor::Cli(binary) = &self.executor else {
+            anyhow::bail!("openvm proves with openvm-binary (--binary)");
+        };
+        prove_openvm(binary, elf_path, verify, self.gpu)
+    }
+}
+
+/// SP1: `sp1-perf-executor` (`--binary`) or the eth-act standards executor
+/// (`--io-executor`) runs a guest; `sp1-perf` (`--sp1-perf`) proves and
+/// verifies.
+pub struct Sp1 {
+    pub executor: Executor,
+    pub sp1_perf: Option<PathBuf>,
+    pub gpu: bool,
+}
+
+impl Zkvm for Sp1 {
+    fn name(&self) -> &'static str {
+        "sp1"
+    }
+
+    fn supports_io(&self) -> bool {
+        matches!(self.executor, Executor::Io(_))
+    }
+
+    fn can_prove(&self) -> bool {
+        self.sp1_perf.is_some()
+    }
+
+    fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution {
+        match &self.executor {
+            Executor::Cli(executor) => run_sp1(executor, elf_path),
+            Executor::Io(executor) => run_io_executor(executor, elf_path, input, OutputArea::Exact),
+        }
+    }
+
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+        no_prover_input(self.name(), input)?;
+        let Some(sp1_perf) = &self.sp1_perf else {
+            anyhow::bail!("sp1 needs --sp1-perf to prove");
+        };
+        prove_sp1(sp1_perf, elf_path, verify, self.gpu)
+    }
+}
+
+/// ZisK: `ziskemu` (`--binary`) runs a guest with I/O; `cargo-zisk`
+/// (`--cargo-zisk`) proves and verifies.
+pub struct Zisk {
+    pub ziskemu: PathBuf,
+    pub cargo_zisk: Option<PathBuf>,
+    /// `libzisk_witness.so`, for a `cargo-zisk` that accepts `--witness-lib`.
+    pub witness_lib: Option<PathBuf>,
+}
+
+impl Zkvm for Zisk {
+    fn name(&self) -> &'static str {
+        "zisk"
+    }
+
+    fn supports_io(&self) -> bool {
+        true
+    }
+
+    fn can_prove(&self) -> bool {
+        self.cargo_zisk.is_some()
+    }
+
+    fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution {
+        run_zisk(&self.ziskemu, elf_path, input)
+    }
+
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+        no_prover_input(self.name(), input)?;
+        let Some(cargo_zisk) = &self.cargo_zisk else {
+            anyhow::bail!("zisk needs --cargo-zisk to prove");
+        };
+        prove_zisk(cargo_zisk, self.witness_lib.as_deref(), elf_path, verify)
+    }
+}
+
+/// A runner error: log it and report a host error.
+fn runner_error(elf_path: &Path, e: anyhow::Error) -> Execution {
+    eprintln!("error running {}: {e}", elf_path.display());
+    Execution::host_error(None, format!("runner error: {e:#}"))
+}
+
+/// Zisk proving via `cargo-zisk prove [--verify-proofs]`, after an execution
+/// that passed (`run_zisk`):
+/// `cargo-zisk prove --elf <path> -o <file> [--verify-proof] [--gpu]`
 ///
 /// As of zisk v0.17.0, `-o/--output` is a file path (not a directory) and proofs
 /// are aggregated by default (VadcopFinal). In v1.0.0 the Rust emulator became the
@@ -279,191 +434,111 @@ impl Backend {
 /// If the command fails, we parse stdout to distinguish prove vs verify failure:
 /// the presence of "VERIFYING_PROOFS" or "was not verified" means proving
 /// succeeded but verification failed.
-fn run_zisk_prove(
-    ziskemu: &Path,
+fn prove_zisk(
     cargo_zisk: &Path,
     witness_lib: Option<&Path>,
     elf_path: &Path,
-    mode: Mode,
-    _gpu: bool,
-    start: Instant,
-) -> RunResult {
-    let inner = || -> anyhow::Result<RunResult> {
-        // 1. Execute
-        let (passed, exit_code) = run_ziskemu(ziskemu, elf_path, &["--inputs", "/dev/null"]);
+    verify: bool,
+) -> anyhow::Result<Proof> {
+    // Check once whether this cargo-zisk accepts --witness-lib
+    let accepts_witness_lib = witness_lib.is_some()
+        && Command::new(cargo_zisk)
+            .args(["prove", "--help"])
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).contains("--witness-lib"))
+            .unwrap_or(false);
 
-        if mode == Mode::Execute || !passed {
-            return Ok(RunResult {
-                passed,
-                exit_code,
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::from_success(passed),
-                detail: None,
-            });
+    let is_gpu = cargo_zisk.to_string_lossy().contains("cuda");
+
+    // Prove (with --verify-proofs in Full mode)
+    let tmp_dir = tempfile::tempdir()?;
+    let prove_start = Instant::now();
+
+    let proof_path = tmp_dir.path().join("proof.bin");
+    let prove_output = {
+        let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
+                                      witness_lib.filter(|_| accepts_witness_lib),
+                                      verify, is_gpu);
+        cmd.output()?
+    };
+    let mut prove_duration = prove_start.elapsed();
+
+    cleanup_stale_shm();
+    if is_gpu {
+        if !prove_output.status.success() {
+            kill_cargo_zisk_processes();
         }
+        wait_for_gpu_free(Duration::from_secs(30));
+    }
 
-        // Check once whether this cargo-zisk accepts --witness-lib
-        let accepts_witness_lib = witness_lib.is_some()
-            && Command::new(cargo_zisk)
-                .args(["prove", "--help"])
-                .output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).contains("--witness-lib"))
-                .unwrap_or(false);
+    // Retry once on failure — cascading failures from stale GPU/shm state
+    // are common, and the cleanup above usually fixes them.
+    let final_output = if !prove_output.status.success() {
+        // Check if this was a verify failure before retrying —
+        // no point retrying a deterministic verification rejection.
+        let combined = combined_output(&prove_output);
+        if is_verify_failure(&combined) {
+            prove_output
+        } else {
+            let stderr = String::from_utf8_lossy(&prove_output.stderr);
+            let tail: String = stderr.lines().rev().take(10).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+            eprintln!(
+                "cargo-zisk prove failed for {} (retrying):\n{}",
+                elf_path.display(),
+                if tail.is_empty() { "(no stderr)".to_string() } else { tail },
+            );
 
-        let is_gpu = cargo_zisk.to_string_lossy().contains("cuda");
-        let verify = mode == Mode::Full;
+            let retry_start = Instant::now();
+            let retry_output = {
+                let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
+                                              witness_lib.filter(|_| accepts_witness_lib),
+                                              verify, is_gpu);
+                cmd.output()?
+            };
+            prove_duration += retry_start.elapsed();
 
-        // 2. Prove (with --verify-proofs in Full mode)
-        let tmp_dir = tempfile::tempdir()?;
-        let prove_start = Instant::now();
-
-        let proof_path = tmp_dir.path().join("proof.bin");
-        let prove_output = {
-            let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
-                                          witness_lib.filter(|_| accepts_witness_lib),
-                                          verify, is_gpu);
-            cmd.output()?
-        };
-        let mut prove_duration = prove_start.elapsed();
-
-        cleanup_stale_shm();
-        if is_gpu {
-            if !prove_output.status.success() {
-                kill_cargo_zisk_processes();
+            cleanup_stale_shm();
+            if is_gpu {
+                if !retry_output.status.success() {
+                    kill_cargo_zisk_processes();
+                }
+                wait_for_gpu_free(Duration::from_secs(30));
             }
-            wait_for_gpu_free(Duration::from_secs(30));
-        }
 
-        // Retry once on failure — cascading failures from stale GPU/shm state
-        // are common, and the cleanup above usually fixes them.
-        let final_output = if !prove_output.status.success() {
-            // Check if this was a verify failure before retrying —
-            // no point retrying a deterministic verification rejection.
-            let combined = combined_output(&prove_output);
-            if is_verify_failure(&combined) {
-                prove_output
-            } else {
-                let stderr = String::from_utf8_lossy(&prove_output.stderr);
-                let tail: String = stderr.lines().rev().take(10).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+            if !retry_output.status.success() {
+                let retry_stderr = String::from_utf8_lossy(&retry_output.stderr);
+                let tail: String = retry_stderr.lines().rev().take(10).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
                 eprintln!(
-                    "cargo-zisk prove failed for {} (retrying):\n{}",
+                    "cargo-zisk prove failed for {} (retry also failed):\n{}",
                     elf_path.display(),
                     if tail.is_empty() { "(no stderr)".to_string() } else { tail },
                 );
-
-                let retry_start = Instant::now();
-                let retry_output = {
-                    let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
-                                                  witness_lib.filter(|_| accepts_witness_lib),
-                                                  verify, is_gpu);
-                    cmd.output()?
-                };
-                prove_duration += retry_start.elapsed();
-
-                cleanup_stale_shm();
-                if is_gpu {
-                    if !retry_output.status.success() {
-                        kill_cargo_zisk_processes();
-                    }
-                    wait_for_gpu_free(Duration::from_secs(30));
-                }
-
-                if !retry_output.status.success() {
-                    let retry_stderr = String::from_utf8_lossy(&retry_output.stderr);
-                    let tail: String = retry_stderr.lines().rev().take(10).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
-                    eprintln!(
-                        "cargo-zisk prove failed for {} (retry also failed):\n{}",
-                        elf_path.display(),
-                        if tail.is_empty() { "(no stderr)".to_string() } else { tail },
-                    );
-                }
-                retry_output
             }
-        } else {
-            prove_output
-        };
-
-        if !final_output.status.success() {
-            // Distinguish prove failure from verify failure by parsing output.
-            // cargo-zisk logs "VERIFYING_PROOFS" and "was not verified" to stdout
-            // when verification runs — if we see these, proving succeeded but
-            // verification failed.
-            let combined = combined_output(&final_output);
-            let (prove_status, verify_status) = if is_verify_failure(&combined) {
-                (Some("success".to_string()), Some("failed".to_string()))
-            } else {
-                (Some("failed".to_string()), None)
-            };
-
-            return Ok(RunResult {
-                passed: true, // execution passed
-                exit_code: Some(0),
-                duration: start.elapsed(),
-                prove_duration: Some(prove_duration),
-                proof_written: false,
-                prove_status,
-                verify_status,
-                termination: Termination::Success,
-                detail: None,
-            });
+            retry_output
         }
-
-        // Success — prove (and verify if requested) all passed
-        let proof_written = proof_path.exists();
-
-        Ok(RunResult {
-            passed: true,
-            exit_code: Some(0),
-            duration: start.elapsed(),
-            prove_duration: Some(prove_duration),
-            proof_written,
-            prove_status: Some("success".to_string()),
-            verify_status: if verify { Some("success".to_string()) } else { None },
-            termination: Termination::Success,
-            detail: None,
-        })
+    } else {
+        prove_output
     };
 
-    match inner() {
-        Ok(result) => result,
-        Err(e) => {
-            eprintln!("error running {}: {e}", elf_path.display());
-            RunResult {
-                passed: false,
-                exit_code: None,
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::HostError,
-                detail: Some(format!("runner error: {e:#}")),
-            }
-        }
+    if !final_output.status.success() {
+        // Distinguish prove failure from verify failure by parsing output.
+        // cargo-zisk logs "VERIFYING_PROOFS" and "was not verified" to stdout
+        // when verification runs — if we see these, proving succeeded but
+        // verification failed.
+        let combined = combined_output(&final_output);
+        return Ok(if is_verify_failure(&combined) {
+            Proof::proved(prove_duration, false, Some(false))
+        } else {
+            Proof::failed(prove_duration)
+        });
     }
+
+    // Success — prove (and verify if requested) all passed
+    let proof_written = proof_path.exists();
+
+    Ok(Proof::proved(prove_duration, proof_written, verify.then_some(true)))
 }
 
-/// SP1 GPU prove+verify via the `sp1-perf` binary.
-///
-/// Lifecycle:
-/// 1. Execute: `sp1-perf-executor --program <elf> --param <stdin> --mode minimal --local`
-///    — MinimalExecutor, propagates the guest exit code (0 = pass). SP1's JIT logs
-///    "Unimplemented instruction" and continues with exit 0, so that string is also
-///    treated as a failure. This step establishes the compliance pass/fail (the
-///    prover below ignores the guest exit code).
-/// 2. Prove+verify: `sp1-perf --program <elf> --stdin <stdin> --mode cuda`
-///    — executes, generates a core proof, and verifies it in one process (exit 0 =
-///    prove and verify both succeeded). SP1 always verifies after proving, so prove
-///    vs verify failure is distinguished by parsing the output: a `VerificationError`
-///    means proving succeeded but verification failed.
-///
-/// `stdin` is 24 zero bytes (a bincode-serialized empty `SP1Stdin`). `--mode cuda`
-/// spawns the host-native `sp1-gpu-server`; see run_zisk_prove for the analogous
-/// host-GPU serialization (one prove at a time via jobs=1).
 /// Parses the guest exit code from sp1-perf-executor's "exit code: N, cycles: M"
 /// line. Upstream sp1-perf-executor always exits 0, so this line is the only
 /// place where a failing ACT4 test (`a0 = 1` at halt) shows.
@@ -474,21 +549,24 @@ fn sp1_guest_exit_code(output: &str) -> Option<u32> {
     })
 }
 
-fn run_sp1_prove(
-    executor: &Path,
-    sp1_perf: &Path,
-    elf_path: &Path,
-    mode: Mode,
-    gpu: bool,
-    start: Instant,
-) -> RunResult {
-    let inner = || -> anyhow::Result<RunResult> {
-        // Empty SP1Stdin (bincode): three zero-length fields = 24 zero bytes.
-        let tmp_dir = tempfile::tempdir()?;
-        let stdin_path = tmp_dir.path().join("stdin.bin");
-        std::fs::write(&stdin_path, [0u8; 24])?;
+/// Write an empty SP1Stdin (bincode): three zero-length fields = 24 zero bytes.
+fn write_empty_sp1_stdin(dir: &Path) -> anyhow::Result<PathBuf> {
+    let stdin_path = dir.join("stdin.bin");
+    std::fs::write(&stdin_path, [0u8; 24])?;
+    Ok(stdin_path)
+}
 
-        // 1. Execute (guest exit code + unimplemented-instruction check).
+/// SP1 execution: `sp1-perf-executor --program <elf> --param <stdin> --mode minimal --local`
+/// — MinimalExecutor, propagates the guest exit code (0 = pass). SP1's JIT logs
+/// "Unimplemented instruction" and continues with exit 0, so that string is also
+/// treated as a failure. This step establishes the compliance pass/fail (the
+/// prover ignores the guest exit code). `stdin` is an empty `SP1Stdin`.
+fn run_sp1(executor: &Path, elf_path: &Path) -> Execution {
+    let inner = || -> anyhow::Result<Execution> {
+        let tmp_dir = tempfile::tempdir()?;
+        let stdin_path = write_empty_sp1_stdin(tmp_dir.path())?;
+
+        // Guest exit code + unimplemented-instruction check.
         let exec_output = Command::new(executor)
             .arg("--program")
             .arg(elf_path)
@@ -502,44 +580,77 @@ fn run_sp1_prove(
         let passed = exec_output.status.success()
             && sp1_guest_exit_code(&exec_combined) == Some(0)
             && !exec_combined.to_lowercase().contains("unimplemented instruction");
+        Ok(Execution::from_status(exec_output.status.code(), passed))
+    };
+    inner().unwrap_or_else(|e| runner_error(elf_path, e))
+}
 
-        if mode == Mode::Execute || !passed {
-            return Ok(RunResult {
-                passed,
-                exit_code: exec_output.status.code(),
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::from_success(passed),
-                detail: None,
-            });
+/// SP1 GPU prove+verify via the `sp1-perf` binary, after an execution that
+/// passed (`run_sp1`): `sp1-perf --program <elf> --stdin <stdin> --mode cuda`
+/// — executes, generates a core proof, and verifies it in one process (exit 0 =
+/// prove and verify both succeeded). SP1 always verifies after proving, so prove
+/// vs verify failure is distinguished by parsing the output: a `VerificationError`
+/// means proving succeeded but verification failed.
+///
+/// `stdin` is an empty `SP1Stdin`. `--mode cuda` spawns the host-native
+/// `sp1-gpu-server`; see prove_zisk for the analogous host-GPU serialization
+/// (one prove at a time via jobs=1).
+fn prove_sp1(sp1_perf: &Path, elf_path: &Path, verify: bool, gpu: bool) -> anyhow::Result<Proof> {
+    let tmp_dir = tempfile::tempdir()?;
+    let stdin_path = write_empty_sp1_stdin(tmp_dir.path())?;
+
+    // Prove + verify (one process). GPU-only per project scope: `--mode cuda`
+    // spawns the host-native sp1-gpu-server; `cpu` is a slow fallback.
+    let prove_mode = if gpu { "cuda" } else { "cpu" };
+
+    let prove_start = Instant::now();
+    let mut prove_output = sp1_prove_cmd(sp1_perf, elf_path, &stdin_path, prove_mode).output()?;
+    let mut prove_duration = prove_start.elapsed();
+
+    if gpu {
+        if !prove_output.status.success() {
+            kill_sp1_gpu_processes();
         }
+        wait_for_gpu_free(Duration::from_secs(30));
+    }
 
-        // 2. Prove + verify (one process). GPU-only per project scope: `--mode cuda`
-        // spawns the host-native sp1-gpu-server; `cpu` is a slow fallback.
-        let prove_mode = if gpu { "cuda" } else { "cpu" };
-        let verify = mode == Mode::Full;
-
-        let prove_start = Instant::now();
-        let mut prove_output = sp1_prove_cmd(sp1_perf, elf_path, &stdin_path, prove_mode).output()?;
-        let mut prove_duration = prove_start.elapsed();
-
+    // Retry once on a non-verify failure — GPU/server transients are common,
+    // while a deterministic verification rejection is not worth retrying.
+    if !prove_output.status.success()
+        && !is_sp1_verify_failure(&combined_output(&prove_output))
+    {
+        let stderr = String::from_utf8_lossy(&prove_output.stderr);
+        let tail: String = stderr
+            .lines()
+            .rev()
+            .take(8)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n");
+        eprintln!(
+            "sp1-perf prove failed for {} (retrying):\n{}",
+            elf_path.display(),
+            if tail.is_empty() { "(no stderr)".to_string() } else { tail },
+        );
+        let retry_start = Instant::now();
+        prove_output = sp1_prove_cmd(sp1_perf, elf_path, &stdin_path, prove_mode).output()?;
+        prove_duration += retry_start.elapsed();
         if gpu {
             if !prove_output.status.success() {
                 kill_sp1_gpu_processes();
             }
             wait_for_gpu_free(Duration::from_secs(30));
         }
+    }
 
-        // Retry once on a non-verify failure — GPU/server transients are common,
-        // while a deterministic verification rejection is not worth retrying.
-        if !prove_output.status.success()
-            && !is_sp1_verify_failure(&combined_output(&prove_output))
-        {
-            let stderr = String::from_utf8_lossy(&prove_output.stderr);
-            let tail: String = stderr
+    if !prove_output.status.success() {
+        let combined = combined_output(&prove_output);
+        return Ok(if is_sp1_verify_failure(&combined) {
+            Proof::proved(prove_duration, false, Some(false))
+        } else {
+            let tail: String = combined
                 .lines()
                 .rev()
                 .take(8)
@@ -548,83 +659,13 @@ fn run_sp1_prove(
                 .rev()
                 .collect::<Vec<_>>()
                 .join("\n");
-            eprintln!(
-                "sp1-perf prove failed for {} (retrying):\n{}",
-                elf_path.display(),
-                if tail.is_empty() { "(no stderr)".to_string() } else { tail },
-            );
-            let retry_start = Instant::now();
-            prove_output = sp1_prove_cmd(sp1_perf, elf_path, &stdin_path, prove_mode).output()?;
-            prove_duration += retry_start.elapsed();
-            if gpu {
-                if !prove_output.status.success() {
-                    kill_sp1_gpu_processes();
-                }
-                wait_for_gpu_free(Duration::from_secs(30));
-            }
-        }
-
-        if !prove_output.status.success() {
-            let combined = combined_output(&prove_output);
-            let (prove_status, verify_status) = if is_sp1_verify_failure(&combined) {
-                (Some("success".to_string()), Some("failed".to_string()))
-            } else {
-                let tail: String = combined
-                    .lines()
-                    .rev()
-                    .take(8)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                eprintln!("sp1-perf prove failed for {}:\n{}", elf_path.display(), tail);
-                (Some("failed".to_string()), None)
-            };
-            return Ok(RunResult {
-                passed: true, // execution passed
-                exit_code: Some(0),
-                duration: start.elapsed(),
-                prove_duration: Some(prove_duration),
-                proof_written: false,
-                prove_status,
-                verify_status,
-                termination: Termination::Success,
-                detail: None,
-            });
-        }
-
-        // Success — prove (and verify) passed.
-        Ok(RunResult {
-            passed: true,
-            exit_code: Some(0),
-            duration: start.elapsed(),
-            prove_duration: Some(prove_duration),
-            proof_written: true,
-            prove_status: Some("success".to_string()),
-            verify_status: if verify { Some("success".to_string()) } else { None },
-            termination: Termination::Success,
-            detail: None,
-        })
-    };
-
-    match inner() {
-        Ok(result) => result,
-        Err(e) => {
-            eprintln!("error running {}: {e}", elf_path.display());
-            RunResult {
-                passed: false,
-                exit_code: None,
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::HostError,
-                detail: Some(format!("runner error: {e:#}")),
-            }
-        }
+            eprintln!("sp1-perf prove failed for {}:\n{}", elf_path.display(), tail);
+            Proof::failed(prove_duration)
+        });
     }
+
+    // Success — prove (and verify) passed.
+    Ok(Proof::proved(prove_duration, true, verify.then_some(true)))
 }
 
 /// Build a `sp1-perf` execute+prove+verify command for the given prover mode.
@@ -743,136 +784,69 @@ fn zisk_prove_cmd(
 ///
 /// Compliance ELFs terminate via the Halt ecall (a7=93) for pass and the
 /// Panic ecall (a7=2) for fail, so the executor's process exit code directly
-/// reflects the test outcome.
-fn run_lambdavm(
-    binary: &Path,
-    elf_path: &Path,
-    mode: Mode,
-    start: Instant,
-) -> RunResult {
-    let inner = || -> anyhow::Result<RunResult> {
-        // 1. Execute
-        let exec_output = Command::new(binary)
-            .arg("execute")
-            .arg(elf_path)
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .output()?;
-        let passed = exec_output.status.success();
+/// reflects the test outcome. `LambdaVM::execute` runs step 1; this function
+/// runs steps 2 and 3 after an execution that passed.
+fn prove_lambdavm(binary: &Path, elf_path: &Path, verify: bool) -> anyhow::Result<Proof> {
+    // 2. Prove
+    let tmp_dir = tempfile::tempdir()?;
+    let proof_path = tmp_dir.path().join("proof.bin");
+    let prove_start = Instant::now();
 
-        if mode == Mode::Execute || !passed {
-            return Ok(RunResult {
-                passed,
-                exit_code: exec_output.status.code(),
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::from_success(passed),
-                detail: None,
-            });
-        }
+    let prove_output = Command::new(binary)
+        .args(["prove"])
+        .arg(elf_path)
+        .arg("-o")
+        .arg(&proof_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()?;
+    let prove_duration = prove_start.elapsed();
 
-        // 2. Prove
-        let tmp_dir = tempfile::tempdir()?;
-        let proof_path = tmp_dir.path().join("proof.bin");
-        let prove_start = Instant::now();
+    if !prove_output.status.success() {
+        let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
+        eprintln!(
+            "lambdavm prove failed for {}: {}",
+            elf_path.display(),
+            prove_stderr.lines().last().unwrap_or("(no output)"),
+        );
+        return Ok(Proof::failed(prove_duration));
+    }
 
-        let prove_output = Command::new(binary)
-            .args(["prove"])
-            .arg(elf_path)
-            .arg("-o")
+    let proof_written = proof_path.exists();
+
+    // 3. Verify
+    let verified = if verify {
+        let verify_output = Command::new(binary)
+            .args(["verify"])
             .arg(&proof_path)
+            .arg(elf_path)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .output()?;
-        let prove_duration = prove_start.elapsed();
 
-        if !prove_output.status.success() {
-            let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
-            eprintln!(
-                "lambdavm prove failed for {}: {}",
-                elf_path.display(),
-                prove_stderr.lines().last().unwrap_or("(no output)"),
-            );
-            return Ok(RunResult {
-                passed: true,
-                exit_code: Some(0),
-                duration: start.elapsed(),
-                prove_duration: Some(prove_duration),
-                proof_written: false,
-                prove_status: Some("failed".to_string()),
-                verify_status: None,
-                termination: Termination::Success,
-                detail: None,
-            });
-        }
-
-        let proof_written = proof_path.exists();
-
-        // 3. Verify
-        let verify_status = if mode == Mode::Full {
-            let verify_output = Command::new(binary)
-                .args(["verify"])
-                .arg(&proof_path)
-                .arg(elf_path)
-                .stdout(Stdio::null())
-                .stderr(Stdio::piped())
-                .output()?;
-
-            if verify_output.status.success() {
-                Some("success".to_string())
-            } else {
-                let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
-                eprintln!(
-                    "lambdavm verify failed for {}: {}",
-                    elf_path.display(),
-                    verify_stderr.lines().last().unwrap_or("(no output)"),
-                );
-                Some("failed".to_string())
-            }
+        if verify_output.status.success() {
+            Some(true)
         } else {
-            None
-        };
-
-        Ok(RunResult {
-            passed: true,
-            exit_code: Some(0),
-            duration: start.elapsed(),
-            prove_duration: Some(prove_duration),
-            proof_written,
-            prove_status: Some("success".to_string()),
-            verify_status,
-            termination: Termination::Success,
-            detail: None,
-        })
+            let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
+            eprintln!(
+                "lambdavm verify failed for {}: {}",
+                elf_path.display(),
+                verify_stderr.lines().last().unwrap_or("(no output)"),
+            );
+            Some(false)
+        }
+    } else {
+        None
     };
 
-    match inner() {
-        Ok(result) => result,
-        Err(e) => {
-            eprintln!("error running {}: {e}", elf_path.display());
-            RunResult {
-                passed: false,
-                exit_code: None,
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::HostError,
-                detail: Some(format!("runner error: {e:#}")),
-            }
-        }
-    }
+    Ok(Proof::proved(prove_duration, proof_written, verified))
 }
 
 /// OpenVM: invoke `<binary> execute <elf_path>`.
 ///
 /// The standalone runner exits 0 on a clean guest halt(0) and non-zero on any guest
 /// failure (the SDK surfaces a non-zero guest exit code as an error).
-fn run_openvm(binary: &Path, elf_path: &Path, start: Instant) -> RunResult {
+fn run_openvm(binary: &Path, elf_path: &Path) -> Execution {
     let status = Command::new(binary)
         .arg("execute")
         .arg(elf_path)
@@ -881,8 +855,8 @@ fn run_openvm(binary: &Path, elf_path: &Path, start: Instant) -> RunResult {
         .status();
 
     match status {
-        Ok(s) => RunResult::executed(start, s.code(), Termination::from_success(s.success()), None),
-        Err(e) => RunResult::host_error(start, None, format!("runner error: failed to run {}: {e}", binary.display())),
+        Ok(s) => Execution::from_status(s.code(), s.success()),
+        Err(e) => Execution::host_error(None, format!("runner error: failed to run {}: {e}", binary.display())),
     }
 }
 
@@ -897,141 +871,73 @@ fn run_openvm(binary: &Path, elf_path: &Path, start: Instant) -> RunResult {
 /// When the binary is built with the `cuda` feature, proving and verification run on
 /// the GPU. We serialize GPU work (the runner defaults prove/full to one job) and wait
 /// for the GPU to drain between tests, killing any stuck process after a failed prove —
-/// mirroring the zisk-prove backend's GPU hygiene.
-fn run_openvm_prove(
-    binary: &Path,
-    elf_path: &Path,
-    mode: Mode,
-    gpu: bool,
-    start: Instant,
-) -> RunResult {
-    let inner = || -> anyhow::Result<RunResult> {
-        // 1. Execute
-        let exec_output = Command::new(binary)
-            .arg("execute")
-            .arg(elf_path)
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .output()?;
-        let passed = exec_output.status.success();
+/// mirroring prove_zisk's GPU hygiene. `run_openvm` runs step 1; this function
+/// runs steps 2 and 3 after an execution that passed.
+fn prove_openvm(binary: &Path, elf_path: &Path, verify: bool, gpu: bool) -> anyhow::Result<Proof> {
+    // 2. Prove
+    let tmp_dir = tempfile::tempdir()?;
+    let proof_path = tmp_dir.path().join("proof.bin");
+    let prove_start = Instant::now();
 
-        if mode == Mode::Execute || !passed {
-            return Ok(RunResult {
-                passed,
-                exit_code: exec_output.status.code(),
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::from_success(passed),
-                detail: None,
-            });
+    let prove_output = openvm_cmd(binary)
+        .args(["prove"])
+        .arg(elf_path)
+        .arg("-o")
+        .arg(&proof_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()?;
+    let prove_duration = prove_start.elapsed();
+
+    if gpu {
+        if !prove_output.status.success() {
+            kill_openvm_processes();
         }
+        wait_for_gpu_free(Duration::from_secs(30));
+    }
 
-        // 2. Prove
-        let tmp_dir = tempfile::tempdir()?;
-        let proof_path = tmp_dir.path().join("proof.bin");
-        let prove_start = Instant::now();
+    if !prove_output.status.success() {
+        let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
+        eprintln!(
+            "openvm prove failed for {}: {}",
+            elf_path.display(),
+            prove_stderr.lines().last().unwrap_or("(no output)"),
+        );
+        return Ok(Proof::failed(prove_duration));
+    }
 
-        let prove_output = openvm_cmd(binary)
-            .args(["prove"])
-            .arg(elf_path)
-            .arg("-o")
+    let proof_written = proof_path.exists();
+
+    // 3. Verify
+    let verified = if verify {
+        let verify_output = openvm_cmd(binary)
+            .args(["verify"])
             .arg(&proof_path)
+            .arg(elf_path)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .output()?;
-        let prove_duration = prove_start.elapsed();
 
         if gpu {
-            if !prove_output.status.success() {
-                kill_openvm_processes();
-            }
             wait_for_gpu_free(Duration::from_secs(30));
         }
 
-        if !prove_output.status.success() {
-            let prove_stderr = String::from_utf8_lossy(&prove_output.stderr);
-            eprintln!(
-                "openvm prove failed for {}: {}",
-                elf_path.display(),
-                prove_stderr.lines().last().unwrap_or("(no output)"),
-            );
-            return Ok(RunResult {
-                passed: true,
-                exit_code: Some(0),
-                duration: start.elapsed(),
-                prove_duration: Some(prove_duration),
-                proof_written: false,
-                prove_status: Some("failed".to_string()),
-                verify_status: None,
-                termination: Termination::Success,
-                detail: None,
-            });
-        }
-
-        let proof_written = proof_path.exists();
-
-        // 3. Verify
-        let verify_status = if mode == Mode::Full {
-            let verify_output = openvm_cmd(binary)
-                .args(["verify"])
-                .arg(&proof_path)
-                .arg(elf_path)
-                .stdout(Stdio::null())
-                .stderr(Stdio::piped())
-                .output()?;
-
-            if gpu {
-                wait_for_gpu_free(Duration::from_secs(30));
-            }
-
-            if verify_output.status.success() {
-                Some("success".to_string())
-            } else {
-                let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
-                eprintln!(
-                    "openvm verify failed for {}: {}",
-                    elf_path.display(),
-                    verify_stderr.lines().last().unwrap_or("(no output)"),
-                );
-                Some("failed".to_string())
-            }
+        if verify_output.status.success() {
+            Some(true)
         } else {
-            None
-        };
-
-        Ok(RunResult {
-            passed: true,
-            exit_code: Some(0),
-            duration: start.elapsed(),
-            prove_duration: Some(prove_duration),
-            proof_written,
-            prove_status: Some("success".to_string()),
-            verify_status,
-            termination: Termination::Success,
-            detail: None,
-        })
+            let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
+            eprintln!(
+                "openvm verify failed for {}: {}",
+                elf_path.display(),
+                verify_stderr.lines().last().unwrap_or("(no output)"),
+            );
+            Some(false)
+        }
+    } else {
+        None
     };
 
-    match inner() {
-        Ok(result) => result,
-        Err(e) => {
-            eprintln!("error running {}: {e}", elf_path.display());
-            RunResult {
-                passed: false,
-                exit_code: None,
-                duration: start.elapsed(),
-                prove_duration: None,
-                proof_written: false,
-                prove_status: None,
-                verify_status: None,
-                termination: Termination::HostError,
-                detail: Some(format!("runner error: {e:#}")),
-            }
-        }
-    }
+    Ok(Proof::proved(prove_duration, proof_written, verified))
 }
 
 /// Build an `openvm-binary` command isolated in its own process group with core dumps
@@ -1068,23 +974,22 @@ fn kill_openvm_processes() {
 ///   A non-zero `ziskemu` exit or "finished with error" on stderr (it can exit 0
 ///   after an emulation error) means that ZisK rejected the execution, so the
 ///   guest terminated abnormally without a code.
-/// - Without an expected-output vector (ACT4 verdict), the ZisK ACT4 halt
-///   macros write `PASS` or `FAIL` to public output 0
+/// - The ZisK ACT4 halt macros write `PASS` or `FAIL` to public output 0
 ///   (zkvms/zisk/isa-configs/*/rvmodel_macros.h). `FAIL` is an abnormal
-///   termination. Otherwise the output must start with `PASS`.
-/// - With an expected-output vector: ZisK's public output is a fixed area of 64
-///   u32 words with zero padding, so it must equal the expected bytes followed
-///   by zero bytes.
+///   termination, and `PASS` shows the pass halt. Without a marker, the guest
+///   returned from `main` or exited: a successful termination without the
+///   pass halt.
+/// - ZisK's public output is a fixed area of 64 u32 words with zero padding.
 /// - A spawn failure, a missing output file or a death by signal is a host error.
-fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant) -> RunResult {
-    let inner = || -> anyhow::Result<RunResult> {
+fn run_zisk(binary: &Path, elf_path: &Path, input: Option<&[u8]>) -> Execution {
+    let inner = || -> anyhow::Result<Execution> {
         let tmp = tempfile::tempdir().context("failed to create temp dir")?;
         let input_path = tmp.path().join("input.bin");
         let output_path = tmp.path().join("output.bin");
 
         let mut cmd = Command::new(binary);
         cmd.arg("-e").arg(elf_path);
-        if let Some(input) = &vectors.input {
+        if let Some(input) = input {
             std::fs::write(&input_path, io::zisk_frame_input(input))?;
             cmd.arg("-i").arg(&input_path);
         }
@@ -1100,78 +1005,51 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
         let reason = io::emulator_error_reason(&stderr);
         if exit_code.is_none() {
             let detail = format!("emulator killed by a signal: {reason}");
-            return Ok(RunResult::host_error(start, exit_code, detail));
+            return Ok(Execution::host_error(exit_code, detail));
         }
         if !output.status.success() || stderr.contains("finished with error") {
             let detail = format!("emulator error (exit {}): {reason}", exit_text(exit_code));
-            let failure = Termination::Failure { code: None };
-            return Ok(RunResult::executed(start, exit_code, failure, Some(detail)));
+            return Ok(Execution::failure(exit_code, None, detail));
         }
 
         let Ok(actual) = std::fs::read(&output_path) else {
-            return Ok(RunResult::host_error(start, exit_code, "emulator wrote no output file".to_owned()));
+            return Ok(Execution::host_error(exit_code, "emulator wrote no output file".to_owned()));
         };
-        let (termination, detail) = match &vectors.expected {
-            None if actual.starts_with(b"FAIL") => {
-                (Termination::Failure { code: None }, Some("public output has the FAIL marker".to_owned()))
-            }
-            None => (
-                Termination::Success,
-                (!actual.starts_with(b"PASS")).then(|| "public output does not start with the PASS marker".to_owned()),
-            ),
-            Some(expected) => (
-                Termination::Success,
-                (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected)),
-            ),
-        };
-        Ok(RunResult::executed(start, exit_code, termination, detail))
-    };
-    inner().unwrap_or_else(|e| RunResult::host_error(start, None, format!("runner error: {e:#}")))
-}
-
-/// Runs `ziskemu` on `elf_path` and returns the ACT4 verdict and the exit code.
-///
-/// ZisK >= 1.2 ignores `a0` at the exit ecall, so a failing test exits like a
-/// passing one. The ZisK ACT4 halt macros therefore also write `PASS` or `FAIL`
-/// to public output 0 (zkvms/zisk/isa-configs/*/rvmodel_macros.h). A test passes only
-/// if ziskemu succeeds, prints no "finished with error" (it can exit 0 after an
-/// emulation error), and its output starts with `PASS`.
-fn run_ziskemu(ziskemu: &Path, elf_path: &Path, extra_args: &[&str]) -> (bool, Option<i32>) {
-    let Ok(tmp_dir) = tempfile::tempdir() else {
-        return (false, None);
-    };
-    let output_path = tmp_dir.path().join("output.bin");
-    let output = Command::new(ziskemu)
-        .arg("--elf")
-        .arg(elf_path)
-        .args(extra_args)
-        .arg("--output")
-        .arg(&output_path)
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output();
-
-    match output {
-        Ok(o) => {
-            let code = o.status.code();
-            let stderr = String::from_utf8_lossy(&o.stderr);
-            let verdict_pass = std::fs::read(&output_path)
-                .is_ok_and(|public_output| public_output.starts_with(b"PASS"));
-            let passed =
-                o.status.success() && !stderr.contains("finished with error") && verdict_pass;
-            (passed, code)
+        if actual.starts_with(b"FAIL") {
+            return Ok(Execution::failure(exit_code, None, "public output has the FAIL marker".to_owned()));
         }
-        Err(_) => (false, None),
-    }
+        let pass_halt = if actual.starts_with(b"PASS") {
+            PassHalt::Reached
+        } else {
+            PassHalt::Missed("public output does not start with the PASS marker".to_owned())
+        };
+        let output = PublicOutput { bytes: actual, area: OutputArea::ZeroPadded };
+        Ok(Execution::success(exit_code, output, pass_halt))
+    };
+    inner().unwrap_or_else(|e| Execution::host_error(None, format!("runner error: {e:#}")))
 }
 
-/// How a standards executor's public output compares with the expected bytes.
-#[derive(Clone, Copy)]
-enum OutputArea {
+/// How a zkVM's public output compares with the expected bytes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutputArea {
     /// A variable-length stream (SP1): the output must equal the expected bytes.
     Exact,
-    /// A fixed area with zero padding (OpenVM with ere's VM config: 256 bytes).
+    /// A fixed area with zero padding (OpenVM with ere's VM config: 256 bytes;
+    /// ZisK: 64 u32 words).
     ZeroPadded,
+}
+
+impl PublicOutput {
+    /// Why the output does not match `expected`, or `None` if it does.
+    pub fn mismatch(&self, expected: &[u8]) -> Option<String> {
+        let actual = &self.bytes;
+        match self.area {
+            OutputArea::Exact => (actual != expected).then(|| io::describe_exact_mismatch(actual, expected)),
+            OutputArea::ZeroPadded => {
+                (!io::matches_zero_padded(actual, expected)).then(|| io::describe_mismatch(actual, expected))
+            }
+        }
+    }
 }
 
 /// Run a guest through an eth-act standards executor:
@@ -1185,19 +1063,13 @@ enum OutputArea {
 /// - 1: the guest terminated abnormally. The executor writes the guest's
 ///   error code (decimal) to the exit code file when the zkVM reports it;
 /// - anything else, or a death by signal: a host error.
-fn run_io_executor(
-    executor: &Path,
-    elf_path: &Path,
-    vectors: &IoVectors,
-    area: OutputArea,
-    start: Instant,
-) -> RunResult {
-    let inner = || -> anyhow::Result<RunResult> {
+fn run_io_executor(executor: &Path, elf_path: &Path, input: Option<&[u8]>, area: OutputArea) -> Execution {
+    let inner = || -> anyhow::Result<Execution> {
         let tmp = tempfile::tempdir().context("failed to create temp dir")?;
         let input_path = tmp.path().join("input.bin");
         let output_path = tmp.path().join("public-values.bin");
         let code_path = tmp.path().join("exit-code.txt");
-        std::fs::write(&input_path, vectors.input.as_deref().unwrap_or_default())?;
+        std::fs::write(&input_path, input.unwrap_or_default())?;
 
         let output = Command::new(executor)
             .arg(elf_path)
@@ -1219,37 +1091,29 @@ fn run_io_executor(
                         Some(code) => Some(code),
                         None => {
                             let detail = format!("executor wrote an invalid exit code {:?}", text.trim());
-                            return Ok(RunResult::host_error(start, exit_code, detail));
+                            return Ok(Execution::host_error(exit_code, detail));
                         }
                     },
                     Err(_) => None,
                 };
                 let code_text = code.map_or_else(|| "no error code".to_owned(), |c| format!("error code {c}"));
                 let detail = format!("guest terminated abnormally ({code_text}): {reason}");
-                return Ok(RunResult::executed(start, exit_code, Termination::Failure { code }, Some(detail)));
+                return Ok(Execution::failure(exit_code, code, detail));
             }
             _ => {
                 let detail = format!("executor error (exit {}): {reason}", exit_text(exit_code));
-                return Ok(RunResult::host_error(start, exit_code, detail));
+                return Ok(Execution::host_error(exit_code, detail));
             }
         }
 
         // The pass halt is exit code 0, which a return from main also gives, so
-        // a test without an expected output must write the PASS verdict
-        // (tests/eth-act-standards/include/checks.h).
-        let expected = vectors.expected.as_deref().unwrap_or(io::PASS_OUTPUT);
+        // the pass halt is unknown (see `runner::judge`).
         let Ok(actual) = std::fs::read(&output_path) else {
-            return Ok(RunResult::host_error(start, exit_code, "executor wrote no public values".to_owned()));
+            return Ok(Execution::host_error(exit_code, "executor wrote no public values".to_owned()));
         };
-        let detail = match area {
-            OutputArea::Exact => (actual != expected).then(|| io::describe_exact_mismatch(&actual, expected)),
-            OutputArea::ZeroPadded => {
-                (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected))
-            }
-        };
-        Ok(RunResult::executed(start, exit_code, Termination::Success, detail))
+        Ok(Execution::success(exit_code, PublicOutput { bytes: actual, area }, PassHalt::Unknown))
     };
-    inner().unwrap_or_else(|e| RunResult::host_error(start, None, format!("runner error: {e:#}")))
+    inner().unwrap_or_else(|e| Execution::host_error(None, format!("runner error: {e:#}")))
 }
 
 /// Parse a guest error code: a decimal `i32`, or a `u32` exit code (a register
@@ -1352,86 +1216,18 @@ fn wait_for_gpu_free(timeout: Duration) {
 #[cfg(test)]
 mod tests {
     use std::os::unix::fs::PermissionsExt;
-    use std::path::PathBuf;
-
-    /// Every `--zkvm` name with its suite and whether it proves.
-    const NAMES: [(&str, Suite, bool); 9] = [
-        ("lambdavm", Suite::Isa, false),
-        ("openvm", Suite::Isa, false),
-        ("openvm-prove", Suite::Isa, true),
-        ("sp1-prove", Suite::Isa, true),
-        ("zisk", Suite::Isa, false),
-        ("zisk-prove", Suite::Isa, true),
-        ("zisk-standards", Suite::Standards, false),
-        ("sp1-standards", Suite::Standards, false),
-        ("openvm-standards", Suite::Standards, false),
-    ];
-
-    fn prover(zkvm: Zkvm) -> Prover {
-        let tools = match zkvm {
-            Zkvm::Sp1 => ProverTools::Sp1 { sp1_perf: PathBuf::from("sp1-perf") },
-            Zkvm::Zisk => ProverTools::Zisk { cargo_zisk: PathBuf::from("cargo-zisk"), witness_lib: None },
-            Zkvm::OpenVM | Zkvm::LambdaVM => ProverTools::OpenVM,
-        };
-        Prover { gpu: false, tools }
-    }
-
-    #[test]
-    fn builds_a_backend_from_each_name() {
-        for (name, suite, prove) in NAMES {
-            let parsed = parse_name(name).unwrap_or_else(|| panic!("{name} does not parse"));
-            assert_eq!((parsed.1, parsed.2), (suite, prove), "{name}");
-            let zkvm = parsed.0;
-            let backend = Backend::new(zkvm, suite, PathBuf::from("bin"), prove.then(|| prover(zkvm))).unwrap();
-            assert_eq!(backend.name(), name);
-            assert_eq!(backend.is_standards(), suite == Suite::Standards, "{name}");
-            assert_eq!(backend.prove.is_some(), prove, "{name}");
-            assert_eq!(backend.binary, PathBuf::from("bin"));
-        }
-    }
-
-    #[test]
-    fn only_zisk_isa_execute_and_standards_backends_support_io() {
-        for (name, suite, prove) in NAMES {
-            let (zkvm, ..) = parse_name(name).unwrap();
-            let backend = Backend::new(zkvm, suite, PathBuf::from("bin"), prove.then(|| prover(zkvm))).unwrap();
-            let expected = matches!(name, "zisk" | "zisk-standards" | "sp1-standards" | "openvm-standards");
-            assert_eq!(backend.supports_io(), expected, "{name}");
-        }
-    }
-
-    #[test]
-    fn rejects_unknown_names_and_unsupported_combinations() {
-        for name in ["sp1", "lambdavm-prove", "lambdavm-standards", "zisk-prove-standards", "risc0", ""] {
-            assert_eq!(parse_name(name), None, "{name}");
-        }
-    }
-
-    #[test]
-    fn rejects_unsupported_backends() {
-        let bin = || PathBuf::from("bin");
-        // LambdaVM has no standards backend and no prover.
-        assert!(Backend::new(Zkvm::LambdaVM, Suite::Standards, bin(), None).is_err());
-        assert!(Backend::new(Zkvm::LambdaVM, Suite::Isa, bin(), Some(prover(Zkvm::OpenVM))).is_err());
-        // The standards suite is execute only.
-        assert!(Backend::new(Zkvm::Zisk, Suite::Standards, bin(), Some(prover(Zkvm::Zisk))).is_err());
-        // SP1 runs the ISA tests only through its prove backend.
-        assert!(Backend::new(Zkvm::Sp1, Suite::Isa, bin(), None).is_err());
-        // The prover tools must belong to the zkVM.
-        assert!(Backend::new(Zkvm::Zisk, Suite::Isa, bin(), Some(prover(Zkvm::Sp1))).is_err());
-        assert!(Backend::new(Zkvm::OpenVM, Suite::Isa, bin(), Some(prover(Zkvm::Zisk))).is_err());
-    }
     use std::sync::Mutex;
 
     use super::*;
-    use crate::io::Outcome;
+    use crate::runner::{self, Suite};
 
     /// Serializes the tests that write and spawn fake executors: a script
     /// that another thread's fork holds open for writing fails with ETXTBSY.
     static SPAWN: Mutex<()> = Mutex::new(());
 
-    fn vectors(expected: Option<&[u8]>) -> IoVectors {
-        IoVectors { input: Some(Vec::new()), expected: expected.map(<[u8]>::to_vec), outcome: Outcome::Pass }
+    /// Judge an execution of a standards test, which has an (empty) input.
+    fn judged(execution: Execution, expected: Option<&[u8]>) -> RunResult {
+        runner::judge(execution, expected, true, Instant::now())
     }
 
     /// Write an executable shell script with `body` and return its path.
@@ -1449,7 +1245,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let executor = fake(dir.path(), "executor", body);
         let elf = dir.path().join("t.elf");
-        run_io_executor(&executor, &elf, &vectors(expected), OutputArea::Exact, Instant::now())
+        judged(run_io_executor(&executor, &elf, Some(&[]), OutputArea::Exact), expected)
     }
 
     /// Run a fake `ziskemu` (the last argument is the output file).
@@ -1458,7 +1254,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let emulator = fake(dir.path(), "ziskemu", &format!("for out; do :; done\n{body}"));
         let elf = dir.path().join("t.elf");
-        run_zisk(&emulator, &elf, &vectors(expected), Instant::now())
+        judged(run_zisk(&emulator, &elf, Some(&[])), expected)
     }
 
     fn failure(code: Option<i32>) -> Termination {
@@ -1532,7 +1328,7 @@ mod tests {
         let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("missing");
-        let r = run_io_executor(&missing, &missing, &vectors(None), OutputArea::Exact, Instant::now());
+        let r = judged(run_io_executor(&missing, &missing, Some(&[]), OutputArea::Exact), None);
         assert_eq!(r.termination, Termination::HostError);
         assert!(r.detail.unwrap().starts_with("runner error: failed to run"));
     }
@@ -1586,7 +1382,7 @@ mod tests {
         let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("missing");
-        let r = run_zisk(&missing, &missing, &vectors(None), Instant::now());
+        let r = judged(run_zisk(&missing, &missing, Some(&[])), None);
         assert_eq!(r.termination, Termination::HostError);
     }
 
@@ -1599,8 +1395,8 @@ mod tests {
         let run = |body: &str, outcome: &str| {
             std::fs::write(dir.path().join("t.outcome"), outcome).unwrap();
             let executor = fake(dir.path(), &format!("executor-{}", body.len()), body);
-            let backend = Backend::new(Zkvm::Sp1, Suite::Standards, executor, None).unwrap();
-            crate::runner::run_one(&backend, &elf, Mode::Execute)
+            let sp1 = Sp1 { executor: Executor::Io(executor), sp1_perf: None, gpu: false };
+            runner::run_one(&sp1, Suite::Standards, &elf, Mode::Execute)
         };
 
         let r = run("echo 7 > \"$4\"; exit 1", "fail 7\n");
@@ -1632,5 +1428,120 @@ mod tests {
         assert_eq!(sp1_guest_exit_code(pass), Some(0));
         assert_eq!(sp1_guest_exit_code(fail), Some(1));
         assert_eq!(sp1_guest_exit_code("no such line\n"), None);
+    }
+
+    fn binary() -> Tools {
+        Tools { binary: Some(PathBuf::from("bin")), ..Tools::default() }
+    }
+
+    fn io_exec() -> Tools {
+        Tools { io_executor: Some(PathBuf::from("exec")), ..Tools::default() }
+    }
+
+    #[test]
+    fn builds_each_zkvm_from_its_name() {
+        for name in ZKVMS {
+            let zkvm = build(name, binary()).unwrap();
+            assert_eq!(zkvm.name(), name);
+            // Only ziskemu takes an input among the zkVMs' own executors.
+            assert_eq!(zkvm.supports_io(), name == "zisk", "{name}");
+            // lambdavm and openvm-binary also prove; sp1 and zisk need their prover tools.
+            assert_eq!(zkvm.can_prove(), matches!(name, "lambdavm" | "openvm"), "{name}");
+        }
+
+        // An eth-act standards executor takes an input, but does not prove.
+        for name in ["openvm", "sp1"] {
+            let zkvm = build(name, io_exec()).unwrap();
+            assert_eq!(zkvm.name(), name);
+            assert!(zkvm.supports_io(), "{name}");
+            assert!(!zkvm.can_prove(), "{name}");
+        }
+
+        let sp1 = build("sp1", Tools { sp1_perf: Some(PathBuf::from("sp1-perf")), ..binary() }).unwrap();
+        assert!(sp1.can_prove());
+        let zisk = build("zisk", Tools { cargo_zisk: Some(PathBuf::from("cargo-zisk")), ..binary() }).unwrap();
+        assert!(zisk.can_prove());
+    }
+
+    #[test]
+    fn rejects_unknown_names_and_missing_tools() {
+        // The old per-suite and per-mode names are gone.
+        for name in ["sp1-prove", "zisk-prove", "openvm-prove", "zisk-standards", "sp1-standards", "risc0", ""] {
+            let e = build(name, binary()).err().unwrap();
+            assert!(e.to_string().starts_with(&format!("unknown zkvm '{name}'")), "{e}");
+        }
+        for name in ZKVMS {
+            assert!(build(name, Tools::default()).is_err(), "{name}");
+            let both = Tools { binary: Some(PathBuf::from("bin")), ..io_exec() };
+            assert!(build(name, both).is_err(), "{name}");
+        }
+        // Only openvm and sp1 have an eth-act standards executor.
+        assert!(build("lambdavm", io_exec()).is_err());
+        assert!(build("zisk", io_exec()).is_err());
+    }
+
+    #[test]
+    fn prove_without_prover_tools_is_an_error() {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        for (name, tools) in [("sp1", binary()), ("zisk", binary()), ("openvm", io_exec()), ("sp1", io_exec())] {
+            let zkvm = build(name, tools).unwrap();
+            assert!(zkvm.prove(&elf, None, true).is_err(), "{name}");
+            assert!(runner::check_mode(&*zkvm, Mode::Prove).is_err(), "{name}");
+            assert!(runner::check_mode(&*zkvm, Mode::Full).is_err(), "{name}");
+            assert!(runner::check_mode(&*zkvm, Mode::Execute).is_ok(), "{name}");
+        }
+        // The provers take no input.
+        let zisk = build("zisk", Tools { cargo_zisk: Some(dir.path().join("cargo-zisk")), ..binary() }).unwrap();
+        let e = zisk.prove(&elf, Some(&[]), false).err().unwrap();
+        assert_eq!(e.to_string(), "the zisk prover cannot take an input");
+    }
+
+    #[test]
+    fn sp1_cli_executor_reports_the_guest_exit_code() {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        let run = |body: &str| {
+            let executor = fake(dir.path(), &format!("sp1-{}", body.len()), body);
+            let execution = Sp1 { executor: Executor::Cli(executor), sp1_perf: None, gpu: false }.execute(&elf, None);
+            runner::judge(execution, None, false, Instant::now())
+        };
+
+        let r = run("echo 'exit code: 0, cycles: 12'");
+        assert_eq!(r.termination, Termination::Success);
+        assert!(r.passed);
+
+        // sp1-perf-executor exits 0 when the guest fails.
+        let r = run("echo 'exit code: 1, cycles: 12'");
+        assert_eq!(r.termination, failure(None));
+        assert!(!r.passed);
+
+        let r = run("echo 'exit code: 0, cycles: 12'; echo 'Unimplemented instruction' >&2");
+        assert!(!r.passed);
+    }
+
+    #[test]
+    fn zisk_isa_test_needs_the_pass_marker() {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        let run = |body: &str| {
+            let emulator = fake(dir.path(), &format!("ziskemu-{}", body.len()), &format!("for out; do :; done\n{body}"));
+            let execution = Zisk { ziskemu: emulator, cargo_zisk: None, witness_lib: None }.execute(&elf, None);
+            runner::judge(execution, None, false, Instant::now())
+        };
+
+        let r = run("printf 'PASS\\000\\000\\000\\000' > \"$out\"");
+        assert!(r.passed);
+
+        let r = run("printf 'FAIL' > \"$out\"");
+        assert_eq!(r.termination, failure(None));
+        assert_eq!(r.detail.as_deref(), Some("public output has the FAIL marker"));
+
+        let r = run("printf '\\000\\000\\000\\000' > \"$out\"");
+        assert_eq!(r.termination, Termination::Success);
+        assert_eq!(r.detail.as_deref(), Some("public output does not start with the PASS marker"));
     }
 }

@@ -5,8 +5,10 @@
 //! - the eth-act standards tests, which check the guest's public output
 //!   against its I/O test vectors.
 //!
-//! Every backend reads the optional per-ELF files `<stem>.input`,
-//! `<stem>.expected` and `<stem>.outcome` (see `io`).
+//! There is one backend per zkVM (`backends::Zkvm`). The runner reads the
+//! optional per-ELF files `<stem>.input`, `<stem>.expected` and
+//! `<stem>.outcome` (see `io`) and judges every execution the same way for
+//! both suites (`runner::judge`).
 
 pub mod backends;
 pub mod io;

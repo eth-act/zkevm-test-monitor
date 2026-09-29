@@ -6,7 +6,7 @@
 #    (zkvms/<zkvm>/standards/Dockerfile).
 # 2. Builds the C test guests in tests/eth-act-standards/ as ACT4 C tests in the
 #    zkVM's ACT4 image (zkvms/<zkvm>/act4.Dockerfile), linked against that library.
-# 3. Runs them on the host with runner (a standards backend), and appends a run
+# 3. Runs them on the host with runner, and appends a run
 #    to results/history/<zkvm>-eth-act-standards.json.
 set -euo pipefail
 
@@ -30,13 +30,15 @@ fi
 # IMAGE_COMMIT_FILES: "<image path>:<name>" commit files copied next to the ELFs.
 # COMMIT_FILE: the zkVM commit to record for the run.
 # NOTES: a note to record with every run (shown on the dashboard).
+# EXECUTOR_ARG: the runner flag for the emulator: --binary for the zkVM's own
+#   executor, --io-executor for an eth-act standards executor.
 IMAGE_EMULATOR=""
 IMAGE_EMULATOR_LIBS=""
 COMMIT_FILE="out/commits/${ZKVM}.txt"
 NOTES=""
 case "$ZKVM" in
   zisk)
-    BACKEND="zisk-standards"
+    EXECUTOR_ARG="--binary"
     EMULATOR="out/bin/zisk-eth-act-standards-emu"
     IMAGE_EMULATOR="/usr/local/bin/ziskemu"
     IMAGE_EMULATOR_LIBS="/usr/local/lib/ziskemu"
@@ -46,7 +48,7 @@ case "$ZKVM" in
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   sp1)
-    BACKEND="sp1-standards"
+    EXECUTOR_ARG="--io-executor"
     EMULATOR="out/bin/sp1-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/sp1-eth-act-standards-executor"
     VENDOR_LIB="/opt/sp1/libzkevm.a"
@@ -55,7 +57,7 @@ case "$ZKVM" in
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   openvm)
-    BACKEND="openvm-standards"
+    EXECUTOR_ARG="--io-executor"
     EMULATOR="out/bin/openvm-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/openvm-eth-act-standards-executor"
     VENDOR_LIB="/opt/openvm/lib/libere_openvm_c.a"
@@ -162,7 +164,7 @@ fi
 echo "Running $ZKVM eth-act standards tests (execute only)..."
 # shellcheck disable=SC2086
 "$RUNNER" \
-  --zkvm "$BACKEND" --binary "$EMULATOR" \
+  --zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR" \
   --elf-dir "$ELF_DIR" \
   --output-dir "$RESULTS_DIR" \
   --suite eth-act-standards --groups \
