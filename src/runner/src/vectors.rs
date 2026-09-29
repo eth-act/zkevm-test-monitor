@@ -96,15 +96,6 @@ impl IoVectors {
     }
 }
 
-/// Encode input for ziskemu: one record of `[u64 LE length][data, zero-padded to 8 bytes]`.
-pub fn zisk_frame_input(data: &[u8]) -> Vec<u8> {
-    let mut framed = Vec::with_capacity(8 + data.len() + 7);
-    framed.extend_from_slice(&(data.len() as u64).to_le_bytes());
-    framed.extend_from_slice(data);
-    framed.resize(framed.len().next_multiple_of(8), 0);
-    framed
-}
-
 /// Compare output from a zkVM whose public output is a fixed-size, zero-padded
 /// area (ZisK: 64 u32 slots). The output carries no length, so trailing zero
 /// bytes after the expected stream cannot be told apart from padding.
@@ -149,46 +140,9 @@ fn hex_prefix(bytes: &[u8]) -> String {
     }
 }
 
-/// Pick the most informative stderr line: the message of a Rust panic when
-/// the emulator panicked, else the last line that is not a `note:`.
-pub fn emulator_error_reason(stderr: &str) -> String {
-    let lines: Vec<&str> = stderr.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
-    if let Some(i) = lines.iter().position(|l| l.contains("panicked at")) {
-        if let Some(message) = lines.get(i + 1) {
-            return (*message).to_owned();
-        }
-    }
-    lines
-        .iter()
-        .rev()
-        .find(|l| !l.starts_with("note:"))
-        .map(|l| (*l).to_owned())
-        .unwrap_or_default()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn picks_panic_message_from_stderr() {
-        let stderr = "thread 'main' panicked at core/src/zisk_rom.rs:367:21:\n\
-                      pc=0x80001BC0 is out of range\n\
-                      note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n";
-        assert_eq!(emulator_error_reason(stderr), "pc=0x80001BC0 is out of range");
-        assert_eq!(emulator_error_reason("boom\nnote: hint\n"), "boom");
-    }
-
-    #[test]
-    fn frames_input_with_length_and_padding() {
-        assert_eq!(zisk_frame_input(&[]), vec![0; 8]);
-        let framed = zisk_frame_input(b"abc");
-        assert_eq!(framed.len(), 16);
-        assert_eq!(&framed[..8], &3u64.to_le_bytes());
-        assert_eq!(&framed[8..11], b"abc");
-        assert!(framed[11..].iter().all(|&b| b == 0));
-        assert_eq!(zisk_frame_input(&[7; 8]).len(), 16);
-    }
 
     #[test]
     fn zero_padded_comparison() {
