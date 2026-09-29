@@ -10,7 +10,7 @@ use runner::runner::{self as suite, Suite};
 /// standards tests.
 ///
 /// Every ELF may have `<stem>.input`, `<stem>.expected` and `<stem>.outcome`
-/// files next to it (see the `io` module).
+/// files next to it (see the `vectors` module).
 #[derive(Parser)]
 #[command(name = "runner")]
 struct Cli {
