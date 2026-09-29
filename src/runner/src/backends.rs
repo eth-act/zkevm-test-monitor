@@ -1106,10 +1106,10 @@ fn run_io_executor(
             return Ok(RunResult::executed(start, exit_code, Termination::Abnormal, Some(detail)));
         }
 
-        // Without an expected output, the ACT4 halt verdict (the exit code) decides.
-        let Some(expected) = vectors.expected.as_deref() else {
-            return Ok(RunResult::executed(start, exit_code, Termination::Normal, None));
-        };
+        // The pass halt is exit code 0, which a return from main also gives, so
+        // a test without an expected output must write the PASS verdict
+        // (tests/eth-act-standards/include/checks.h).
+        let expected = vectors.expected.as_deref().unwrap_or(io::PASS_OUTPUT);
         let actual = std::fs::read(&output_path).context("executor wrote no public values")?;
         let detail = match area {
             OutputArea::Exact => (actual != expected).then(|| io::describe_exact_mismatch(&actual, expected)),

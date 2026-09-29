@@ -156,6 +156,8 @@ class Header:
         return True
 
     def write(self):
+        if not self.rows:
+            sys.exit(f"error: no cases for {self.function}")
         struct_fields = ["    const char *label;", "    int expect;"]
         for name, kind in self.fields:
             if kind == "bytes":
@@ -171,6 +173,7 @@ class Header:
             + "\n} cases[] = {\n"
             + "".join("    {" + ", ".join(r) + "},\n" for r in self.rows)
             + "};\n"
+            + '_Static_assert(sizeof cases / sizeof cases[0] > 0, "no cases");\n'
         )
         OUT.mkdir(parents=True, exist_ok=True)
         (OUT / f"{self.function}.h").write_text(text)

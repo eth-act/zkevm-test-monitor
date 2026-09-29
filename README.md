@@ -65,7 +65,8 @@ flowchart LR
   test, with the zkVM's ISA config, and links it against the zkVM's own static library, the way
   an EIP-8025 guest does.
 - A self-checking program ends through the zkVM's ACT4 halt macros, so the runner reads its
-  verdict as for an ISA test. An I/O write program must write its `.expected` public output. A
+  verdict as for an ISA test. On SP1 and OpenVM, where a return from `main` also exits 0, it
+  must also write the public output `PASS`. An I/O write program must write its `.expected` public output. A
   program with the `.outcome` `fail` must panic (the NULL-pointer tests). The runner gives each
   program its `.input` file.
 - The suite runs execution only, for ZisK, SP1 and OpenVM. Each standards test image pins its own

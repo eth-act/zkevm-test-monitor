@@ -32,9 +32,14 @@ The runner judges a test in one of three ways:
 
 - **ACT4 verdict.** A self-checking program calls `rvtest_pass()`, and a failed check calls
   `print_error()` (`include/checks.h`). The runner reads the verdict as for an ISA test:
-  the `PASS` marker in the public output on ZisK, the exit code on SP1 and OpenVM.
+  the `PASS` marker in the public output on ZisK, the exit code on SP1 and OpenVM. On SP1 and
+  OpenVM, a return from `main` also gives exit code 0, so `checks.h` makes `rvtest_pass()`
+  first write the public output `PASS`, and the runner requires it. A program that ends
+  before `rvtest_pass()` fails.
 - **Expected output.** An I/O write program returns from `main`. Its public output must equal
-  `<name>.expected`. `io/write_io_vectors.py` writes the input and the expected output.
+  `<name>.expected`. `io/write_io_vectors.py` writes the input and the expected output. It
+  fails the build if an I/O test has no entry, or if a program that writes output has no
+  expected output.
 - **Expected panic.** `<name>.outcome` holds `fail`. The program must terminate abnormally (a
   panic or a failed execution), and a normal finish fails the test with the detail
   `did not panic`. The `accel-null-*` programs use this: the standard says that a function

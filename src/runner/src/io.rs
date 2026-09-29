@@ -8,12 +8,17 @@
 //!   the test with a "did not panic" detail.
 //!
 //! The standards backends default a missing input to empty. Without an
-//! expected output, a test is judged like an ISA test: by the ACT4 halt verdict.
-//! The ISA backends have no defaults.
+//! expected output, a test is judged by the ACT4 halt verdict, and on SP1 and
+//! OpenVM its public output must also be `PASS` (`PASS_OUTPUT`), since their
+//! pass halt is exit code 0, like a return from `main`. The ISA backends have
+//! no defaults.
 
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
+
+/// The public output of a passing self-checking standards test.
+pub const PASS_OUTPUT: &[u8] = b"PASS";
 
 /// Show at most this many bytes of output in a failure detail.
 const DETAIL_BYTES: usize = 48;

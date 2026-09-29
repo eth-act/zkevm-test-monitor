@@ -25,6 +25,18 @@
 #include "c_test.h"
 #include "zkvm_io.h"
 
+/*
+ * On SP1 and OpenVM the pass halt is exit code 0, which a return from main
+ * also gives. So a passing test also writes the public output "PASS", and the
+ * runner requires it from a test without an .expected vector. A guest that
+ * ends before rvtest_pass() then fails.
+ */
+static inline __attribute__((noreturn)) void test_pass(void) {
+    write_output((const uint8_t *)"PASS", 4);
+    rvtest_pass();
+}
+#define rvtest_pass() test_pass()
+
 /* Fail the test at check `id`. */
 #define test_fail(id) print_error("check %u failed\n", (unsigned)(id))
 
