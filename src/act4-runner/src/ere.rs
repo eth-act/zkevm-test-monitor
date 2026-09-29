@@ -254,24 +254,21 @@ impl EreBackend {
 
     /// Decides whether a stage passed from the public values it returned.
     ///
-    /// SP1 and OpenVM report a non-zero ACT4 exit code as an error, so every
-    /// `Ok` passes. ZisK ignores the exit code, so its ACT4 halt macros also
-    /// store `PASS` or `FAIL` to public output 0
-    /// (zkvms/zisk/isa-configs/*/rvmodel_macros.h).
+    /// Every zkVM's ACT4 halt macros write `PASS` or `FAIL` to public output 0
+    /// (zkvms/<zkvm>/isa-configs/*/rvmodel_macros.h), so the verdict does not
+    /// depend on how ere or the zkVM treats the exit code, and it is committed in
+    /// the proof.
     fn verdict(&self, public_values: &PublicValues) -> anyhow::Result<()> {
-        if self.kind == zkVMKind::Zisk && !public_values.starts_with(b"PASS") {
-            let marker = &public_values[..public_values.len().min(4)];
-            let shown = if marker == b"FAIL" {
-                "FAIL".to_string()
-            } else {
-                format!("0x{}", String::from_iter(marker.iter().map(|b| format!("{b:02x}"))))
-            };
-            return Err(Verdict(format!(
-                "ZisK test reported {shown} in public output 0, not PASS"
-            ))
-            .into());
+        if public_values.starts_with(b"PASS") {
+            return Ok(());
         }
-        Ok(())
+        let marker = &public_values[..public_values.len().min(4)];
+        let shown = if marker == b"FAIL" {
+            "FAIL".to_string()
+        } else {
+            format!("0x{}", String::from_iter(marker.iter().map(|b| format!("{b:02x}"))))
+        };
+        Err(Verdict(format!("test reported {shown} in public output 0, not PASS")).into())
     }
 
     /// Writes the per-test details and the provenance of this run to
