@@ -10,11 +10,10 @@
 
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::sync::{Mutex, mpsc};
-use std::thread;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, anyhow, bail, ensure};
+use anyhow::{Context, anyhow, ensure};
 use ere_dockerized::{
     DOCKER_IMAGE_TAG, DockerizedzkVM, DockerizedzkVMConfig, Elf, Input, ProverResource,
     PublicValues, image::server_zkvm_image, prover::Error as EreError, zkVMKind,
@@ -26,16 +25,11 @@ use crate::backends::{Mode, RunResult};
 /// Registry that ere CI publishes images to.
 const IMAGE_REGISTRY: &str = "ghcr.io/eth-act/ere";
 
-/// Time limits per stage. `ere-dockerized` enforces the execute, prove and
-/// verify limits itself. The pinned revision has no limit on some startup
-/// calls, so a watchdog enforces `SETUP` (see `guarded`).
-const SETUP: Duration = Duration::from_secs(900);
-const HEALTH: Duration = Duration::from_secs(600);
-const EXECUTE: Duration = Duration::from_secs(600);
-// Real proves take 1-60 s; SP1 v6.6.0 never returns from proving FENCE, so a
-// long limit only delays that result.
-const PROVE: Duration = Duration::from_secs(900);
-const VERIFY: Duration = Duration::from_secs(600);
+/// Time limit on each prove; the other stages use `ere-dockerized`'s defaults.
+/// Needed because SP1 v6.6.0 never returns from proving `I-fence-00`: its server
+/// logs a fatal task failure, but `prove` does not return an error
+/// (eth-act/zkevm-test-monitor#51). Real proves take at most ~35 s.
+const PROVE: Duration = Duration::from_secs(120);
 
 /// What was tested: recorded next to the results of each run.
 #[derive(Serialize)]
@@ -193,18 +187,14 @@ impl EreBackend {
         // Setup: switch the running server to this ELF, or start one.
         let started = Instant::now();
         let setup = match state.zkvm.take() {
-            Some(mut zkvm) => self.guarded(move || zkvm.setup(Elf(elf)).map(|()| zkvm)),
+            Some(mut zkvm) => zkvm.setup(Elf(elf)).map(|()| zkvm),
             None => {
-                let (kind, resource) = (self.kind, self.resource.clone());
                 let config = DockerizedzkVMConfig {
-                    execute_timeout: Some(EXECUTE),
                     prove_timeout: Some(PROVE),
-                    verify_timeout: Some(VERIFY),
-                    health_timeout: HEALTH,
+                    ..Default::default()
                 };
-                self.guarded(move || {
-                    DockerizedzkVM::new(kind, Elf(elf), resource, config).map_err(Into::into)
-                })
+                DockerizedzkVM::new(self.kind, Elf(elf), self.resource.clone(), config)
+                    .map_err(Into::into)
             }
         };
         detail.setup_secs = started.elapsed().as_secs_f64();
@@ -286,41 +276,6 @@ impl EreBackend {
         Ok(())
     }
 
-    /// Runs `f` (which starts or switches the server) with the `SETUP` limit.
-    ///
-    /// The pinned `ere-dockerized` waits up to `health_timeout` even when the
-    /// server container has already exited (for example, the server panics on an
-    /// ELF it cannot load), and has no limit on some startup requests. So poll
-    /// the container: if it has exited, fail at once with the end of its log. On
-    /// timeout, remove it and fail.
-    fn guarded<T: Send + 'static>(
-        &self,
-        f: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
-    ) -> anyhow::Result<T> {
-        let (tx, rx) = mpsc::channel();
-        thread::spawn(move || {
-            let _ = tx.send(f());
-        });
-        let started = Instant::now();
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(result) => return result,
-                Err(mpsc::RecvTimeoutError::Disconnected) => bail!("setup thread panicked"),
-                Err(mpsc::RecvTimeoutError::Timeout) => {}
-            }
-            // In both cases the thread of `f` stays blocked until its own limit
-            // and then ends by itself; the next test does not wait for it.
-            if let Some(log_tail) = exited_container_log(self.kind) {
-                remove_container(self.kind);
-                bail!("server exited during setup: {log_tail}");
-            }
-            if started.elapsed() >= SETUP {
-                remove_container(self.kind);
-                bail!("server did not start within {SETUP:?}; container removed");
-            }
-        }
-    }
-
     /// Writes the per-test details and the provenance of this run to
     /// `<dir>/details-act4-<label>.json` and `<dir>/ere-act4-<label>.json`.
     pub fn finish(&self, dir: &Path, label: &str, provenance: &Provenance) -> anyhow::Result<()> {
@@ -361,38 +316,6 @@ fn pull_image(kind: zkVMKind, gpu: bool) -> anyhow::Result<String> {
         .context("failed to run docker")?;
     ensure!(output.status.success(), "failed to inspect {image}");
     Ok(String::from_utf8(output.stdout)?.trim().to_string())
-}
-
-/// If the server container of `kind` has exited, returns the last lines of its
-/// log (they hold the reason, e.g. a panic); otherwise `None`.
-fn exited_container_log(kind: zkVMKind) -> Option<String> {
-    let name = format!("ere-server-{kind}");
-    let status = Command::new("docker")
-        .args(["inspect", "--format", "{{.State.Status}}", &name])
-        .output()
-        .ok()?;
-    let status = String::from_utf8_lossy(&status.stdout);
-    if !matches!(status.trim(), "exited" | "dead") {
-        return None;
-    }
-    let logs = Command::new("docker")
-        .args(["logs", "--tail", "4", &name])
-        .output()
-        .ok()?;
-    let text = [logs.stdout, logs.stderr].concat();
-    let tail = String::from_utf8_lossy(&text);
-    let lines = Vec::from_iter(tail.lines().map(str::trim).filter(|line| !line.is_empty()));
-    Some(lines.join(" | "))
-}
-
-/// Removes the server container of `kind`; `ere-dockerized` names it
-/// `ere-server-{zkvm}`.
-fn remove_container(kind: zkVMKind) {
-    let _ = Command::new("docker")
-        .args(["rm", "-f", &format!("ere-server-{kind}")])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
 }
 
 fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
