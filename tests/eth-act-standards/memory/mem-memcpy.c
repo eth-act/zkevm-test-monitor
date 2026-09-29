@@ -5,28 +5,36 @@
 // END_TEST_CONFIG
 /*
  * memcpy copies exactly n bytes for every source and destination alignment,
- * including n == 0, returns dest, and writes nothing outside [dest, dest + n).
+ * including n == 0, returns dest, writes nothing outside [dest, dest + n) and
+ * leaves the source unchanged.
  */
 #include "memops.h"
 
 #define BIG 4096
 
-static uint8_t src[MAX_OFFSET + BIG];
+static uint8_t src[GUARD + MAX_OFFSET + BIG + GUARD];
+static uint8_t src_before[sizeof src];
 static uint8_t dst[GUARD + MAX_OFFSET + BIG + GUARD];
 static uint8_t expect[sizeof dst];
 
 static int check_copy(uint32_t id, size_t doff, size_t soff, size_t len) {
     mem_fill_pattern(src, sizeof src, len + soff);
+    test_bytes_copy(src_before, src, sizeof src);
     test_bytes_fill(dst, GUARD_BYTE, sizeof dst);
     test_bytes_fill(expect, GUARD_BYTE, sizeof expect);
-    test_bytes_copy(expect + GUARD + doff, src + soff, len);
+    test_bytes_copy(expect + GUARD + doff, src + GUARD + soff, len);
 
-    void *ret = memcpy(dst + GUARD + doff, src + soff, len);
+    void *ret = memcpy(dst + GUARD + doff, src + GUARD + soff, len);
     if (ret != dst + GUARD + doff) {
         test_fail(id);
         return 0;
     }
     if (!test_bytes_eq(dst, expect, GUARD + MAX_OFFSET + len + GUARD)) {
+        test_fail(id);
+        return 0;
+    }
+    /* The source and the bytes around it are unchanged. */
+    if (!test_bytes_eq(src, src_before, GUARD + MAX_OFFSET + len + GUARD)) {
         test_fail(id);
         return 0;
     }
