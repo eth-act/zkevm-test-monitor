@@ -3,13 +3,13 @@
   "suite": "eth-act-standards",
   "runs": [
     {
-      "date": "2026-09-29T13:52:23Z",
+      "date": "2026-09-29T18:15:27Z",
       "commit": "f5a5bbf6",
       "library_commit": "f5a5bbf6",
-      "monitor_commit": "66016aca",
+      "monitor_commit": "0b2021c5",
       "standards_commit": "d1191c57b5c19c13e4ad3520adf08fa75bb8db4d",
       "isa": "RV64IM",
-      "total": 38,
+      "total": 40,
       "passed": [
         "accel-blake2f",
         "accel-bls12-map-fp-to-g1",
@@ -37,7 +37,9 @@
         "mem-memcmp",
         "mem-memcpy",
         "mem-memmove",
-        "mem-memset"
+        "mem-memset",
+        "term-main-returns-1",
+        "term-main-returns-7"
       ],
       "failed": [
         "accel-bls12-g1-add",
@@ -93,20 +95,22 @@
         "mem-memcmp": "memory",
         "mem-memcpy": "memory",
         "mem-memmove": "memory",
-        "mem-memset": "memory"
+        "mem-memset": "memory",
+        "term-main-returns-1": "termination",
+        "term-main-returns-7": "termination"
       },
       "details": {
-        "accel-bls12-g1-add": "executor error (exit 1): guest halted with exit code 1",
-        "accel-bls12-g1-msm": "executor error (exit 1): guest halted with exit code 1",
-        "accel-bls12-g2-add": "executor error (exit 1): guest halted with exit code 1",
-        "accel-bls12-g2-msm": "executor error (exit 1): guest halted with exit code 1",
-        "accel-bls12-map-fp2-to-g2": "executor error (exit 1): guest halted with exit code 1",
-        "accel-bls12-pairing": "executor error (exit 1): guest halted with exit code 1",
+        "accel-bls12-g1-add": "guest terminated abnormally (error code 1): guest halted with exit code 1",
+        "accel-bls12-g1-msm": "guest terminated abnormally (error code 1): guest halted with exit code 1",
+        "accel-bls12-g2-add": "guest terminated abnormally (error code 1): guest halted with exit code 1",
+        "accel-bls12-g2-msm": "guest terminated abnormally (error code 1): guest halted with exit code 1",
+        "accel-bls12-map-fp2-to-g2": "guest terminated abnormally (error code 1): guest halted with exit code 1",
+        "accel-bls12-pairing": "guest terminated abnormally (error code 1): guest halted with exit code 1",
         "accel-null-bn254-g1-add-result": "did not panic: finished normally (output mismatch: expected 4 bytes 50415353, got (empty) (0 bytes))",
         "accel-null-keccak256-output": "did not panic: finished normally (output mismatch: expected 4 bytes 50415353, got (empty) (0 bytes))",
         "accel-null-sha256-data": "did not panic: finished normally (output mismatch: expected 4 bytes 50415353, got (empty) (0 bytes))",
-        "accel-ripemd160": "executor error (exit 1): guest halted with exit code 1",
-        "mem-link-resolution": "executor error (exit 1): guest halted with exit code 1"
+        "accel-ripemd160": "guest terminated abnormally (error code 1): guest halted with exit code 1",
+        "mem-link-resolution": "guest terminated abnormally (error code 1): guest halted with exit code 1"
       }
     }
   ]
