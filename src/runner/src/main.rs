@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::Parser;
-use runner::backends::{Backend, Mode};
+use runner::backends::{self, Backend, Mode, Prover, ProverTools, Zkvm};
 use runner::results::{self, TestEntry};
 use runner::runner as suite;
 
@@ -96,54 +96,42 @@ fn main() {
         })
     };
 
-    let backend = match cli.zkvm.as_str() {
-        "lambdavm" => Backend::LambdaVM {
-            binary: require_binary(&cli),
-        },
-        "openvm" => Backend::OpenVM {
-            binary: require_binary(&cli),
-        },
-        "sp1-prove" => Backend::Sp1Prove {
-            executor: require_binary(&cli),
-            sp1_perf: cli.sp1_perf.clone().unwrap_or_else(|| {
-                eprintln!("error: --sp1-perf is required for zkvm 'sp1-prove'");
-                process::exit(2);
-            }),
-            gpu: cli.gpu,
-        },
-        "openvm-prove" => Backend::OpenVMProve {
-            binary: require_binary(&cli),
-            gpu: cli.gpu,
-        },
-        "zisk" => Backend::Zisk {
-            binary: require_binary(&cli),
-        },
-        "zisk-prove" => Backend::ZiskProve {
-            ziskemu: require_binary(&cli),
-            cargo_zisk: cli.cargo_zisk.clone().unwrap_or_else(|| {
-                eprintln!("error: --cargo-zisk is required for zkvm 'zisk-prove'");
-                process::exit(2);
-            }),
-            witness_lib: cli.witness_lib.clone(),
-            gpu: cli.gpu,
-        },
-        "zisk-standards" => Backend::ZiskStandards {
-            binary: require_binary(&cli),
-        },
-        "sp1-standards" => Backend::Sp1Standards {
-            executor: require_binary(&cli),
-        },
-        "openvm-standards" => Backend::OpenVMStandards {
-            executor: require_binary(&cli),
-        },
-        other => {
-            eprintln!(
-                "error: unknown zkvm '{other}', expected one of: lambdavm, openvm, openvm-prove, sp1-prove, \
-                 zisk, zisk-prove, zisk-standards, sp1-standards, openvm-standards"
-            );
-            process::exit(2);
-        }
+    let Some((zkvm, suite_kind, prove)) = backends::parse_name(&cli.zkvm) else {
+        eprintln!(
+            "error: unknown zkvm '{}', expected one of: lambdavm, openvm, openvm-prove, sp1-prove, \
+             zisk, zisk-prove, zisk-standards, sp1-standards, openvm-standards",
+            cli.zkvm
+        );
+        process::exit(2);
     };
+    let binary = require_binary(&cli);
+    let prove = prove.then(|| {
+        let tools = match zkvm {
+            Zkvm::Sp1 => ProverTools::Sp1 {
+                sp1_perf: cli.sp1_perf.clone().unwrap_or_else(|| {
+                    eprintln!("error: --sp1-perf is required for zkvm 'sp1-prove'");
+                    process::exit(2);
+                }),
+            },
+            Zkvm::OpenVM => ProverTools::OpenVM,
+            Zkvm::Zisk => ProverTools::Zisk {
+                cargo_zisk: cli.cargo_zisk.clone().unwrap_or_else(|| {
+                    eprintln!("error: --cargo-zisk is required for zkvm 'zisk-prove'");
+                    process::exit(2);
+                }),
+                witness_lib: cli.witness_lib.clone(),
+            },
+            Zkvm::LambdaVM => {
+                eprintln!("error: zkvm 'lambdavm' has no prover");
+                process::exit(2);
+            }
+        };
+        Prover { gpu: cli.gpu, tools }
+    });
+    let backend = Backend::new(zkvm, suite_kind, binary, prove).unwrap_or_else(|e| {
+        eprintln!("error: {e}");
+        process::exit(2);
+    });
 
     // For prove/full modes, default to 1 job (proving is resource-intensive)
     let jobs = cli.jobs.unwrap_or_else(|| {

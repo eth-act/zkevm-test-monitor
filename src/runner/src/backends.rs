@@ -7,33 +7,102 @@ use anyhow::Context;
 
 use crate::io::{self, IoVectors};
 
-/// Supported ZK-VM backends.
+/// Supported ZK-VMs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Zkvm {
+    LambdaVM,
+    OpenVM,
+    Sp1,
+    Zisk,
+}
+
+/// Test suites a backend can run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Suite {
+    /// The ACT4 ISA tests: pass = clean exit, optionally prove and verify.
+    Isa,
+    /// The eth-act standards tests: check the guest's public output.
+    Standards,
+}
+
+/// A ZK-VM backend: the zkVM, the suite it runs and, for the prove
+/// backends, the prover.
 ///
-/// The ISA backends run the ACT4 tests (pass = clean exit, optionally prove
-/// and verify). The standards backends run the eth-act standards test guests
-/// and check their public output.
-pub enum Backend {
-    LambdaVM { binary: PathBuf },
-    OpenVM { binary: PathBuf },
-    Sp1Prove {
-        executor: PathBuf,
-        sp1_perf: PathBuf,
-        gpu: bool,
-    },
-    OpenVMProve { binary: PathBuf, gpu: bool },
-    Zisk { binary: PathBuf },
-    ZiskProve {
-        ziskemu: PathBuf,
-        cargo_zisk: PathBuf,
-        witness_lib: Option<PathBuf>,
-        gpu: bool,
-    },
-    /// eth-act standards tests on `ziskemu` (execute only).
-    ZiskStandards { binary: PathBuf },
-    /// eth-act standards tests on `sp1-eth-act-standards-executor`.
-    Sp1Standards { executor: PathBuf },
-    /// eth-act standards tests on `openvm-eth-act-standards-executor`.
-    OpenVMStandards { executor: PathBuf },
+/// Build it with `Backend::new`, which rejects unsupported combinations.
+pub struct Backend {
+    pub zkvm: Zkvm,
+    pub suite: Suite,
+    /// The emulator or executor that runs the ELF.
+    pub binary: PathBuf,
+    /// The prover; `None` = execute only.
+    pub prove: Option<Prover>,
+}
+
+/// The prover of a prove backend. `Mode` decides whether it proves and
+/// verifies.
+pub struct Prover {
+    pub gpu: bool,
+    pub tools: ProverTools,
+}
+
+/// The extra tools each prover needs besides `Backend::binary`.
+pub enum ProverTools {
+    /// `sp1-perf` proves and verifies.
+    Sp1 { sp1_perf: PathBuf },
+    /// `Backend::binary` also proves and verifies.
+    OpenVM,
+    /// `cargo-zisk` proves and verifies.
+    Zisk { cargo_zisk: PathBuf, witness_lib: Option<PathBuf> },
+}
+
+impl Zkvm {
+    /// The zkVM's name, the stem of its `--zkvm` names.
+    pub fn name(self) -> &'static str {
+        match self {
+            Zkvm::LambdaVM => "lambdavm",
+            Zkvm::OpenVM => "openvm",
+            Zkvm::Sp1 => "sp1",
+            Zkvm::Zisk => "zisk",
+        }
+    }
+
+    fn from_name(name: &str) -> Option<Self> {
+        [Zkvm::LambdaVM, Zkvm::OpenVM, Zkvm::Sp1, Zkvm::Zisk].into_iter().find(|z| z.name() == name)
+    }
+}
+
+impl ProverTools {
+    fn zkvm(&self) -> Zkvm {
+        match self {
+            ProverTools::Sp1 { .. } => Zkvm::Sp1,
+            ProverTools::OpenVM => Zkvm::OpenVM,
+            ProverTools::Zisk { .. } => Zkvm::Zisk,
+        }
+    }
+}
+
+/// Whether a backend exists for this zkVM, suite and prover presence.
+fn is_supported(zkvm: Zkvm, suite: Suite, prove: bool) -> bool {
+    match (zkvm, suite, prove) {
+        (Zkvm::LambdaVM | Zkvm::OpenVM | Zkvm::Zisk, Suite::Isa, false) => true,
+        (Zkvm::OpenVM | Zkvm::Sp1 | Zkvm::Zisk, Suite::Isa, true) => true,
+        (Zkvm::OpenVM | Zkvm::Sp1 | Zkvm::Zisk, Suite::Standards, false) => true,
+        _ => false,
+    }
+}
+
+/// Parse a `--zkvm` name into its zkVM, suite and whether it proves.
+/// Returns `None` for an unknown name or an unsupported combination.
+pub fn parse_name(name: &str) -> Option<(Zkvm, Suite, bool)> {
+    let (stem, suite, prove) = if let Some(stem) = name.strip_suffix("-standards") {
+        (stem, Suite::Standards, false)
+    } else if let Some(stem) = name.strip_suffix("-prove") {
+        (stem, Suite::Isa, true)
+    } else {
+        (name, Suite::Isa, false)
+    };
+    let zkvm = Zkvm::from_name(stem)?;
+    is_supported(zkvm, suite, prove).then_some((zkvm, suite, prove))
 }
 
 /// Execution mode for test runs.
@@ -110,33 +179,39 @@ impl RunResult {
 }
 
 impl Backend {
+    /// Build a backend. Fails for an unsupported combination, or when the
+    /// prover tools belong to another zkVM.
+    pub fn new(zkvm: Zkvm, suite: Suite, binary: PathBuf, prove: Option<Prover>) -> anyhow::Result<Self> {
+        if !is_supported(zkvm, suite, prove.is_some()) {
+            let what = if prove.is_some() { "a prover" } else { "an executor" };
+            anyhow::bail!("{} has no {suite:?} backend with {what}", zkvm.name());
+        }
+        if let Some(prover) = &prove {
+            if prover.tools.zkvm() != zkvm {
+                anyhow::bail!("{} prover tools given for {}", prover.tools.zkvm().name(), zkvm.name());
+            }
+        }
+        Ok(Backend { zkvm, suite, binary, prove })
+    }
+
     /// The backend's name for `--zkvm`.
-    pub fn name(&self) -> &'static str {
-        match self {
-            Backend::LambdaVM { .. } => "lambdavm",
-            Backend::OpenVM { .. } => "openvm",
-            Backend::Sp1Prove { .. } => "sp1-prove",
-            Backend::OpenVMProve { .. } => "openvm-prove",
-            Backend::Zisk { .. } => "zisk",
-            Backend::ZiskProve { .. } => "zisk-prove",
-            Backend::ZiskStandards { .. } => "zisk-standards",
-            Backend::Sp1Standards { .. } => "sp1-standards",
-            Backend::OpenVMStandards { .. } => "openvm-standards",
+    pub fn name(&self) -> String {
+        match (self.suite, &self.prove) {
+            (Suite::Standards, _) => format!("{}-standards", self.zkvm.name()),
+            (Suite::Isa, Some(_)) => format!("{}-prove", self.zkvm.name()),
+            (Suite::Isa, None) => self.zkvm.name().to_owned(),
         }
     }
 
     /// Whether this backend runs the eth-act standards tests. Their guests
     /// default to an empty input and the expected output `PASS`.
     pub fn is_standards(&self) -> bool {
-        matches!(
-            self,
-            Backend::ZiskStandards { .. } | Backend::Sp1Standards { .. } | Backend::OpenVMStandards { .. }
-        )
+        self.suite == Suite::Standards
     }
 
     /// Whether this backend can feed `.input` and check `.expected`.
     fn supports_io(&self) -> bool {
-        self.is_standards() || matches!(self, Backend::Zisk { .. })
+        self.is_standards() || (self.zkvm == Zkvm::Zisk && self.prove.is_none())
     }
 
     /// Execute an ELF test through the backend and return the result.
@@ -154,29 +229,32 @@ impl Backend {
             );
         }
 
-        match self {
-            Backend::LambdaVM { binary } => {
+        let binary = &self.binary;
+        match (self.zkvm, self.suite, &self.prove) {
+            (Zkvm::LambdaVM, Suite::Isa, None) => {
                 run_lambdavm(binary, elf_path, mode, start)
             }
-            Backend::Sp1Prove { executor, sp1_perf, gpu } => {
-                run_sp1_prove(executor, sp1_perf, elf_path, mode, *gpu, start)
+            (Zkvm::Sp1, Suite::Isa, Some(Prover { gpu, tools: ProverTools::Sp1 { sp1_perf } })) => {
+                run_sp1_prove(binary, sp1_perf, elf_path, mode, *gpu, start)
             }
-            Backend::OpenVMProve { binary, gpu } => {
+            (Zkvm::OpenVM, Suite::Isa, Some(Prover { gpu, tools: ProverTools::OpenVM })) => {
                 run_openvm_prove(binary, elf_path, mode, *gpu, start)
             }
-            Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
-                run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
+            (Zkvm::Zisk, Suite::Isa, Some(Prover { gpu, tools: ProverTools::Zisk { cargo_zisk, witness_lib } })) => {
+                run_zisk_prove(binary, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
-            Backend::OpenVM { binary } => run_openvm(binary, elf_path, start),
-            Backend::Zisk { binary } | Backend::ZiskStandards { binary } => {
+            (Zkvm::OpenVM, Suite::Isa, None) => run_openvm(binary, elf_path, start),
+            (Zkvm::Zisk, Suite::Isa | Suite::Standards, None) => {
                 run_zisk(binary, elf_path, vectors, start)
             }
-            Backend::Sp1Standards { executor } => {
-                run_io_executor(executor, elf_path, vectors, OutputArea::Exact, start)
+            (Zkvm::Sp1, Suite::Standards, None) => {
+                run_io_executor(binary, elf_path, vectors, OutputArea::Exact, start)
             }
-            Backend::OpenVMStandards { executor } => {
-                run_io_executor(executor, elf_path, vectors, OutputArea::ZeroPadded, start)
+            (Zkvm::OpenVM, Suite::Standards, None) => {
+                run_io_executor(binary, elf_path, vectors, OutputArea::ZeroPadded, start)
             }
+            // `Backend::new` rejects every other combination.
+            _ => RunResult::not_run(start, format!("runner error: unsupported backend {}", self.name())),
         }
     }
 }
@@ -1214,7 +1292,77 @@ fn wait_for_gpu_free(timeout: Duration) {
 
 #[cfg(test)]
 mod tests {
-    use super::sp1_guest_exit_code;
+    use std::path::PathBuf;
+
+    use super::{Backend, Prover, ProverTools, Suite, Zkvm, parse_name, sp1_guest_exit_code};
+
+    /// Every `--zkvm` name with its suite and whether it proves.
+    const NAMES: [(&str, Suite, bool); 9] = [
+        ("lambdavm", Suite::Isa, false),
+        ("openvm", Suite::Isa, false),
+        ("openvm-prove", Suite::Isa, true),
+        ("sp1-prove", Suite::Isa, true),
+        ("zisk", Suite::Isa, false),
+        ("zisk-prove", Suite::Isa, true),
+        ("zisk-standards", Suite::Standards, false),
+        ("sp1-standards", Suite::Standards, false),
+        ("openvm-standards", Suite::Standards, false),
+    ];
+
+    fn prover(zkvm: Zkvm) -> Prover {
+        let tools = match zkvm {
+            Zkvm::Sp1 => ProverTools::Sp1 { sp1_perf: PathBuf::from("sp1-perf") },
+            Zkvm::Zisk => ProverTools::Zisk { cargo_zisk: PathBuf::from("cargo-zisk"), witness_lib: None },
+            Zkvm::OpenVM | Zkvm::LambdaVM => ProverTools::OpenVM,
+        };
+        Prover { gpu: false, tools }
+    }
+
+    #[test]
+    fn builds_a_backend_from_each_name() {
+        for (name, suite, prove) in NAMES {
+            let parsed = parse_name(name).unwrap_or_else(|| panic!("{name} does not parse"));
+            assert_eq!((parsed.1, parsed.2), (suite, prove), "{name}");
+            let zkvm = parsed.0;
+            let backend = Backend::new(zkvm, suite, PathBuf::from("bin"), prove.then(|| prover(zkvm))).unwrap();
+            assert_eq!(backend.name(), name);
+            assert_eq!(backend.is_standards(), suite == Suite::Standards, "{name}");
+            assert_eq!(backend.prove.is_some(), prove, "{name}");
+            assert_eq!(backend.binary, PathBuf::from("bin"));
+        }
+    }
+
+    #[test]
+    fn only_zisk_isa_execute_and_standards_backends_support_io() {
+        for (name, suite, prove) in NAMES {
+            let (zkvm, ..) = parse_name(name).unwrap();
+            let backend = Backend::new(zkvm, suite, PathBuf::from("bin"), prove.then(|| prover(zkvm))).unwrap();
+            let expected = matches!(name, "zisk" | "zisk-standards" | "sp1-standards" | "openvm-standards");
+            assert_eq!(backend.supports_io(), expected, "{name}");
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_names_and_unsupported_combinations() {
+        for name in ["sp1", "lambdavm-prove", "lambdavm-standards", "zisk-prove-standards", "risc0", ""] {
+            assert_eq!(parse_name(name), None, "{name}");
+        }
+    }
+
+    #[test]
+    fn rejects_unsupported_backends() {
+        let bin = || PathBuf::from("bin");
+        // LambdaVM has no standards backend and no prover.
+        assert!(Backend::new(Zkvm::LambdaVM, Suite::Standards, bin(), None).is_err());
+        assert!(Backend::new(Zkvm::LambdaVM, Suite::Isa, bin(), Some(prover(Zkvm::OpenVM))).is_err());
+        // The standards suite is execute only.
+        assert!(Backend::new(Zkvm::Zisk, Suite::Standards, bin(), Some(prover(Zkvm::Zisk))).is_err());
+        // SP1 runs the ISA tests only through its prove backend.
+        assert!(Backend::new(Zkvm::Sp1, Suite::Isa, bin(), None).is_err());
+        // The prover tools must belong to the zkVM.
+        assert!(Backend::new(Zkvm::Zisk, Suite::Isa, bin(), Some(prover(Zkvm::Sp1))).is_err());
+        assert!(Backend::new(Zkvm::OpenVM, Suite::Isa, bin(), Some(prover(Zkvm::Zisk))).is_err());
+    }
 
     #[test]
     fn parses_sp1_guest_exit_code() {
