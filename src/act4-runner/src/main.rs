@@ -1,4 +1,8 @@
 mod zkvm_backends;
+// The ere backend is behind the `ere` cargo feature, so the native path's build does
+// not fetch or compile ere-dockerized (a git dependency with its own Docker and HTTP
+// client crates). src/test.sh builds the ere runner with `--features ere` into
+// target/ere. See the `[features]` note in Cargo.toml.
 #[cfg(feature = "ere")]
 mod ere_backend;
 mod results;

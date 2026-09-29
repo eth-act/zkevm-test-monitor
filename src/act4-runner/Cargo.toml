@@ -18,4 +18,6 @@ libc = "0.2"
 ere-dockerized = { git = "https://github.com/eth-act/ere", rev = "77e2aae2b92bc0231a3603749ee1a30f8e89c87d", optional = true }
 
 [features]
+# Optional so that the native path's build does not fetch or compile ere-dockerized;
+# only the ere path (BACKEND=ere, src/test.sh) builds with `--features ere`.
 ere = ["dep:ere-dockerized"]
