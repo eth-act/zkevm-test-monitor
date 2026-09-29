@@ -2,10 +2,13 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers four
+asks of each zkVM, plus the host-randomness standard. It covers five
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
-`zkvm_io.h` and `zkvm_accelerators.h` from it. `src/run-eth-act-standards-tests.sh` fetches that
+`zkvm_io.h`, `zkvm_accelerators.h` and `zkvm_random.h` from it. Host randomness is still a pull
+request ([eth-act/zkevm-standards#42](https://github.com/eth-act/zkevm-standards/pull/42)), so the
+pin is that pull request's head commit, which eth-act serves by SHA; its other headers are
+unchanged from the previous pin. `src/run-eth-act-standards-tests.sh` fetches that
 commit into `out/deps/zkevm-standards` and records it with each run.
 
 | Group | Standard | Tests |
@@ -14,6 +17,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp` over all alignments and lengths 0..72, with guard bytes and unchanged sources, plus link resolution against weak decoys |
 | `termination/` | [Standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics) | `main` returns 1, and `main` returns 7: each must be an abnormal termination with that error code |
+| `randomness/` | [Host randomness](https://github.com/eth-act/zkevm-standards/pull/42) (`zkvm_random.h`) | one call; 10 000 calls; 16 pairwise-distinct draws; every bit position varies; two executions draw different values; a hash table keyed by `zkvm_random_u64` gives the same answer under any key |
 
 The suite runs execution only. It does not prove.
 
@@ -29,7 +33,7 @@ links against the vendor's static library and calls it only through the standard
 static library on the link line, so the vendor's `_start` runs `main`. The test ends through the
 zkVM's ACT4 halt macros, the same as an ISA test.
 
-The runner judges a test in one of three ways:
+The runner judges a test in one of four ways:
 
 - **ACT4 verdict.** A self-checking program calls `rvtest_pass()`, and a failed check calls
   `print_error()` (`include/checks.h`). The runner reads the verdict as for an ISA test:
@@ -57,6 +61,10 @@ The runner judges a test in one of three ways:
   an abnormal termination, and that the value is the error code. They expect `fail <code>` and
   do not call `rvtest_pass()`.
 
+- **Distinct output.** `<name>.outcome` holds `distinct`. The runner runs the program twice. Both
+  runs must finish normally, and their public outputs must differ. `rand-independence` uses
+  this: one run cannot tell a fresh random seed from a fixed one.
+
 The runner puts each execution in one of three classes, as the
 [standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics)
 define them:
@@ -77,6 +85,14 @@ verdict, so the test fails.
 
 `mem-link-resolution` defines weak `memcpy`, `memmove`, `memset` and `memcmp` functions that give
 wrong results. The vendor's strong definitions must replace them at link time.
+
+Most vendor libraries have no `zkvm_random_u64` yet, and one missing symbol would fail every
+link. `build-guests.sh` therefore links a fallback archive (`include/zkvm_random_fallback.c`)
+after the vendor library. The linker uses its `zkvm_random_u64` only when the vendor library has
+none, and that function fails the test (it prints `the vendor library has no zkvm_random_u64` on
+zkVMs with a console). (A weak
+reference would not pull the vendor's definition out of its archive, and `EXTERN` would make a
+missing definition a link error.)
 
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
@@ -111,11 +127,18 @@ deliverable, and each history run says so in `notes`. `zkvms/openvm/standards/ve
 `ere-platform-openvm` as a static library, the way ere compiles OpenVM guests with a stock
 nightly toolchain. Everything in it comes from ere and OpenVM (`_start`, allocator, panic
 handler, the `zkvm_*` accelerators, and `openvm-mem` for `memcpy` and friends), except for
-`read_input` and `write_output`. These two functions forward to ere's `OpenVMPlatform`:
+`read_input`, `write_output` and `zkvm_random_u64`. The first two forward to ere's
+`OpenVMPlatform`:
 
 - `read_input` reads the input once and returns the same buffer on each call.
 - `write_output` appends to a buffer and reveals the whole buffer again, because ere reveals
   from byte 0 on each call. ere limits the output to 256 bytes.
+
+`zkvm_random_u64` calls OpenVM's `hint_random`, as OpenVM's own `sys_rand` does. The host
+executor chooses the seed: at the pinned OpenVM it is a constant, so `rand-independence` fails.
+To run the executor from another OpenVM commit, for example an implementation of the standard,
+set `OPENVM_EXECUTOR_GIT` and `OPENVM_EXECUTOR_REV`. The guest library keeps ere's pin, and the
+run's notes say that the executor is not the pinned OpenVM.
 
 The OpenVM linker script puts the program at `0x00200800`, where OpenVM guests start.
 `openvm-eth-act-standards-executor` runs the guest in OpenVM's SDK executor, with the VM config that ere's
