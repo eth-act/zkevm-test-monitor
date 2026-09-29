@@ -3,13 +3,13 @@
   "suite": "eth-act-standards",
   "runs": [
     {
-      "date": "2026-09-29T13:48:15Z",
+      "date": "2026-09-29T18:10:42Z",
       "commit": "02d2ae7b",
       "library_commit": "02d2ae7b",
-      "monitor_commit": "66016aca",
+      "monitor_commit": "0b2021c5",
       "standards_commit": "d1191c57b5c19c13e4ad3520adf08fa75bb8db4d",
       "isa": "RV64IMFDAC_Zicclsm",
-      "total": 38,
+      "total": 40,
       "passed": [
         "accel-bls12-g1-add",
         "accel-bls12-g1-msm",
@@ -50,7 +50,9 @@
       "failed": [
         "accel-blake2f",
         "io-write-1024-bytes",
-        "io-write-257-bytes"
+        "io-write-257-bytes",
+        "term-main-returns-1",
+        "term-main-returns-7"
       ],
       "prove_failed": [],
       "verify_failed": [],
@@ -93,12 +95,16 @@
         "mem-memcmp": "memory",
         "mem-memcpy": "memory",
         "mem-memmove": "memory",
-        "mem-memset": "memory"
+        "mem-memset": "memory",
+        "term-main-returns-1": "termination",
+        "term-main-returns-7": "termination"
       },
       "details": {
-        "accel-blake2f": "public output does not start with the PASS marker",
+        "accel-blake2f": "public output has the FAIL marker",
         "io-write-1024-bytes": "emulator error (exit 101): Mem::write_silent() invalid addr=1=1 write section start=a0000000 end=c0000000",
-        "io-write-257-bytes": "emulator error (exit 101): Mem::write_silent() invalid addr=1=1 write section start=a0000000 end=c0000000"
+        "io-write-257-bytes": "emulator error (exit 101): Mem::write_silent() invalid addr=1=1 write section start=a0000000 end=c0000000",
+        "term-main-returns-1": "did not terminate abnormally: finished normally (public output does not start with the PASS marker)",
+        "term-main-returns-7": "did not terminate abnormally: finished normally (public output does not start with the PASS marker)"
       }
     }
   ]
