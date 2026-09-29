@@ -10,9 +10,9 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 
 | Group | Standard | Tests |
 |---|---|---|
-| `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence; echo; split, byte-wise and zero-length writes; outputs of 257 and 1024 bytes |
+| `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call); echo; split, byte-wise and zero-length writes; outputs of 257 and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
-| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp` over all alignments and lengths 0..72, plus link resolution against weak decoys |
+| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp` over all alignments and lengths 0..72, with guard bytes and unchanged sources, plus link resolution against weak decoys |
 | `termination/` | [Standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics) | `main` returns 1, and `main` returns 7: each must be an abnormal termination with that error code |
 
 The suite runs execution only. It does not prove.
@@ -64,10 +64,11 @@ define them:
 | Class | SP1 and OpenVM | ZisK |
 |---|---|---|
 | Successful termination | the executor exits 0 (the guest halted with exit code 0) | `ziskemu` exits 0 without "finished with error", and a test without `.expected` has no `FAIL` marker |
-| Abnormal termination | the executor exits 1: a non-zero guest exit code (with the code), or an execution that the zkVM rejected, such as an invalid memory access (without a code) | the `FAIL` marker, a non-zero `ziskemu` exit, or "finished with error" (always without a code) |
-| Host error | any other exit status (2: a usage, I/O, SDK, ELF load or compile error), or a death by signal | `ziskemu` cannot start, writes no output file, or dies by a signal |
+| Abnormal termination | the executor exits 1: a non-zero guest exit code (with the code), or an execution that the zkVM rejected, such as an invalid memory access (without a code) | the `FAIL` marker, or a guest fault on stderr: an invalid memory address, a jump outside the program, or "finished with error" (always without a code) |
+| Host error | any other exit status (2: a usage, I/O, SDK, ELF load or compile error), or a death by signal | any other non-zero `ziskemu` exit (for example a file that is not an ELF, or a loader error), no output file, or a death by signal |
 
-A host error is not a guest outcome, so it never passes a test. The executors write the guest's
+A host error is not a guest outcome, so it never passes a test. The runner exits 3 when a test
+hit a host error and 2 when it finds no ELFs; the run script then records no history. The executors write the guest's
 exit code to a file that the runner names as their fourth argument. ZisK reports no error code,
 because ZisK 1.2 and later ignore `a0` at the exit ecall.
 
@@ -185,4 +186,6 @@ tests follow the EVM precompile:
 - A zero `modexp` modulus gives an all-zero result.
 - A `blake2f` final flag other than 0 or 1 must return a failure status.
 - A signature, pairing or KZG check that is invalid may fail in either of two ways: it can
-  return a failure status, or it can return success with `verified == false`.
+  return a failure status, or it can return success with `verified == false`. The test sets the
+  flag to the opposite of the expected result before each call, so a function that returns success
+  without writing the flag fails.

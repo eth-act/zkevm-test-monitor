@@ -17,11 +17,13 @@ RESULTS_DIR="out/${ZKVM}"
 STANDARDS_DIR="out/deps/zkevm-standards"
 VECTOR_CACHE="out/deps/accel-vectors"
 IMAGE="${ZKVM}-eth-act-standards:latest"
+RESULTS_FILE="$RESULTS_DIR/results-eth-act-standards.json"
 
 if [ ! -d "$PLATFORM_DIR" ]; then
   echo "  No eth-act standards platform for $ZKVM; skipping"
   exit 0
 fi
+mkdir -p "$RESULTS_DIR" out/bin
 
 # IMAGE_EMULATOR: the executor is built in the eth-act standards image and copied out.
 # IMAGE_EMULATOR_LIBS: an image directory of shared libraries the emulator
@@ -95,8 +97,7 @@ docker build --build-arg COMMIT_HASH="$COMMIT" -t "$IMAGE" \
 }
 
 if [ -n "$IMAGE_EMULATOR" ]; then
-  mkdir -p binaries
-  docker run --rm --entrypoint cat "$IMAGE" "$IMAGE_EMULATOR" > "$EMULATOR"
+    docker run --rm --entrypoint cat "$IMAGE" "$IMAGE_EMULATOR" > "$EMULATOR"
   chmod +x "$EMULATOR"
 fi
 EMULATOR_LIB_DIR="out/bin/${ZKVM}-lib"
@@ -146,11 +147,13 @@ for entry in $IMAGE_COMMIT_FILES; do
   docker run --rm --entrypoint cat "$IMAGE" "${entry%%:*}" > "$ELF_DIR/${entry#*:}"
 done
 
+# Always build the runner, so a stale binary cannot judge the tests.
 RUNNER="src/runner/target/release/runner"
-if [ ! -x "$RUNNER" ]; then
-  echo "  Building runner..."
-  cargo build --release --manifest-path src/runner/Cargo.toml
-fi
+echo "Building runner..."
+cargo build --release --manifest-path src/runner/Cargo.toml > "$RESULTS_DIR/eth-act-standards-runner-build.log" 2>&1 || {
+  echo "  Failed to build the runner — check $RESULTS_DIR/eth-act-standards-runner-build.log"
+  exit 1
+}
 
 RUNNER_JOBS=""
 if [ -n "${ACT4_JOBS:-${JOBS:-}}" ]; then
@@ -162,17 +165,30 @@ if [ -d "$EMULATOR_LIB_DIR" ]; then
 fi
 
 echo "Running $ZKVM eth-act standards tests (execute only)..."
+# Only this run's results may reach the history.
+rm -f "$RESULTS_FILE" "$RESULTS_DIR/summary-eth-act-standards.json"
+# Runner exit status: 0 all passed, 1 some test failed; anything else (a
+# usage error, no ELFs, a host error) means the run is not valid.
+RUNNER_STATUS=0
 # shellcheck disable=SC2086
 "$RUNNER" \
   --zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR" \
   --elf-dir "$ELF_DIR" \
   --output-dir "$RESULTS_DIR" \
   --suite eth-act-standards --groups \
-  $RUNNER_JOBS || true
-
-RESULTS_FILE="$RESULTS_DIR/results-eth-act-standards.json"
+  $RUNNER_JOBS || RUNNER_STATUS=$?
+if [ "$RUNNER_STATUS" -gt 1 ]; then
+  echo "  Error: the runner could not complete the $ZKVM run (exit $RUNNER_STATUS); no history recorded"
+  exit 1
+fi
 if [ ! -f "$RESULTS_FILE" ]; then
-  echo "  Warning: no eth-act standards results generated for $ZKVM"
+  echo "  Error: no eth-act standards results generated for $ZKVM; no history recorded"
+  exit 1
+fi
+# Every ELF this run built must have a result.
+ELF_COUNT=$(find "$ELF_DIR" -name '*.elf' | wc -l)
+if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
+  echo "  Error: $(jq .total "$RESULTS_FILE") results for $ELF_COUNT ELFs; no history recorded"
   exit 1
 fi
 

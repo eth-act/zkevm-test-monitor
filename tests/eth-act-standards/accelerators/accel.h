@@ -59,6 +59,14 @@ static inline bool accel_verdict_ok(int expect, zkvm_status status, bool verifie
         }                                                                   \
     } while (0)
 
+/*
+ * The first value of a verified flag: the opposite of the expected result.
+ * A function that returns ZKVM_EOK without writing the flag then fails.
+ */
+static inline bool accel_verdict_init(int expect) {
+    return expect != EXPECT_TRUE;
+}
+
 /* Check a function that reports a verified flag. */
 #define CHECK_VERDICT(i, status, verified)                   \
     CHECK_LABEL(CASE_ID(i, STEP_VERDICT), cases[i].label, \

@@ -5,9 +5,9 @@ use std::time::Instant;
 use rayon::prelude::*;
 
 use crate::backends::{Execution, Mode, PassHalt, RunResult, Termination, Zkvm};
-use crate::vectors::{self, IoVectors, Outcome};
+use crate::io_and_expected_failures::{self, IoVectors, Outcome};
 
-/// The test suite. It sets the defaults of the test vectors (see `crate::vectors`);
+/// The test suite. It sets the defaults of the test vectors (see `crate::io_and_expected_failures`);
 /// the zkVM backends do not depend on it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Suite {
@@ -72,7 +72,7 @@ pub fn run_tests(
     })
 }
 
-/// Run one ELF with its test vectors (see `crate::vectors`), prove it in the prove
+/// Run one ELF with its test vectors (see `crate::io_and_expected_failures`), prove it in the prove
 /// modes, and apply its expected outcome.
 pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> RunResult {
     let start = Instant::now();
@@ -128,7 +128,7 @@ fn output_mismatch(execution: &Execution, expected: Option<&[u8]>, pass_output: 
         (Some(expected), _) => expected,
         (None, PassHalt::Reached) => return None,
         (None, PassHalt::Missed(reason)) => return Some(reason.clone()),
-        (None, PassHalt::Unknown) if pass_output => vectors::PASS_OUTPUT,
+        (None, PassHalt::Unknown) if pass_output => io_and_expected_failures::PASS_OUTPUT,
         (None, PassHalt::Unknown) => return None,
     };
     match &execution.output {

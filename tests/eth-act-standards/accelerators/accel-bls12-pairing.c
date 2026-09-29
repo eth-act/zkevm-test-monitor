@@ -11,7 +11,7 @@
 
 int main(void) {
     for (size_t i = 0; i < NUM_CASES; i++) {
-        bool verified = false;
+        bool verified = accel_verdict_init(cases[i].expect);
         size_t num_pairs = cases[i].pairs_len / sizeof(zkvm_bls12_381_pairing_pair);
         zkvm_status status = zkvm_bls12_pairing((const zkvm_bls12_381_pairing_pair *)cases[i].pairs, num_pairs, &verified);
         CHECK_VERDICT(i, status, verified);
