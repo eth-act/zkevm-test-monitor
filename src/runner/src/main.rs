@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::Parser;
-use runner::backends::{Backend, Mode};
+use runner::backends::{Backend, Mode, Termination};
 use runner::results::{self, TestEntry};
 use runner::runner as suite;
 
@@ -10,7 +10,11 @@ use runner::runner as suite;
 /// standards tests.
 ///
 /// Every ELF may have `<stem>.input`, `<stem>.expected` and `<stem>.outcome`
-/// files next to it (see the `io` module).
+/// files next to it (see the `io_and_expected_failures` module).
+///
+/// Exit status: 0 when every test passed, 1 when a test failed, 2 on a usage
+/// error or when the ELF directory holds no ELFs, 3 when a test could not run
+/// (a host error), so the results are not a valid run.
 #[derive(Parser)]
 #[command(name = "runner")]
 struct Cli {
@@ -154,10 +158,13 @@ fn main() {
         }
     });
 
-    let entries: Vec<TestEntry> = suite::run_tests(&backend, &cli.elf_dir, jobs, mode)
-        .iter()
-        .map(|(path, result)| TestEntry::from_run(path, result))
-        .collect();
+    let runs = suite::run_tests(&backend, &cli.elf_dir, jobs, mode);
+    if runs.is_empty() {
+        eprintln!("error: no ELFs found in {}", cli.elf_dir.display());
+        process::exit(2);
+    }
+    let host_errors = runs.iter().filter(|(_, result)| result.termination == Termination::HostError).count();
+    let entries: Vec<TestEntry> = runs.iter().map(|(path, result)| TestEntry::from_run(path, result)).collect();
 
     if let Err(e) = std::fs::create_dir_all(&cli.output_dir) {
         eprintln!("error: failed to create output dir: {e}");
@@ -203,6 +210,10 @@ fn main() {
         println!("verified: {verified}/{} ({} failed)", verified + verify_failed, verify_failed);
     }
 
+    if host_errors > 0 {
+        eprintln!("error: {host_errors} test(s) could not run (host errors); the results are not a valid run");
+        process::exit(3);
+    }
     if failed > 0 {
         process::exit(1);
     }

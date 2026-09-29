@@ -9,16 +9,19 @@ shift || true
 # run_eth_act_standards_tests [zkvm ...] — run the eth-act standards tests for the
 # given zkVMs, or for every zkVM with a zkvms/<zkvm>/standards/ platform.
 run_eth_act_standards_tests() {
-    local zkvms="$*"
+    local zkvms="$*" failed=""
     if [ -z "$zkvms" ]; then
         for dir in zkvms/*/standards/; do
             zkvms="$zkvms $(basename "$(dirname "$dir")")"
         done
     fi
     for zkvm in $zkvms; do
-        ./src/run-eth-act-standards-tests.sh "$zkvm" \
-            || echo "  Warning: eth-act standards tests failed for $zkvm"
+        ./src/run-eth-act-standards-tests.sh "$zkvm" || failed="$failed $zkvm"
     done
+    if [ -n "$failed" ]; then
+        echo "Error: the eth-act standards tests could not run for:$failed"
+        return 1
+    fi
 }
 
 case "$CMD" in
