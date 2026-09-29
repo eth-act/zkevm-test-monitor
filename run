@@ -50,6 +50,10 @@ case "$CMD" in
         run_eth_act_standards_tests "$@"
         ;;
 
+    elfs)
+        ./src/generate_elfs.sh "$@"
+        ;;
+
     serve)
         echo "Server at http://0.0.0.0:9586/"
         echo "   Press Ctrl+C to stop"
@@ -103,6 +107,7 @@ Commands:
                             memory operations; zisk, sp1, openvm; execute only)
   tests [zkvm ...]          Run both test suites
   all [zkvm ...]            Build + both test suites
+  elfs <zkvm> [--force]     Generate ACT4 ELFs only (no zkVM binary, no test run)
   serve                     Start local web server at 0.0.0.0:9586
   clean [zkvm ...]          Remove build artifacts (all or specific ZKVMs)
 
