@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context;
 
-use crate::io::{self, IoVectors};
+use crate::vectors::{self, IoVectors};
 
 /// Supported ZK-VM backends.
 ///
@@ -1007,7 +1007,7 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
         let mut cmd = Command::new(binary);
         cmd.arg("-e").arg(elf_path);
         if let Some(input) = &vectors.input {
-            std::fs::write(&input_path, io::zisk_frame_input(input))?;
+            std::fs::write(&input_path, vectors::zisk_frame_input(input))?;
             cmd.arg("-i").arg(&input_path);
         }
         cmd.arg("-o").arg(&output_path);
@@ -1019,7 +1019,7 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
 
         let exit_code = output.status.code();
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let reason = io::emulator_error_reason(&stderr);
+        let reason = vectors::emulator_error_reason(&stderr);
         if exit_code.is_none() {
             let detail = format!("emulator killed by a signal: {reason}");
             return Ok(RunResult::host_error(start, exit_code, detail));
@@ -1043,7 +1043,7 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
             ),
             Some(expected) => (
                 Termination::Success,
-                (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected)),
+                (!vectors::matches_zero_padded(&actual, expected)).then(|| vectors::describe_mismatch(&actual, expected)),
             ),
         };
         Ok(RunResult::executed(start, exit_code, termination, detail))
@@ -1132,7 +1132,7 @@ fn run_io_executor(
             .with_context(|| format!("failed to run {}", executor.display()))?;
 
         let exit_code = output.status.code();
-        let reason = io::emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
+        let reason = vectors::emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
         match exit_code {
             Some(0) => {}
             Some(1) => {
@@ -1159,14 +1159,14 @@ fn run_io_executor(
         // The pass halt is exit code 0, which a return from main also gives, so
         // a test without an expected output must write the PASS verdict
         // (tests/eth-act-standards/include/checks.h).
-        let expected = vectors.expected.as_deref().unwrap_or(io::PASS_OUTPUT);
+        let expected = vectors.expected.as_deref().unwrap_or(vectors::PASS_OUTPUT);
         let Ok(actual) = std::fs::read(&output_path) else {
             return Ok(RunResult::host_error(start, exit_code, "executor wrote no public values".to_owned()));
         };
         let detail = match area {
-            OutputArea::Exact => (actual != expected).then(|| io::describe_exact_mismatch(&actual, expected)),
+            OutputArea::Exact => (actual != expected).then(|| vectors::describe_exact_mismatch(&actual, expected)),
             OutputArea::ZeroPadded => {
-                (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected))
+                (!vectors::matches_zero_padded(&actual, expected)).then(|| vectors::describe_mismatch(&actual, expected))
             }
         };
         Ok(RunResult::executed(start, exit_code, Termination::Success, detail))
@@ -1277,7 +1277,7 @@ mod tests {
     use std::sync::Mutex;
 
     use super::*;
-    use crate::io::Outcome;
+    use crate::vectors::Outcome;
 
     /// Serializes the tests that write and spawn fake executors: a script
     /// that another thread's fork holds open for writing fails with ETXTBSY.
