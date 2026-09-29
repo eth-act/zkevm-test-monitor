@@ -6,27 +6,35 @@
 /*
  * memcmp compares bytes as unsigned char, stops at the first difference,
  * ignores bytes at and after n, and returns 0 for n == 0. The sign of the
- * result follows the C standard, and memcmp changes neither operand. Every
- * alignment of both operands is covered.
+ * result follows the C standard, and memcmp writes nothing in or around
+ * either operand. Every alignment of both operands is covered.
  */
 #include "memops.h"
 
-static uint8_t a[MAX_OFFSET + MAX_LEN];
-static uint8_t b[MAX_OFFSET + MAX_LEN];
+/* Guard bytes on each side of both operands. */
+#define AREA (GUARD + MAX_OFFSET + MAX_LEN + GUARD)
 
-static uint8_t lhs_before[MAX_LEN];
-static uint8_t rhs_before[MAX_LEN];
+static uint8_t a_area[AREA];
+static uint8_t b_area[AREA];
+static uint8_t *const a = a_area + GUARD;
+static uint8_t *const b = b_area + GUARD;
+
+static uint8_t a_before[AREA];
+static uint8_t b_before[AREA];
 
 static int sign(int x) {
     return (x > 0) - (x < 0);
 }
 
-/* memcmp, and fail check `id` if the call changed either operand. */
+/*
+ * memcmp, and fail check `id` if the call wrote anywhere in either operand's
+ * area: inside or after the compared range, or in the guard bytes.
+ */
 static int checked_memcmp(uint32_t id, const uint8_t *lhs, const uint8_t *rhs, size_t n) {
-    test_bytes_copy(lhs_before, lhs, n);
-    test_bytes_copy(rhs_before, rhs, n);
+    test_bytes_copy(a_before, a_area, AREA);
+    test_bytes_copy(b_before, b_area, AREA);
     int result = memcmp(lhs, rhs, n);
-    CHECK(id, test_bytes_eq(lhs, lhs_before, n) && test_bytes_eq(rhs, rhs_before, n));
+    CHECK(id, test_bytes_eq(a_area, a_before, AREA) && test_bytes_eq(b_area, b_before, AREA));
     return result;
 }
 
@@ -61,14 +69,18 @@ int main(void) {
     /* Unsigned comparison: 0x80 > 0x7f, although (signed char)0x80 < 0x7f. */
     static const uint8_t hi[2] = {0x80, 0x00};
     static const uint8_t lo[2] = {0x7f, 0xff};
-    CHECK(4, sign(checked_memcmp(4, hi, lo, 2)) > 0);
-    CHECK(5, sign(checked_memcmp(5, lo, hi, 2)) < 0);
+    test_bytes_copy(a, hi, sizeof hi);
+    test_bytes_copy(b, lo, sizeof lo);
+    CHECK(4, sign(checked_memcmp(4, a, b, 2)) > 0);
+    CHECK(5, sign(checked_memcmp(5, b, a, 2)) < 0);
     /* Only the first difference decides the result. */
     static const uint8_t x[3] = {1, 2, 0xff};
     static const uint8_t y[3] = {1, 3, 0x00};
-    CHECK(6, sign(checked_memcmp(6, x, y, 3)) < 0);
-    /* n == 0 compares nothing. */
-    CHECK(7, checked_memcmp(7, hi, lo, 0) == 0);
+    test_bytes_copy(a, x, sizeof x);
+    test_bytes_copy(b, y, sizeof y);
+    CHECK(6, sign(checked_memcmp(6, a, b, 3)) < 0);
+    /* n == 0 compares nothing and writes nothing. */
+    CHECK(7, checked_memcmp(7, a, b, 0) == 0);
 
     rvtest_pass();
     return 0;
