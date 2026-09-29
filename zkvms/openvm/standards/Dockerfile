@@ -51,8 +51,23 @@ RUN git init /ere && cd /ere && \
     grep -m1 -o 'openvm\.git?tag=v2\.1\.0-preview#[0-9a-f]*' Cargo.lock | cut -d'#' -f2 > /openvm-commit.txt && \
     test -s /openvm-commit.txt
 
+# OPENVM_EXECUTOR_GIT and OPENVM_EXECUTOR_REV build the host executor from
+# another OpenVM commit, for example one that implements the host-randomness
+# standard. The guest library keeps ere's pin. Such a run is not the pinned
+# version, so src/run-eth-act-standards-tests.sh says so in its notes.
+# OpenVM's crates name stark-backend by a branch that no longer exists, so the
+# lockfile must not be re-resolved: the OpenVM source is rewritten in place,
+# and cargo only adds the new commit's new dependencies.
+ARG OPENVM_EXECUTOR_GIT=
+ARG OPENVM_EXECUTOR_REV=
 COPY executor /executor
-RUN cargo build --release --locked --manifest-path /executor/Cargo.toml && \
+RUN if [ -n "$OPENVM_EXECUTOR_REV" ]; then \
+      sed -i "s#git = \"https://github.com/openvm-org/openvm\", rev = \"[0-9a-f]*\"#git = \"$OPENVM_EXECUTOR_GIT\", rev = \"$OPENVM_EXECUTOR_REV\"#" /executor/Cargo.toml && \
+      sed -i "s#git+https://github.com/openvm-org/openvm?rev=[0-9a-f]*\#[0-9a-f]*#git+$OPENVM_EXECUTOR_GIT?rev=$OPENVM_EXECUTOR_REV\#$OPENVM_EXECUTOR_REV#" /executor/Cargo.lock; \
+    else \
+      locked=--locked; \
+    fi && \
+    cargo build --release $locked --manifest-path /executor/Cargo.toml && \
     cp /executor/target/release/openvm-eth-act-standards-executor /usr/local/bin/ && \
     rm -rf /executor/target
 
