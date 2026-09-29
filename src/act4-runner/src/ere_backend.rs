@@ -20,7 +20,7 @@ use ere_dockerized::{
 };
 use serde::Serialize;
 
-use crate::backends::{Mode, RunResult};
+use crate::zkvm_backends::{Mode, RunResult};
 
 /// Registry that ere CI publishes images to.
 const IMAGE_REGISTRY: &str = "ghcr.io/eth-act/ere";

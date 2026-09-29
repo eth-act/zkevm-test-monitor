@@ -23,7 +23,7 @@ pub enum Backend {
     },
     /// Runs on the official images of the pinned ere revision (`--features ere`).
     #[cfg(feature = "ere")]
-    Ere(Box<crate::ere::EreBackend>),
+    Ere(Box<crate::ere_backend::EreBackend>),
 }
 
 /// Execution mode for test runs.

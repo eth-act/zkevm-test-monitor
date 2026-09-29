@@ -1,6 +1,6 @@
-mod backends;
+mod zkvm_backends;
 #[cfg(feature = "ere")]
-mod ere;
+mod ere_backend;
 mod results;
 mod runner;
 
@@ -9,7 +9,7 @@ use std::process;
 
 use clap::Parser;
 
-use crate::backends::{Backend, Mode};
+use crate::zkvm_backends::{Backend, Mode};
 use crate::results::TestEntry;
 
 /// ACT4 compliance test runner for RISC-V ZK-VMs.
@@ -94,7 +94,7 @@ fn main() {
     let backend = match cli.zkvm.as_str() {
         #[cfg(feature = "ere")]
         zkvm if zkvm.starts_with("ere-") => {
-            match ere::EreBackend::new(&zkvm["ere-".len()..], cli.gpu) {
+            match ere_backend::EreBackend::new(&zkvm["ere-".len()..], cli.gpu) {
                 Ok((backend, provenance)) => {
                     ere_provenance = Some(provenance);
                     Backend::Ere(Box::new(backend))

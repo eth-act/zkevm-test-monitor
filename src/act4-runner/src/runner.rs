@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 
-use crate::backends::{Backend, Mode, RunResult};
+use crate::zkvm_backends::{Backend, Mode, RunResult};
 
 /// Discover all ELF files in `elf_dir` recursively, run each through the backend
 /// in parallel, and return results in deterministic (alphabetical) order.
