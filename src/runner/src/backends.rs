@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context;
 
-use crate::io;
+use crate::vectors;
 
 /// The `--zkvm` names.
 pub const ZKVMS: [&str; 4] = ["lambdavm", "openvm", "sp1", "zisk"];
@@ -966,6 +966,32 @@ fn kill_openvm_processes() {
     std::thread::sleep(Duration::from_secs(3));
 }
 
+/// Encode input for ziskemu: one record of `[u64 LE length][data, zero-padded to 8 bytes]`.
+fn zisk_frame_input(data: &[u8]) -> Vec<u8> {
+    let mut framed = Vec::with_capacity(8 + data.len() + 7);
+    framed.extend_from_slice(&(data.len() as u64).to_le_bytes());
+    framed.extend_from_slice(data);
+    framed.resize(framed.len().next_multiple_of(8), 0);
+    framed
+}
+
+/// Pick the most informative stderr line: the message of a Rust panic when
+/// the emulator panicked, else the last line that is not a `note:`.
+fn emulator_error_reason(stderr: &str) -> String {
+    let lines: Vec<&str> = stderr.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    if let Some(i) = lines.iter().position(|l| l.contains("panicked at")) {
+        if let Some(message) = lines.get(i + 1) {
+            return (*message).to_owned();
+        }
+    }
+    lines
+        .iter()
+        .rev()
+        .find(|l| !l.starts_with("note:"))
+        .map(|l| (*l).to_owned())
+        .unwrap_or_default()
+}
+
 /// Zisk: invoke `<binary> -e <elf_path> -o <file>`, with `-i` (the framed input)
 /// when the test has an input vector.
 ///
@@ -990,7 +1016,7 @@ fn run_zisk(binary: &Path, elf_path: &Path, input: Option<&[u8]>) -> Execution {
         let mut cmd = Command::new(binary);
         cmd.arg("-e").arg(elf_path);
         if let Some(input) = input {
-            std::fs::write(&input_path, io::zisk_frame_input(input))?;
+            std::fs::write(&input_path, zisk_frame_input(input))?;
             cmd.arg("-i").arg(&input_path);
         }
         cmd.arg("-o").arg(&output_path);
@@ -1002,7 +1028,7 @@ fn run_zisk(binary: &Path, elf_path: &Path, input: Option<&[u8]>) -> Execution {
 
         let exit_code = output.status.code();
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let reason = io::emulator_error_reason(&stderr);
+        let reason = emulator_error_reason(&stderr);
         if exit_code.is_none() {
             let detail = format!("emulator killed by a signal: {reason}");
             return Ok(Execution::host_error(exit_code, detail));
@@ -1044,9 +1070,9 @@ impl PublicOutput {
     pub fn mismatch(&self, expected: &[u8]) -> Option<String> {
         let actual = &self.bytes;
         match self.area {
-            OutputArea::Exact => (actual != expected).then(|| io::describe_exact_mismatch(actual, expected)),
+            OutputArea::Exact => (actual != expected).then(|| vectors::describe_exact_mismatch(actual, expected)),
             OutputArea::ZeroPadded => {
-                (!io::matches_zero_padded(actual, expected)).then(|| io::describe_mismatch(actual, expected))
+                (!vectors::matches_zero_padded(actual, expected)).then(|| vectors::describe_mismatch(actual, expected))
             }
         }
     }
@@ -1082,7 +1108,7 @@ fn run_io_executor(executor: &Path, elf_path: &Path, input: Option<&[u8]>, area:
             .with_context(|| format!("failed to run {}", executor.display()))?;
 
         let exit_code = output.status.code();
-        let reason = io::emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
+        let reason = emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
         match exit_code {
             Some(0) => {}
             Some(1) => {
@@ -1543,5 +1569,25 @@ mod tests {
         let r = run("printf '\\000\\000\\000\\000' > \"$out\"");
         assert_eq!(r.termination, Termination::Success);
         assert_eq!(r.detail.as_deref(), Some("public output does not start with the PASS marker"));
+    }
+
+    #[test]
+    fn picks_panic_message_from_stderr() {
+        let stderr = "thread 'main' panicked at core/src/zisk_rom.rs:367:21:\n\
+                      pc=0x80001BC0 is out of range\n\
+                      note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n";
+        assert_eq!(emulator_error_reason(stderr), "pc=0x80001BC0 is out of range");
+        assert_eq!(emulator_error_reason("boom\nnote: hint\n"), "boom");
+    }
+
+    #[test]
+    fn frames_input_with_length_and_padding() {
+        assert_eq!(zisk_frame_input(&[]), vec![0; 8]);
+        let framed = zisk_frame_input(b"abc");
+        assert_eq!(framed.len(), 16);
+        assert_eq!(&framed[..8], &3u64.to_le_bytes());
+        assert_eq!(&framed[8..11], b"abc");
+        assert!(framed[11..].iter().all(|&b| b == 0));
+        assert_eq!(zisk_frame_input(&[7; 8]).len(), 16);
     }
 }

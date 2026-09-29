@@ -7,10 +7,10 @@
 //!
 //! There is one backend per zkVM (`backends::Zkvm`). The runner reads the
 //! optional per-ELF files `<stem>.input`, `<stem>.expected` and
-//! `<stem>.outcome` (see `io`) and judges every execution the same way for
+//! `<stem>.outcome` (see `vectors`) and judges every execution the same way for
 //! both suites (`runner::judge`).
 
 pub mod backends;
-pub mod io;
+pub mod vectors;
 pub mod results;
 pub mod runner;
