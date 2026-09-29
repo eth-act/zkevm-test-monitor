@@ -3,9 +3,11 @@
 //! Every ELF may have these files next to it:
 //! - `<stem>.input`: the private input bytes;
 //! - `<stem>.expected`: the expected public output bytes;
-//! - `<stem>.outcome`: `pass` (the default) or `fail`. With `fail`, the guest
-//!   must terminate abnormally (panic, failed execution). A normal finish fails
-//!   the test with a "did not panic" detail.
+//! - `<stem>.outcome`: `pass` (the default), `fail` or `fail <code>`. With
+//!   `fail`, the guest must terminate abnormally (a panic, an abort, a non-zero
+//!   return from `main`, a failed execution), and with `fail <code>` the zkVM
+//!   must also report that error code. A successful termination or a host
+//!   error fails the test (see `runner::apply_outcome`).
 //!
 //! The standards backends default a missing input to empty. Without an
 //! expected output, a test is judged by the ACT4 halt verdict, and on SP1 and
@@ -28,8 +30,21 @@ const DETAIL_BYTES: usize = 48;
 pub enum Outcome {
     /// Finish normally (and match the expected output, if any).
     Pass,
-    /// Terminate abnormally: panic or failed execution.
-    Fail,
+    /// Terminate abnormally: a panic, an abort, a non-zero return from `main`
+    /// or a failed execution. With `code`, the zkVM must report that error code.
+    Fail { code: Option<i32> },
+}
+
+impl Outcome {
+    /// Parse the text of a `.outcome` file: `pass`, `fail` or `fail <code>`.
+    pub fn parse(text: &str) -> Option<Self> {
+        match text.split_whitespace().collect::<Vec<_>>().as_slice() {
+            ["pass"] => Some(Outcome::Pass),
+            ["fail"] => Some(Outcome::Fail { code: None }),
+            ["fail", code] => code.parse().ok().map(|code| Outcome::Fail { code: Some(code) }),
+            _ => None,
+        }
+    }
 }
 
 /// The test vectors of one ELF.
@@ -55,11 +70,17 @@ impl IoVectors {
         };
         let outcome = match read_optional("outcome")? {
             None => Outcome::Pass,
-            Some(bytes) => match String::from_utf8_lossy(&bytes).trim() {
-                "pass" => Outcome::Pass,
-                "fail" => Outcome::Fail,
-                other => bail!("unknown outcome '{other}' in {}", elf_path.with_extension("outcome").display()),
-            },
+            Some(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                match Outcome::parse(&text) {
+                    Some(outcome) => outcome,
+                    None => bail!(
+                        "unknown outcome '{}' in {}",
+                        text.trim(),
+                        elf_path.with_extension("outcome").display()
+                    ),
+                }
+            }
         };
         let mut input = read_optional("input")?;
         let expected = read_optional("expected")?;
@@ -216,9 +237,24 @@ mod tests {
         let v = IoVectors::load(&elf, false).unwrap();
         assert_eq!(v.input.as_deref(), Some(&b"in"[..]));
         assert_eq!(v.expected.as_deref(), Some(&b"out"[..]));
-        assert_eq!(v.outcome, Outcome::Fail);
+        assert_eq!(v.outcome, Outcome::Fail { code: None });
+
+        std::fs::write(dir.path().join("t.outcome"), b"fail 7\n").unwrap();
+        assert_eq!(IoVectors::load(&elf, false).unwrap().outcome, Outcome::Fail { code: Some(7) });
 
         std::fs::write(dir.path().join("t.outcome"), b"maybe").unwrap();
         assert!(IoVectors::load(&elf, false).is_err());
+    }
+
+    #[test]
+    fn parses_outcomes() {
+        assert_eq!(Outcome::parse("pass\n"), Some(Outcome::Pass));
+        assert_eq!(Outcome::parse("fail"), Some(Outcome::Fail { code: None }));
+        assert_eq!(Outcome::parse(" fail  7 \n"), Some(Outcome::Fail { code: Some(7) }));
+        assert_eq!(Outcome::parse("fail -1"), Some(Outcome::Fail { code: Some(-1) }));
+        assert_eq!(Outcome::parse("fail seven"), None);
+        assert_eq!(Outcome::parse("fail 7 8"), None);
+        assert_eq!(Outcome::parse("pass 0"), None);
+        assert_eq!(Outcome::parse(""), None);
     }
 }

@@ -125,7 +125,7 @@
     }
 
     // eth-act standards test groups, in dashboard column order.
-    const STANDARDS_GROUPS = [['io', 'I/O'], ['accelerators', 'Accelerators'], ['memory', 'Memory']];
+    const STANDARDS_GROUPS = [['io', 'I/O'], ['accelerators', 'Accelerators'], ['memory', 'Memory'], ['termination', 'Termination']];
 
     // Passed and total counts of one eth-act standards test group in a run.
     function groupCounts(run, group) {
@@ -223,7 +223,7 @@
                             <th rowspan="2">Commit</th>
                             <th rowspan="2">Full ISA</th>
                             <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a> Tests</th>
-                            <th colspan="3" class="col-group col-group-standards"><a href="https://github.com/eth-act/zkevm-standards/tree/main/standards">eth-act Standards Tests &#x1F517;</a> (Execution)</th>
+                            <th colspan="${STANDARDS_GROUPS.length}" class="col-group col-group-standards"><a href="https://github.com/eth-act/zkevm-standards/tree/main/standards">eth-act Standards Tests &#x1F517;</a> (Execution)</th>
                             <th rowspan="2">Last Run</th>
                         </tr>
                         <tr>

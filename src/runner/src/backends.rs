@@ -47,21 +47,26 @@ pub enum Mode {
     Full,
 }
 
-/// How the guest execution ended.
+/// How the guest execution ended, in the terms of the eth-act standard
+/// termination semantics (zkevm-standards `standard-termination-semantics`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Termination {
-    /// The guest finished cleanly (its output may still mismatch).
-    Normal,
-    /// The guest panicked or the execution failed.
-    Abnormal,
-    /// The runner could not run the guest.
-    NotRun,
+    /// The guest terminated successfully (its output may still mismatch).
+    Success,
+    /// The guest terminated abnormally: a panic, an abort, a failed check, a
+    /// non-zero return from `main`, or an execution that the zkVM rejected.
+    /// `code` is the error code when the zkVM reports it.
+    Failure { code: Option<i32> },
+    /// The host could not run the guest to an outcome: a usage or I/O error,
+    /// an executor killed by a signal, or a runner error. This is never a
+    /// guest outcome, so it never passes a test.
+    HostError,
 }
 
 impl Termination {
-    /// `Normal` for a successful execution, `Abnormal` otherwise.
+    /// `Success` for a successful execution, `Failure` without a code otherwise.
     pub fn from_success(success: bool) -> Self {
-        if success { Termination::Normal } else { Termination::Abnormal }
+        if success { Termination::Success } else { Termination::Failure { code: None } }
     }
 }
 
@@ -91,7 +96,7 @@ impl RunResult {
         detail: Option<String>,
     ) -> Self {
         RunResult {
-            passed: termination == Termination::Normal && detail.is_none(),
+            passed: termination == Termination::Success && detail.is_none(),
             exit_code,
             duration: start.elapsed(),
             prove_duration: None,
@@ -103,9 +108,9 @@ impl RunResult {
         }
     }
 
-    /// The result when the runner could not run the guest.
-    pub fn not_run(start: Instant, detail: String) -> Self {
-        Self::executed(start, None, Termination::NotRun, Some(detail))
+    /// The result when the host could not run the guest to an outcome.
+    pub fn host_error(start: Instant, exit_code: Option<i32>, detail: String) -> Self {
+        Self::executed(start, exit_code, Termination::HostError, Some(detail))
     }
 }
 
@@ -148,8 +153,9 @@ impl Backend {
         let start = Instant::now();
 
         if vectors.has_io() && !self.supports_io() {
-            return RunResult::not_run(
+            return RunResult::host_error(
                 start,
+                None,
                 format!("the {} backend cannot feed .input or check .expected", self.name()),
             );
         }
@@ -323,7 +329,7 @@ fn run_zisk_prove(
                 proof_written: false,
                 prove_status,
                 verify_status,
-                termination: Termination::Normal,
+                termination: Termination::Success,
                 detail: None,
             });
         }
@@ -339,7 +345,7 @@ fn run_zisk_prove(
             proof_written,
             prove_status: Some("success".to_string()),
             verify_status: if verify { Some("success".to_string()) } else { None },
-            termination: Termination::Normal,
+            termination: Termination::Success,
             detail: None,
         })
     };
@@ -356,7 +362,7 @@ fn run_zisk_prove(
                 proof_written: false,
                 prove_status: None,
                 verify_status: None,
-                termination: Termination::NotRun,
+                termination: Termination::HostError,
                 detail: Some(format!("runner error: {e:#}")),
             }
         }
@@ -505,7 +511,7 @@ fn run_sp1_prove(
                 proof_written: false,
                 prove_status,
                 verify_status,
-                termination: Termination::Normal,
+                termination: Termination::Success,
                 detail: None,
             });
         }
@@ -519,7 +525,7 @@ fn run_sp1_prove(
             proof_written: true,
             prove_status: Some("success".to_string()),
             verify_status: if verify { Some("success".to_string()) } else { None },
-            termination: Termination::Normal,
+            termination: Termination::Success,
             detail: None,
         })
     };
@@ -536,7 +542,7 @@ fn run_sp1_prove(
                 proof_written: false,
                 prove_status: None,
                 verify_status: None,
-                termination: Termination::NotRun,
+                termination: Termination::HostError,
                 detail: Some(format!("runner error: {e:#}")),
             }
         }
@@ -720,7 +726,7 @@ fn run_lambdavm(
                 proof_written: false,
                 prove_status: Some("failed".to_string()),
                 verify_status: None,
-                termination: Termination::Normal,
+                termination: Termination::Success,
                 detail: None,
             });
         }
@@ -760,7 +766,7 @@ fn run_lambdavm(
             proof_written,
             prove_status: Some("success".to_string()),
             verify_status,
-            termination: Termination::Normal,
+            termination: Termination::Success,
             detail: None,
         })
     };
@@ -777,7 +783,7 @@ fn run_lambdavm(
                 proof_written: false,
                 prove_status: None,
                 verify_status: None,
-                termination: Termination::NotRun,
+                termination: Termination::HostError,
                 detail: Some(format!("runner error: {e:#}")),
             }
         }
@@ -798,7 +804,7 @@ fn run_openvm(binary: &Path, elf_path: &Path, start: Instant) -> RunResult {
 
     match status {
         Ok(s) => RunResult::executed(start, s.code(), Termination::from_success(s.success()), None),
-        Err(e) => RunResult::not_run(start, format!("runner error: failed to run {}: {e}", binary.display())),
+        Err(e) => RunResult::host_error(start, None, format!("runner error: failed to run {}: {e}", binary.display())),
     }
 }
 
@@ -882,7 +888,7 @@ fn run_openvm_prove(
                 proof_written: false,
                 prove_status: Some("failed".to_string()),
                 verify_status: None,
-                termination: Termination::Normal,
+                termination: Termination::Success,
                 detail: None,
             });
         }
@@ -926,7 +932,7 @@ fn run_openvm_prove(
             proof_written,
             prove_status: Some("success".to_string()),
             verify_status,
-            termination: Termination::Normal,
+            termination: Termination::Success,
             detail: None,
         })
     };
@@ -943,7 +949,7 @@ fn run_openvm_prove(
                 proof_written: false,
                 prove_status: None,
                 verify_status: None,
-                termination: Termination::NotRun,
+                termination: Termination::HostError,
                 detail: Some(format!("runner error: {e:#}")),
             }
         }
@@ -979,13 +985,19 @@ fn kill_openvm_processes() {
 /// Zisk: invoke `<binary> -e <elf_path> -o <file>`, with `-i` (the framed input)
 /// when the test has an input vector.
 ///
-/// Verdict on the public output:
-/// - with an expected-output vector: ZisK's public output is a fixed area of 64
-///   u32 words with zero padding, so it must equal the expected bytes followed by
-///   zero bytes;
-/// - without one (ISA tests): ZisK >= 1.2 ignores `a0` at the exit ecall, so the
-///   ZisK ACT4 halt macros write `PASS` or `FAIL` to public output 0
-///   (zkvms/zisk/isa-configs/*/rvmodel_macros.h), and the output must start with `PASS`.
+/// Termination:
+/// - ZisK reports no error code: ZisK >= 1.2 ignores `a0` at the exit ecall.
+///   A non-zero `ziskemu` exit or "finished with error" on stderr (it can exit 0
+///   after an emulation error) means that ZisK rejected the execution, so the
+///   guest terminated abnormally without a code.
+/// - Without an expected-output vector (ACT4 verdict), the ZisK ACT4 halt
+///   macros write `PASS` or `FAIL` to public output 0
+///   (zkvms/zisk/isa-configs/*/rvmodel_macros.h). `FAIL` is an abnormal
+///   termination. Otherwise the output must start with `PASS`.
+/// - With an expected-output vector: ZisK's public output is a fixed area of 64
+///   u32 words with zero padding, so it must equal the expected bytes followed
+///   by zero bytes.
+/// - A spawn failure, a missing output file or a death by signal is a host error.
 fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant) -> RunResult {
     let inner = || -> anyhow::Result<RunResult> {
         let tmp = tempfile::tempdir().context("failed to create temp dir")?;
@@ -999,8 +1011,6 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
             cmd.arg("-i").arg(&input_path);
         }
         cmd.arg("-o").arg(&output_path);
-        // Capture stderr: ziskemu exits 0 even when emulation fails, but prints
-        // "finished with error" to stderr. Check both exit code and stderr.
         let output = cmd
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -1009,21 +1019,36 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
 
         let exit_code = output.status.code();
         let stderr = String::from_utf8_lossy(&output.stderr);
+        let reason = io::emulator_error_reason(&stderr);
+        if exit_code.is_none() {
+            let detail = format!("emulator killed by a signal: {reason}");
+            return Ok(RunResult::host_error(start, exit_code, detail));
+        }
         if !output.status.success() || stderr.contains("finished with error") {
-            let detail = format!("emulator error (exit {}): {}", exit_text(exit_code), io::emulator_error_reason(&stderr));
-            return Ok(RunResult::executed(start, exit_code, Termination::Abnormal, Some(detail)));
+            let detail = format!("emulator error (exit {}): {reason}", exit_text(exit_code));
+            let failure = Termination::Failure { code: None };
+            return Ok(RunResult::executed(start, exit_code, failure, Some(detail)));
         }
 
-        let actual = std::fs::read(&output_path).context("emulator wrote no output file")?;
-        let detail = match &vectors.expected {
-            None => (!actual.starts_with(b"PASS")).then(|| "public output does not start with the PASS marker".to_owned()),
-            Some(expected) => {
-                (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected))
-            }
+        let Ok(actual) = std::fs::read(&output_path) else {
+            return Ok(RunResult::host_error(start, exit_code, "emulator wrote no output file".to_owned()));
         };
-        Ok(RunResult::executed(start, exit_code, Termination::Normal, detail))
+        let (termination, detail) = match &vectors.expected {
+            None if actual.starts_with(b"FAIL") => {
+                (Termination::Failure { code: None }, Some("public output has the FAIL marker".to_owned()))
+            }
+            None => (
+                Termination::Success,
+                (!actual.starts_with(b"PASS")).then(|| "public output does not start with the PASS marker".to_owned()),
+            ),
+            Some(expected) => (
+                Termination::Success,
+                (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected)),
+            ),
+        };
+        Ok(RunResult::executed(start, exit_code, termination, detail))
     };
-    inner().unwrap_or_else(|e| RunResult::not_run(start, format!("runner error: {e:#}")))
+    inner().unwrap_or_else(|e| RunResult::host_error(start, None, format!("runner error: {e:#}")))
 }
 
 /// Runs `ziskemu` on `elf_path` and returns the ACT4 verdict and the exit code.
@@ -1072,11 +1097,16 @@ enum OutputArea {
 }
 
 /// Run a guest through an eth-act standards executor:
-/// `<executor> <elf> <input file> <public output file>`.
+/// `<executor> <elf> <input file> <public output file> <exit code file>`.
 ///
 /// `sp1-eth-act-standards-executor` pushes the input as one SP1 stdin chunk;
 /// `openvm-eth-act-standards-executor` passes it as one OpenVM input vector.
-/// Both write the raw public values.
+/// Both write the raw public values. The exit status is the guest's
+/// termination:
+/// - 0: the guest terminated successfully;
+/// - 1: the guest terminated abnormally. The executor writes the guest's
+///   error code (decimal) to the exit code file when the zkVM reports it;
+/// - anything else, or a death by signal: a host error.
 fn run_io_executor(
     executor: &Path,
     elf_path: &Path,
@@ -1088,38 +1118,67 @@ fn run_io_executor(
         let tmp = tempfile::tempdir().context("failed to create temp dir")?;
         let input_path = tmp.path().join("input.bin");
         let output_path = tmp.path().join("public-values.bin");
+        let code_path = tmp.path().join("exit-code.txt");
         std::fs::write(&input_path, vectors.input.as_deref().unwrap_or_default())?;
 
         let output = Command::new(executor)
             .arg(elf_path)
             .arg(&input_path)
             .arg(&output_path)
+            .arg(&code_path)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .output()
             .with_context(|| format!("failed to run {}", executor.display()))?;
 
         let exit_code = output.status.code();
-        if !output.status.success() {
-            let reason = io::emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
-            let detail = format!("executor error (exit {}): {reason}", exit_text(exit_code));
-            return Ok(RunResult::executed(start, exit_code, Termination::Abnormal, Some(detail)));
+        let reason = io::emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
+        match exit_code {
+            Some(0) => {}
+            Some(1) => {
+                let code = match std::fs::read_to_string(&code_path) {
+                    Ok(text) => match parse_error_code(&text) {
+                        Some(code) => Some(code),
+                        None => {
+                            let detail = format!("executor wrote an invalid exit code {:?}", text.trim());
+                            return Ok(RunResult::host_error(start, exit_code, detail));
+                        }
+                    },
+                    Err(_) => None,
+                };
+                let code_text = code.map_or_else(|| "no error code".to_owned(), |c| format!("error code {c}"));
+                let detail = format!("guest terminated abnormally ({code_text}): {reason}");
+                return Ok(RunResult::executed(start, exit_code, Termination::Failure { code }, Some(detail)));
+            }
+            _ => {
+                let detail = format!("executor error (exit {}): {reason}", exit_text(exit_code));
+                return Ok(RunResult::host_error(start, exit_code, detail));
+            }
         }
 
         // The pass halt is exit code 0, which a return from main also gives, so
         // a test without an expected output must write the PASS verdict
         // (tests/eth-act-standards/include/checks.h).
         let expected = vectors.expected.as_deref().unwrap_or(io::PASS_OUTPUT);
-        let actual = std::fs::read(&output_path).context("executor wrote no public values")?;
+        let Ok(actual) = std::fs::read(&output_path) else {
+            return Ok(RunResult::host_error(start, exit_code, "executor wrote no public values".to_owned()));
+        };
         let detail = match area {
             OutputArea::Exact => (actual != expected).then(|| io::describe_exact_mismatch(&actual, expected)),
             OutputArea::ZeroPadded => {
                 (!io::matches_zero_padded(&actual, expected)).then(|| io::describe_mismatch(&actual, expected))
             }
         };
-        Ok(RunResult::executed(start, exit_code, Termination::Normal, detail))
+        Ok(RunResult::executed(start, exit_code, Termination::Success, detail))
     };
-    inner().unwrap_or_else(|e| RunResult::not_run(start, format!("runner error: {e:#}")))
+    inner().unwrap_or_else(|e| RunResult::host_error(start, None, format!("runner error: {e:#}")))
+}
+
+/// Parse a guest error code: a decimal `i32`, or a `u32` exit code (a register
+/// value, so 4294967295 is -1).
+fn parse_error_code(text: &str) -> Option<i32> {
+    let text = text.trim();
+    text.parse::<i32>().ok().or_else(|| text.parse::<u32>().ok().map(|c| c as i32))
 }
 
 /// An exit code for a failure detail: the number, or "signal".
@@ -1214,7 +1273,209 @@ fn wait_for_gpu_free(timeout: Duration) {
 
 #[cfg(test)]
 mod tests {
-    use super::sp1_guest_exit_code;
+    use std::os::unix::fs::PermissionsExt;
+    use std::sync::Mutex;
+
+    use super::*;
+    use crate::io::Outcome;
+
+    /// Serializes the tests that write and spawn fake executors: a script
+    /// that another thread's fork holds open for writing fails with ETXTBSY.
+    static SPAWN: Mutex<()> = Mutex::new(());
+
+    fn vectors(expected: Option<&[u8]>) -> IoVectors {
+        IoVectors { input: Some(Vec::new()), expected: expected.map(<[u8]>::to_vec), outcome: Outcome::Pass }
+    }
+
+    /// Write an executable shell script with `body` and return its path.
+    fn fake(dir: &Path, name: &str, body: &str) -> PathBuf {
+        let path = dir.join(name);
+        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    }
+
+    /// Run a fake standards executor (`$3` is the public output file, `$4`
+    /// the exit code file).
+    fn io_executor(body: &str, expected: Option<&[u8]>) -> RunResult {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let executor = fake(dir.path(), "executor", body);
+        let elf = dir.path().join("t.elf");
+        run_io_executor(&executor, &elf, &vectors(expected), OutputArea::Exact, Instant::now())
+    }
+
+    /// Run a fake `ziskemu` (the last argument is the output file).
+    fn ziskemu(body: &str, expected: Option<&[u8]>) -> RunResult {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let emulator = fake(dir.path(), "ziskemu", &format!("for out; do :; done\n{body}"));
+        let elf = dir.path().join("t.elf");
+        run_zisk(&emulator, &elf, &vectors(expected), Instant::now())
+    }
+
+    fn failure(code: Option<i32>) -> Termination {
+        Termination::Failure { code }
+    }
+
+    #[test]
+    fn io_executor_success() {
+        let r = io_executor("printf PASS > \"$3\"; echo 0 > \"$4\"", None);
+        assert_eq!(r.termination, Termination::Success);
+        assert!(r.passed);
+
+        // A return from main without the PASS verdict.
+        let r = io_executor(": > \"$3\"", None);
+        assert_eq!(r.termination, Termination::Success);
+        assert!(!r.passed);
+
+        let r = io_executor("printf abc > \"$3\"", Some(b"abc"));
+        assert_eq!(r.termination, Termination::Success);
+        assert!(r.passed);
+    }
+
+    #[test]
+    fn io_executor_failure_with_and_without_a_code() {
+        let r = io_executor("echo 7 > \"$4\"; echo 'guest halted with exit code 7' >&2; exit 1", None);
+        assert_eq!(r.termination, failure(Some(7)));
+        assert!(!r.passed);
+        assert_eq!(
+            r.detail.as_deref(),
+            Some("guest terminated abnormally (error code 7): guest halted with exit code 7")
+        );
+
+        let r = io_executor("echo 4294967295 > \"$4\"; exit 1", None);
+        assert_eq!(r.termination, failure(Some(-1)));
+
+        let r = io_executor("echo 'invalid memory access' >&2; exit 1", None);
+        assert_eq!(r.termination, failure(None));
+        assert_eq!(
+            r.detail.as_deref(),
+            Some("guest terminated abnormally (no error code): invalid memory access")
+        );
+    }
+
+    #[test]
+    fn io_executor_host_errors() {
+        // Usage, I/O or executor errors.
+        let r = io_executor("echo 'error: read input' >&2; exit 2", None);
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("executor error (exit 2): error: read input"));
+
+        // Any other status, e.g. a Rust panic of the executor.
+        let r = io_executor("exit 101", None);
+        assert_eq!(r.termination, Termination::HostError);
+
+        // Killed by a signal.
+        let r = io_executor("kill -9 $$", None);
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.exit_code, None);
+        assert!(r.detail.unwrap().starts_with("executor error (exit signal)"));
+
+        // Success without public values.
+        let r = io_executor("exit 0", None);
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("executor wrote no public values"));
+
+        // An exit code file that is not a number.
+        let r = io_executor("echo seven > \"$4\"; exit 1", None);
+        assert_eq!(r.termination, Termination::HostError);
+
+        // The executor does not exist.
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing");
+        let r = run_io_executor(&missing, &missing, &vectors(None), OutputArea::Exact, Instant::now());
+        assert_eq!(r.termination, Termination::HostError);
+        assert!(r.detail.unwrap().starts_with("runner error: failed to run"));
+    }
+
+    #[test]
+    fn zisk_success_and_act4_verdict() {
+        let r = ziskemu("printf 'PASS\\000\\000\\000\\000' > \"$out\"", None);
+        assert_eq!(r.termination, Termination::Success);
+        assert!(r.passed);
+
+        let r = ziskemu("printf 'FAIL' > \"$out\"", None);
+        assert_eq!(r.termination, failure(None));
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("public output has the FAIL marker"));
+
+        // A return from main: ZisK ignores its value, so this is a success
+        // without the PASS verdict.
+        let r = ziskemu("printf '\\000\\000\\000\\000' > \"$out\"", None);
+        assert_eq!(r.termination, Termination::Success);
+        assert_eq!(r.detail.as_deref(), Some("public output does not start with the PASS marker"));
+
+        let r = ziskemu("printf 'ab\\000\\000' > \"$out\"", Some(b"ab"));
+        assert_eq!(r.termination, Termination::Success);
+        assert!(r.passed);
+    }
+
+    #[test]
+    fn zisk_rejected_execution_is_a_failure_without_a_code() {
+        let r = ziskemu(
+            "echo \"thread 'main' panicked at mem.rs:1:1:\" >&2; echo 'invalid addr' >&2; exit 101",
+            None,
+        );
+        assert_eq!(r.termination, failure(None));
+        assert_eq!(r.detail.as_deref(), Some("emulator error (exit 101): invalid addr"));
+
+        let r = ziskemu("printf PASS > \"$out\"; echo 'Emulation finished with error' >&2", None);
+        assert_eq!(r.termination, failure(None));
+        assert_eq!(r.exit_code, Some(0));
+    }
+
+    #[test]
+    fn zisk_host_errors() {
+        let r = ziskemu("kill -9 $$", None);
+        assert_eq!(r.termination, Termination::HostError);
+        assert!(r.detail.unwrap().starts_with("emulator killed by a signal"));
+
+        let r = ziskemu("exit 0", None);
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("emulator wrote no output file"));
+
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing");
+        let r = run_zisk(&missing, &missing, &vectors(None), Instant::now());
+        assert_eq!(r.termination, Termination::HostError);
+    }
+
+    #[test]
+    fn expected_outcome_through_a_fake_executor() {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(&elf, b"").unwrap();
+        let run = |body: &str, outcome: &str| {
+            std::fs::write(dir.path().join("t.outcome"), outcome).unwrap();
+            let executor = fake(dir.path(), &format!("executor-{}", body.len()), body);
+            crate::runner::run_one(&Backend::Sp1Standards { executor }, &elf, Mode::Execute)
+        };
+
+        let r = run("echo 7 > \"$4\"; exit 1", "fail 7\n");
+        assert!(r.passed);
+
+        let r = run("echo 7 > \"$4\"; exit 1", "fail 1\n");
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("wrong error code: expected 1, got 7"));
+
+        // A host error does not count as a panic.
+        let r = run("echo 'error: usage' >&2; exit 2", "fail\n");
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("executor error (exit 2): error: usage"));
+    }
+
+    #[test]
+    fn parses_error_codes() {
+        assert_eq!(parse_error_code("7\n"), Some(7));
+        assert_eq!(parse_error_code("-1"), Some(-1));
+        assert_eq!(parse_error_code("4294967295"), Some(-1));
+        assert_eq!(parse_error_code(""), None);
+        assert_eq!(parse_error_code("x"), None);
+    }
 
     #[test]
     fn parses_sp1_guest_exit_code() {

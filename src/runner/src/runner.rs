@@ -40,27 +40,42 @@ pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> 
 pub fn run_one(backend: &Backend, elf_path: &Path, mode: Mode) -> RunResult {
     match IoVectors::load(elf_path, backend.is_standards()) {
         Ok(vectors) => apply_outcome(backend.run_elf(elf_path, mode, &vectors), vectors.outcome),
-        Err(e) => RunResult::not_run(Instant::now(), format!("runner error: {e:#}")),
+        Err(e) => RunResult::host_error(Instant::now(), None, format!("runner error: {e:#}")),
     }
 }
 
-/// With the expected outcome `fail`, an abnormal termination passes and a
-/// normal finish fails with a "did not panic" detail.
+/// Judge a result against the expected outcome `fail` or `fail <code>`.
+///
+/// An abnormal termination passes when no code is expected, or when the zkVM
+/// reports the expected code. It fails when the zkVM reports another code or
+/// no code. A successful termination fails ("did not panic" without an
+/// expected code, "did not terminate abnormally" with one). A host error
+/// always fails: it is not a guest outcome.
 pub fn apply_outcome(result: RunResult, outcome: Outcome) -> RunResult {
-    if outcome == Outcome::Pass {
+    let Outcome::Fail { code: expected } = outcome else {
         return result;
-    }
-    match result.termination {
-        Termination::Abnormal => RunResult { passed: true, detail: None, ..result },
-        Termination::Normal => {
-            let detail = match &result.detail {
-                Some(detail) => format!("did not panic: finished normally ({detail})"),
-                None => "did not panic: finished normally".to_owned(),
-            };
-            RunResult { passed: false, detail: Some(detail), ..result }
+    };
+    let detail = match result.termination {
+        Termination::HostError => return RunResult { passed: false, ..result },
+        Termination::Success => {
+            let what = if expected.is_some() { "did not terminate abnormally" } else { "did not panic" };
+            Some(match &result.detail {
+                Some(detail) => format!("{what}: finished normally ({detail})"),
+                None => format!("{what}: finished normally"),
+            })
         }
-        Termination::NotRun => result,
-    }
+        Termination::Failure { code } => match (expected, code) {
+            (None, _) => None,
+            (Some(expected), Some(code)) if expected == code => None,
+            (Some(expected), Some(code)) => {
+                Some(format!("wrong error code: expected {expected}, got {code}"))
+            }
+            (Some(expected), None) => Some(format!(
+                "error code not reported: expected {expected}, the zkVM reported an abnormal termination without a code"
+            )),
+        },
+    };
+    RunResult { passed: detail.is_none(), detail, ..result }
 }
 
 /// Print a one-line progress report for a finished test to stderr.
@@ -155,7 +170,7 @@ mod tests {
 
     fn result(termination: Termination, detail: Option<&str>) -> RunResult {
         RunResult {
-            passed: termination == Termination::Normal && detail.is_none(),
+            passed: termination == Termination::Success && detail.is_none(),
             exit_code: None,
             duration: Duration::ZERO,
             prove_duration: None,
@@ -167,27 +182,39 @@ mod tests {
         }
     }
 
-    #[test]
-    fn expected_pass_keeps_the_result() {
-        let r = apply_outcome(result(Termination::Abnormal, Some("emulator error")), Outcome::Pass);
-        assert!(!r.passed);
-        assert_eq!(r.detail.as_deref(), Some("emulator error"));
+    const FAIL: Outcome = Outcome::Fail { code: None };
+    const FAIL_7: Outcome = Outcome::Fail { code: Some(7) };
+
+    fn failure(code: Option<i32>) -> Termination {
+        Termination::Failure { code }
     }
 
     #[test]
-    fn expected_fail_accepts_abnormal_termination() {
-        let r = apply_outcome(result(Termination::Abnormal, Some("executor error (exit 1): panic")), Outcome::Fail);
+    fn expected_pass_keeps_the_result() {
+        let r = apply_outcome(result(failure(None), Some("emulator error")), Outcome::Pass);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("emulator error"));
+
+        let r = apply_outcome(result(Termination::Success, None), Outcome::Pass);
         assert!(r.passed);
-        assert_eq!(r.detail, None);
+    }
+
+    #[test]
+    fn expected_fail_accepts_abnormal_termination_with_any_code() {
+        for code in [None, Some(1), Some(7)] {
+            let r = apply_outcome(result(failure(code), Some("guest terminated abnormally")), FAIL);
+            assert!(r.passed, "{code:?}");
+            assert_eq!(r.detail, None);
+        }
     }
 
     #[test]
     fn expected_fail_rejects_a_normal_finish() {
-        let r = apply_outcome(result(Termination::Normal, None), Outcome::Fail);
+        let r = apply_outcome(result(Termination::Success, None), FAIL);
         assert!(!r.passed);
         assert_eq!(r.detail.as_deref(), Some("did not panic: finished normally"));
 
-        let r = apply_outcome(result(Termination::Normal, Some("guest check 1 failed: returned")), Outcome::Fail);
+        let r = apply_outcome(result(Termination::Success, Some("guest check 1 failed: returned")), FAIL);
         assert!(!r.passed);
         assert_eq!(
             r.detail.as_deref(),
@@ -196,9 +223,38 @@ mod tests {
     }
 
     #[test]
-    fn expected_fail_keeps_runner_errors() {
-        let r = apply_outcome(result(Termination::NotRun, Some("runner error: x")), Outcome::Fail);
+    fn expected_fail_rejects_host_errors() {
+        let r = apply_outcome(result(Termination::HostError, Some("runner error: x")), FAIL);
         assert!(!r.passed);
         assert_eq!(r.detail.as_deref(), Some("runner error: x"));
+
+        let r = apply_outcome(result(Termination::HostError, Some("executor error (exit 2): usage")), FAIL_7);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("executor error (exit 2): usage"));
+    }
+
+    #[test]
+    fn expected_code_must_match() {
+        let r = apply_outcome(result(failure(Some(7)), Some("guest terminated abnormally")), FAIL_7);
+        assert!(r.passed);
+        assert_eq!(r.detail, None);
+
+        let r = apply_outcome(result(failure(Some(1)), Some("guest terminated abnormally")), FAIL_7);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("wrong error code: expected 7, got 1"));
+    }
+
+    #[test]
+    fn expected_code_must_be_reported() {
+        let r = apply_outcome(result(failure(None), Some("emulator error")), FAIL_7);
+        assert!(!r.passed);
+        assert!(r.detail.as_deref().unwrap().starts_with("error code not reported: expected 7"));
+    }
+
+    #[test]
+    fn expected_code_rejects_a_normal_finish() {
+        let r = apply_outcome(result(Termination::Success, None), FAIL_7);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("did not terminate abnormally: finished normally"));
     }
 }

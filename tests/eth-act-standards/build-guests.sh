@@ -12,7 +12,7 @@
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #   /cache                    download cache for the accelerator vector sources and uv
 #
-# Every <group>/<name>.c (group: io, accelerators, memory) becomes
+# Every <group>/<name>.c (group: io, accelerators, memory, termination) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
 # writes the rest of the I/O vectors.
@@ -23,7 +23,7 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory"
+GROUPS_LIST="io accelerators memory termination"
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
