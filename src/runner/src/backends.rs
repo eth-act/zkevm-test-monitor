@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context;
 
-use crate::vectors::{self, IoVectors};
+use crate::test_io_and_outcome::{self, IoVectors};
 
 /// Supported ZK-VM backends.
 ///
@@ -1069,7 +1069,7 @@ fn run_zisk(binary: &Path, elf_path: &Path, vectors: &IoVectors, start: Instant)
             ),
             Some(expected) => (
                 Termination::Success,
-                (!vectors::matches_zero_padded(&actual, expected)).then(|| vectors::describe_mismatch(&actual, expected)),
+                (!test_io_and_outcome::matches_zero_padded(&actual, expected)).then(|| test_io_and_outcome::describe_mismatch(&actual, expected)),
             ),
         };
         Ok(RunResult::executed(start, exit_code, termination, detail))
@@ -1185,14 +1185,14 @@ fn run_io_executor(
         // The pass halt is exit code 0, which a return from main also gives, so
         // a test without an expected output must write the PASS verdict
         // (tests/eth-act-standards/include/checks.h).
-        let expected = vectors.expected.as_deref().unwrap_or(vectors::PASS_OUTPUT);
+        let expected = vectors.expected.as_deref().unwrap_or(test_io_and_outcome::PASS_OUTPUT);
         let Ok(actual) = std::fs::read(&output_path) else {
             return Ok(RunResult::host_error(start, exit_code, "executor wrote no public values".to_owned()));
         };
         let detail = match area {
-            OutputArea::Exact => (actual != expected).then(|| vectors::describe_exact_mismatch(&actual, expected)),
+            OutputArea::Exact => (actual != expected).then(|| test_io_and_outcome::describe_exact_mismatch(&actual, expected)),
             OutputArea::ZeroPadded => {
-                (!vectors::matches_zero_padded(&actual, expected)).then(|| vectors::describe_mismatch(&actual, expected))
+                (!test_io_and_outcome::matches_zero_padded(&actual, expected)).then(|| test_io_and_outcome::describe_mismatch(&actual, expected))
             }
         };
         Ok(RunResult::executed(start, exit_code, Termination::Success, detail))
@@ -1303,7 +1303,7 @@ mod tests {
     use std::sync::Mutex;
 
     use super::*;
-    use crate::vectors::Outcome;
+    use crate::test_io_and_outcome::Outcome;
 
     /// Serializes the tests that write and spawn fake executors: a script
     /// that another thread's fork holds open for writing fails with ETXTBSY.

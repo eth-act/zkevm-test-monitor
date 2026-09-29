@@ -5,7 +5,7 @@ use std::time::Instant;
 use rayon::prelude::*;
 
 use crate::backends::{Backend, Mode, RunResult, Termination};
-use crate::vectors::{IoVectors, Outcome};
+use crate::test_io_and_outcome::{IoVectors, Outcome};
 
 /// Discover all ELF files in `elf_dir` recursively, run each through the backend
 /// in parallel, and return results in deterministic (alphabetical) order.
@@ -36,7 +36,7 @@ pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> 
     })
 }
 
-/// Run one ELF with its test vectors (see `crate::vectors`) and apply its expected outcome.
+/// Run one ELF with its test vectors (see `crate::test_io_and_outcome`) and apply its expected outcome.
 pub fn run_one(backend: &Backend, elf_path: &Path, mode: Mode) -> RunResult {
     match IoVectors::load(elf_path, backend.is_standards()) {
         Ok(vectors) => apply_outcome(backend.run_elf(elf_path, mode, &vectors), vectors.outcome),
