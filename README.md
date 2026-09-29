@@ -77,7 +77,7 @@ out/                      Local outputs, not tracked: bin/, <zkvm>/ ELFs and log
 - Docker
 - Bash, jq
 - Rust (cargo), for the host-side test runner
-- An NVIDIA GPU for proving (`ACT4_MODE=prove` or `full`)
+- If GPU proving: an NVIDIA GPU (`ACT4_MODE=prove` or `full`)
 
 ## License
 
