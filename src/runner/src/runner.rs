@@ -112,6 +112,22 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
     apply_outcome(result, vectors.outcome)
 }
 
+/// Run one ELF through a backend that runs its own stages (the ere backend,
+/// `run`), with the same test vectors and expected outcome as `run_one`: a test
+/// with `.input` or `.expected` is a host error (ere feeds no input), and
+/// `.outcome` applies. `name` names the backend in a failure detail.
+pub fn run_one_with(name: &str, suite: Suite, elf_path: &Path, run: impl FnOnce(&Path) -> RunResult) -> RunResult {
+    let start = Instant::now();
+    let vectors = match IoVectors::load(elf_path, suite == Suite::Standards) {
+        Ok(vectors) => vectors,
+        Err(e) => return RunResult::host_error(start, None, format!("runner error: {e:#}")),
+    };
+    if vectors.has_io() {
+        return RunResult::host_error(start, None, format!("the {name} backend cannot feed .input or check .expected"));
+    }
+    apply_outcome(run(elf_path), vectors.outcome)
+}
+
 /// Judge an execution against the test's expected output. This is the one
 /// verdict for both suites and every zkVM.
 ///
@@ -543,5 +559,25 @@ mod tests {
             assert_eq!(Suite::from_name(name), Some(Suite::Isa));
         }
         assert_eq!(Suite::from_name("standards"), None);
+    }
+
+    #[test]
+    fn run_one_with_applies_vectors_and_outcome() {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(&elf, b"").unwrap();
+        let run = |termination: Termination| {
+            run_one_with("ere-sp1", Suite::Isa, &elf, |_| result(termination, Some("detail")))
+        };
+
+        std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
+        assert!(run(Termination::Failure { code: None }).passed);
+        assert!(!run(Termination::HostError).passed);
+        assert!(!run(Termination::Success).passed);
+
+        std::fs::write(dir.path().join("t.input"), b"x").unwrap();
+        let r = run(Termination::Failure { code: None });
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("the ere-sp1 backend cannot feed .input or check .expected"));
     }
 }

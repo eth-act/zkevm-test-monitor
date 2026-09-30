@@ -165,8 +165,6 @@ impl EreBackend {
             detail.error = Some(format!("{err:#}"));
             eprintln!("    {}: {stage}: {err:#}", detail.name);
         }
-        // ere reports the ACT4 verdict, not how the guest terminated.
-        result.termination = Termination::from_success(result.passed);
         result.detail = detail.error.clone();
         result.duration = start.elapsed();
         self.details.lock().unwrap_or_else(|err| err.into_inner()).push(detail);
@@ -208,6 +206,7 @@ impl EreBackend {
             let started = Instant::now();
             let executed = zkvm.execute(&input);
             detail.execute_secs = Some(started.elapsed().as_secs_f64());
+            result.termination = execution_termination(&executed);
             let (public_values, _) = executed.map_err(|err| ("failed", err))?;
             self.verdict(&public_values).map_err(|err| ("failed", err))?;
             result.passed = true;
@@ -287,6 +286,25 @@ impl EreBackend {
     }
 }
 
+/// How the guest terminated, from ere's execution result. Until execution
+/// returns, the result stays a host error: an unreadable ELF, a failed setup or
+/// a Docker or transport error never counts as a guest termination.
+/// - The `FAIL` marker in public output 0, or a zkVM error (for example a guest
+///   that exits non-zero), is an abnormal termination without a code.
+/// - Other public values are a successful termination; the verdict still needs
+///   `PASS` (`EreBackend::verdict`).
+/// - Any other error is a host error.
+fn execution_termination<T>(executed: &anyhow::Result<(PublicValues, T)>) -> Termination {
+    match executed {
+        Ok((public_values, _)) if public_values.starts_with(b"FAIL") => Termination::Failure { code: None },
+        Ok(_) => Termination::Success,
+        Err(err) if matches!(err.downcast_ref::<EreError>(), Some(EreError::zkVM(_))) => {
+            Termination::Failure { code: None }
+        }
+        Err(_) => Termination::HostError,
+    }
+}
+
 /// Sets `key` to `value` unless the user set it already.
 ///
 /// # Safety
@@ -323,4 +341,49 @@ fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
     let json = serde_json::to_string_pretty(value)?;
     std::fs::write(path, format!("{json}\n"))
         .with_context(|| format!("failed to write {}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+    use crate::runner::{self, Suite};
+
+    fn executed(result: anyhow::Result<&[u8]>) -> anyhow::Result<(PublicValues, Duration)> {
+        result.map(|bytes| (PublicValues(bytes.to_vec()), Duration::ZERO))
+    }
+
+    #[test]
+    fn classifies_the_execution() {
+        let failure = Termination::Failure { code: None };
+        assert_eq!(execution_termination(&executed(Ok(b"PASS"))), Termination::Success);
+        assert_eq!(execution_termination(&executed(Ok(b"\0\0\0\0"))), Termination::Success);
+        assert_eq!(execution_termination(&executed(Ok(b"FAIL"))), failure);
+        let guest = anyhow::Error::from(EreError::zkVM("guest exited with code 1".to_owned()));
+        assert_eq!(execution_termination(&executed(Err(guest))), failure);
+        let transport = anyhow!("RPC to zkVM server error");
+        assert_eq!(execution_termination(&executed(Err(transport))), Termination::HostError);
+    }
+
+    /// An ELF that cannot be read never starts a guest, so it cannot pass a
+    /// test that expects an abnormal termination. No Docker is needed: the run
+    /// stops before setup.
+    #[test]
+    fn unreadable_elf_is_a_host_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::os::unix::fs::symlink(dir.path().join("missing"), &elf).unwrap();
+        std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
+        let ere = EreBackend {
+            kind: "sp1".parse().unwrap(),
+            resource: ProverResource::Cpu,
+            server: Mutex::new(None),
+            details: Mutex::new(Vec::new()),
+        };
+        let r = runner::run_one_with("ere-sp1", Suite::Isa, &elf, |elf| ere.run_elf(elf, Mode::Execute, Instant::now()));
+        assert_eq!(r.termination, Termination::HostError);
+        assert!(!r.passed);
+        assert!(r.detail.unwrap().contains("failed to read"), "detail");
+    }
 }

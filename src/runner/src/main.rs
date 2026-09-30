@@ -112,7 +112,9 @@ fn main() {
             eprintln!("error: {e:#}");
             process::exit(2);
         });
-        let runs = suite::run_elfs(&cli.elf_dir, 1, |elf| ere.run_elf(elf, mode, std::time::Instant::now()));
+        let runs = suite::run_elfs(&cli.elf_dir, 1, |elf| {
+            suite::run_one_with(&cli.zkvm, suite_kind, elf, |elf| ere.run_elf(elf, mode, std::time::Instant::now()))
+        });
         let label = cli.label.as_deref().unwrap_or(&cli.suite);
         report(&cli, &runs, || ere.finish(&cli.output_dir, label, &provenance));
         return;
