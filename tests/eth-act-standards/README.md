@@ -13,7 +13,6 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution against weak decoys |
-| `termination/` | [Standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics) | `main` returns 1, and `main` returns 7: each must be an abnormal termination with that error code |
 
 The suite runs execution only. It does not prove.
 
@@ -52,10 +51,7 @@ The runner judges a test in one of three ways:
   - a host error fails.
 
   The `accel-null-*` programs expect `fail`: the standard says that a function called with a
-  NULL pointer SHOULD panic. If the call returns, the program prints the status. The
-  `termination/` programs return a non-zero value from `main`. The standard says that this is
-  an abnormal termination, and that the value is the error code. They expect `fail <code>` and
-  do not call `rvtest_pass()`.
+  NULL pointer SHOULD panic. If the call returns, the program prints the status.
 
 The runner puts each execution in one of three classes, as the
 [standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics)

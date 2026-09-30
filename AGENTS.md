@@ -11,7 +11,7 @@ zkvms/<zkvm>/           # Per-ZKVM: build.Dockerfile, act4.Dockerfile + entrypoi
 src/                    # Scripts: build.sh, run-isa-tests.sh, run-eth-act-standards-tests.sh
 src/runner/             # Host-side test runner (Rust) for both suites
 src/shared/             # Shared utilities (patch_elfs.py)
-tests/eth-act-standards/ # eth-act standards tests: C guests for the I/O, accelerator and memory interfaces and termination semantics
+tests/eth-act-standards/ # eth-act standards tests: C guests for the I/O, accelerator and memory interfaces
 site/                   # Dashboard (GitHub Pages)
 results/history/        # Historical pass/fail tracking (tracked)
 out/                    # Local outputs (not tracked): bin/ binaries, <zkvm>/ ELFs and logs, commits/, deps/

@@ -3,7 +3,7 @@
 Compliance testing for zkVMs with two test suites:
 
 - **ISA tests:** RISC-V ISA compliance, with the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
-- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations) and termination semantics, which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
+- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
 
 **Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 
@@ -60,7 +60,7 @@ flowchart LR
         exe["zkVM executor<br/>(same version)"]
     end
     subgraph act["Docker: zkvms/&lt;zkvm&gt;/act4.Dockerfile"]
-        src["tests/eth-act-standards/{io,accelerators,memory,termination}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(eth-act/zkevm-standards, pinned in config.json)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
+        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(eth-act/zkevm-standards, pinned in config.json)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
         build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
     end
     vendor --> build
@@ -68,7 +68,7 @@ flowchart LR
     exe --> runner
     runner --> verdict{"ACT4 verdict,<br/>output == .expected,<br/>or .outcome (fail [code])"}
     verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]
-    hist --> dash["dashboard: I/O, Accelerators, Memory, Termination columns"]
+    hist --> dash["dashboard: I/O, Accelerators, Memory columns"]
 ```
 
 - Each test is a small C program that uses only the standard headers. ACT4 builds it as a C
@@ -78,8 +78,7 @@ flowchart LR
   `FAIL` to public output 0, so the runner reads its verdict as for an ISA test. A program that
   ends before `rvtest_pass()` writes no `PASS` and fails. An I/O write program must write its `.expected` public output. A
   program with the `.outcome` `fail` must terminate abnormally (the NULL-pointer tests). With
-  `fail <code>`, the zkVM must also report that error code (the `termination/` tests, where `main`
-  returns a non-zero value). A host error (for example, an executor usage or I/O error) never
+  `fail <code>`, the zkVM must also report that error code. A host error (for example, an executor usage or I/O error) never
   passes a test. The runner gives each program its `.input` file.
 - The suite runs execution only, for ZisK, SP1 and OpenVM. Each standards test image pins its own
   zkVM version, independent of `config.json`. See
