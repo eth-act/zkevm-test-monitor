@@ -64,11 +64,11 @@ flowchart LR
         build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
     end
     vendor --> build
-    elfs --> runner["Host: runner<br/>(standards backends)"]
+    elfs --> runner["Host: runner<br/>(ere, or the standards backends<br/>with BACKEND=native)"]
     exe --> runner
     runner --> verdict{"ACT4 verdict,<br/>output == .expected,<br/>or .outcome (fail [code])"}
     verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]
-    hist --> dash["dashboard: I/O, Accelerators, Memory columns"]
+    hist --> dash["dashboard: Execution, Prove, Verify columns"]
 ```
 
 - Each test is a small C program that uses only the standard headers. ACT4 builds it as a C
@@ -80,8 +80,12 @@ flowchart LR
   program with the `.outcome` `fail` must terminate abnormally (the NULL-pointer tests). With
   `fail <code>`, the zkVM must also report that error code. A host error (for example, an executor usage or I/O error) never
   passes a test. The runner gives each program its `.input` file.
-- The suite runs execution only, for ZisK, SP1 and OpenVM. Each standards test image pins its own
-  zkVM version, independent of `config.json`. See
+- The suite runs for ZisK, SP1 and OpenVM through ere by default: on the official ere image of
+  the revision that `src/runner/Cargo.toml` pins, with execute, prove and verify
+  (`ACT4_MODE`, default `full`; prove and full need an NVIDIA GPU). A test that expects an
+  abnormal termination has no valid proof, so it is only executed. `BACKEND=native` runs the
+  suite on the host executors instead, execute only. Each standards test image pins its own
+  zkVM version (the version that ere pins), independent of `config.json`. See
   [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md).
 - `./run eth-act-standards-tests <zkvm>` runs this pipeline. `./run tests <zkvm>` runs both
   pipelines.

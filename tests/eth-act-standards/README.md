@@ -14,7 +14,11 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution against weak decoys |
 
-The suite runs execution only. It does not prove.
+By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
+`full`). Every stage must give the expected public output. A test that expects an abnormal
+termination (`.outcome`) has no valid proof, so it is only executed, and the dashboard counts
+proving and verification over the other tests. `BACKEND=native` runs the suite on the host
+executors below, execute only.
 
 ## How a test works
 

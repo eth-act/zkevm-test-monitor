@@ -108,7 +108,8 @@ fn main() {
     let backend = match cli.zkvm.as_str() {
         #[cfg(feature = "ere")]
         zkvm if zkvm.starts_with("ere-") => {
-            match runner::ere_backend::EreBackend::new(&zkvm["ere-".len()..], cli.gpu) {
+            let standards = cli.suite == "eth-act-standards";
+            match runner::ere_backend::EreBackend::new(&zkvm["ere-".len()..], cli.gpu, standards) {
                 Ok((backend, provenance)) => {
                     ere_provenance = Some(provenance);
                     Backend::Ere(Box::new(backend))

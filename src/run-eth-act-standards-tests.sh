@@ -1,16 +1,21 @@
 #!/bin/bash
-# run-eth-act-standards-tests.sh <zkvm> — run the eth-act standards tests for one zkVM
-# (execute only).
+# run-eth-act-standards-tests.sh <zkvm> — run the eth-act standards tests for one zkVM.
 #
 # 1. Builds the zkVM's C library and host executor
 #    (zkvms/<zkvm>/standards/Dockerfile).
 # 2. Builds the C test guests in tests/eth-act-standards/ as ACT4 C tests in the
 #    zkVM's ACT4 image (zkvms/<zkvm>/act4.Dockerfile), linked against that library.
-# 3. Runs them on the host with runner (a standards backend), and appends a run
-#    to results/history/<zkvm>-eth-act-standards.json.
+# 3. Runs them with runner, and appends a run to
+#    results/history/<zkvm>-eth-act-standards.json:
+#    - ere path (default): on the official ere image of the revision that
+#      src/runner/Cargo.toml pins. ACT4_MODE=execute|prove|full (default: full);
+#      prove and full need an NVIDIA GPU.
+#    - BACKEND=native: on the host executor from step 1, execute only.
 set -euo pipefail
 
 ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
+# ere (default) or native; see the header.
+BACKEND_KIND="${BACKEND:-ere}"
 PLATFORM_DIR="zkvms/${ZKVM}/standards"
 ELF_DIR="out/${ZKVM}/elfs/eth-act-standards"
 RESULTS_DIR="out/${ZKVM}"
@@ -38,7 +43,7 @@ COMMIT_FILE="out/commits/${ZKVM}.txt"
 NOTES=""
 case "$ZKVM" in
   zisk)
-    BACKEND="zisk-standards"
+    NATIVE_BACKEND="zisk-standards"
     EMULATOR="out/bin/zisk-eth-act-standards-emu"
     IMAGE_EMULATOR="/usr/local/bin/ziskemu"
     IMAGE_EMULATOR_LIBS="/usr/local/lib/ziskemu"
@@ -48,7 +53,7 @@ case "$ZKVM" in
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   sp1)
-    BACKEND="sp1-standards"
+    NATIVE_BACKEND="sp1-standards"
     EMULATOR="out/bin/sp1-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/sp1-eth-act-standards-executor"
     VENDOR_LIB="/opt/sp1/libzkevm.a"
@@ -57,7 +62,7 @@ case "$ZKVM" in
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   openvm)
-    BACKEND="openvm-standards"
+    NATIVE_BACKEND="openvm-standards"
     EMULATOR="out/bin/openvm-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/openvm-eth-act-standards-executor"
     VENDOR_LIB="/opt/openvm/lib/libere_openvm_c.a"
@@ -145,10 +150,25 @@ for entry in $IMAGE_COMMIT_FILES; do
   docker run --rm --entrypoint cat "$IMAGE" "${entry%%:*}" > "$ELF_DIR/${entry#*:}"
 done
 
-# Always build the runner, so a stale binary cannot judge the tests.
+MODE="execute"
+RUNNER_ARGS=(--zkvm "$NATIVE_BACKEND" --binary "$EMULATOR")
 RUNNER="src/runner/target/release/runner"
+CARGO_ARGS=()
+if [ "$BACKEND_KIND" = "ere" ]; then
+  MODE="${ACT4_MODE:-full}"
+  RUNNER_ARGS=(--zkvm "ere-$ZKVM" --mode "$MODE")
+  # Proving needs the GPU images; execute runs on the CPU images.
+  [ "$MODE" != "execute" ] && RUNNER_ARGS+=(--gpu)
+  RUNNER="src/runner/target/ere/release/runner"
+  CARGO_ARGS=(--features ere --target-dir src/runner/target/ere)
+elif [ "$BACKEND_KIND" != "native" ]; then
+  echo "  Error: BACKEND must be ere or native, not $BACKEND_KIND"
+  exit 1
+fi
+
+# Always build the runner, so a stale binary cannot judge the tests.
 echo "Building runner..."
-cargo build --release --manifest-path src/runner/Cargo.toml > "$RESULTS_DIR/eth-act-standards-runner-build.log" 2>&1 || {
+cargo build --release "${CARGO_ARGS[@]}" --manifest-path src/runner/Cargo.toml > "$RESULTS_DIR/eth-act-standards-runner-build.log" 2>&1 || {
   echo "  Failed to build the runner — check $RESULTS_DIR/eth-act-standards-runner-build.log"
   exit 1
 }
@@ -162,15 +182,16 @@ if [ -d "$EMULATOR_LIB_DIR" ]; then
   export LD_LIBRARY_PATH="$PWD/$EMULATOR_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
-echo "Running $ZKVM eth-act standards tests (execute only)..."
+echo "Running $ZKVM eth-act standards tests ($BACKEND_KIND, mode: $MODE)..."
 # Only this run's results may reach the history.
-rm -f "$RESULTS_FILE" "$RESULTS_DIR/summary-eth-act-standards.json"
+rm -f "$RESULTS_FILE" "$RESULTS_DIR/summary-eth-act-standards.json" \
+  "$RESULTS_DIR/details-act4-eth-act-standards.json" "$RESULTS_DIR/ere-act4-eth-act-standards.json"
 # Runner exit status: 0 all passed, 1 some test failed; anything else (a
 # usage error, no ELFs, a host error) means the run is not valid.
 RUNNER_STATUS=0
 # shellcheck disable=SC2086
 "$RUNNER" \
-  --zkvm "$BACKEND" --binary "$EMULATOR" \
+  "${RUNNER_ARGS[@]}" \
   --elf-dir "$ELF_DIR" \
   --output-dir "$RESULTS_DIR" \
   --suite eth-act-standards --groups \
@@ -190,6 +211,10 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
   exit 1
 fi
 
+# Tests that expect an abnormal termination (.outcome) have no valid proof, so
+# the dashboard counts proving and verification over the other tests.
+EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
+
 mkdir -p results/history
 HISTORY_FILE="results/history/${ZKVM}-eth-act-standards.json"
 ZKVM_COMMIT=$(head -c 8 "$COMMIT_FILE" 2>/dev/null || echo "unknown")
@@ -201,14 +226,22 @@ RUN_ENTRY=$(jq -n \
   --arg standards_commit "$STANDARDS_COMMIT" \
   --arg isa "$(jq -r ".zkvms.${ZKVM}.isa // \"unknown\"" config.json)" \
   --arg notes "$NOTES" \
+  --arg mode "$MODE" \
+  --argjson expected_failures "$EXPECTED_FAILURES" \
   --slurpfile results "$RESULTS_FILE" \
   '$results[0] as $r | {
      date: $date, commit: $commit, library_commit: $library_commit,
      monitor_commit: $monitor_commit, standards_commit: $standards_commit, isa: $isa,
-     total: $r.total, passed: $r.passed, failed: $r.failed,
-     prove_failed: [], verify_failed: [], has_proving: false,
+     mode: $mode, total: $r.total, passed: $r.passed, failed: $r.failed,
+     prove_failed: $r.prove_failed, verify_failed: $r.verify_failed,
+     expected_failures: $expected_failures, has_proving: ($mode != "execute"),
      groups: $r.groups, details: $r.details
    } + (if $notes == "" then {} else {notes: $notes} end)')
+# The ere path records what ran the tests: the ere revision, image and SDK version.
+if [ "$BACKEND_KIND" = "ere" ]; then
+  RUN_ENTRY=$(jq -c --slurpfile ere "$RESULTS_DIR/ere-act4-eth-act-standards.json" \
+    '. + $ere[0]' <<< "$RUN_ENTRY")
+fi
 
 if [ -f "$HISTORY_FILE" ]; then
   jq --argjson run "$RUN_ENTRY" '.runs += [$run]' "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" \

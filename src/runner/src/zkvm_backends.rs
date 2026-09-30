@@ -138,10 +138,12 @@ impl Backend {
     /// Whether this backend runs the eth-act standards tests. Their guests
     /// default to an empty input and the expected output `PASS`.
     pub fn is_standards(&self) -> bool {
-        matches!(
-            self,
-            Backend::ZiskStandards { .. } | Backend::Sp1Standards { .. } | Backend::OpenVMStandards { .. }
-        )
+        match self {
+            Backend::ZiskStandards { .. } | Backend::Sp1Standards { .. } | Backend::OpenVMStandards { .. } => true,
+            #[cfg(feature = "ere")]
+            Backend::Ere(ere) => ere.is_standards(),
+            _ => false,
+        }
     }
 
     /// Whether this backend can feed `.input` and check `.expected`.
@@ -179,7 +181,7 @@ impl Backend {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
             #[cfg(feature = "ere")]
-            Backend::Ere(ere) => ere.run_elf(elf_path, mode, start),
+            Backend::Ere(ere) => ere.run_elf(elf_path, mode, vectors, start),
             Backend::OpenVM { binary } => run_openvm(binary, elf_path, start),
             Backend::Zisk { binary } | Backend::ZiskStandards { binary } => {
                 run_zisk(binary, elf_path, vectors, start)
