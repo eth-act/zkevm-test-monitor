@@ -75,7 +75,8 @@ for group in $GROUPS_LIST; do
 done
 
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
-# go-ethereum and execution-specs files (tools/accel_vector_sources.json).
+# go-ethereum and execution-specs files (tools/accel_vector_sources.json) and
+# the extracted execution-specs pytest cases (tools/eest_pytest_vectors.json).
 UV_CACHE_DIR=/cache/uv uv run --no-project --with pycryptodome --with ecdsa \
   "$HERE/tools/gen_accel_vectors.py" --out "$TESTS/rv64i/accelerators/vectors" --cache /cache/vectors
 

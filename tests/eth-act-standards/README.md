@@ -163,15 +163,24 @@ data, converted to the C interface:
 
 - go-ethereum `core/vm/testdata/precompiles` at tag v1.17.6, for every precompile;
 - ethereum/execution-specs (EEST) `tests/` at tag `tests@v20.0.2`, for the EIP-2537 BLS12-381,
-  EIP-7883 modexp and EIP-4844 KZG vectors. EEST has no JSON vectors for bn254, blake2f and
-  ecrecover (only Python test parameters), so those come from go-ethereum only.
+  EIP-7883 modexp and EIP-4844 KZG vectors;
+- the EEST pytest cases at the same tag, for ecrecover, ripemd160, bn254, blake2f, modexp, point
+  evaluation, BLS12-381 and P-256. EEST keeps most precompile cases as pytest parameters, not
+  as JSON files. `tools/extract_eest_cases.py` imports the EEST test modules and writes their
+  cases to `tools/eest_pytest_vectors.json`. That file is checked in, because importing EEST
+  needs its whole Python workspace. To regenerate it after a change of the EEST pin, run
+  `uv run python <this dir>/tools/extract_eest_cases.py` in an execution-specs checkout at the
+  pinned commit.
 
-The script takes every case of every pinned file that the C interface can express: about 1,780
+The script takes every case of every pinned file that the C interface can express: about 2,530
 cases in total. It skips a case whose input is already present, and each case label starts with
 its source (`geth` or `eest`). The fixed-size C types cannot express some cases: a wrong input
 length, an EIP-2537 field element with nonzero padding, or an ecrecover `v` other than 27 or 28.
-The script skips those cases and prints how many it skipped per file. An EEST KZG
-input error (`output: null`) is expected to be rejected, like an invalid proof.
+The script skips those cases and prints how many it skipped per file. It also skips EEST cases
+that fail only because of an EVM rule: a point evaluation versioned hash that does not match
+the commitment, a modexp input above the EIP-7823 size limit, and a valid blake2f input that
+runs out of gas. An EEST KZG input error (`output: null`) is expected to be rejected, like an
+invalid proof.
 
 `tools/accel_vector_sources.json` pins these files: the commit of each source and the sha256 of
 each file. The script downloads each file at that commit, checks the sha256, and stops on a
