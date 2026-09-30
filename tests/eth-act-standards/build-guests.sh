@@ -51,9 +51,12 @@ cp "$STANDARDS/io-interface/zkvm_io.h" "$STANDARDS/c-interface-accelerators/zkvm
 
 # ACT compiles C tests with -std=gnu99; zkvm_accelerators.h requires C11. The
 # last -std option wins, so the wrapper appends -std=gnu11.
+# --gc-sections drops the parts of the vendor library that a guest does not
+# use. Without it a ZisK guest keeps all of ziskos (4.7 MB of code, including
+# its proof verifier), and ZisK's prover compiles all that code for every ELF.
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<'EOF'
 #!/bin/sh
-exec riscv64-unknown-elf-gcc "$@" -std=gnu11
+exec riscv64-unknown-elf-gcc "$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"
