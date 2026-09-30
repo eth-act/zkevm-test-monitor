@@ -35,6 +35,8 @@ CASES = {
     "io-write-byte-at-a-time": (None, pattern(64)),
     "io-write-zero-length": (None, pattern(10)),
     "io-write-257-bytes": (None, pattern(257)),
+    "io-write-257-bytes-in-pieces": (None, pattern(257)),
+    "io-write-buffer-reuse": (None, pattern(32)),
     "io-write-1024-bytes": (None, pattern(1024)),
 }
 
