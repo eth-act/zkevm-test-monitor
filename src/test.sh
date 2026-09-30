@@ -59,7 +59,9 @@ process_results() {
     fi
   fi
 
-  local SUITE_TYPES="full standard"
+  # NATIVE_SUITES limits which native suites are recorded (the ere default records
+  # only the native Full ISA suite).
+  local SUITE_TYPES="${NATIVE_SUITES:-full standard}"
   [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="standard"
   for SUITE_TYPE in $SUITE_TYPES; do
     if [ "$SUITE_TYPE" = "full" ]; then
@@ -561,9 +563,11 @@ run_ere_pipeline() {
   ERE_MODE="$MODE" process_results "$ZKVM" "" ere
 }
 
-# BACKEND=ere runs OpenVM, SP1 and ZisK through ere; BACKEND=native (default) builds
-# them in this repository's containers (for reproducing bugs and testing branches).
-BACKEND="${BACKEND:-native}"
+# BACKEND=ere (default) runs the Standard ISA suite of OpenVM, SP1 and ZisK through ere,
+# then the Full ISA suite on the native path (execute only; needs ./run build <zkvm>).
+# BACKEND=native builds and runs both suites in this repository's containers, for
+# reproducing bugs and testing branches. LambdaVM always runs native until ere supports it.
+BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
   native|ere) ;;
   *) echo "Unknown BACKEND=$BACKEND (expected native or ere)" >&2; exit 2 ;;
@@ -572,6 +576,8 @@ esac
 for ZKVM in $ZKVMS; do
   if [ "$BACKEND" = "ere" ] && [[ " openvm sp1 zisk " == *" $ZKVM "* ]]; then
     run_ere_pipeline "$ZKVM" || true
+    echo "Running $ZKVM Full ISA suite on the native path (mode: execute)..."
+    ACT4_MODE=execute NATIVE_SUITES=full "run_${ZKVM}_split_pipeline" || true
   elif [ "$ZKVM" = "zisk" ]; then
     run_zisk_split_pipeline || true
   elif [ "$ZKVM" = "lambdavm" ]; then

@@ -8,8 +8,8 @@ Tests are self-checking ELFs: the Sail reference model runs at compile time to e
 
 There are two ways to run the tests:
 
-- **ere path** (`BACKEND=ere`): OpenVM, SP1 and ZisK run on the official [eth-act/ere](https://github.com/eth-act/ere) images of the ere revision that `src/act4-runner/Cargo.toml` pins. ere builds and runs the zkVM; there is no local zkVM build. It runs the Standard ISA suite (RV64IM_Zicclsm) only.
-- **native path** (`BACKEND=native`, the default): builds each zkVM in this repository's containers from `config.json` and runs both suites. Use it to reproduce bugs and to test forks or branches.
+- **ere path** (the default): OpenVM, SP1 and ZisK run on the official [eth-act/ere](https://github.com/eth-act/ere) images of the ere revision that `src/act4-runner/Cargo.toml` pins. ere builds and runs the zkVM; there is no local zkVM build. It runs the Standard ISA suite (RV64IM_Zicclsm); the Full ISA suite then runs on the native path, execute only.
+- **native path** (`BACKEND=native`): builds each zkVM in this repository's containers from `config.json` and runs both suites. Use it to reproduce bugs and to test forks or branches. LambdaVM always runs here.
 
 ## Supported ZK-VMs
 
@@ -29,7 +29,7 @@ There are two ways to run the tests:
 ./run test               # Test all
 ./run all sp1            # Build + test
 ./run elfs sp1           # Generate the test ELFs only
-BACKEND=ere ./run test sp1   # Run the Standard ISA suite through ere
+BACKEND=native ./run test sp1   # Build and run both suites locally
 ./run serve              # Dashboard at localhost:9586
 ./run clean              # Remove artifacts
 ```
@@ -43,7 +43,7 @@ FORCE=1 ./run test zisk             # Regenerate ELFs from scratch
 ACT4_MODE=execute ./run test zisk   # Execution only (no proving); also: prove, full (default)
 GPU=1 ./run build zisk              # Build with GPU support
 GPU=1 ./run test zisk               # Prove with GPU
-BACKEND=ere ./run test zisk         # ere path (native is the default)
+BACKEND=native ./run test zisk      # native path (ere is the default)
 ```
 
 ## Adding a ZK-VM
