@@ -29,8 +29,12 @@ const IMAGE_REGISTRY: &str = "ghcr.io/eth-act/ere";
 /// Time limit on each prove; the other stages use `ere-dockerized`'s defaults.
 /// Needed because SP1 v6.6.0 never returns from proving `I-fence-00`: its server
 /// logs a fatal task failure, but `prove` does not return an error
-/// (eth-act/zkevm-test-monitor#51). Real proves take at most ~35 s.
+/// (eth-act/zkevm-test-monitor#51). Real ISA test proves take at most ~35 s.
 const PROVE: Duration = Duration::from_secs(120);
+
+/// Time limit on each prove of an eth-act standards test. Some of these tests
+/// run far longer than an ISA test (for example the BLS12-381 MSM cases).
+const PROVE_STANDARDS: Duration = Duration::from_secs(30 * 60);
 
 /// What was tested: recorded next to the results of each run.
 #[derive(Serialize)]
@@ -210,7 +214,7 @@ impl EreBackend {
             Some(mut zkvm) => zkvm.setup(Elf(elf)).map(|()| zkvm),
             None => {
                 let config = DockerizedzkVMConfig {
-                    prove_timeout: Some(PROVE),
+                    prove_timeout: Some(if self.standards { PROVE_STANDARDS } else { PROVE }),
                     ..Default::default()
                 };
                 DockerizedzkVM::new(self.kind, Elf(elf), self.resource.clone(), config)
