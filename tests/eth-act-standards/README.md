@@ -12,7 +12,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 |---|---|---|
 | `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
-| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution against weak decoys |
+| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution (`mem-link-*`) |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -78,8 +78,20 @@ verdict, so the test fails.
 The `mem-aor-*` guests run Arm's optimized-routines tests, vendored in
 `memory/optimized-routines/` (see its `README.md` for the source commit and the one change).
 
-`mem-link-resolution` defines weak `memcpy`, `memmove`, `memset` and `memcmp` functions that give
-wrong results. The vendor's strong definitions must replace them at link time.
+`mem-link-<fn>` checks the standard's linking rule: when the vendor library has a strong `<fn>`, it
+must take effect regardless of how the guest is built. The guest defines weak `memcpy`, `memmove`,
+`memset` and `memcmp`, as a Rust or C runtime does (for Rust, compiler-builtins). Its `<fn>` is
+deliberately wrong, and the other three are correct (`memory/mem_link.h`). The guest object comes
+before the library in the link, so the wrong `<fn>` wins unless the library puts its `<fn>` in an
+object that every guest links (such as the one with `_start`) or requires `--whole-archive`. Our
+link does not use `--whole-archive`, so a library that relies on it fails. `build-guests.sh`:
+
+- builds `mem-link-<fn>` only if the library has a strong `<fn>`, because acceleration is optional;
+- stops if a `mem-link-<fn>` ELF resolves `<fn>` to anything other than the library's strong `<fn>`
+  or the guest's `decoy_<fn>`, because another weak `<fn>` (such as compiler-builtins') would let
+  the test pass.
+
+The test does not check the standard's documentation or LTO clauses.
 
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.

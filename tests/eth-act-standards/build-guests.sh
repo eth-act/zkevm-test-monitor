@@ -84,6 +84,23 @@ for f in "$TESTS/rv64i/memory/optimized-routines"/mem*.c; do
   sed -i "s/^#define LEN 250000\$/#define LEN $AOR_LEN/" "$f"
 done
 
+# mem-link-<fn> checks that the library's strong <fn> wins symbol resolution
+# against a weak <fn> in the guest. Acceleration is optional: without a strong
+# <fn>, a guest falls back to the toolchain's <fn>, so the test does not apply.
+VENDOR_LIBS=(/vendor/*.a)
+if [ "${#VENDOR_LIBS[@]}" -ne 1 ] || [ ! -f "${VENDOR_LIBS[0]}" ]; then
+  echo "error: expected one vendor library in /vendor" >&2
+  exit 1
+fi
+VENDOR_SYMS=$(riscv64-unknown-elf-nm -g --defined-only "${VENDOR_LIBS[0]}")
+MEMOPS="memcpy memmove memset memcmp"
+for fn in $MEMOPS; do
+  if ! grep -Eqx "[0-9a-f]+ T $fn" <<< "$VENDOR_SYMS"; then
+    echo "note: $(basename "${VENDOR_LIBS[0]}") has no strong $fn, so mem-link-$fn does not apply"
+    rm "$TESTS/rv64i/memory/mem-link-$fn.c"
+  fi
+done
+
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
 # go-ethereum and execution-specs files (tools/accel_vector_sources.json) and
 # the extracted execution-specs pytest cases (tools/eest_pytest_vectors.json).
@@ -97,6 +114,22 @@ ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
 # SP1 and OpenVM decode every word of the code segment; replace the data words
 # that ACT places in code with NOPs, as for the ISA tests.
 python3 /act4/patch_elfs.py "$ELF_ROOT"
+
+# Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition
+# (pass) or to the guest's decoy_<fn> (fail). Any other weak definition, such
+# as compiler-builtins', would copy correctly and let the test pass.
+for fn in $MEMOPS; do
+  elf="$ELF_ROOT/memory/mem-link-$fn.elf"
+  [ -f "$elf" ] || continue
+  syms=$(riscv64-unknown-elf-nm "$elf")
+  kind=$(awk -v s="$fn" '$3 == s { print $2 }' <<< "$syms")
+  addr=$(awk -v s="$fn" '$3 == s { print $1 }' <<< "$syms")
+  decoy=$(awk -v s="decoy_$fn" '$3 == s { print $1 }' <<< "$syms")
+  if [ "$kind" != T ] && { [ -z "$addr" ] || [ "$addr" != "$decoy" ]; }; then
+    echo "error: mem-link-$fn resolves $fn to neither the vendor nor decoy_$fn" >&2
+    exit 1
+  fi
+done
 
 count=0
 for group in $GROUPS_LIST; do
