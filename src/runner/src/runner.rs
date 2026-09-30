@@ -83,7 +83,7 @@ pub fn run_elfs(
 }
 
 /// Run one ELF with its test vectors (see `crate::io_and_expected_failures`), prove it in the prove
-/// modes, and apply its expected outcome.
+/// modes, and apply its expected outcome. A `distinct` test runs twice (see `judge_distinct`).
 pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> RunResult {
     let start = Instant::now();
     let vectors = match IoVectors::load(elf_path, suite == Suite::Standards) {
@@ -95,9 +95,16 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
         return RunResult::host_error(start, None, detail);
     }
 
+    let distinct = vectors.outcome == Outcome::Distinct;
     let execution = zkvm.execute(elf_path, vectors.input.as_deref());
-    let pass_output = suite == Suite::Standards;
+    let first_output = execution.output.as_ref().map(|output| output.bytes.clone());
+    // A distinct test writes its draws, not `PASS`.
+    let pass_output = suite == Suite::Standards && !distinct;
     let mut result = judge(execution, vectors.expected.as_deref(), pass_output, start);
+    if distinct && result.passed {
+        let second = zkvm.execute(elf_path, vectors.input.as_deref());
+        result = judge_distinct(first_output.unwrap_or_default(), second, vectors.expected.as_deref(), start);
+    }
 
     // Prove only an execution that passed.
     if mode != Mode::Execute && result.passed {
@@ -125,6 +132,9 @@ pub fn run_one_with(name: &str, suite: Suite, elf_path: &Path, run: impl FnOnce(
     if vectors.has_io() {
         return RunResult::host_error(start, None, format!("the {name} backend cannot feed .input or check .expected"));
     }
+    if vectors.outcome == Outcome::Distinct {
+        return RunResult::host_error(start, None, format!("the {name} backend cannot run a distinct test"));
+    }
     apply_outcome(run(elf_path), vectors.outcome)
 }
 
@@ -146,6 +156,18 @@ pub fn judge(execution: Execution, expected: Option<&[u8]>, pass_output: bool, s
         Termination::Failure { .. } | Termination::HostError => execution.detail,
     };
     RunResult::executed(start, execution.exit_code, execution.termination, detail)
+}
+
+/// Judge the second execution of a `distinct` test. It must also pass, and its
+/// public output must differ from `first_output`.
+fn judge_distinct(first_output: Vec<u8>, second: Execution, expected: Option<&[u8]>, start: Instant) -> RunResult {
+    let second_output = second.output.as_ref().map(|output| output.bytes.clone()).unwrap_or_default();
+    let result = judge(second, expected, false, start);
+    if !result.passed {
+        return result;
+    }
+    let detail = io_and_expected_failures::check_distinct(&first_output, &second_output);
+    RunResult { passed: detail.is_none(), detail, ..result }
 }
 
 /// Why a successful execution's output fails the test, or `None` if it passes.
@@ -317,6 +339,24 @@ mod tests {
 
         let r = apply_outcome(result(Termination::Success, None), Outcome::Pass);
         assert!(r.passed);
+    }
+
+    #[test]
+    fn expected_distinct_keeps_the_result() {
+        let same = "two executions gave the same public output 00";
+        assert!(!apply_outcome(result(Termination::Success, Some(same)), Outcome::Distinct).passed);
+        assert!(apply_outcome(result(Termination::Success, None), Outcome::Distinct).passed);
+    }
+
+    #[test]
+    fn judge_distinct_compares_the_outputs() {
+        let run = |bytes: &'static [u8]| execution(Termination::Success, Some((bytes, OutputArea::Exact)), PassHalt::Unknown);
+        assert!(judge_distinct(b"ab".to_vec(), run(b"ac"), None, Instant::now()).passed);
+        let r = judge_distinct(b"ab".to_vec(), run(b"ab"), None, Instant::now());
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("two executions gave the same public output 6162"));
+        let r = judge_distinct(b"ab".to_vec(), execution(failure(None), None, PassHalt::Unknown), None, Instant::now());
+        assert_eq!(r.detail.as_deref(), Some("abnormal"));
     }
 
     #[test]
