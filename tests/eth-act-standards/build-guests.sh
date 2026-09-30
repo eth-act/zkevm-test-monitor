@@ -73,6 +73,16 @@ fi
 for group in $GROUPS_LIST; do
   cp -r "$HERE/$group" "$TESTS/rv64i/$group"
 done
+# The vendored optimized-routines tests sweep lengths up to LEN = 250000, which
+# is billions of guest instructions per test. Build them with a smaller LEN.
+AOR_LEN=1024
+for f in "$TESTS/rv64i/memory/optimized-routines"/mem*.c; do
+  if ! grep -qx '#define LEN 250000' "$f"; then
+    echo "error: $f has no '#define LEN 250000' to replace" >&2
+    exit 1
+  fi
+  sed -i "s/^#define LEN 250000\$/#define LEN $AOR_LEN/" "$f"
+done
 
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
 # go-ethereum and execution-specs files (tools/accel_vector_sources.json) and

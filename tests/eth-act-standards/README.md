@@ -12,7 +12,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 |---|---|---|
 | `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
-| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp` over all alignments and lengths 0..72, with guard bytes and unchanged sources, plus link resolution against weak decoys |
+| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution against weak decoys |
 | `termination/` | [Standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics) | `main` returns 1, and `main` returns 7: each must be an abnormal termination with that error code |
 
 The suite runs execution only. It does not prove.
@@ -74,6 +74,9 @@ because ZisK 1.2 and later ignore `a0` at the exit ecall.
 
 `<name>.input` is the private input (default: empty). If a program never finishes, it has no
 verdict, so the test fails.
+
+The `mem-aor-*` guests run Arm's optimized-routines tests, vendored in
+`memory/optimized-routines/` (see its `README.md` for the source commit and the one change).
 
 `mem-link-resolution` defines weak `memcpy`, `memmove`, `memset` and `memcmp` functions that give
 wrong results. The vendor's strong definitions must replace them at link time.
