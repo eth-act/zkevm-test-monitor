@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use rayon::prelude::*;
 
-use crate::backends::{Backend, Mode, RunResult, Termination};
+use crate::zkvm_backends::{Backend, Mode, RunResult, Termination};
 use crate::io_and_expected_failures::{IoVectors, Outcome};
 
 /// Discover all ELF files in `elf_dir` recursively, run each through the backend

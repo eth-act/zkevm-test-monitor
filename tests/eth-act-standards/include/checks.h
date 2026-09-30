@@ -4,8 +4,10 @@
  * The guests are ACT4 C tests (ACT4 >= 4.1.0): a passing test calls
  * rvtest_pass() and a failing check calls print_error() (c_test.h). Both end
  * through the zkVM's RVMODEL_HALT_PASS / RVMODEL_HALT_FAIL macros, the same
- * verdict path as the ISA tests. print_error() also prints the failing check
- * on zkVMs with a console.
+ * verdict path as the ISA tests. Those macros also write PASS or FAIL to
+ * public output 0 (zkvms/<zkvm>/isa-configs/<isa>/rvmodel_macros.h), so a
+ * guest that ends before rvtest_pass() has no PASS verdict. print_error()
+ * also prints the failing check on zkVMs with a console.
  *
  * I/O write tests do not call rvtest_pass(): their verdict is the public
  * output, which the runner compares with the test's .expected vector, so they
@@ -24,18 +26,6 @@
 
 #include "c_test.h"
 #include "zkvm_io.h"
-
-/*
- * On SP1 and OpenVM the pass halt is exit code 0, which a return from main
- * also gives. So a passing test also writes the public output "PASS", and the
- * runner requires it from a test without an .expected vector. A guest that
- * ends before rvtest_pass() then fails.
- */
-static inline __attribute__((noreturn)) void test_pass(void) {
-    write_output((const uint8_t *)"PASS", 4);
-    rvtest_pass();
-}
-#define rvtest_pass() test_pass()
 
 /* Fail the test at check `id`. */
 #define test_fail(id) print_error("check %u failed\n", (unsigned)(id))

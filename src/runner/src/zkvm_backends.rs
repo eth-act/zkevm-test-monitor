@@ -34,6 +34,9 @@ pub enum Backend {
     Sp1Standards { executor: PathBuf },
     /// eth-act standards tests on `openvm-eth-act-standards-executor`.
     OpenVMStandards { executor: PathBuf },
+    /// Runs on the official images of the pinned ere revision (`--features ere`).
+    #[cfg(feature = "ere")]
+    Ere(Box<crate::ere_backend::EreBackend>),
 }
 
 /// Execution mode for test runs.
@@ -127,6 +130,8 @@ impl Backend {
             Backend::ZiskStandards { .. } => "zisk-standards",
             Backend::Sp1Standards { .. } => "sp1-standards",
             Backend::OpenVMStandards { .. } => "openvm-standards",
+            #[cfg(feature = "ere")]
+            Backend::Ere(_) => "ere",
         }
     }
 
@@ -173,6 +178,8 @@ impl Backend {
             Backend::ZiskProve { ziskemu, cargo_zisk, witness_lib, gpu } => {
                 run_zisk_prove(ziskemu, cargo_zisk, witness_lib.as_deref(), elf_path, mode, *gpu, start)
             }
+            #[cfg(feature = "ere")]
+            Backend::Ere(ere) => ere.run_elf(elf_path, mode, start),
             Backend::OpenVM { binary } => run_openvm(binary, elf_path, start),
             Backend::Zisk { binary } | Backend::ZiskStandards { binary } => {
                 run_zisk(binary, elf_path, vectors, start)
@@ -1225,8 +1232,8 @@ fn run_io_executor(
         }
 
         // The pass halt is exit code 0, which a return from main also gives, so
-        // a test without an expected output must write the PASS verdict
-        // (tests/eth-act-standards/include/checks.h).
+        // a test without an expected output must have the PASS verdict that the
+        // ACT4 halt macros write to public output 0 (isa-configs/<isa>/rvmodel_macros.h).
         let expected = vectors.expected.as_deref().unwrap_or(io_and_expected_failures::PASS_OUTPUT);
         let Ok(actual) = std::fs::read(&output_path) else {
             return Ok(RunResult::host_error(start, exit_code, "executor wrote no public values".to_owned()));

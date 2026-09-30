@@ -25,10 +25,17 @@ else
   ZKVMS="$TARGETS"
 fi
 
-# process_results <zkvm> — reads summary/results JSON and updates history
+# process_results <zkvm> [notes] [native|ere] — reads summary/results JSON and updates
+# history. The ere path reads out/<zkvm>/ere/, writes
+# results/history/<zkvm>-ere-<suite>.json, and records the ere provenance of the run
+# (ere-act4-<label>.json) and its mode (ERE_MODE)
+# instead of the native build commit.
 process_results() {
   local ZKVM="$1"
   local NOTES="${2:-}"
+  local BACKEND_KIND="${3:-native}"
+  local RESULTS_DIR="out/${ZKVM}"
+  [ "$BACKEND_KIND" = "ere" ] && RESULTS_DIR="out/${ZKVM}/ere"
 
   mkdir -p results/history
   TEST_MONITOR_COMMIT=$(git rev-parse HEAD 2>/dev/null | head -c 8 || echo "unknown")
@@ -39,7 +46,10 @@ process_results() {
   # Resolve commit from the binary that actually ran the tests.
   # Primary source: out/commits/<zkvm>.txt written by build.sh.
   # Fallback: resolve from the Docker image used for building.
-  if [ -f "out/commits/${ZKVM}.txt" ]; then
+  # (The ere path records its provenance file instead.)
+  if [ "$BACKEND_KIND" = "ere" ]; then
+    ZKVM_COMMIT=""
+  elif [ -f "out/commits/${ZKVM}.txt" ]; then
     ZKVM_COMMIT=$(cat "out/commits/${ZKVM}.txt")
   else
     ZKVM_COMMIT=$(docker run --rm --entrypoint cat "zkvm-${ZKVM}:latest" /commit.txt 2>/dev/null | head -c 8 || echo "unknown")
@@ -49,7 +59,11 @@ process_results() {
     fi
   fi
 
-  for SUITE_TYPE in full standard; do
+  # NATIVE_SUITES limits which native suites are recorded (the ere default records
+  # only the native Full ISA suite).
+  local SUITE_TYPES="${NATIVE_SUITES:-full standard}"
+  [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="standard"
+  for SUITE_TYPE in $SUITE_TYPES; do
     if [ "$SUITE_TYPE" = "full" ]; then
       FILE_LABEL="full-isa"
       SUITE="act4-full"
@@ -58,8 +72,8 @@ process_results() {
       SUITE="act4-standard"
     fi
 
-    SUMMARY_FILE="out/${ZKVM}/summary-act4-${FILE_LABEL}.json"
-    RESULTS_FILE="out/${ZKVM}/results-act4-${FILE_LABEL}.json"
+    SUMMARY_FILE="${RESULTS_DIR}/summary-act4-${FILE_LABEL}.json"
+    RESULTS_FILE="${RESULTS_DIR}/results-act4-${FILE_LABEL}.json"
 
     if [ ! -f "$SUMMARY_FILE" ]; then
       if [ "$SUITE_TYPE" = "full" ]; then
@@ -98,6 +112,7 @@ process_results() {
     echo "     ${STATUS_EMOJI} ${PASSED_COUNT}/${TOTAL} passed"
 
     HISTORY_FILE="results/history/${ZKVM}-${SUITE}.json"
+    [ "$BACKEND_KIND" = "ere" ] && HISTORY_FILE="results/history/${ZKVM}-ere-${SUITE}.json"
 
     # Build run entry as JSON
     RUN_ENTRY=$(jq -n \
@@ -115,6 +130,12 @@ process_results() {
       --argjson has_proving "$HAS_PROVING" \
       --arg notes "$NOTES" \
       '{date: $date, commit: $commit, monitor_commit: $monitor_commit, act4_commit: $act4_commit, act4_version: $act4_version, isa: $isa, total: $total, passed: $passed, failed: $failed, prove_failed: $prove_failed, verify_failed: $verify_failed, has_proving: $has_proving} | if $notes != "" then . + {notes: $notes} else . end')
+
+    if [ "$BACKEND_KIND" = "ere" ]; then
+      RUN_ENTRY=$(jq -c --slurpfile ere "${RESULTS_DIR}/ere-act4-${FILE_LABEL}.json" \
+        --arg mode "$ERE_MODE" \
+        'del(.commit) + $ere[0] + {mode: $mode}' <<< "$RUN_ENTRY")
+    fi
 
     if [ -f "$HISTORY_FILE" ]; then
       jq --argjson run "$RUN_ENTRY" '.runs += [$run]' \
@@ -514,8 +535,53 @@ run_openvm_split_pipeline() {
 
 }
 
+# run_ere_pipeline <zkvm> — BACKEND=ere: ELFs from this repository, run on the
+# official ghcr.io/eth-act/ere images of the ere revision that the runner pins
+# (src/runner/Cargo.toml). ere builds and runs the zkVM; no local zkVM build.
+run_ere_pipeline() {
+  local ZKVM="$1"
+  local ELF_DIR="out/${ZKVM}/elfs"
+  local OUT_DIR="out/${ZKVM}/ere"
+  # Standard ISA mode: execute, prove or full (execute + prove + verify, default).
+  local MODE="${ACT4_MODE:-full}"
+
+  generate_act4_elfs "$ZKVM" "$ELF_DIR" || return 1
+
+  # Always build: cargo rebuilds only what changed, so the binary is never stale.
+  local RUNNER="src/runner/target/ere/release/runner"
+  echo "  Building runner (ere)..."
+  cargo build --release --quiet --features ere --target-dir src/runner/target/ere \
+    --manifest-path src/runner/Cargo.toml || { echo "  Failed to build runner (ere)"; return 1; }
+
+  rm -rf "$OUT_DIR" && mkdir -p "$OUT_DIR"
+  # Proving needs the GPU images; execute runs on the CPU images.
+  local GPU_ARG=""
+  [ "$MODE" != "execute" ] && GPU_ARG="--gpu"
+
+  echo "Running $ZKVM target suite on ere (mode: $MODE)..."
+  "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/target" --output-dir "$OUT_DIR" \
+    --suite act4-standard --label standard-isa --mode "$MODE" $GPU_ARG || true
+
+  # ere runs the Standard ISA (RV64IM_Zicclsm) only; Full ISA stays on the native path.
+  ERE_MODE="$MODE" process_results "$ZKVM" "" ere
+}
+
+# BACKEND=ere (default) runs the Standard ISA suite of OpenVM, SP1 and ZisK through ere,
+# then the Full ISA suite on the native path (execute only; needs ./run build <zkvm>).
+# BACKEND=native builds and runs both suites in this repository's containers, for
+# reproducing bugs and testing branches. LambdaVM always runs native until ere supports it.
+BACKEND="${BACKEND:-ere}"
+case "$BACKEND" in
+  native|ere) ;;
+  *) echo "Unknown BACKEND=$BACKEND (expected native or ere)" >&2; exit 2 ;;
+esac
+
 for ZKVM in $ZKVMS; do
-  if [ "$ZKVM" = "zisk" ]; then
+  if [ "$BACKEND" = "ere" ] && [[ " openvm sp1 zisk " == *" $ZKVM "* ]]; then
+    run_ere_pipeline "$ZKVM" || true
+    echo "Running $ZKVM Full ISA suite on the native path (mode: execute)..."
+    ACT4_MODE=execute NATIVE_SUITES=full "run_${ZKVM}_split_pipeline" || true
+  elif [ "$ZKVM" = "zisk" ]; then
     run_zisk_split_pipeline || true
   elif [ "$ZKVM" = "lambdavm" ]; then
     run_lambdavm_split_pipeline || true

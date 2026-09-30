@@ -136,6 +136,31 @@
         return { passed: names.filter(n => passed.has(n)).length, total: names.length };
     }
 
+    // Suites listed in config.json `zkvms.<name>.ere.suites` run through ere; the
+    // site reads them from data/history/<name>-ere-<suite>.json.
+    function isEre(zkvm, suite) {
+        return !!zkvm?.ere?.suites?.includes(suite);
+    }
+
+    function historyFile(name, zkvm, suite) {
+        return `data/history/${name}${isEre(zkvm, suite) ? '-ere' : ''}-${suite}.json`;
+    }
+
+    // Version of the zkVM that a run tested: the SDK version and ere revision for
+    // an ere run ("via ere <rev>"), the build commit otherwise.
+    function versionHtml(zkvm, run) {
+        const stop = 'onclick="event.stopPropagation()"';
+        if (run?.ere_rev) {
+            const sdkUrl = `${zkvm.ere?.sdk_repo_url || zkvm.repo_url}/tree/${run.sdk_version}`;
+            const ereUrl = `https://github.com/eth-act/ere/commit/${run.ere_rev}`;
+            return `<a href="${sdkUrl}" class="commit-link" ${stop}>${run.sdk_version}</a>` +
+                ` via ere <a href="${ereUrl}" class="commit-link" ${stop}>${run.ere_rev}</a>`;
+        }
+        const commit = run?.commit || run?.zkvm_commit;
+        if (!commit || commit === 'unknown') return '<span class="none">&mdash;</span>';
+        return `<a href="${zkvm.repo_url}/commit/${commit}" class="commit-link" ${stop}>${commit.substring(0, 8)}</a>`;
+    }
+
     function commitShort(commit) {
         if (!commit || commit === 'unknown') return 'unknown';
         return commit.substring(0, 8);
@@ -168,8 +193,9 @@
             }
 
             const rows = await Promise.all(zkvms.map(async (name) => {
-                const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
-                const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+                const zkvm = config.zkvms[name];
+                const fullHistory = await fetch(historyFile(name, zkvm, 'act4-full')).then(r => r.json()).catch(() => null);
+                const stdHistory = await fetch(historyFile(name, zkvm, 'act4-standard')).then(r => r.json()).catch(() => null);
                 const standardsHistory = await fetch(`data/history/${name}-eth-act-standards.json`).then(r => r.json()).catch(() => null);
                 const fullRun = fullHistory?.runs?.at(-1);
                 const stdRun = stdHistory?.runs?.at(-1);
@@ -181,9 +207,6 @@
                 const c = row.config;
                 const full = row.fullRun;
                 const std = row.stdRun;
-                const commit = full?.commit || full?.zkvm_commit || std?.commit || std?.zkvm_commit;
-                const commitUrl = commit ? `${c.repo_url}/commit/${commit}` : null;
-                const isa = c.isa || full?.isa || 'unknown';
 
                 const pv = countProveVerify(std);
 
@@ -202,8 +225,7 @@
 
                 return `<tr>
                     <td><strong><a href="zkvm.html?name=${row.name}">${row.name.toUpperCase()}</a></strong></td>
-                    <td>${commitUrl ? `<a href="${commitUrl}" class="commit-link">${commitShort(commit)}</a>` : '<span class="none">&mdash;</span>'}</td>
-                    <td><code>${isa}</code></td>
+                    <td>${versionHtml(c, std || full)}</td>
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
@@ -220,8 +242,7 @@
                     <thead>
                         <tr>
                             <th rowspan="2">ZKVM</th>
-                            <th rowspan="2">Commit</th>
-                            <th rowspan="2">Full ISA</th>
+                            <th rowspan="2">Version</th>
                             <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a> Tests</th>
                             <th colspan="${STANDARDS_GROUPS.length}" class="col-group col-group-standards"><a href="https://github.com/eth-act/zkevm-standards/tree/main/standards">eth-act Standards Tests &#x1F517;</a> (Execution)</th>
                             <th rowspan="2">Last Run</th>
