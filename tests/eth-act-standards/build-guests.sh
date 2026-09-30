@@ -62,6 +62,14 @@ export PATH="$DUT:$PATH"
 TESTS="$WORK/tests"
 mkdir -p "$TESTS/rv64i"
 cp -r /act4/tests/env "$TESTS/env"
+# The guests target rv64im_zicclsm, without Zicsr. ACT's C start code reads
+# mhartid; the zkVMs have one hart, so its ID is 0. (The vendor's _start is the
+# entry point, so this code is linked but not run.)
+sed -i 's/^\([[:space:]]*\)csrr[[:space:]]*t0,[[:space:]]*mhartid/\1li    t0, 0/' "$TESTS/env/c_test_start.S"
+if grep -q csrr "$TESTS/env/c_test_start.S"; then
+  echo "error: ACT's c_test_start.S has a CSR access that the rv64im_zicclsm build cannot assemble" >&2
+  exit 1
+fi
 for group in $GROUPS_LIST; do
   cp -r "$HERE/$group" "$TESTS/rv64i/$group"
 done

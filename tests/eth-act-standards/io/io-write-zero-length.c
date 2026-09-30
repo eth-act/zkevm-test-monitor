@@ -1,6 +1,6 @@
 // START_TEST_CONFIG
 // REQUIRED_EXTENSIONS: ['I', 'M']
-// MARCH: rv64im_zicsr_zifencei
+// MARCH: rv64im_zicclsm
 // NEEDS_SIGNATURE: false
 // END_TEST_CONFIG
 /* Zero-length writes between non-empty writes add nothing to the output. */
