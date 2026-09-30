@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::Parser;
-use runner::backends::{self, Mode, Termination, Tools};
+use runner::zkvm_backends::{self, Mode, RunResult, Termination, Tools};
 use runner::results::{self, TestEntry};
 use runner::runner::{self as suite, Suite};
 
@@ -18,7 +18,8 @@ use runner::runner::{self as suite, Suite};
 #[derive(Parser)]
 #[command(name = "runner")]
 struct Cli {
-    /// ZK-VM backend to use: lambdavm, openvm, sp1 or zisk.
+    /// ZK-VM backend to use: lambdavm, openvm, sp1 or zisk. With `--features ere`:
+    /// ere-openvm, ere-sp1 or ere-zisk (the ere path).
     #[arg(long)]
     zkvm: String,
 
@@ -102,6 +103,21 @@ fn main() {
         process::exit(2);
     };
 
+    // The ere path (`--zkvm ere-<zkvm>`, `--features ere`) runs the ELFs on the official
+    // ere images. ere runs its own execute, prove and verify stages, so it is not a
+    // `Zkvm` backend. It runs one test at a time: one server per zkVM.
+    #[cfg(feature = "ere")]
+    if let Some(name) = cli.zkvm.strip_prefix("ere-") {
+        let (ere, provenance) = runner::ere_backend::EreBackend::new(name, cli.gpu).unwrap_or_else(|e| {
+            eprintln!("error: {e:#}");
+            process::exit(2);
+        });
+        let runs = suite::run_elfs(&cli.elf_dir, 1, |elf| ere.run_elf(elf, mode, std::time::Instant::now()));
+        let label = cli.label.as_deref().unwrap_or(&cli.suite);
+        report(&cli, &runs, || ere.finish(&cli.output_dir, label, &provenance));
+        return;
+    }
+
     let tools = Tools {
         binary: cli.binary.clone(),
         io_executor: cli.io_executor.clone(),
@@ -110,14 +126,14 @@ fn main() {
         witness_lib: cli.witness_lib.clone(),
         gpu: cli.gpu,
     };
-    let zkvm = backends::build(&cli.zkvm, tools)
+    let zkvm = zkvm_backends::build(&cli.zkvm, tools)
         .and_then(|zkvm| suite::check_mode(&*zkvm, mode).map(|()| zkvm))
         .unwrap_or_else(|e| {
             eprintln!("error: {e}");
             process::exit(2);
         });
 
-    // For prove/full modes, default to 1 job (proving is resource-intensive)
+    // For prove/full modes, default to 1 job (proving is resource-intensive).
     let jobs = cli.jobs.unwrap_or_else(|| {
         if mode != Mode::Execute {
             1
@@ -127,6 +143,12 @@ fn main() {
     });
 
     let runs = suite::run_tests(&*zkvm, suite_kind, &cli.elf_dir, jobs, mode);
+    report(&cli, &runs, || Ok(()));
+}
+
+/// Write the results and summary, run `finish` (the ere run records), print
+/// the summary and exit with the runner's status.
+fn report(cli: &Cli, runs: &[(PathBuf, RunResult)], finish: impl FnOnce() -> anyhow::Result<()>) {
     if runs.is_empty() {
         eprintln!("error: no ELFs found in {}", cli.elf_dir.display());
         process::exit(2);
@@ -152,6 +174,11 @@ fn main() {
         cli.groups,
     ) {
         eprintln!("error: failed to write results: {e}");
+        process::exit(2);
+    }
+
+    if let Err(e) = finish() {
+        eprintln!("error: failed to write ere run records: {e:#}");
         process::exit(2);
     }
 

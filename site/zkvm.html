@@ -168,13 +168,47 @@
         return Array.isArray(run.passed) ? run.passed.length : run.passed;
     }
 
+    // Suites listed in config.json `zkvms.<name>.ere.suites` run through ere; their
+    // ere runs are in data/history/<name>-ere-<suite>.json.
+    // The Standard ISA suite tests this ISA on every zkVM; the Full ISA suite tests
+    // the zkVM's own ISA (the run's `isa`).
+    const STANDARD_ISA = 'RV64IM_Zicclsm';
+
+    function isEre(zkvm, suite) {
+        return !!zkvm?.ere?.suites?.includes(suite);
+    }
+
+    // All runs of a suite, oldest first: the runs in data/history/<name>-<suite>.json,
+    // plus the ere runs for a suite that runs through ere.
+    async function loadRuns(name, zkvm, suite) {
+        const get = file => fetch(file).then(r => r.json()).then(h => h?.runs || []).catch(() => []);
+        const runs = await get(`data/history/${name}-${suite}.json`);
+        if (isEre(zkvm, suite)) runs.push(...await get(`data/history/${name}-ere-${suite}.json`));
+        return runs.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    }
+
+    // Version of the zkVM that a run tested: the SDK version and ere revision for
+    // an ere run ("via ere <rev>"), the build commit otherwise.
+    function versionHtml(zkvm, run) {
+        const stop = 'onclick="event.stopPropagation()"';
+        if (run?.ere_rev) {
+            const sdkUrl = `${zkvm.ere?.sdk_repo_url || zkvm.repo_url}/tree/${run.sdk_version}`;
+            const ereUrl = `https://github.com/eth-act/ere/commit/${run.ere_rev}`;
+            return `<a href="${sdkUrl}" class="commit-link" ${stop}>${run.sdk_version}</a>` +
+                ` via ere <a href="${ereUrl}" class="commit-link" ${stop}>${run.ere_rev}</a>`;
+        }
+        const commit = run?.commit || run?.zkvm_commit;
+        if (!commit || commit === 'unknown') return '<span class="none">&mdash;</span>';
+        return `<a href="${zkvm.repo_url}/commit/${commit}" class="commit-link" ${stop}>${commit.substring(0, 8)}</a>`;
+    }
+
     function commitShort(commit) {
         if (!commit || commit === 'unknown') return 'unknown';
         return commit.substring(0, 8);
     }
 
     function getCommit(run) {
-        return run?.commit || run?.zkvm_commit || 'unknown';
+        return run?.commit || run?.zkvm_commit || run?.ere_rev || 'unknown';
     }
 
     // Escape HTML, then turn URLs and GitHub owner/repo#N refs into clickable links.
@@ -253,8 +287,8 @@
             const zkvm = config.zkvms[name];
             if (!zkvm) throw new Error(`Unknown ZKVM: ${name}`);
 
-            const fullHistory = await fetch(`data/history/${name}-act4-full.json`).then(r => r.json()).catch(() => null);
-            const stdHistory = await fetch(`data/history/${name}-act4-standard.json`).then(r => r.json()).catch(() => null);
+            const fullRuns = await loadRuns(name, zkvm, 'act4-full');
+            const stdRuns = await loadRuns(name, zkvm, 'act4-standard');
             const standardsHistory = await fetch(`data/history/${name}-eth-act-standards.json`).then(r => r.json()).catch(() => null);
 
             let html = '';
@@ -266,12 +300,8 @@
 
             // Group runs by date+commit into paired rows (Full + Standard)
             const allRuns = [];
-            if (fullHistory?.runs) {
-                fullHistory.runs.forEach((r, idx) => allRuns.push({ ...r, suite: 'act4-full', runIdx: idx }));
-            }
-            if (stdHistory?.runs) {
-                stdHistory.runs.forEach((r, idx) => allRuns.push({ ...r, suite: 'act4-standard', runIdx: idx }));
-            }
+            fullRuns.forEach((r, idx) => allRuns.push({ ...r, suite: 'act4-full', runIdx: idx }));
+            stdRuns.forEach((r, idx) => allRuns.push({ ...r, suite: 'act4-standard', runIdx: idx }));
             if (standardsHistory?.runs) {
                 standardsHistory.runs.forEach((r, idx) => allRuns.push({ ...r, suite: 'eth-act-standards', runIdx: idx }));
             }
@@ -285,8 +315,6 @@
             const sortedGroups = Object.values(groups).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
             const rows = sortedGroups.map((g, gi) => {
-                const commit = g.commit;
-                const commitUrl = zkvm.repo_url ? `${zkvm.repo_url}/commit/${commit}` : '#';
                 const notes = [...new Set(g.runs.map(r => r.notes).filter(Boolean))].join(' ');
                 const suiteRows = g.runs.sort((a, b) => a.suite.localeCompare(b.suite)).map(r => {
                     const p = execPassedCount(r);
@@ -356,7 +384,7 @@
                 const firstRow = first.replace('<tr', `<tr`).replace(
                     /<td>.*?<\/td>/,
                     `<td rowspan="${rowspan}" class="group-date">${formatDate(g.date)}</td>` +
-                    `<td rowspan="${rowspan}"><a href="${commitUrl}" class="commit-link" onclick="event.stopPropagation()">${commitShort(commit)}</a></td>` +
+                    `<td rowspan="${rowspan}">${versionHtml(zkvm, g.runs[0])}</td>` +
                     `<td rowspan="${rowspan}">${act4Html}</td>` +
                     '$&'
                 );
@@ -367,7 +395,7 @@
             }).join('');
 
             html += `<table>
-                <thead><tr><th>Date</th><th>Commit</th><th>Spec version</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
+                <thead><tr><th>Date</th><th>Version</th><th>Spec version</th><th>Suite</th><th>Execution</th><th>Prove</th><th>Verify</th><th>Details</th><th>Notes</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
 
@@ -401,11 +429,14 @@
             const zkvm = config.zkvms[name];
             if (!zkvm) throw new Error(`Unknown ZKVM: ${name}`);
 
-            const history = await fetch(`data/history/${name}-${suite}.json`).then(r => r.json()).catch(() => null);
-            if (!history?.runs || history.runs.length === 0) throw new Error('No run data available');
+            const runs = await loadRuns(name, zkvm, suite);
+            if (runs.length === 0) throw new Error('No run data available');
 
-            const runIdx = runParam === 'latest' ? history.runs.length - 1 : parseInt(runParam, 10);
-            const run = history.runs[runIdx];
+            // "latest" is the run the dashboard shows: the latest ere run for a suite
+            // that runs through ere.
+            const latest = isEre(zkvm, suite) ? runs.findLastIndex(r => r.ere_rev) : runs.length - 1;
+            const runIdx = runParam === 'latest' ? latest : parseInt(runParam, 10);
+            const run = runs[runIdx];
             if (!run) throw new Error(`Run #${runIdx} not found`);
 
             const commit = getCommit(run);
@@ -423,7 +454,10 @@
 
             html += `<div class="suite-header">
                 <span><strong>Date:</strong> ${formatDate(run.date)}</span>
-                <span><strong>Commit:</strong> <a href="${zkvm.repo_url}/commit/${commit}" class="commit-link">${commitShort(commit)}</a></span>
+                <span><strong>Version:</strong> ${versionHtml(zkvm, run)}</span>
+                <span><strong>ISA:</strong> <code>${suite === 'act4-standard' ? STANDARD_ISA : (run.isa || zkvm.isa)}</code></span>
+                ${run.ere_image ? `<span><strong>Image:</strong> <code title="${run.ere_image}">${(run.ere_image.split('@')[1] || '').substring(0, 19)}</code></span>` : ''}
+                ${run.mode ? `<span><strong>Stages:</strong> ${run.mode} on ${run.resource}</span>` : ''}
                 ${monitorHtml}
                 <span class="${p === run.total ? 'pass' : 'fail'}"><strong>${p}/${run.total}</strong> passed</span>
             </div>`;
@@ -494,7 +528,7 @@
             if (runIdx > 0) {
                 html += `<a href="zkvm.html?name=${name}&suite=${suite}&run=${runIdx - 1}">&larr; Older run</a>`;
             }
-            if (runIdx < history.runs.length - 1) {
+            if (runIdx < runs.length - 1) {
                 html += `<a href="zkvm.html?name=${name}&suite=${suite}&run=${runIdx + 1}" style="float: right;">Newer run &rarr;</a>`;
             }
             html += '</div>';

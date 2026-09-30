@@ -37,7 +37,17 @@ flowchart LR
 ```
 
 - The Sail reference model runs at compile time and embeds the expected values, so each ELF
-  checks itself. It exits 0 on pass and non-zero on fail.
+  checks itself. At the end, it writes `PASS` or `FAIL` to public output 0 and exits 0 on pass
+  and non-zero on fail.
+- There are two ways to run these tests:
+  - **ere path** (the default): OpenVM, SP1 and ZisK run on the official
+    [eth-act/ere](https://github.com/eth-act/ere) images of the ere revision that
+    `src/runner/Cargo.toml` pins. ere builds and runs the zkVM; there is no local zkVM build.
+    It runs the Standard ISA suite (RV64IM_Zicclsm); the Full ISA suite then runs on the
+    native path, execute only.
+  - **native path** (`BACKEND=native`): builds each zkVM in this repository's containers from
+    `config.json` and runs both suites. Use it to reproduce bugs and to test forks or branches.
+    LambdaVM always runs here.
 - In `ACT4_MODE=prove` or `full`, a target test must also prove, and in `full` also verify.
 - `./run isa-tests <zkvm>` runs this pipeline. `FORCE=1` regenerates the ELFs.
 
@@ -64,9 +74,9 @@ flowchart LR
 - Each test is a small C program that uses only the standard headers. ACT4 builds it as a C
   test, with the zkVM's ISA config, and links it against the zkVM's own static library, the way
   an EIP-8025 guest does.
-- A self-checking program ends through the zkVM's ACT4 halt macros, so the runner reads its
-  verdict as for an ISA test. On SP1 and OpenVM, where a return from `main` also exits 0, it
-  must also write the public output `PASS`. An I/O write program must write its `.expected` public output. A
+- A self-checking program ends through the zkVM's ACT4 halt macros, which write `PASS` or
+  `FAIL` to public output 0, so the runner reads its verdict as for an ISA test. A program that
+  ends before `rvtest_pass()` writes no `PASS` and fails. An I/O write program must write its `.expected` public output. A
   program with the `.outcome` `fail` must terminate abnormally (the NULL-pointer tests). With
   `fail <code>`, the zkVM must also report that error code (the `termination/` tests, where `main`
   returns a non-zero value). A host error (for example, an executor usage or I/O error) never
@@ -79,11 +89,12 @@ flowchart LR
 
 ## Supported ZK-VMs
 
-| ZK-VM | ISA | Repo |
-|-------|-----|------|
-| SP1 | RV64IM | [succinctlabs/sp1](https://github.com/succinctlabs/sp1) |
-| OpenVM | RV32IM | [openvm-org/openvm](https://github.com/openvm-org/openvm) |
-| Zisk | RV64IMFDAC | [0xPolygonHermez/zisk](https://github.com/0xPolygonHermez/zisk) |
+| ZK-VM | ISA | Repo | ere path |
+|-------|-----|------|----------|
+| SP1 | RV64IM | [succinctlabs/sp1](https://github.com/succinctlabs/sp1) | yes |
+| OpenVM | RV64IM_Zicclsm | [openvm-org/openvm](https://github.com/openvm-org/openvm) | yes |
+| ZisK | RV64IMFDAC_Zicclsm | [0xPolygonHermez/zisk](https://github.com/0xPolygonHermez/zisk) | yes |
+| LambdaVM | RV64IM_Zicclsm | [yetanotherco/lambda_vm](https://github.com/yetanotherco/lambda_vm) | no |
 
 ## Usage
 
@@ -94,7 +105,9 @@ flowchart LR
 ./run tests sp1 openvm               # Run both suites for two zkVMs
 ./run tests                          # Run both suites for all zkVMs
 ./run all sp1                        # Build + both suites
-./run serve              # Dashboard at localhost:8000
+./run elfs sp1                       # Generate the ISA test ELFs only
+BACKEND=native ./run isa-tests sp1   # Build and run both ISA suites locally
+./run serve                          # Dashboard at localhost:9586
 ./run clean              # Remove artifacts
 ```
 
@@ -107,6 +120,7 @@ FORCE=1 ./run isa-tests zisk            # Regenerate ISA test ELFs from scratch
 ACT4_MODE=execute ./run isa-tests zisk  # Execution only (no proving); also: prove, full (default)
 GPU=1 ./run build zisk              # Build with GPU support
 GPU=1 ./run isa-tests zisk              # Prove with GPU
+BACKEND=native ./run isa-tests zisk     # native path (ere is the default)
 ```
 
 ## Adding a ZK-VM
@@ -124,7 +138,8 @@ GPU=1 ./run isa-tests zisk              # Prove with GPU
 run                       Entry point
 config.json               ZK-VM repo URLs and commit pins (zkVMs, ACT4, zkevm-standards)
 src/                      Build and test scripts
-src/runner/               Host-side test runner (Rust) for both suites
+src/runner/               Host-side test runner (Rust) for both suites, and the ere
+                          backend with `--features ere`
 src/shared/               Shared utilities (patch_elfs.py)
 zkvms/<zkvm>/             Everything specific to one ZK-VM:
   build.Dockerfile          binary build
@@ -141,7 +156,9 @@ out/                      Local outputs, not tracked: bin/, <zkvm>/ ELFs and log
 ## Requirements
 
 - Docker
-- Bash
+- Bash, jq
+- Rust (cargo), for the host-side test runner
+- If GPU proving: an NVIDIA GPU (`ACT4_MODE=prove` or `full`)
 
 ## License
 

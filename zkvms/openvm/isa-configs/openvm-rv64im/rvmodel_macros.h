@@ -14,13 +14,20 @@
         .balign 8; .global fromhost; fromhost: .dword 0;     \
         .popsection
 
-#define RVMODEL_HALT_PASS  \
-  .insn i 0x0b, 0, x0, x0, 0 ;\
-  j .                     ;\
+// The verdict is also revealed as public output 0, as for every zkVM on the ere
+// path: "PASS" = 0x53534150 or "FAIL" = 0x4c494146 (little-endian ASCII).
+// REVEAL is opcode 0x0b, funct3 2: rd = byte index, rs1 = the 8-byte value.
+// Then TERMINATE (funct3 0) with the exit code as imm.
+#define RVMODEL_OPENVM_HALT(_MARKER, _EXIT) \
+  li t0, 0                   ;\
+  li t1, _MARKER             ;\
+  .insn i 0x0b, 2, t0, t1, 0 ;\
+  .insn i 0x0b, 0, x0, x0, _EXIT ;\
+  j .                        ;\
 
-#define RVMODEL_HALT_FAIL \
-  .insn i 0x0b, 0, x0, x0, 1 ;\
-  j .                     ;\
+#define RVMODEL_HALT_PASS RVMODEL_OPENVM_HALT(0x53534150, 0)
+
+#define RVMODEL_HALT_FAIL RVMODEL_OPENVM_HALT(0x4c494146, 1)
 
 // OpenVM has no console; the failure diagnostics are not printed.
 #define RVMODEL_IO_WRITE_STR(_R1, _R2, _R3, _STR_PTR)

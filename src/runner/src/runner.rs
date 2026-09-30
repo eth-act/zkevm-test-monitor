@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use rayon::prelude::*;
 
-use crate::backends::{Execution, Mode, PassHalt, RunResult, Termination, Zkvm};
+use crate::zkvm_backends::{Execution, Mode, PassHalt, RunResult, Termination, Zkvm};
 use crate::io_and_expected_failures::{self, IoVectors, Outcome};
 
 /// The test suite. It sets the defaults of the test vectors (see `crate::io_and_expected_failures`);
@@ -37,14 +37,24 @@ pub fn check_mode(zkvm: &dyn Zkvm, mode: Mode) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Discover all ELF files in `elf_dir` recursively, run each through the backend
-/// in parallel, and return results in deterministic (alphabetical) order.
+/// Run every ELF in `elf_dir` through the zkVM backend (see `run_one`).
 pub fn run_tests(
     zkvm: &dyn Zkvm,
     suite: Suite,
     elf_dir: &Path,
     jobs: usize,
     mode: Mode,
+) -> Vec<(PathBuf, RunResult)> {
+    run_elfs(elf_dir, jobs, |elf_path| run_one(zkvm, suite, elf_path, mode))
+}
+
+/// Discover all ELF files in `elf_dir` recursively, run each with `run` on
+/// `jobs` threads, and return results in deterministic (alphabetical) order.
+/// The ere backend (`--features ere`) uses this directly with its own `run`.
+pub fn run_elfs(
+    elf_dir: &Path,
+    jobs: usize,
+    run: impl Fn(&Path) -> RunResult + Sync,
 ) -> Vec<(PathBuf, RunResult)> {
     let mut elfs = discover_elfs(elf_dir);
     elfs.sort();
@@ -63,7 +73,7 @@ pub fn run_tests(
     pool.install(|| {
         elfs.par_iter()
             .map(|elf_path| {
-                let result = run_one(zkvm, suite, elf_path, mode);
+                let result = run(elf_path);
                 let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                 report_progress(done, total, elf_path, &result);
                 (elf_path.clone(), result)
@@ -260,7 +270,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::backends::{OutputArea, Proof, PublicOutput};
+    use crate::zkvm_backends::{OutputArea, Proof, PublicOutput};
 
     fn result(termination: Termination, detail: Option<&str>) -> RunResult {
         RunResult {

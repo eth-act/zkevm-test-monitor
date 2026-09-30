@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use crate::backends::RunResult;
+use crate::zkvm_backends::RunResult;
 
 use anyhow::{Context, Result};
 use chrono::Utc;
