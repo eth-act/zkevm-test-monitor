@@ -3,11 +3,14 @@
 //! Every ELF may have these files next to it:
 //! - `<stem>.input`: the private input bytes;
 //! - `<stem>.expected`: the expected public output bytes;
-//! - `<stem>.outcome`: `pass` (the default), `fail` or `fail <code>`. With
-//!   `fail`, the guest must terminate abnormally (a panic, an abort, a non-zero
-//!   return from `main`, a failed execution), and with `fail <code>` the zkVM
-//!   must also report that error code. A successful termination or a host
-//!   error fails the test (see `runner::apply_outcome`).
+//! - `<stem>.outcome`: `pass` (the default), `fail`, `fail <code>` or
+//!   `distinct`. With `fail`, the guest must terminate abnormally (a panic, an
+//!   abort, a non-zero return from `main`, a failed execution), and with
+//!   `fail <code>` the zkVM must also report that error code. A successful
+//!   termination or a host error fails the test (see `runner::apply_outcome`).
+//!   With `distinct`, the guest runs twice, and both runs must terminate
+//!   successfully with different public outputs (see `runner::run_one`). This
+//!   checks that host randomness differs between executions.
 //!
 //! In the standards suite (`runner::Suite`), a missing input is empty.
 //! Without an expected output, a test is judged by the ACT4 halt verdict, and
@@ -34,15 +37,20 @@ pub enum Outcome {
     /// Terminate abnormally: a panic, an abort, a non-zero return from `main`
     /// or a failed execution. With `code`, the zkVM must report that error code.
     Fail { code: Option<i32> },
+    /// Run twice, terminate successfully both times, and give different public
+    /// outputs.
+    Distinct,
 }
 
 impl Outcome {
-    /// Parse the text of a `.outcome` file: `pass`, `fail` or `fail <code>`.
+    /// Parse the text of a `.outcome` file: `pass`, `fail`, `fail <code>` or
+    /// `distinct`.
     pub fn parse(text: &str) -> Option<Self> {
         match text.split_whitespace().collect::<Vec<_>>().as_slice() {
             ["pass"] => Some(Outcome::Pass),
             ["fail"] => Some(Outcome::Fail { code: None }),
             ["fail", code] => code.parse().ok().map(|code| Outcome::Fail { code: Some(code) }),
+            ["distinct"] => Some(Outcome::Distinct),
             _ => None,
         }
     }
@@ -104,6 +112,11 @@ pub fn matches_zero_padded(actual: &[u8], expected: &[u8]) -> bool {
     expected.len() <= actual.len()
         && actual[..expected.len()] == *expected
         && actual[expected.len()..].iter().all(|&b| b == 0)
+}
+
+/// The verdict of a `distinct` test from the public outputs of its two runs.
+pub fn check_distinct(first: &[u8], second: &[u8]) -> Option<String> {
+    (first == second).then(|| format!("two executions gave the same public output {}", hex_prefix(first)))
 }
 
 /// Describe an output mismatch for a zero-padded output area.
@@ -205,6 +218,13 @@ mod tests {
     }
 
     #[test]
+    fn distinct_outputs() {
+        assert_eq!(check_distinct(b"ab", b"ac"), None);
+        let detail = check_distinct(b"ab", b"ab").unwrap();
+        assert!(detail.ends_with("output 6162"), "{detail}");
+    }
+
+    #[test]
     fn parses_outcomes() {
         assert_eq!(Outcome::parse("pass\n"), Some(Outcome::Pass));
         assert_eq!(Outcome::parse("fail"), Some(Outcome::Fail { code: None }));
@@ -213,6 +233,7 @@ mod tests {
         assert_eq!(Outcome::parse("fail seven"), None);
         assert_eq!(Outcome::parse("fail 7 8"), None);
         assert_eq!(Outcome::parse("pass 0"), None);
+        assert_eq!(Outcome::parse("distinct\n"), Some(Outcome::Distinct));
         assert_eq!(Outcome::parse(""), None);
     }
 }
