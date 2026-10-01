@@ -110,30 +110,15 @@
         return run.passed;
     }
 
+    // Prove and verify counts of a run. A test that expects an abnormal
+    // termination (expected_failures) has no valid proof, so it is left out.
     function countProveVerify(run) {
-        if (!run) return { prove: null, verify: null, total: null };
-        const pf = run.prove_failed;
-        const vf = run.verify_failed;
-        if (!run.has_proving) return { prove: null, verify: null, total: null };
-        const total = run.total;
-        const failed = run.failed?.length || 0;
-        const proveFailed = pf?.length || 0;
-        const verifyFailed = vf?.length || 0;
-        const proved = total - failed - proveFailed;
-        const verified = total - failed - proveFailed - verifyFailed;
-        return { prove: proved, verify: verified, total: total };
-    }
-
-    // eth-act standards test groups, in dashboard column order.
-    const STANDARDS_GROUPS = [['io', 'I/O'], ['accelerators', 'Accelerators'], ['memory', 'Memory'], ['termination', 'Termination'], ['randomness', 'Randomness']];
-
-    // Passed and total counts of one eth-act standards test group in a run.
-    function groupCounts(run, group) {
-        if (!run?.groups) return { passed: null, total: null };
-        const names = Object.keys(run.groups).filter(n => run.groups[n] === group);
-        if (names.length === 0) return { passed: null, total: null };
-        const passed = new Set(run.passed || []);
-        return { passed: names.filter(n => passed.has(n)).length, total: names.length };
+        if (!run?.has_proving) return { prove: null, verify: null, total: null };
+        const skip = new Set(run.expected_failures || []);
+        const count = list => (Array.isArray(list) ? list : []).filter(n => !skip.has(n)).length;
+        const total = run.total - skip.size;
+        const proved = total - count(run.failed) - count(run.prove_failed);
+        return { prove: proved, verify: proved - count(run.verify_failed), total };
     }
 
     // Suites listed in config.json `zkvms.<name>.ere.suites` run through ere; the
@@ -209,6 +194,7 @@
                 const std = row.stdRun;
 
                 const pv = countProveVerify(std);
+                const spv = countProveVerify(row.standardsRun);
 
                 // Use most recent date from either suite
                 const lastDate = [full?.date, std?.date, row.standardsRun?.date].filter(Boolean).sort().at(-1);
@@ -229,10 +215,9 @@
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
-                    ${STANDARDS_GROUPS.map(([g]) => {
-                        const gc = groupCounts(row.standardsRun, g);
-                        return resultCell(gc.passed, gc.total, standardsLink);
-                    }).join('')}
+                    ${resultCell(execPassedCount(row.standardsRun), row.standardsRun?.total, standardsLink)}
+                    ${resultCell(spv.prove, spv.total, standardsLink)}
+                    ${resultCell(spv.verify, spv.total, standardsLink)}
                     <td>${formatDate(lastDate)}</td>
                 </tr>`;
             }).join('\n');
@@ -243,15 +228,17 @@
                         <tr>
                             <th rowspan="2">ZKVM</th>
                             <th rowspan="2">Version</th>
-                            <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a> Tests</th>
-                            <th colspan="${STANDARDS_GROUPS.length}" class="col-group col-group-standards"><a href="https://github.com/eth-act/zkevm-standards/tree/main/standards">eth-act Standards Tests &#x1F517;</a> (Execution)</th>
+                            <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">ISA Tests &#x1F517;</a></th>
+                            <th colspan="3" class="col-group col-group-standards"><a href="https://github.com/eth-act/zkevm-standards/tree/main/standards">Standards Tests &#x1F517;</a></th>
                             <th rowspan="2">Last Run</th>
                         </tr>
                         <tr>
                             <th class="col-group-target">Execution</th>
                             <th class="col-group-target">Prove</th>
                             <th class="col-group-target">Verify</th>
-                            ${STANDARDS_GROUPS.map(([, label]) => `<th class="col-group-standards">${label}</th>`).join('')}
+                            <th class="col-group-standards">Execution</th>
+                            <th class="col-group-standards">Prove</th>
+                            <th class="col-group-standards">Verify</th>
                         </tr>
                     </thead>
                     <tbody>

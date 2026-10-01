@@ -108,12 +108,15 @@ fn main() {
     // `Zkvm` backend. It runs one test at a time: one server per zkVM.
     #[cfg(feature = "ere")]
     if let Some(name) = cli.zkvm.strip_prefix("ere-") {
-        let (ere, provenance) = runner::ere_backend::EreBackend::new(name, cli.gpu).unwrap_or_else(|e| {
+        let standards = suite_kind == Suite::Standards;
+        let (ere, provenance) = runner::ere_backend::EreBackend::new(name, cli.gpu, standards).unwrap_or_else(|e| {
             eprintln!("error: {e:#}");
             process::exit(2);
         });
         let runs = suite::run_elfs(&cli.elf_dir, 1, |elf| {
-            suite::run_one_with(&cli.zkvm, suite_kind, elf, |elf| ere.run_elf(elf, mode, std::time::Instant::now()))
+            suite::run_one_with(&cli.zkvm, suite_kind, elf, |elf, vectors| {
+                ere.run_elf(elf, mode, vectors, std::time::Instant::now())
+            })
         });
         let label = cli.label.as_deref().unwrap_or(&cli.suite);
         report(&cli, &runs, || ere.finish(&cli.output_dir, label, &provenance));

@@ -13,13 +13,16 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 
 | Group | Standard | Tests |
 |---|---|---|
-| `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call); echo; split, byte-wise and zero-length writes; outputs of 257 and 1024 bytes |
+| `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases; three programs that pass a NULL pointer and expect a panic |
-| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp` over all alignments and lengths 0..72, with guard bytes and unchanged sources, plus link resolution against weak decoys |
-| `termination/` | [Standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics) | `main` returns 1, and `main` returns 7: each must be an abnormal termination with that error code |
+| `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution (`mem-link-*`) |
 | `randomness/` | [Host randomness](https://github.com/eth-act/zkevm-standards/pull/42) (`zkvm_random.h`) | one call; 10 000 calls; 16 pairwise-distinct draws; every bit position varies; two executions draw different values; a hash table keyed by `zkvm_random_u64` gives the same answer under any key |
 
-The suite runs execution only. It does not prove.
+By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
+`full`). Every stage must give the expected public output. A test that expects an abnormal
+termination (`.outcome`) has no valid proof, so it is only executed, and the dashboard counts
+proving and verification over the other tests. `BACKEND=native` runs the suite on the host
+executors below, execute only.
 
 ## How a test works
 
@@ -56,10 +59,7 @@ The runner judges a test in one of four ways:
   - a host error fails.
 
   The `accel-null-*` programs expect `fail`: the standard says that a function called with a
-  NULL pointer SHOULD panic. If the call returns, the program prints the status. The
-  `termination/` programs return a non-zero value from `main`. The standard says that this is
-  an abnormal termination, and that the value is the error code. They expect `fail <code>` and
-  do not call `rvtest_pass()`.
+  NULL pointer SHOULD panic. If the call returns, the program prints the status.
 
 - **Distinct output.** `<name>.outcome` holds `distinct`. The runner runs the program twice. Both
   runs must finish normally, and their public outputs must differ. `rand-independence` uses
@@ -83,8 +83,23 @@ because ZisK 1.2 and later ignore `a0` at the exit ecall.
 `<name>.input` is the private input (default: empty). If a program never finishes, it has no
 verdict, so the test fails.
 
-`mem-link-resolution` defines weak `memcpy`, `memmove`, `memset` and `memcmp` functions that give
-wrong results. The vendor's strong definitions must replace them at link time.
+The `mem-aor-*` guests run Arm's optimized-routines tests, vendored in
+`memory/optimized-routines/` (see its `README.md` for the source commit and the one change).
+
+`mem-link-<fn>` checks the standard's linking rule: when the vendor library has a strong `<fn>`, it
+must take effect regardless of how the guest is built. The guest defines weak `memcpy`, `memmove`,
+`memset` and `memcmp`, as a Rust or C runtime does (for Rust, compiler-builtins). Its `<fn>` is
+deliberately wrong, and the other three are correct (`memory/mem_link.h`). The guest object comes
+before the library in the link, so the wrong `<fn>` wins unless the library puts its `<fn>` in an
+object that every guest links (such as the one with `_start`) or requires `--whole-archive`. Our
+link does not use `--whole-archive`, so a library that relies on it fails. `build-guests.sh`:
+
+- builds `mem-link-<fn>` only if the library has a strong `<fn>`, because acceleration is optional;
+- stops if a `mem-link-<fn>` ELF resolves `<fn>` to anything other than the library's strong `<fn>`
+  or the guest's `decoy_<fn>`, because another weak `<fn>` (such as compiler-builtins') would let
+  the test pass.
+
+The test does not check the standard's documentation or LTO clauses.
 
 Most vendor libraries have no `zkvm_random_u64` yet, and one missing symbol would fail every
 link. `build-guests.sh` therefore links a fallback archive (`include/zkvm_random_fallback.c`)
@@ -187,15 +202,24 @@ data, converted to the C interface:
 
 - go-ethereum `core/vm/testdata/precompiles` at tag v1.17.6, for every precompile;
 - ethereum/execution-specs (EEST) `tests/` at tag `tests@v20.0.2`, for the EIP-2537 BLS12-381,
-  EIP-7883 modexp and EIP-4844 KZG vectors. EEST has no JSON vectors for bn254, blake2f and
-  ecrecover (only Python test parameters), so those come from go-ethereum only.
+  EIP-7883 modexp and EIP-4844 KZG vectors;
+- the EEST pytest cases at the same tag, for ecrecover, ripemd160, bn254, blake2f, modexp, point
+  evaluation, BLS12-381 and P-256. EEST keeps most precompile cases as pytest parameters, not
+  as JSON files. `tools/extract_eest_cases.py` imports the EEST test modules and writes their
+  cases to `tools/eest_pytest_vectors.json`. That file is checked in, because importing EEST
+  needs its whole Python workspace. To regenerate it after a change of the EEST pin, run
+  `uv run python <this dir>/tools/extract_eest_cases.py` in an execution-specs checkout at the
+  pinned commit.
 
-The script takes every case of every pinned file that the C interface can express: about 1,780
+The script takes every case of every pinned file that the C interface can express: about 2,530
 cases in total. It skips a case whose input is already present, and each case label starts with
 its source (`geth` or `eest`). The fixed-size C types cannot express some cases: a wrong input
 length, an EIP-2537 field element with nonzero padding, or an ecrecover `v` other than 27 or 28.
-The script skips those cases and prints how many it skipped per file. An EEST KZG
-input error (`output: null`) is expected to be rejected, like an invalid proof.
+The script skips those cases and prints how many it skipped per file. It also skips EEST cases
+that fail only because of an EVM rule: a point evaluation versioned hash that does not match
+the commitment, a modexp input above the EIP-7823 size limit, and a valid blake2f input that
+runs out of gas. An EEST KZG input error (`output: null`) is expected to be rejected, like an
+invalid proof.
 
 `tools/accel_vector_sources.json` pins these files: the commit of each source and the sha256 of
 each file. The script downloads each file at that commit, checks the sha256, and stops on a

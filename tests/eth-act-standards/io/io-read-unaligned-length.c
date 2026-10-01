@@ -1,6 +1,6 @@
 // START_TEST_CONFIG
 // REQUIRED_EXTENSIONS: ['I', 'M']
-// MARCH: rv64im_zicsr_zifencei
+// MARCH: rv64im_zicclsm
 // NEEDS_SIGNATURE: false
 // END_TEST_CONFIG
 /* read_input returns a private input whose size is not a multiple of 8. */

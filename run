@@ -109,7 +109,8 @@ Commands:
                             builds and runs both suites locally)
   eth-act-standards-tests [zkvm ...]
                             Run the eth-act standards tests (I/O, accelerators,
-                            memory operations; zisk, sp1, openvm; execute only)
+                            memory operations; zisk, sp1, openvm; through ere;
+                            BACKEND=native runs the host executors, execute only)
   tests [zkvm ...]          Run both test suites
   all [zkvm ...]            Build + both test suites
   elfs <zkvm> [--force]     Generate ACT4 ELFs only (no zkVM binary, no test run)
@@ -120,8 +121,8 @@ Environment Variables:
   JOBS=N                    Limit to N CPU cores
   ACT4_JOBS=N               Override parallel test jobs inside container
   FORCE=1                   Force regeneration of ELFs / rebuild of binaries
-  ACT4_MODE=execute|prove|full   Test mode (default: full); applies to
-                            zkVMs that support proving (zisk)
+  ACT4_MODE=execute|prove|full   Test mode (default: full) of the Standard ISA
+                            suite and the eth-act standards tests through ere
   GPU=1                    Build/use GPU variants for Zisk proving
 
 Examples:

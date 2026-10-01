@@ -12,7 +12,7 @@
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #   /cache                    download cache for the accelerator vector sources and uv
 #
-# Every <group>/<name>.c (group: io, accelerators, memory, termination, randomness) becomes
+# Every <group>/<name>.c (group: io, accelerators, memory, randomness) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
 # writes the rest of the I/O vectors.
@@ -23,7 +23,7 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory termination randomness"
+GROUPS_LIST="io accelerators memory randomness"
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
@@ -59,9 +59,12 @@ echo "INPUT($DUT/libzkvm_random_fallback.a)" >> "$DUT/link.ld"
 
 # ACT compiles C tests with -std=gnu99; zkvm_accelerators.h requires C11. The
 # last -std option wins, so the wrapper appends -std=gnu11.
+# --gc-sections drops the parts of the vendor library that a guest does not
+# use. Without it a ZisK guest keeps all of ziskos (4.7 MB of code, including
+# its proof verifier), and ZisK's prover compiles all that code for every ELF.
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<'EOF'
 #!/bin/sh
-exec riscv64-unknown-elf-gcc "$@" -std=gnu11
+exec riscv64-unknown-elf-gcc "$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"
@@ -70,12 +73,48 @@ export PATH="$DUT:$PATH"
 TESTS="$WORK/tests"
 mkdir -p "$TESTS/rv64i"
 cp -r /act4/tests/env "$TESTS/env"
+# The guests target rv64im_zicclsm, without Zicsr. ACT's C start code reads
+# mhartid; the zkVMs have one hart, so its ID is 0. (The vendor's _start is the
+# entry point, so this code is linked but not run.)
+sed -i 's/^\([[:space:]]*\)csrr[[:space:]]*t0,[[:space:]]*mhartid/\1li    t0, 0/' "$TESTS/env/c_test_start.S"
+if grep -q csrr "$TESTS/env/c_test_start.S"; then
+  echo "error: ACT's c_test_start.S has a CSR access that the rv64im_zicclsm build cannot assemble" >&2
+  exit 1
+fi
 for group in $GROUPS_LIST; do
   cp -r "$HERE/$group" "$TESTS/rv64i/$group"
 done
+# The vendored optimized-routines tests sweep lengths up to LEN = 250000, which
+# is billions of guest instructions per test. Build them with a smaller LEN.
+AOR_LEN=1024
+for f in "$TESTS/rv64i/memory/optimized-routines"/mem*.c; do
+  if ! grep -qx '#define LEN 250000' "$f"; then
+    echo "error: $f has no '#define LEN 250000' to replace" >&2
+    exit 1
+  fi
+  sed -i "s/^#define LEN 250000\$/#define LEN $AOR_LEN/" "$f"
+done
+
+# mem-link-<fn> checks that the library's strong <fn> wins symbol resolution
+# against a weak <fn> in the guest. Acceleration is optional: without a strong
+# <fn>, a guest falls back to the toolchain's <fn>, so the test does not apply.
+VENDOR_LIBS=(/vendor/*.a)
+if [ "${#VENDOR_LIBS[@]}" -ne 1 ] || [ ! -f "${VENDOR_LIBS[0]}" ]; then
+  echo "error: expected one vendor library in /vendor" >&2
+  exit 1
+fi
+VENDOR_SYMS=$(riscv64-unknown-elf-nm -g --defined-only "${VENDOR_LIBS[0]}")
+MEMOPS="memcpy memmove memset memcmp"
+for fn in $MEMOPS; do
+  if ! grep -Eqx "[0-9a-f]+ T $fn" <<< "$VENDOR_SYMS"; then
+    echo "note: $(basename "${VENDOR_LIBS[0]}") has no strong $fn, so mem-link-$fn does not apply"
+    rm "$TESTS/rv64i/memory/mem-link-$fn.c"
+  fi
+done
 
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
-# go-ethereum and execution-specs files (tools/accel_vector_sources.json).
+# go-ethereum and execution-specs files (tools/accel_vector_sources.json) and
+# the extracted execution-specs pytest cases (tools/eest_pytest_vectors.json).
 UV_CACHE_DIR=/cache/uv uv run --no-project --with pycryptodome --with ecdsa \
   "$HERE/tools/gen_accel_vectors.py" --out "$TESTS/rv64i/accelerators/vectors" --cache /cache/vectors
 
@@ -86,6 +125,22 @@ ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
 # SP1 and OpenVM decode every word of the code segment; replace the data words
 # that ACT places in code with NOPs, as for the ISA tests.
 python3 /act4/patch_elfs.py "$ELF_ROOT"
+
+# Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition
+# (pass) or to the guest's decoy_<fn> (fail). Any other weak definition, such
+# as compiler-builtins', would copy correctly and let the test pass.
+for fn in $MEMOPS; do
+  elf="$ELF_ROOT/memory/mem-link-$fn.elf"
+  [ -f "$elf" ] || continue
+  syms=$(riscv64-unknown-elf-nm "$elf")
+  kind=$(awk -v s="$fn" '$3 == s { print $2 }' <<< "$syms")
+  addr=$(awk -v s="$fn" '$3 == s { print $1 }' <<< "$syms")
+  decoy=$(awk -v s="decoy_$fn" '$3 == s { print $1 }' <<< "$syms")
+  if [ "$kind" != T ] && { [ -z "$addr" ] || [ "$addr" != "$decoy" ]; }; then
+    echo "error: mem-link-$fn resolves $fn to neither the vendor nor decoy_$fn" >&2
+    exit 1
+  fi
+done
 
 count=0
 for group in $GROUPS_LIST; do
