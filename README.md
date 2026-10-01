@@ -148,7 +148,7 @@ zkvms/<zkvm>/             Everything specific to one ZK-VM:
   build.Dockerfile          binary build
   act4.Dockerfile           ACT4 image (+ entrypoint.sh)
   isa-configs/<isa>/        ACT4 ISA/platform configs
-  standards/                eth-act standards platform: C library, executor, link.ld
+  standards/                eth-act standards platform: C library, executor, linker script patch
 tests/eth-act-standards/  eth-act standards tests: C guests, headers, vector tools
 site/                     Dashboard (GitHub Pages)
 results/history/          Historical pass/fail tracking (read by the dashboard)

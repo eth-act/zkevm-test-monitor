@@ -28,9 +28,16 @@ links against the vendor's static library and calls it only through the standard
 
 `build-guests.sh` compiles the programs with ACT4 (`act`) in the zkVM's ACT4 image
 (`zkvms/<zkvm>/act4.Dockerfile`). It uses the zkVM's ISA config (`zkvms/<zkvm>/isa-configs/`) with the
-`test_config.yaml` and `link.ld` in `zkvms/<zkvm>/standards/`. The linker script puts the vendor's
-static library on the link line, so the vendor's `_start` runs `main`. The test ends through the
-zkVM's ACT4 halt macros, the same as an ISA test.
+`test_config.yaml` in `zkvms/<zkvm>/standards/`, and links the vendor's static library, so the
+vendor's `_start` runs `main`. The test ends through the zkVM's ACT4 halt macros, the same as an
+ISA test.
+
+The linker script is the zkVM's own, from its repository at the pinned commit, with only the changes
+in `zkvms/<zkvm>/standards/link.ld.patch`. Each change in the patch has a comment that gives its
+reason. ZisK (`ziskbuild/zisk_linker_script.ld`) and SP1 (`zkevm/zkvm.ld`) use a patch. OpenVM
+publishes no linker script for C guests, so `zkvms/openvm/standards/link.ld` is ours. SP1's patch
+fills code alignment gaps with NOPs, because SP1's loader rejects a word in an executable segment
+that does not decode; the ELF loading standard allows such words.
 
 The runner judges a test in one of three ways:
 
@@ -156,11 +163,12 @@ config.
 1. Add `zkvms/<zkvm>/standards/`:
    - a `Dockerfile` that builds the vendor library and the host executor;
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
-   - a `link.ld` that includes the vendor library (`INPUT(/vendor/<lib>.a)`) and defines the
-     `__stack_*`, `__bss_*` and `__num_harts` symbols that ACT4's C runtime needs.
+   - a `link.ld.patch` for the zkVM's own linker script (or a `link.ld`, if the zkVM publishes
+     none) that defines the `__stack_*`, `__bss_*` and `__num_harts` symbols that ACT4's C runtime
+     needs.
 2. Add a `<zkvm>-standards` backend to `src/runner/src/backends.rs` that feeds the input to that
    zkVM and reads its verdict and public output, and add its name to `src/runner/src/main.rs`.
-3. Add the vendor library path, the backend and the executor to
+3. Add the vendor library path, the linker script path (`VENDOR_LD`), the backend and the executor to
    `src/run-eth-act-standards-tests.sh`.
 
 ## Accelerator vectors

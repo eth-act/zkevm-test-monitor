@@ -1,9 +1,9 @@
 /* Linker script for the eth-act standards test guests on OpenVM, built as ACT4
-   C tests. Derived from the ISA config zkvms/openvm/isa-configs/openvm-rv64im-zicclsm/
-   link.ld, with these changes:
-   - INPUT() links the vendor library (libere_openvm_c.a: eth-act/ere's
-     ere-platform-openvm plus the read_input/write_output wrapper), because
-     ACT's link line takes no libraries.
+   C tests. OpenVM publishes no linker script for C guests, so this one is ours.
+   build-guests.sh links the vendor library (libere_openvm_c.a: eth-act/ere's
+   ere-platform-openvm plus the read_input/write_output wrapper). Derived from
+   the ISA config zkvms/openvm/isa-configs/openvm-rv64im-zicclsm/link.ld, with
+   these changes:
    - ENTRY(_start) is the openvm crate's _start, which initializes the runtime
      and calls main. ACT's own C start code (rvtest_entry_point) is linked but
      not run.
@@ -21,7 +21,6 @@ NUM_HARTS = 1;
 STACK_SIZE = 0x20000;
 
 OUTPUT_ARCH( "riscv" )
-INPUT(/vendor/libere_openvm_c.a)
 ENTRY(_start)
 
 MEMORY
@@ -44,14 +43,11 @@ SECTIONS
 {
   ASSERT(TEST_BASE >= ORIGIN(ram) && TEST_BASE < ORIGIN(ram) + LENGTH(ram), "TEST_BASE is outside RAM; update TEST_BASE and RAM_ORIGIN/RAM_LENGTH in link.ld, and the matching memory.regions entry in sail.json")
 
-  /* One output section, so alignment padding between the input sections is filled
-     with NOPs (0x00000013) instead of zeros, which the zkVM would decode as an
-     illegal instruction. */
   .text TEST_BASE : {
     *(.text.init)
     *(.text.rvtest) *(.text.rvtest.*)
     *(.text.rvmodel) *(.text.rvmodel.*) *(.text) *(.text.*)
-  } > ram :text =0x13000000
+  } > ram :text
 
   . = ALIGN(0x1000);
   .rodata . : { *(.rodata) *(.rodata.*) *(.srodata) *(.srodata.*) } > ram :data
