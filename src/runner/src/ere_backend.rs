@@ -20,6 +20,7 @@ use ere_dockerized::{
 };
 use serde::Serialize;
 
+use crate::io_and_expected_failures::{self, IoVectors};
 use crate::zkvm_backends::{Mode, RunResult, Termination};
 
 /// Registry that ere CI publishes images to.
@@ -28,8 +29,12 @@ const IMAGE_REGISTRY: &str = "ghcr.io/eth-act/ere";
 /// Time limit on each prove; the other stages use `ere-dockerized`'s defaults.
 /// Needed because SP1 v6.6.0 never returns from proving `I-fence-00`: its server
 /// logs a fatal task failure, but `prove` does not return an error
-/// (eth-act/zkevm-test-monitor#51). Real proves take at most ~35 s.
+/// (eth-act/zkevm-test-monitor#51). Real ISA test proves take at most ~35 s.
 const PROVE: Duration = Duration::from_secs(120);
+
+/// Time limit on each prove of an eth-act standards test. Some of these tests
+/// run far longer than an ISA test (for example the BLS12-381 MSM cases).
+const PROVE_STANDARDS: Duration = Duration::from_secs(30 * 60);
 
 /// What was tested: recorded next to the results of each run.
 #[derive(Serialize)]
@@ -77,6 +82,10 @@ impl std::error::Error for Verdict {}
 pub struct EreBackend {
     kind: zkVMKind,
     resource: ProverResource,
+    /// Whether the ELFs are eth-act standards tests: their verdict is the
+    /// public output (`.expected`, or `PASS` without one), and they get their
+    /// `.input` as stdin.
+    standards: bool,
     /// The running server, kept for the next test; `None` before the first test
     /// and after an error that can leave it broken. The lock also makes tests
     /// run one at a time.
@@ -87,11 +96,12 @@ pub struct EreBackend {
 
 impl EreBackend {
     /// Pulls the image of the pinned revision and returns the backend and what
-    /// it tests. `zkvm` is `openvm`, `sp1` or `zisk`.
+    /// it tests. `zkvm` is `openvm`, `sp1` or `zisk`. With `standards`, the
+    /// ELFs are eth-act standards tests.
     ///
     /// Call this before any other thread starts: it sets the environment
     /// variables that `ere-dockerized` reads.
-    pub fn new(zkvm: &str, gpu: bool) -> anyhow::Result<(Self, Provenance)> {
+    pub fn new(zkvm: &str, gpu: bool, standards: bool) -> anyhow::Result<(Self, Provenance)> {
         let kind: zkVMKind = zkvm
             .parse()
             .map_err(|_| anyhow!("ere has no zkVM named `{zkvm}`"))?;
@@ -125,13 +135,19 @@ impl EreBackend {
         let backend = Self {
             kind,
             resource: if gpu { ProverResource::Gpu } else { ProverResource::Cpu },
+            standards,
             server: Mutex::new(None),
             details: Mutex::new(Vec::new()),
         };
         Ok((backend, provenance))
     }
 
-    pub fn run_elf(&self, elf_path: &Path, mode: Mode, start: Instant) -> RunResult {
+    /// Whether the ELFs are eth-act standards tests.
+    pub fn is_standards(&self) -> bool {
+        self.standards
+    }
+
+    pub fn run_elf(&self, elf_path: &Path, mode: Mode, vectors: &IoVectors, start: Instant) -> RunResult {
         let mut server = self.server.lock().unwrap_or_else(|err| err.into_inner());
         let mut detail = TestDetail {
             name: elf_path
@@ -159,13 +175,19 @@ impl EreBackend {
             detail: None,
         };
 
-        if let Err((stage, err)) = self.run_stages(&mut server, elf_path, mode, &mut detail, &mut result)
+        if let Err((stage, err)) = self.run_stages(&mut server, elf_path, mode, vectors, &mut detail, &mut result)
         {
             detail.outcome = stage;
             detail.error = Some(format!("{err:#}"));
             eprintln!("    {}: {stage}: {err:#}", detail.name);
+            // Name the stage that failed in the result's detail.
+            let step = match stage {
+                "prove_failed" => "prove",
+                "verify_failed" => "verify",
+                _ => "execute",
+            };
+            result.detail = Some(format!("{step}: {err:#}"));
         }
-        result.detail = detail.error.clone();
         result.duration = start.elapsed();
         self.details.lock().unwrap_or_else(|err| err.into_inner()).push(detail);
         result
@@ -178,6 +200,7 @@ impl EreBackend {
         server: &mut Option<DockerizedzkVM>,
         elf_path: &Path,
         mode: Mode,
+        vectors: &IoVectors,
         detail: &mut TestDetail,
         result: &mut RunResult,
     ) -> Result<(), (&'static str, anyhow::Error)> {
@@ -191,7 +214,7 @@ impl EreBackend {
             Some(mut zkvm) => zkvm.setup(Elf(elf)).map(|()| zkvm),
             None => {
                 let config = DockerizedzkVMConfig {
-                    prove_timeout: Some(PROVE),
+                    prove_timeout: Some(if self.standards { PROVE_STANDARDS } else { PROVE }),
                     ..Default::default()
                 };
                 DockerizedzkVM::new(self.kind, Elf(elf), self.resource.clone(), config)
@@ -201,14 +224,14 @@ impl EreBackend {
         detail.setup_secs = started.elapsed().as_secs_f64();
         let zkvm = setup.map_err(|err| ("failed", err.context("setup")))?;
 
-        let input = Input::new();
+        let input = Input::new().with_stdin(vectors.input.clone().unwrap_or_default());
         let outcome = (|| {
             let started = Instant::now();
             let executed = zkvm.execute(&input);
             detail.execute_secs = Some(started.elapsed().as_secs_f64());
             result.termination = execution_termination(&executed);
             let (public_values, _) = executed.map_err(|err| ("failed", err))?;
-            self.verdict(&public_values).map_err(|err| ("failed", err))?;
+            self.verdict(&public_values, vectors).map_err(|err| ("failed", err))?;
             result.passed = true;
             if mode == Mode::Execute {
                 return Ok(());
@@ -221,7 +244,7 @@ impl EreBackend {
             result.prove_duration = Some(secs);
             result.prove_status = Some("failed".to_string());
             let (public_values, proof, _) = proved.map_err(|err| ("prove_failed", err))?;
-            self.verdict(&public_values)
+            self.verdict(&public_values, vectors)
                 .map_err(|err| ("prove_failed", err.context("proof public values")))?;
             result.prove_status = Some("success".to_string());
             result.proof_written = true;
@@ -234,7 +257,7 @@ impl EreBackend {
             detail.verify_secs = Some(started.elapsed().as_secs_f64());
             result.verify_status = Some("failed".to_string());
             let public_values = verified.map_err(|err| ("verify_failed", err))?;
-            self.verdict(&public_values)
+            self.verdict(&public_values, vectors)
                 .map_err(|err| ("verify_failed", err.context("verified public values")))?;
             result.verify_status = Some("success".to_string());
             Ok(())
@@ -262,7 +285,26 @@ impl EreBackend {
     /// (zkvms/<zkvm>/isa-configs/*/rvmodel_macros.h), so the verdict does not
     /// depend on how ere or the zkVM treats the exit code, and it is committed in
     /// the proof.
-    fn verdict(&self, public_values: &PublicValues) -> anyhow::Result<()> {
+    ///
+    /// A standards test must instead have its expected public output: its
+    /// `.expected` bytes, or `PASS` without them. SP1's public values are a
+    /// stream and must match exactly; ZisK's and OpenVM's are a fixed area, so
+    /// trailing zero bytes are padding.
+    fn verdict(&self, public_values: &PublicValues, vectors: &IoVectors) -> anyhow::Result<()> {
+        if self.standards {
+            let expected = vectors.expected.as_deref().unwrap_or(io_and_expected_failures::PASS_OUTPUT);
+            let actual: &[u8] = public_values;
+            let mismatch = if self.kind == zkVMKind::SP1 {
+                (actual != expected).then(|| io_and_expected_failures::describe_exact_mismatch(actual, expected))
+            } else {
+                (!io_and_expected_failures::matches_zero_padded(actual, expected))
+                    .then(|| io_and_expected_failures::describe_mismatch(actual, expected))
+            };
+            return match mismatch {
+                Some(detail) => Err(Verdict(detail).into()),
+                None => Ok(()),
+            };
+        }
         if public_values.starts_with(b"PASS") {
             return Ok(());
         }
@@ -366,6 +408,40 @@ mod tests {
         assert_eq!(execution_termination(&executed(Err(transport))), Termination::HostError);
     }
 
+    fn backend(kind: &str, standards: bool) -> EreBackend {
+        EreBackend {
+            kind: kind.parse().unwrap(),
+            resource: ProverResource::Cpu,
+            standards,
+            server: Mutex::new(None),
+            details: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// A standards test needs its expected public output: `.expected`, or
+    /// `PASS` without it. SP1 must match exactly; ZisK and OpenVM may pad with
+    /// zero bytes.
+    #[test]
+    fn standards_verdict_is_the_expected_output() {
+        let vectors = |expected: Option<&[u8]>| IoVectors {
+            input: Some(Vec::new()),
+            expected: expected.map(<[u8]>::to_vec),
+            outcome: io_and_expected_failures::Outcome::Pass,
+        };
+        let pv = |bytes: &[u8]| PublicValues(bytes.to_vec());
+        let sp1 = backend("sp1", true);
+        let zisk = backend("zisk", true);
+        assert!(sp1.verdict(&pv(b"PASS"), &vectors(None)).is_ok());
+        assert!(sp1.verdict(&pv(b"PASS\0\0\0\0"), &vectors(None)).is_err());
+        assert!(zisk.verdict(&pv(b"PASS\0\0\0\0"), &vectors(None)).is_ok());
+        assert!(zisk.verdict(&pv(b"FAIL\0\0\0\0"), &vectors(None)).is_err());
+        assert!(sp1.verdict(&pv(b"abc"), &vectors(Some(b"abc"))).is_ok());
+        assert!(sp1.verdict(&pv(b"PASS"), &vectors(Some(b"abc"))).is_err());
+        assert!(zisk.verdict(&pv(b"ab\0\0"), &vectors(Some(b"abc"))).is_err());
+        // An ISA test only needs PASS in public output 0.
+        assert!(backend("sp1", false).verdict(&pv(b"PASS\0\0\0\0"), &vectors(None)).is_ok());
+    }
+
     /// An ELF that cannot be read never starts a guest, so it cannot pass a
     /// test that expects an abnormal termination. No Docker is needed: the run
     /// stops before setup.
@@ -375,13 +451,10 @@ mod tests {
         let elf = dir.path().join("t.elf");
         std::os::unix::fs::symlink(dir.path().join("missing"), &elf).unwrap();
         std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
-        let ere = EreBackend {
-            kind: "sp1".parse().unwrap(),
-            resource: ProverResource::Cpu,
-            server: Mutex::new(None),
-            details: Mutex::new(Vec::new()),
-        };
-        let r = runner::run_one_with("ere-sp1", Suite::Isa, &elf, |elf| ere.run_elf(elf, Mode::Execute, Instant::now()));
+        let ere = backend("sp1", false);
+        let r = runner::run_one_with("ere-sp1", Suite::Isa, &elf, |elf, vectors| {
+            ere.run_elf(elf, Mode::Execute, vectors, Instant::now())
+        });
         assert_eq!(r.termination, Termination::HostError);
         assert!(!r.passed);
         assert!(r.detail.unwrap().contains("failed to read"), "detail");

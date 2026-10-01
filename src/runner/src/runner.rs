@@ -113,19 +113,26 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
 }
 
 /// Run one ELF through a backend that runs its own stages (the ere backend,
-/// `run`), with the same test vectors and expected outcome as `run_one`: a test
-/// with `.input` or `.expected` is a host error (ere feeds no input), and
-/// `.outcome` applies. `name` names the backend in a failure detail.
-pub fn run_one_with(name: &str, suite: Suite, elf_path: &Path, run: impl FnOnce(&Path) -> RunResult) -> RunResult {
+/// `run`), with the same test vectors and expected outcome as `run_one`. `run`
+/// gets the vectors: the ere backend feeds `.input` and checks `.expected` for
+/// the standards suite only, so an ISA test with `.input` or `.expected` is a
+/// host error. `.outcome` applies. `name` names the backend in a failure detail.
+pub fn run_one_with(
+    name: &str,
+    suite: Suite,
+    elf_path: &Path,
+    run: impl FnOnce(&Path, &IoVectors) -> RunResult,
+) -> RunResult {
     let start = Instant::now();
     let vectors = match IoVectors::load(elf_path, suite == Suite::Standards) {
         Ok(vectors) => vectors,
         Err(e) => return RunResult::host_error(start, None, format!("runner error: {e:#}")),
     };
-    if vectors.has_io() {
+    if suite == Suite::Isa && vectors.has_io() {
         return RunResult::host_error(start, None, format!("the {name} backend cannot feed .input or check .expected"));
     }
-    apply_outcome(run(elf_path), vectors.outcome)
+    let result = run(elf_path, &vectors);
+    apply_outcome(result, vectors.outcome)
 }
 
 /// Judge an execution against the test's expected output. This is the one
@@ -567,7 +574,7 @@ mod tests {
         let elf = dir.path().join("t.elf");
         std::fs::write(&elf, b"").unwrap();
         let run = |termination: Termination| {
-            run_one_with("ere-sp1", Suite::Isa, &elf, |_| result(termination, Some("detail")))
+            run_one_with("ere-sp1", Suite::Isa, &elf, |_, _| result(termination, Some("detail")))
         };
 
         std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
@@ -579,5 +586,12 @@ mod tests {
         let r = run(Termination::Failure { code: None });
         assert_eq!(r.termination, Termination::HostError);
         assert_eq!(r.detail.as_deref(), Some("the ere-sp1 backend cannot feed .input or check .expected"));
+
+        // A standards test gets its vectors.
+        let r = run_one_with("ere-sp1", Suite::Standards, &elf, |_, vectors| {
+            assert_eq!(vectors.input.as_deref(), Some(&b"x"[..]));
+            result(Termination::Failure { code: None }, None)
+        });
+        assert!(r.passed);
     }
 }
