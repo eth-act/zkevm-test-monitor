@@ -39,7 +39,9 @@ mkdir -p "$RESULTS_DIR" out/bin
 # NOTES: a note to record with every run (shown on the dashboard).
 # EXECUTOR_ARG: the runner flag for the emulator: --binary for the zkVM's own
 #   executor, --io-executor for an eth-act standards executor.
+# BUILD_ARGS: extra `docker build` arguments for the zkVM's image.
 IMAGE_EMULATOR=""
+BUILD_ARGS=()
 IMAGE_EMULATOR_LIBS=""
 COMMIT_FILE="out/commits/${ZKVM}.txt"
 NOTES=""
@@ -72,7 +74,14 @@ case "$ZKVM" in
     # The image pins OpenVM at the tag eth-act/ere uses and records its commit.
     COMMIT_FILE="$ELF_DIR/openvm-commit.txt"
     ERE_COMMIT=$(sed -n 's/^ARG ERE_COMMIT=//p' "$PLATFORM_DIR/Dockerfile")
-    NOTES="OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/${ERE_COMMIT}) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output wrapper (zkvms/openvm/standards/vendor). ere caps public output at 256 bytes."
+    NOTES="OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/${ERE_COMMIT}) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output/zkvm_random_u64 wrapper (zkvms/openvm/standards/vendor). ere caps public output at 256 bytes."
+    # OPENVM_EXECUTOR_GIT and OPENVM_EXECUTOR_REV build the host executor from
+    # another OpenVM commit (see zkvms/openvm/standards/Dockerfile).
+    if [ -n "${OPENVM_EXECUTOR_REV:-}" ]; then
+      BUILD_ARGS=(--build-arg "OPENVM_EXECUTOR_GIT=${OPENVM_EXECUTOR_GIT:?set OPENVM_EXECUTOR_GIT with OPENVM_EXECUTOR_REV}"
+                  --build-arg "OPENVM_EXECUTOR_REV=$OPENVM_EXECUTOR_REV")
+      NOTES="$NOTES The host executor is NOT the pinned OpenVM: it is built from ${OPENVM_EXECUTOR_GIT} at ${OPENVM_EXECUTOR_REV}."
+    fi
     ;;
   *) echo "  eth-act standards tests: no executor for $ZKVM"; exit 1 ;;
 esac
@@ -95,7 +104,7 @@ fi
 
 COMMIT=$(jq -r ".zkvms.${ZKVM}.commit" config.json)
 echo "Building eth-act standards image for $ZKVM..."
-docker build --build-arg COMMIT_HASH="$COMMIT" -t "$IMAGE" \
+docker build --build-arg COMMIT_HASH="$COMMIT" "${BUILD_ARGS[@]}" -t "$IMAGE" \
   -f "$PLATFORM_DIR/Dockerfile" "$PLATFORM_DIR" > "$RESULTS_DIR/eth-act-standards-image.log" 2>&1 || {
   echo "  Failed to build $IMAGE — check $RESULTS_DIR/eth-act-standards-image.log"
   exit 1
@@ -213,9 +222,9 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
   exit 1
 fi
 
-# Tests that expect an abnormal termination (.outcome) have no valid proof, so
+# Tests that expect an abnormal termination (.outcome fail) have no valid proof, so
 # the dashboard counts proving and verification over the other tests.
-EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
+EXPECTED_FAILURES=$({ grep -lx 'fail.*' $(find "$ELF_DIR" -name '*.outcome') /dev/null || true; } | xargs -r -n1 basename | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
 
 mkdir -p results/history
 HISTORY_FILE="results/history/${ZKVM}-eth-act-standards.json"

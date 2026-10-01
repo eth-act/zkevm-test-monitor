@@ -51,8 +51,34 @@ RUN git init /ere && cd /ere && \
     grep -m1 -o 'openvm\.git?tag=v2\.1\.0-preview#[0-9a-f]*' Cargo.lock | cut -d'#' -f2 > /openvm-commit.txt && \
     test -s /openvm-commit.txt
 
+# OPENVM_EXECUTOR_GIT and OPENVM_EXECUTOR_REV build the host executor from
+# another OpenVM commit, for example one that implements the host-randomness
+# standard. The guest library keeps ere's pin. Such a run is not the pinned
+# version, so src/run-eth-act-standards-tests.sh says so in its notes.
+# The executor then takes its lockfile and its stark-backend branch from that
+# commit, so its dependencies resolve as OpenVM's own build does (a deleted
+# stark-backend branch still resolves through the locked commit). OpenVM
+# commits without with_public_values_bytes count public values in bytes in
+# with_public_values.
+ARG OPENVM_EXECUTOR_GIT=
+ARG OPENVM_EXECUTOR_REV=
 COPY executor /executor
-RUN cargo build --release --locked --manifest-path /executor/Cargo.toml && \
+RUN if [ -n "$OPENVM_EXECUTOR_REV" ]; then \
+      git init -q /openvm && \
+      git -C /openvm fetch -q --depth 1 "$OPENVM_EXECUTOR_GIT" "$OPENVM_EXECUTOR_REV" && \
+      git -C /openvm show FETCH_HEAD:Cargo.lock > /executor/Cargo.lock && \
+      stark_branch=$(git -C /openvm show FETCH_HEAD:Cargo.toml | sed -n 's/^openvm-stark-sdk = .*branch = "\([^"]*\)".*/\1/p') && \
+      test -n "$stark_branch" && \
+      sed -i -e "s#git = \"https://github.com/openvm-org/openvm\", rev = \"[0-9a-f]*\"#git = \"$OPENVM_EXECUTOR_GIT\", rev = \"$OPENVM_EXECUTOR_REV\"#" \
+        -e "s#branch = \"[^\"]*\"#branch = \"$stark_branch\"#" /executor/Cargo.toml && \
+      if ! git -C /openvm show FETCH_HEAD:crates/vm/src/arch/config.rs | grep -q 'fn with_public_values_bytes'; then \
+        sed -i 's/\.with_public_values_bytes(/.with_public_values(/' /executor/src/main.rs; \
+      fi && \
+      rm -rf /openvm; \
+    else \
+      locked=--locked; \
+    fi && \
+    cargo build --release $locked --manifest-path /executor/Cargo.toml && \
     cp /executor/target/release/openvm-eth-act-standards-executor /usr/local/bin/ && \
     rm -rf /executor/target
 
