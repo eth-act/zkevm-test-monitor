@@ -79,7 +79,12 @@ cp "$STANDARDS/io-interface/zkvm_io.h" "$STANDARDS/c-interface-accelerators/zkvm
 # use. Without it a ZisK guest keeps all of ziskos (4.7 MB of code, including
 # its proof verifier), and ZisK's prover compiles all that code for every ELF.
 # A link (no -c, -S or -E) also gets the zkVM's library, because ACT's link
-# line takes no libraries.
+# line takes no libraries, and the zkVM's own link arguments (link-args, for a
+# zkVM that links with the default layout, such as OpenVM's -Ttext).
+LINK_ARGS=""
+if [ -f "$PLATFORM_DIR/link-args" ]; then
+  LINK_ARGS=$(sed 's/^/-Wl,/' "$PLATFORM_DIR/link-args" | tr '\n' ' ')
+fi
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<EOF
 #!/bin/sh
 for arg in "\$@"; do
@@ -87,7 +92,7 @@ for arg in "\$@"; do
     -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections ;;
   esac
 done
-exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections "$VENDOR_LIB"
+exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"

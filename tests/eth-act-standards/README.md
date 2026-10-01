@@ -35,7 +35,11 @@ ISA test.
 The linker script is the zkVM's own, from its repository at the pinned commit, with only the changes
 in `zkvms/<zkvm>/standards/link.ld.patch`. Each change in the patch has a comment that gives its
 reason. ZisK (`ziskbuild/zisk_linker_script.ld`) and SP1 (`zkevm/zkvm.ld`) use a patch. OpenVM
-publishes no linker script for C guests, so `zkvms/openvm/standards/link.ld` is ours. SP1's patch
+publishes no linker script: its guest build uses the linker's default layout with
+`-Ttext=0x00200800`. The OpenVM guests link the same way (`zkvms/openvm/standards/link-args`,
+plus `-z separate-code`, which LLD does by default), and `zkvms/openvm/standards/link.ld` only adds
+the symbols that ACT's start code references (`INSERT`, so GNU ld's default script stays). Building
+without ACT would remove those symbols too (#57). SP1's patch
 fills code alignment gaps with NOPs, because SP1's loader rejects a word in an executable segment
 that does not decode; the ELF loading standard allows such words.
 
@@ -97,6 +101,12 @@ link does not use `--whole-archive`, so a library that relies on it fails. `buil
 - stops if a `mem-link-<fn>` ELF resolves `<fn>` to anything other than the library's strong `<fn>`
   or the guest's `decoy_<fn>`, because another weak `<fn>` (such as compiler-builtins') would let
   the test pass.
+
+The ELF check treats any strong `<fn>` as the library's. That holds because nothing else on our link
+line defines a strong `<fn>`: ACT links no C library. In a link that has another strong `<fn>` (for
+example from a libc), the linker loads only the first archive member that defines it, without an
+error, so a strong symbol alone does not show its source. `-Wl,--trace-symbol=<fn>` (or a map file,
+`-Wl,-Map=<file>`) shows which input defined it.
 
 The test does not check the standard's documentation or LTO clauses.
 
