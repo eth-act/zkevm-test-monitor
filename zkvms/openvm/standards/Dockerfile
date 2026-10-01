@@ -55,15 +55,26 @@ RUN git init /ere && cd /ere && \
 # another OpenVM commit, for example one that implements the host-randomness
 # standard. The guest library keeps ere's pin. Such a run is not the pinned
 # version, so src/run-eth-act-standards-tests.sh says so in its notes.
-# OpenVM's crates name stark-backend by a branch that no longer exists, so the
-# lockfile must not be re-resolved: the OpenVM source is rewritten in place,
-# and cargo only adds the new commit's new dependencies.
+# The executor then takes its lockfile and its stark-backend branch from that
+# commit, so its dependencies resolve as OpenVM's own build does (a deleted
+# stark-backend branch still resolves through the locked commit). OpenVM
+# commits without with_public_values_bytes count public values in bytes in
+# with_public_values.
 ARG OPENVM_EXECUTOR_GIT=
 ARG OPENVM_EXECUTOR_REV=
 COPY executor /executor
 RUN if [ -n "$OPENVM_EXECUTOR_REV" ]; then \
-      sed -i "s#git = \"https://github.com/openvm-org/openvm\", rev = \"[0-9a-f]*\"#git = \"$OPENVM_EXECUTOR_GIT\", rev = \"$OPENVM_EXECUTOR_REV\"#" /executor/Cargo.toml && \
-      sed -i "s#git+https://github.com/openvm-org/openvm?rev=[0-9a-f]*\#[0-9a-f]*#git+$OPENVM_EXECUTOR_GIT?rev=$OPENVM_EXECUTOR_REV\#$OPENVM_EXECUTOR_REV#" /executor/Cargo.lock; \
+      git init -q /openvm && \
+      git -C /openvm fetch -q --depth 1 "$OPENVM_EXECUTOR_GIT" "$OPENVM_EXECUTOR_REV" && \
+      git -C /openvm show FETCH_HEAD:Cargo.lock > /executor/Cargo.lock && \
+      stark_branch=$(git -C /openvm show FETCH_HEAD:Cargo.toml | sed -n 's/^openvm-stark-sdk = .*branch = "\([^"]*\)".*/\1/p') && \
+      test -n "$stark_branch" && \
+      sed -i -e "s#git = \"https://github.com/openvm-org/openvm\", rev = \"[0-9a-f]*\"#git = \"$OPENVM_EXECUTOR_GIT\", rev = \"$OPENVM_EXECUTOR_REV\"#" \
+        -e "s#branch = \"[^\"]*\"#branch = \"$stark_branch\"#" /executor/Cargo.toml && \
+      if ! git -C /openvm show FETCH_HEAD:crates/vm/src/arch/config.rs | grep -q 'fn with_public_values_bytes'; then \
+        sed -i 's/\.with_public_values_bytes(/.with_public_values(/' /executor/src/main.rs; \
+      fi && \
+      rm -rf /openvm; \
     else \
       locked=--locked; \
     fi && \
