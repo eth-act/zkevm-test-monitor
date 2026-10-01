@@ -158,9 +158,10 @@ config.
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
    - a `link.ld` that includes the vendor library (`INPUT(/vendor/<lib>.a)`) and defines the
      `__stack_*`, `__bss_*` and `__num_harts` symbols that ACT4's C runtime needs.
-2. Add a `<zkvm>-standards` backend to `src/runner/src/backends.rs` that feeds the input to that
-   zkVM and reads its verdict and public output, and add its name to `src/runner/src/main.rs`.
-3. Add the vendor library path, the backend and the executor to
+2. Make the zkVM's backend in `src/runner/src/backends.rs` feed the input to the zkVM and report
+   its termination and public output: through the zkVM's own executor (`--binary`, as ziskemu
+   does) or an eth-act standards executor (`--io-executor`, as for SP1 and OpenVM).
+3. Add the vendor library path, the executor and its runner flag to
    `src/run-eth-act-standards-tests.sh`.
 
 ## Accelerator vectors

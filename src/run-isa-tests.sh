@@ -242,7 +242,7 @@ run_zisk_split_pipeline() {
       TARGET_ZKVM_ARG="--zkvm zisk --binary out/bin/zisk-binary"
       TARGET_PROVE_ARGS=""
     else
-      TARGET_ZKVM_ARG="--zkvm zisk-prove --binary out/bin/zisk-binary --cargo-zisk $CARGO_ZISK"
+      TARGET_ZKVM_ARG="--zkvm zisk --binary out/bin/zisk-binary --cargo-zisk $CARGO_ZISK"
       TARGET_PROVE_ARGS="$GPU_ARG"
       if [ -f "out/bin/libzisk_witness.so" ]; then
         TARGET_ZKVM_ARG="$TARGET_ZKVM_ARG --witness-lib out/bin/libzisk_witness.so"
@@ -331,7 +331,7 @@ run_sp1_split_pipeline() {
   if [ -d "$ELF_DIR/native" ]; then
     echo "Running $ZKVM native suite (mode: execute)..."
     "$RUNNER" \
-      --zkvm sp1-prove --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
+      --zkvm sp1 --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
       --elf-dir "$ELF_DIR/native" \
       --output-dir "out/${ZKVM}" \
       --suite act4-full \
@@ -348,7 +348,7 @@ run_sp1_split_pipeline() {
     fi
     echo "Running $ZKVM target suite (mode: $MODE)..."
     "$RUNNER" \
-      --zkvm sp1-prove --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
+      --zkvm sp1 --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
       --elf-dir "$ELF_DIR/target" \
       --output-dir "out/${ZKVM}" \
       --suite act4-standard \
@@ -504,7 +504,7 @@ run_openvm_split_pipeline() {
       TARGET_ZKVM_ARG="--zkvm openvm --binary out/bin/openvm-binary"
       TARGET_PROVE_ARGS=""
     else
-      TARGET_ZKVM_ARG="--zkvm openvm-prove --binary out/bin/openvm-binary"
+      TARGET_ZKVM_ARG="--zkvm openvm --binary out/bin/openvm-binary"
       TARGET_PROVE_ARGS="--gpu"
     fi
 

@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::Parser;
-use runner::zkvm_backends::{Backend, Mode, Termination};
+use runner::zkvm_backends::{self, Mode, RunResult, Termination, Tools};
 use runner::results::{self, TestEntry};
-use runner::runner as suite;
+use runner::runner::{self as suite, Suite};
 
 /// Test runner for RISC-V ZK-VMs: the ACT4 ISA tests and the eth-act
 /// standards tests.
@@ -18,18 +18,21 @@ use runner::runner as suite;
 #[derive(Parser)]
 #[command(name = "runner")]
 struct Cli {
-    /// ZK-VM backend to use. ISA tests: lambdavm, openvm, openvm-prove,
-    /// sp1-prove, zisk, zisk-prove. eth-act standards tests: zisk-standards,
-    /// sp1-standards, openvm-standards. With `--features ere`: ere-openvm,
-    /// ere-sp1, ere-zisk.
+    /// ZK-VM backend to use: lambdavm, openvm, sp1 or zisk. With `--features ere`:
+    /// ere-openvm, ere-sp1 or ere-zisk (the ere path).
     #[arg(long)]
     zkvm: String,
 
-    /// Path to the ZK-VM binary executable (for the standards backends:
-    /// ziskemu, sp1-eth-act-standards-executor or
-    /// openvm-eth-act-standards-executor).
+    /// Path to the ZK-VM's own executor: lambdavm, openvm-binary,
+    /// sp1-perf-executor or ziskemu.
     #[arg(long)]
     binary: Option<PathBuf>,
+
+    /// Path to an eth-act standards executor, which runs a guest with I/O,
+    /// instead of --binary (openvm: openvm-eth-act-standards-executor; sp1:
+    /// sp1-eth-act-standards-executor).
+    #[arg(long)]
+    io_executor: Option<PathBuf>,
 
     /// Directory containing ELF test files (searched recursively).
     #[arg(long)]
@@ -59,23 +62,24 @@ struct Cli {
     jobs: Option<usize>,
 
     /// Execution mode: execute (emulation only), prove (emulate + prove),
-    /// full (emulate + prove + verify). Used by the prove backends.
+    /// full (emulate + prove + verify). Proving needs the zkVM's prover tools.
     #[arg(long, default_value = "execute")]
     mode: String,
 
-    /// Path to cargo-zisk binary (for zisk-prove backend).
+    /// Path to cargo-zisk binary (to prove with zisk).
     #[arg(long)]
     cargo_zisk: Option<PathBuf>,
 
-    /// Path to sp1-perf binary (prove+verify; for sp1-prove backend).
+    /// Path to sp1-perf binary (prove+verify; to prove with sp1).
     #[arg(long)]
     sp1_perf: Option<PathBuf>,
 
-    /// Path to libzisk_witness.so (required for zisk-prove on v0.15.0).
+    /// Path to libzisk_witness.so (required to prove with zisk v0.15.0).
     #[arg(long)]
     witness_lib: Option<PathBuf>,
 
-    /// Enable GPU acceleration (openvm-prove, sp1-prove, zisk-prove).
+    /// Enable GPU acceleration (openvm and sp1 proving; zisk uses the GPU
+    /// when cargo-zisk is a cuda build).
     #[arg(long)]
     gpu: bool,
 
@@ -94,87 +98,48 @@ fn main() {
         }
     };
 
-    let require_binary = |cli: &Cli| -> PathBuf {
-        cli.binary.clone().unwrap_or_else(|| {
-            eprintln!("error: --binary is required for zkvm '{}'", cli.zkvm);
-            process::exit(2);
-        })
+    let Some(suite_kind) = Suite::from_name(&cli.suite) else {
+        eprintln!("error: unknown suite '{}', expected act4-<name> or eth-act-standards", cli.suite);
+        process::exit(2);
     };
 
-    // ere path: provenance of the run, written next to the results.
+    // The ere path (`--zkvm ere-<zkvm>`, `--features ere`) runs the ELFs on the official
+    // ere images. ere runs its own execute, prove and verify stages, so it is not a
+    // `Zkvm` backend. It runs one test at a time: one server per zkVM.
     #[cfg(feature = "ere")]
-    let mut ere_provenance = None;
-
-    let backend = match cli.zkvm.as_str() {
-        #[cfg(feature = "ere")]
-        zkvm if zkvm.starts_with("ere-") => {
-            let standards = cli.suite == "eth-act-standards";
-            match runner::ere_backend::EreBackend::new(&zkvm["ere-".len()..], cli.gpu, standards) {
-                Ok((backend, provenance)) => {
-                    ere_provenance = Some(provenance);
-                    Backend::Ere(Box::new(backend))
-                }
-                Err(err) => {
-                    eprintln!("error: {err:#}");
-                    process::exit(2);
-                }
-            }
-        }
-        "lambdavm" => Backend::LambdaVM {
-            binary: require_binary(&cli),
-        },
-        "openvm" => Backend::OpenVM {
-            binary: require_binary(&cli),
-        },
-        "sp1-prove" => Backend::Sp1Prove {
-            executor: require_binary(&cli),
-            sp1_perf: cli.sp1_perf.clone().unwrap_or_else(|| {
-                eprintln!("error: --sp1-perf is required for zkvm 'sp1-prove'");
-                process::exit(2);
-            }),
-            gpu: cli.gpu,
-        },
-        "openvm-prove" => Backend::OpenVMProve {
-            binary: require_binary(&cli),
-            gpu: cli.gpu,
-        },
-        "zisk" => Backend::Zisk {
-            binary: require_binary(&cli),
-        },
-        "zisk-prove" => Backend::ZiskProve {
-            ziskemu: require_binary(&cli),
-            cargo_zisk: cli.cargo_zisk.clone().unwrap_or_else(|| {
-                eprintln!("error: --cargo-zisk is required for zkvm 'zisk-prove'");
-                process::exit(2);
-            }),
-            witness_lib: cli.witness_lib.clone(),
-            gpu: cli.gpu,
-        },
-        "zisk-standards" => Backend::ZiskStandards {
-            binary: require_binary(&cli),
-        },
-        "sp1-standards" => Backend::Sp1Standards {
-            executor: require_binary(&cli),
-        },
-        "openvm-standards" => Backend::OpenVMStandards {
-            executor: require_binary(&cli),
-        },
-        other => {
-            eprintln!(
-                "error: unknown zkvm '{other}', expected one of: lambdavm, openvm, openvm-prove, sp1-prove, \
-                 zisk, zisk-prove, zisk-standards, sp1-standards, openvm-standards"
-            );
+    if let Some(name) = cli.zkvm.strip_prefix("ere-") {
+        let standards = suite_kind == Suite::Standards;
+        let (ere, provenance) = runner::ere_backend::EreBackend::new(name, cli.gpu, standards).unwrap_or_else(|e| {
+            eprintln!("error: {e:#}");
             process::exit(2);
-        }
+        });
+        let runs = suite::run_elfs(&cli.elf_dir, 1, |elf| {
+            suite::run_one_with(&cli.zkvm, suite_kind, elf, |elf, vectors| {
+                ere.run_elf(elf, mode, vectors, std::time::Instant::now())
+            })
+        });
+        let label = cli.label.as_deref().unwrap_or(&cli.suite);
+        report(&cli, &runs, || ere.finish(&cli.output_dir, label, &provenance));
+        return;
+    }
+
+    let tools = Tools {
+        binary: cli.binary.clone(),
+        io_executor: cli.io_executor.clone(),
+        sp1_perf: cli.sp1_perf.clone(),
+        cargo_zisk: cli.cargo_zisk.clone(),
+        witness_lib: cli.witness_lib.clone(),
+        gpu: cli.gpu,
     };
+    let zkvm = zkvm_backends::build(&cli.zkvm, tools)
+        .and_then(|zkvm| suite::check_mode(&*zkvm, mode).map(|()| zkvm))
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            process::exit(2);
+        });
 
     // For prove/full modes, default to 1 job (proving is resource-intensive).
-    // The ere backend always runs one test at a time: one server per zkVM.
-    #[cfg(feature = "ere")]
-    let jobs_override = matches!(backend, Backend::Ere(_)).then_some(1);
-    #[cfg(not(feature = "ere"))]
-    let jobs_override: Option<usize> = None;
-    let jobs = jobs_override.or(cli.jobs).unwrap_or_else(|| {
+    let jobs = cli.jobs.unwrap_or_else(|| {
         if mode != Mode::Execute {
             1
         } else {
@@ -182,7 +147,13 @@ fn main() {
         }
     });
 
-    let runs = suite::run_tests(&backend, &cli.elf_dir, jobs, mode);
+    let runs = suite::run_tests(&*zkvm, suite_kind, &cli.elf_dir, jobs, mode);
+    report(&cli, &runs, || Ok(()));
+}
+
+/// Write the results and summary, run `finish` (the ere run records), print
+/// the summary and exit with the runner's status.
+fn report(cli: &Cli, runs: &[(PathBuf, RunResult)], finish: impl FnOnce() -> anyhow::Result<()>) {
     if runs.is_empty() {
         eprintln!("error: no ELFs found in {}", cli.elf_dir.display());
         process::exit(2);
@@ -211,12 +182,9 @@ fn main() {
         process::exit(2);
     }
 
-    #[cfg(feature = "ere")]
-    if let (Backend::Ere(ere), Some(provenance)) = (&backend, &ere_provenance) {
-        if let Err(e) = ere.finish(&cli.output_dir, cli.label.as_deref().unwrap_or(&cli.suite), provenance) {
-            eprintln!("error: failed to write ere run records: {e:#}");
-            process::exit(2);
-        }
+    if let Err(e) = finish() {
+        eprintln!("error: failed to write ere run records: {e:#}");
+        process::exit(2);
     }
 
     let passed = entries.iter().filter(|e| e.passed).count();

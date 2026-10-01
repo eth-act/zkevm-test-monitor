@@ -10,7 +10,7 @@ Compliance testing for zkVMs with two test suites:
 ## Test pipelines
 
 Both pipelines build test ELFs in Docker and run them on the host with one Rust runner
-([`src/runner/`](src/runner/)), through a backend per zkVM and suite. They differ
+([`src/runner/`](src/runner/)), through one backend per zkVM. They differ
 in where the tests come from, what they link against, and how a test passes. (ACT4 zkVMs without
 a split pipeline in `src/run-isa-tests.sh` still run their tests inside Docker.)
 
@@ -25,7 +25,7 @@ flowchart LR
     end
     elfs --> native["native suite<br/>(full ISA, execute)"]
     elfs --> target["target suite<br/>(standard ISA)"]
-    subgraph host["Host: runner (ISA backends)"]
+    subgraph host["Host: runner"]
         native --> emu["zkVM emulator"]
         target --> emu
         target --> prove["prove + verify<br/>(ACT4_MODE=full)"]
@@ -64,7 +64,7 @@ flowchart LR
         build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
     end
     vendor --> build
-    elfs --> runner["Host: runner<br/>(ere, or the standards backends<br/>with BACKEND=native)"]
+    elfs --> runner["Host: runner<br/>(ere, or the native backends<br/>with BACKEND=native)"]
     exe --> runner
     runner --> verdict{"ACT4 verdict,<br/>output == .expected,<br/>or .outcome (fail [code])"}
     verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]

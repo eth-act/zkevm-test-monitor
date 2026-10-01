@@ -390,7 +390,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::zkvm_backends::Backend;
+    use crate::runner::{self, Suite};
 
     fn executed(result: anyhow::Result<&[u8]>) -> anyhow::Result<(PublicValues, Duration)> {
         result.map(|bytes| (PublicValues(bytes.to_vec()), Duration::ZERO))
@@ -451,7 +451,10 @@ mod tests {
         let elf = dir.path().join("t.elf");
         std::os::unix::fs::symlink(dir.path().join("missing"), &elf).unwrap();
         std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
-        let r = crate::runner::run_one(&Backend::Ere(Box::new(backend("sp1", false))), &elf, Mode::Execute);
+        let ere = backend("sp1", false);
+        let r = runner::run_one_with("ere-sp1", Suite::Isa, &elf, |elf, vectors| {
+            ere.run_elf(elf, Mode::Execute, vectors, Instant::now())
+        });
         assert_eq!(r.termination, Termination::HostError);
         assert!(!r.passed);
         assert!(r.detail.unwrap().contains("failed to read"), "detail");
