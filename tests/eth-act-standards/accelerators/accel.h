@@ -49,15 +49,39 @@ static inline bool accel_verdict_ok(int expect, zkvm_status status, bool verifie
 }
 
 /* Check a function that writes an output: status, then bytes when EXPECT_OK. */
-#define CHECK_OUTPUT(i, status, out, want, len)                             \
+#define CHECK_OUTPUT(i, status, out, want, len) CHECK_OUTPUT_AT(i, 0, status, out, want, len)
+
+/* CHECK_OUTPUT with the step numbers moved up by `base`. */
+#define CHECK_OUTPUT_AT(i, base, status, out, want, len)                    \
     do {                                                                    \
-        CHECK_LABEL(CASE_ID(i, STEP_STATUS), cases[i].label,                \
+        CHECK_LABEL(CASE_ID(i, (base) + STEP_STATUS), cases[i].label,       \
                     accel_status_ok(cases[i].expect, status));              \
         if (cases[i].expect == EXPECT_OK) {                                 \
-            CHECK_LABEL(CASE_ID(i, STEP_OUTPUT), cases[i].label,            \
+            CHECK_LABEL(CASE_ID(i, (base) + STEP_OUTPUT), cases[i].label,   \
                         test_bytes_eq(out, want, len));                       \
         }                                                                   \
     } while (0)
+
+/*
+ * A byte buffer (uint8_t *) has no alignment requirement, so a function must
+ * accept it at any address. The tests run each case a second time with every
+ * byte buffer copied to an address 1 to 7 bytes past an 8-byte boundary; the
+ * checks of that run use steps STEP_UNALIGNED + n. (Pointers to the header's
+ * struct types stay aligned: those types are _Alignas(8).)
+ */
+#define STEP_UNALIGNED 8
+#define UNALIGNED_OFFSET(i) ((i) % 7 + 1)
+
+/* Copy len bytes to buf + offset (buf is 8-byte aligned) and return that address. */
+static inline uint8_t *unaligned_copy(uint8_t *buf, size_t size, const uint8_t *src, size_t len, size_t offset) {
+    if (offset + len > size) {
+        print_error("unaligned_copy: %u bytes do not fit\n", (unsigned)len);
+    }
+    for (size_t k = 0; k < len; k++) {
+        buf[offset + k] = src[k];
+    }
+    return buf + offset;
+}
 
 /*
  * The first value of a verified flag: the opposite of the expected result.
