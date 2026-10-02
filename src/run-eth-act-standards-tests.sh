@@ -10,12 +10,23 @@
 #    - ere path (default): on the official ere image of the revision that
 #      src/runner/Cargo.toml pins. ACT4_MODE=execute|prove|full (default: full);
 #      prove and full need an NVIDIA GPU.
-#    - BACKEND=noere: on the host executor from step 1, without ere, execute only.
+#    - BACKEND=noere: on the host executor from step 1, without ere.
+#      ACT4_MODE=execute|prove|full (default: execute). Proving runs on an NVIDIA
+#      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
+#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk).
 set -euo pipefail
 
 ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
 # ere (default) or noere; see the header.
 BACKEND_KIND="${BACKEND:-ere}"
+case "$BACKEND_KIND" in
+  ere) MODE="${ACT4_MODE:-full}" ;;
+  noere) MODE="${ACT4_MODE:-execute}" ;;
+  *) echo "  Error: BACKEND must be ere or noere, not $BACKEND_KIND"; exit 1 ;;
+esac
+# Proving on the noere path: the zkVM's prover tools for the runner.
+NOERE_PROVE=""
+if [ "$BACKEND_KIND" = "noere" ] && [ "$MODE" != "execute" ]; then NOERE_PROVE=1; fi
 PLATFORM_DIR="zkvms/${ZKVM}/standards"
 ELF_DIR="out/${ZKVM}/elfs/eth-act-standards"
 RESULTS_DIR="out/${ZKVM}"
@@ -39,8 +50,12 @@ mkdir -p "$RESULTS_DIR" out/bin
 # NOTES: a note to record with every run (shown on the dashboard).
 # EXECUTOR_ARG: the runner flag for the emulator: --binary for the zkVM's own
 #   executor, --io-executor for an eth-act standards executor.
+# PROVER_ARGS: the runner's prover flags when the noere path proves.
+# BUILD_ARGS: extra `docker build` arguments for the image.
 IMAGE_EMULATOR=""
 IMAGE_EMULATOR_LIBS=""
+PROVER_ARGS=()
+BUILD_ARGS=()
 COMMIT_FILE="out/commits/${ZKVM}.txt"
 NOTES=""
 case "$ZKVM" in
@@ -53,6 +68,13 @@ case "$ZKVM" in
     IMAGE_COMMIT_FILES="/zisk-commit.txt:vendor-commit.txt"
     # The image pins the ZisK version that eth-act/ere uses, so record that commit.
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
+    # cargo-zisk-cuda from ./run build zisk, at the same commit (config.json).
+    if [ -n "$NOERE_PROVE" ]; then
+      PROVER_ARGS=(--cargo-zisk out/bin/cargo-zisk-cuda)
+      if [ -f out/bin/libzisk_witness.so ]; then
+        PROVER_ARGS+=(--witness-lib out/bin/libzisk_witness.so)
+      fi
+    fi
     ;;
   sp1)
     EXECUTOR_ARG="--io-executor"
@@ -62,16 +84,25 @@ case "$ZKVM" in
     IMAGE_COMMIT_FILES="/sp1-commit.txt:vendor-commit.txt"
     # The image pins its own SP1 tag (the ISA pin has no C SDK), so record that commit.
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
+    # sp1-prover (sp1-perf) from ./run build sp1, at the same commit (config.json).
+    if [ -n "$NOERE_PROVE" ]; then PROVER_ARGS=(--sp1-perf out/bin/sp1-prover); fi
     ;;
   openvm)
     EXECUTOR_ARG="--io-executor"
     EMULATOR="out/bin/openvm-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/openvm-eth-act-standards-executor"
+    IMAGE_EMULATOR_LIBS="/usr/local/lib/openvm-executor"
     VENDOR_LIB="/opt/openvm/lib/libere_openvm_c.a"
     IMAGE_COMMIT_FILES="/ere-commit.txt:vendor-commit.txt /openvm-commit.txt:openvm-commit.txt"
     # The image pins OpenVM at the tag eth-act/ere uses and records its commit.
     COMMIT_FILE="$ELF_DIR/openvm-commit.txt"
     ERE_COMMIT=$(sed -n 's/^ARG ERE_COMMIT=//p' "$PLATFORM_DIR/Dockerfile")
+    # The executor also proves: build it with OpenVM's GPU prover.
+    if [ -n "$NOERE_PROVE" ]; then
+      CUDA_ARCH="${CUDA_ARCH:-$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d .)}"
+      BUILD_ARGS=(--build-arg BASE_IMAGE=nvidia/cuda:12.9.1-devel-ubuntu24.04 --build-arg GPU=1
+                  --build-arg "CUDA_ARCH=${CUDA_ARCH:-120}")
+    fi
     NOTES="OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/${ERE_COMMIT}) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output wrapper (zkvms/openvm/standards/vendor). ere caps public output at 256 bytes."
     ;;
   *) echo "  eth-act standards tests: no executor for $ZKVM"; exit 1 ;;
@@ -80,6 +111,11 @@ if [ -z "$IMAGE_EMULATOR" ] && [ ! -f "$EMULATOR" ]; then
   echo "  Error: $EMULATOR not found. Run './run build $ZKVM' first."
   exit 1
 fi
+for arg in "${PROVER_ARGS[@]}"; do
+  case "$arg" in
+    out/bin/*) [ -f "$arg" ] || { echo "  Error: $arg not found (needed for mode $MODE). Run './run build $ZKVM' first."; exit 1; } ;;
+  esac
+done
 
 # The guests include the standard headers from eth-act/zkevm-standards at the
 # commit config.json pins, fetched once into a local cache.
@@ -95,7 +131,7 @@ fi
 
 COMMIT=$(jq -r ".zkvms.${ZKVM}.commit" config.json)
 echo "Building eth-act standards image for $ZKVM..."
-docker build --build-arg COMMIT_HASH="$COMMIT" -t "$IMAGE" \
+docker build --build-arg COMMIT_HASH="$COMMIT" "${BUILD_ARGS[@]}" -t "$IMAGE" \
   -f "$PLATFORM_DIR/Dockerfile" "$PLATFORM_DIR" > "$RESULTS_DIR/eth-act-standards-image.log" 2>&1 || {
   echo "  Failed to build $IMAGE — check $RESULTS_DIR/eth-act-standards-image.log"
   exit 1
@@ -152,21 +188,16 @@ for entry in $IMAGE_COMMIT_FILES; do
   docker run --rm --entrypoint cat "$IMAGE" "${entry%%:*}" > "$ELF_DIR/${entry#*:}"
 done
 
-MODE="execute"
-RUNNER_ARGS=(--zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR")
+RUNNER_ARGS=(--zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR" --mode "$MODE" "${PROVER_ARGS[@]}")
 RUNNER="src/runner/target/release/runner"
 CARGO_ARGS=()
 if [ "$BACKEND_KIND" = "ere" ]; then
-  MODE="${ACT4_MODE:-full}"
   RUNNER_ARGS=(--zkvm "ere-$ZKVM" --mode "$MODE")
-  # Proving needs the GPU images; execute runs on the CPU images.
-  [ "$MODE" != "execute" ] && RUNNER_ARGS+=(--gpu)
   RUNNER="src/runner/target/ere/release/runner"
   CARGO_ARGS=(--features ere --target-dir src/runner/target/ere)
-elif [ "$BACKEND_KIND" != "noere" ]; then
-  echo "  Error: BACKEND must be ere or noere, not $BACKEND_KIND"
-  exit 1
 fi
+# Proving runs on the GPU (ere: its GPU images; execute runs on the CPU images).
+if [ "$MODE" != "execute" ]; then RUNNER_ARGS+=(--gpu); fi
 
 # Always build the runner, so a stale binary cannot judge the tests.
 echo "Building runner..."
@@ -182,6 +213,19 @@ fi
 
 if [ -d "$EMULATOR_LIB_DIR" ]; then
   export LD_LIBRARY_PATH="$PWD/$EMULATOR_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+# The noere provers' shared libraries, as src/run-isa-tests.sh sets them: cargo-zisk's
+# bundled libraries, and a CUDA runtime for sp1-perf's GPU server.
+if [ -n "$NOERE_PROVE" ]; then
+  if [ "$ZKVM" = "zisk" ] && [ -d out/bin/zisk-lib ]; then
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$PWD/out/bin/zisk-lib"
+  fi
+  for cuda_dir in /usr/local/cuda/lib64 /opt/cuda/lib64 "$PWD/out/bin/openvm-lib"; do
+    if ls "$cuda_dir"/libcudart.so.12* > /dev/null 2>&1; then
+      export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$cuda_dir"
+      break
+    fi
+  done
 fi
 
 echo "Running $ZKVM eth-act standards tests ($BACKEND_KIND, mode: $MODE)..."
