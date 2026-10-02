@@ -97,7 +97,8 @@ before the library in the link, so the wrong `<fn>` wins unless the library puts
 object that every guest links (such as the one with `_start`) or requires `--whole-archive`. Our
 link does not use `--whole-archive`, so a library that relies on it fails. `build-guests.sh`:
 
-- builds `mem-link-<fn>` only if the library has a strong `<fn>`, because acceleration is optional;
+- builds `mem-link-<fn>` as a stub that passes when the library has no strong `<fn>`: acceleration is
+  optional, so a function that is not accelerated has no linking rule to check;
 - stops if a `mem-link-<fn>` ELF resolves `<fn>` to anything other than the library's strong `<fn>`
   or the guest's `decoy_<fn>`, because another weak `<fn>` (such as compiler-builtins') would let
   the test pass.
