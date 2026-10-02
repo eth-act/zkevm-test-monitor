@@ -105,12 +105,12 @@ Usage: ./run COMMAND [OPTIONS]
 Commands:
   build [zkvm ...]          Build ZKVM binaries
   isa-tests [zkvm ...]      Run the ISA tests (ACT4 RISC-V compliance; OpenVM/SP1/ZisK:
-                            Standard ISA through ere, Full ISA native; BACKEND=native
+                            Standard ISA through ere, Full ISA noere; BACKEND=noere
                             builds and runs both suites locally)
   eth-act-standards-tests [zkvm ...]
                             Run the eth-act standards tests (I/O, accelerators,
                             memory operations; zisk, sp1, openvm; through ere;
-                            BACKEND=native runs the host executors, execute only)
+                            BACKEND=noere runs the host executors, execute only)
   tests [zkvm ...]          Run both test suites
   all [zkvm ...]            Build + both test suites
   elfs <zkvm> [--force]     Generate ACT4 ELFs only (no zkVM binary, no test run)

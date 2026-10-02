@@ -10,11 +10,11 @@
 #    - ere path (default): on the official ere image of the revision that
 #      src/runner/Cargo.toml pins. ACT4_MODE=execute|prove|full (default: full);
 #      prove and full need an NVIDIA GPU.
-#    - BACKEND=native: on the host executor from step 1, execute only.
+#    - BACKEND=noere: on the host executor from step 1, without ere, execute only.
 set -euo pipefail
 
 ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
-# ere (default) or native; see the header.
+# ere (default) or noere; see the header.
 BACKEND_KIND="${BACKEND:-ere}"
 PLATFORM_DIR="zkvms/${ZKVM}/standards"
 ELF_DIR="out/${ZKVM}/elfs/eth-act-standards"
@@ -163,8 +163,8 @@ if [ "$BACKEND_KIND" = "ere" ]; then
   [ "$MODE" != "execute" ] && RUNNER_ARGS+=(--gpu)
   RUNNER="src/runner/target/ere/release/runner"
   CARGO_ARGS=(--features ere --target-dir src/runner/target/ere)
-elif [ "$BACKEND_KIND" != "native" ]; then
-  echo "  Error: BACKEND must be ere or native, not $BACKEND_KIND"
+elif [ "$BACKEND_KIND" != "noere" ]; then
+  echo "  Error: BACKEND must be ere or noere, not $BACKEND_KIND"
   exit 1
 fi
 

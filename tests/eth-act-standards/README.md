@@ -17,7 +17,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
 termination (`.outcome`) has no valid proof, so it is only executed, and the dashboard counts
-proving and verification over the other tests. `BACKEND=native` runs the suite on the host
+proving and verification over the other tests. `BACKEND=noere` runs the suite on the host
 executors below, execute only.
 
 ## How a test works

@@ -44,8 +44,8 @@ flowchart LR
     [eth-act/ere](https://github.com/eth-act/ere) images of the ere revision that
     `src/runner/Cargo.toml` pins. ere builds and runs the zkVM; there is no local zkVM build.
     It runs the Standard ISA suite (RV64IM_Zicclsm); the Full ISA suite then runs on the
-    native path, execute only.
-  - **native path** (`BACKEND=native`): builds each zkVM in this repository's containers from
+    noere path (below), execute only.
+  - **noere path** (`BACKEND=noere`, without ere): builds each zkVM in this repository's containers from
     `config.json` and runs both suites. Use it to reproduce bugs and to test forks or branches.
     LambdaVM always runs here.
 - In `ACT4_MODE=prove` or `full`, a target test must also prove, and in `full` also verify.
@@ -64,7 +64,7 @@ flowchart LR
         build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
     end
     vendor --> build
-    elfs --> runner["Host: runner<br/>(ere, or the native backends<br/>with BACKEND=native)"]
+    elfs --> runner["Host: runner<br/>(ere, or the noere backends<br/>with BACKEND=noere)"]
     exe --> runner
     runner --> verdict{"ACT4 verdict,<br/>output == .expected,<br/>or .outcome (fail [code])"}
     verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]
@@ -83,7 +83,7 @@ flowchart LR
 - The suite runs for ZisK, SP1 and OpenVM through ere by default: on the official ere image of
   the revision that `src/runner/Cargo.toml` pins, with execute, prove and verify
   (`ACT4_MODE`, default `full`; prove and full need an NVIDIA GPU). A test that expects an
-  abnormal termination has no valid proof, so it is only executed. `BACKEND=native` runs the
+  abnormal termination has no valid proof, so it is only executed. `BACKEND=noere` runs the
   suite on the host executors instead, execute only. Each standards test image pins its own
   zkVM version (the version that ere pins), independent of `config.json`. See
   [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md).
@@ -109,7 +109,7 @@ flowchart LR
 ./run tests                          # Run both suites for all zkVMs
 ./run all sp1                        # Build + both suites
 ./run elfs sp1                       # Generate the ISA test ELFs only
-BACKEND=native ./run isa-tests sp1   # Build and run both ISA suites locally
+BACKEND=noere ./run isa-tests sp1    # Build and run both ISA suites locally
 ./run serve                          # Dashboard at localhost:9586
 ./run clean              # Remove artifacts
 ```
@@ -123,7 +123,7 @@ FORCE=1 ./run isa-tests zisk            # Regenerate ISA test ELFs from scratch
 ACT4_MODE=execute ./run isa-tests zisk  # Execution only (no proving); also: prove, full (default)
 GPU=1 ./run build zisk              # Build with GPU support
 GPU=1 ./run isa-tests zisk              # Prove with GPU
-BACKEND=native ./run isa-tests zisk     # native path (ere is the default)
+BACKEND=noere ./run isa-tests zisk      # noere path (ere is the default)
 ```
 
 ## Adding a ZK-VM
