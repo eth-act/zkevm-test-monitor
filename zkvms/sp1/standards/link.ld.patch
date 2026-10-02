@@ -54,16 +54,3 @@
  
      /*
       * `_end` marks the end of the static data region — `sp1-zkvm`'s
-@@ -107,6 +120,12 @@
-     _heap_start = _end;
-     _heap_end   = __input_start;
- 
-+    /* eth-act standards: symbols that ACT's C start code references. That code
-+     * is linked but not run: the entry point stays SP1's _start. */
-+    PROVIDE(__stack_size = 0x20000);
-+    PROVIDE(__num_harts = 1);
-+    PROVIDE(__stack_bottom = __stack_top - __stack_size);
-+
-     /DISCARD/ :
-     {
-         *(.comment)

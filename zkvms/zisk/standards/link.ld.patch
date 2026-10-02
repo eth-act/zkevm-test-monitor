@@ -8,7 +8,7 @@
    output_data PT_LOAD FLAGS(6);
    general_registers_data PT_LOAD FLAGS(6);
    float_registers_data PT_LOAD FLAGS(6);
-@@ -131,15 +130,27 @@
+@@ -131,11 +130,14 @@
  
    .data : { *(.data .data.* .sdata .sdata.*) } >ram AT>ram :data
  
@@ -24,16 +24,3 @@
  
    PROVIDE(_heap_bottom = .);
    PROVIDE(_heap_top = ORIGIN(ram) + LENGTH(ram) - _float_ram_data_size);
-   PROVIDE(_heap_size = _heap_top - _heap_bottom);
- 
-+  /* eth-act standards: symbols that ACT's C start code references. That code
-+     is linked but not run: the entry point stays ZisK's _start. */
-+  PROVIDE(__bss_start = _bss_start);
-+  PROVIDE(__bss_end = _bss_end);
-+  PROVIDE(__stack_bottom = _init_stack_bottom);
-+  PROVIDE(__stack_top = _init_stack_top);
-+  PROVIDE(__stack_size = _init_stack_top - _init_stack_bottom);
-+  PROVIDE(__num_harts = 1);
-+
-   _end = .;
- }

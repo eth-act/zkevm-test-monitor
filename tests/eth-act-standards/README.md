@@ -33,15 +33,23 @@ vendor's `_start` runs `main`. The test ends through the zkVM's ACT4 halt macros
 ISA test.
 
 The linker script is the zkVM's own, from its repository at the pinned commit, with only the changes
-in `zkvms/<zkvm>/standards/link.ld.patch`. Each change in the patch has a comment that gives its
-reason. ZisK (`ziskbuild/zisk_linker_script.ld`) and SP1 (`zkevm/zkvm.ld`) use a patch. OpenVM
-publishes no linker script: its guest build uses the linker's default layout with
-`-Ttext=0x00200800`. The OpenVM guests link the same way (`zkvms/openvm/standards/link-args`,
-plus `-z separate-code`, which LLD does by default), and `zkvms/openvm/standards/link.ld` only adds
-the symbols that ACT's start code references (`INSERT`, so GNU ld's default script stays). Building
-without ACT would remove those symbols too (#57). SP1's patch
-fills code alignment gaps with NOPs, because SP1's loader rejects a word in an executable segment
-that does not decode; the ELF loading standard allows such words.
+in `zkvms/<zkvm>/standards/link.ld.patch`. Each change in the patch is a deviation of the vendor's
+script, with a comment that gives its reason (#58):
+
+- ZisK (`ziskbuild/zisk_linker_script.ld`): `.bss` shares the data segment, because with GNU ld a
+  guest without initialized data gets an empty segment at address 0, which `ziskemu` rejects.
+- SP1 (`zkevm/zkvm.ld`): `PHDRS`, because without them GNU ld emits a writable and executable
+  segment, which SP1's loader rejects; and a NOP fill, because SP1's loader rejects a word in an
+  executable segment that does not decode (the ELF loading standard allows such words).
+- OpenVM publishes no linker script: its guest build uses the linker's default layout with
+  `-Ttext=0x00200800`. The OpenVM guests link the same way (`zkvms/openvm/standards/link-args`, plus
+  `-z separate-code`, which LLD does by default). ACT requires a linker script, so
+  `zkvms/openvm/standards/link.ld` is an empty placeholder (`INSERT`, so GNU ld's default script
+  stays).
+
+ACT's C start code references `__bss_start`, `__bss_end`, `__stack_top`, `__stack_size` and
+`__num_harts`. It is linked but never runs, so `build-guests.sh` defines them on the link line
+(`--defsym`), not in the linker scripts. Building without ACT would remove them (#57).
 
 The runner judges a test in one of three ways:
 
@@ -174,9 +182,8 @@ config.
 1. Add `zkvms/<zkvm>/standards/`:
    - a `Dockerfile` that builds the vendor library and the host executor;
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
-   - a `link.ld.patch` for the zkVM's own linker script (or a `link.ld`, if the zkVM publishes
-     none) that defines the `__stack_*`, `__bss_*` and `__num_harts` symbols that ACT4's C runtime
-     needs.
+   - a `link.ld.patch` with the changes the zkVM's own linker script needs (or, if the zkVM
+     publishes none, a `link-args` file with its link options and a placeholder `link.ld`).
 2. Add a `<zkvm>-standards` backend to `src/runner/src/backends.rs` that feeds the input to that
    zkVM and reads its verdict and public output, and add its name to `src/runner/src/main.rs`.
 3. Add the vendor library path, the linker script path (`VENDOR_LD`), the backend and the executor to

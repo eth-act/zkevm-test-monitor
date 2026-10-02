@@ -85,6 +85,11 @@ LINK_ARGS=""
 if [ -f "$PLATFORM_DIR/link-args" ]; then
   LINK_ARGS=$(sed 's/^/-Wl,/' "$PLATFORM_DIR/link-args" | tr '\n' ' ')
 fi
+# ACT's C start code (tests/env/c_test_start.S) references these symbols. It
+# is linked but never runs (the entry point is the vendor's _start), so their
+# values do not matter; defining them here keeps them out of the zkVMs' linker
+# scripts. A definition in a linker script takes precedence over --defsym.
+LINK_ARGS="$LINK_ARGS-Wl,--defsym=__bss_start=0,--defsym=__bss_end=0,--defsym=__stack_top=0,--defsym=__stack_size=0,--defsym=__num_harts=1 "
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<EOF
 #!/bin/sh
 for arg in "\$@"; do
