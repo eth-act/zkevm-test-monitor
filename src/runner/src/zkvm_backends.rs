@@ -1251,9 +1251,10 @@ fn cleanup_stale_shm() {
     }
 }
 
-/// Wait until no GPU compute processes are running (via nvidia-smi).
+/// Wait until no GPU compute process of this user is running (via nvidia-smi).
 /// This prevents back-to-back GPU proving from failing because the previous
-/// process hasn't fully released GPU memory yet.
+/// process hasn't fully released GPU memory yet. Other users' processes on a
+/// shared GPU are not ours to wait for.
 fn wait_for_gpu_free(timeout: Duration) {
     let start = Instant::now();
     loop {
@@ -1266,8 +1267,8 @@ fn wait_for_gpu_free(timeout: Duration) {
         match output {
             Ok(o) if o.status.success() => {
                 let stdout = String::from_utf8_lossy(&o.stdout);
-                if stdout.trim().is_empty() {
-                    return; // GPU is free
+                if !stdout.lines().filter_map(|pid| pid.trim().parse().ok()).any(is_own_process) {
+                    return; // GPU is free of our processes
                 }
             }
             _ => return, // nvidia-smi not available, skip wait
@@ -1279,6 +1280,13 @@ fn wait_for_gpu_free(timeout: Duration) {
         }
         std::thread::sleep(Duration::from_millis(500));
     }
+}
+
+/// Whether process `pid` runs as this user (the owner of `/proc/<pid>`). A
+/// process that has exited is not.
+fn is_own_process(pid: u32) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata(format!("/proc/{pid}")).is_ok_and(|m| m.uid() == unsafe { libc::getuid() })
 }
 
 #[cfg(test)]
@@ -1327,6 +1335,15 @@ mod tests {
 
     fn failure(code: Option<i32>) -> Termination {
         Termination::Failure { code }
+    }
+
+    #[test]
+    fn own_processes() {
+        assert!(is_own_process(std::process::id()));
+        assert!(!is_own_process(u32::MAX));
+        if unsafe { libc::getuid() } != 0 {
+            assert!(!is_own_process(1)); // init runs as root
+        }
     }
 
     #[test]
