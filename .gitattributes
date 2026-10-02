@@ -1,0 +1,2 @@
+# Collapse the standards executors' lockfiles in GitHub diffs (still tracked).
+zkvms/*/standards/executor/Cargo.lock linguist-generated=true

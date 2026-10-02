@@ -69,6 +69,7 @@
         }
         .col-group-native { background: #e8f4fd; }
         .col-group-target { background: #f0e8fd; }
+        .col-group-standards { background: #e8fdf0; }
         #loading { text-align: center; padding: 40px; color: #666; }
         #error { text-align: center; padding: 40px; color: #dc3545; display: none; }
     </style>
@@ -109,18 +110,15 @@
         return run.passed;
     }
 
+    // Prove and verify counts of a run. A test that expects an abnormal
+    // termination (expected_failures) has no valid proof, so it is left out.
     function countProveVerify(run) {
-        if (!run) return { prove: null, verify: null, total: null };
-        const pf = run.prove_failed;
-        const vf = run.verify_failed;
-        if (!run.has_proving) return { prove: null, verify: null, total: null };
-        const total = run.total;
-        const failed = run.failed?.length || 0;
-        const proveFailed = pf?.length || 0;
-        const verifyFailed = vf?.length || 0;
-        const proved = total - failed - proveFailed;
-        const verified = total - failed - proveFailed - verifyFailed;
-        return { prove: proved, verify: verified, total: total };
+        if (!run?.has_proving) return { prove: null, verify: null, total: null };
+        const skip = new Set(run.expected_failures || []);
+        const count = list => (Array.isArray(list) ? list : []).filter(n => !skip.has(n)).length;
+        const total = run.total - skip.size;
+        const proved = total - count(run.failed) - count(run.prove_failed);
+        return { prove: proved, verify: proved - count(run.verify_failed), total };
     }
 
     // Suites listed in config.json `zkvms.<name>.ere.suites` run through ere; the
@@ -183,9 +181,11 @@
                 const zkvm = config.zkvms[name];
                 const fullHistory = await fetch(historyFile(name, zkvm, 'act4-full')).then(r => r.json()).catch(() => null);
                 const stdHistory = await fetch(historyFile(name, zkvm, 'act4-standard')).then(r => r.json()).catch(() => null);
+                const standardsHistory = await fetch(`data/history/${name}-eth-act-standards.json`).then(r => r.json()).catch(() => null);
                 const fullRun = fullHistory?.runs?.at(-1);
                 const stdRun = stdHistory?.runs?.at(-1);
-                return { name, config: config.zkvms[name], fullRun, stdRun };
+                const standardsRun = standardsHistory?.runs?.at(-1);
+                return { name, config: config.zkvms[name], fullRun, stdRun, standardsRun };
             }));
 
             const tbody = rows.map(row => {
@@ -194,11 +194,13 @@
                 const std = row.stdRun;
 
                 const pv = countProveVerify(std);
+                const spv = countProveVerify(row.standardsRun);
 
-                // Date of the run whose results the row shows (Standard ISA).
-                const lastDate = std?.date || full?.date;
+                // Use most recent date from either suite
+                const lastDate = [full?.date, std?.date, row.standardsRun?.date].filter(Boolean).sort().at(-1);
 
                 const stdLink = std ? `zkvm.html?name=${row.name}&suite=act4-standard&run=latest` : null;
+                const standardsLink = row.standardsRun ? `zkvm.html?name=${row.name}&suite=eth-act-standards&run=latest` : null;
 
                 function resultCell(passed, total, link) {
                     if (passed == null || total == null) return '<td class="none">&mdash;</td>';
@@ -213,6 +215,9 @@
                     ${resultCell(execPassedCount(std), std?.total, stdLink)}
                     ${pv.prove != null ? resultCell(pv.prove, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
                     ${pv.verify != null ? resultCell(pv.verify, pv.total, stdLink) : '<td class="none">&mdash;</td>'}
+                    ${resultCell(execPassedCount(row.standardsRun), row.standardsRun?.total, standardsLink)}
+                    ${resultCell(spv.prove, spv.total, standardsLink)}
+                    ${resultCell(spv.verify, spv.total, standardsLink)}
                     <td>${formatDate(lastDate)}</td>
                 </tr>`;
             }).join('\n');
@@ -223,13 +228,17 @@
                         <tr>
                             <th rowspan="2">ZKVM</th>
                             <th rowspan="2">Version</th>
-                            <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">Standard ISA &#x1F517;</a> Tests</th>
+                            <th colspan="3" class="col-group col-group-target"><a href="https://github.com/eth-act/zkvm-standards/blob/main/standards/riscv-target/target.md">ISA Tests &#x1F517;</a></th>
+                            <th colspan="3" class="col-group col-group-standards"><a href="https://github.com/eth-act/zkevm-standards/tree/main/standards">Standards Tests &#x1F517;</a></th>
                             <th rowspan="2">Last Run</th>
                         </tr>
                         <tr>
                             <th class="col-group-target">Execution</th>
                             <th class="col-group-target">Prove</th>
                             <th class="col-group-target">Verify</th>
+                            <th class="col-group-standards">Execution</th>
+                            <th class="col-group-standards">Prove</th>
+                            <th class="col-group-standards">Verify</th>
                         </tr>
                     </thead>
                     <tbody>

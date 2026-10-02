@@ -1,0 +1,201 @@
+{
+  "_comment": "Pinned inputs of gen_accel_vectors.py. The generator downloads each file from <url>/<name> and checks its sha256. Edit by hand; after a change, regenerate the vectors and review the diff.",
+  "sources": {
+    "go-ethereum": {
+      "repository": "https://github.com/ethereum/go-ethereum",
+      "tag": "v1.17.6",
+      "commit": "3d84c6b2e3e9be032f8f2dcd9e900f89391fcdab",
+      "url": "https://raw.githubusercontent.com/ethereum/go-ethereum/3d84c6b2e3e9be032f8f2dcd9e900f89391fcdab/core/vm/testdata/precompiles",
+      "files": {
+        "ecRecover.json": {
+          "sha256": "58c02c28fbe2739e13d77444fa6cd44b1109b3eed6a92926681bcbf032576e7d",
+          "size": 2024
+        },
+        "modexp.json": {
+          "sha256": "4f7e9a14b39ffdaafcd2ad4b3cca38f45fccfc192bd29eff1e48f6db2eb93902",
+          "size": 41476
+        },
+        "modexp_eip2565.json": {
+          "sha256": "efc968652f64694616969a4d136f5c5d050fc754cb2d8aeb8b98601be136ea96",
+          "size": 74282
+        },
+        "bn256Add.json": {
+          "sha256": "a5e6e81aceb187e41006a14583a7feebcb03060f9b9f083613271477b9091fae",
+          "size": 7957
+        },
+        "bn256ScalarMul.json": {
+          "sha256": "aed562c718b07d13363748b1311614b5c709b9517a230eb86e347c78bfbdae19",
+          "size": 8202
+        },
+        "bn256Pairing.json": {
+          "sha256": "1011b31345f6470ebc409b674f0f4a9318ac23e9a0fab5052aee3b77901310f1",
+          "size": 19043
+        },
+        "blake2F.json": {
+          "sha256": "1a53af443a6312e1d5ffb4f6185de8a80ba090aca00f154b6cabea74ee1c1f69",
+          "size": 3325
+        },
+        "fail-blake2f.json": {
+          "sha256": "a0c8bd027888d6e3a098c1c4b98483ae26e5480e93011337add3ad2370abcb70",
+          "size": 1759
+        },
+        "pointEvaluation.json": {
+          "sha256": "e831a6e4b7c848ae012e75adfe7724caeb95e2ecb79af7e853e26ccdbe5cdc9d",
+          "size": 636
+        },
+        "blsG1Add.json": {
+          "sha256": "5422535e26e76c5ce11b463db4efb8031ced35e18062348a6a63bd392c555cac",
+          "size": 99391
+        },
+        "fail-blsG1Add.json": {
+          "sha256": "240555c02a269e381af81fc58cca0e4a36ef186938d8e994a56da0fd2f9a2ad1",
+          "size": 3252
+        },
+        "blsG2Add.json": {
+          "sha256": "dda1457ba7e3d48dc48fc37f827c69d1a76e3b40652ddfb085db8e3914baf5a0",
+          "size": 185407
+        },
+        "fail-blsG2Add.json": {
+          "sha256": "a153b084e499c1c4a5ae86c9d09869d6398212e1816ce2d33011c4f6b3e374bd",
+          "size": 5812
+        },
+        "blsG1MultiExp.json": {
+          "sha256": "b2603f681b9695e6ceb3cc7562c3c922b6db709882c26e84050774c0db7ce33a",
+          "size": 3596854
+        },
+        "fail-blsG1MultiExp.json": {
+          "sha256": "68d9429031d410a16493dc13e0be795dd0ff603609dfc943f016c4b85438ce36",
+          "size": 3104
+        },
+        "blsG2MultiExp.json": {
+          "sha256": "f9b3fabe719b89883be935d7482805ac1fe734419e5ec77707dc262b0fdad926",
+          "size": 2477758
+        },
+        "fail-blsG2MultiExp.json": {
+          "sha256": "31a6f97c0993dd46da273cc8de4cbf39293cb4a49caae949f37ca97964930dbc",
+          "size": 4893
+        },
+        "blsPairing.json": {
+          "sha256": "163ca9fe1345bd310afe399350b008e2e649e2e0539caca5fb4e7281e1896f85",
+          "size": 330199
+        },
+        "fail-blsPairing.json": {
+          "sha256": "438333fb984ac7adef12bfad2d797f32d7c2480f8eaacf21bed16ae22453bf79",
+          "size": 13379
+        },
+        "blsMapG1.json": {
+          "sha256": "0306496993880223cb3d56a718de6746dc3cfee77dae572b9ba30bbbc64d2b24",
+          "size": 53137
+        },
+        "fail-blsMapG1.json": {
+          "sha256": "2dd3304500423bdf5aa1fa1d3886307f32b88b3cc913727d7ebc8adf0c0e8323",
+          "size": 1067
+        },
+        "blsMapG2.json": {
+          "sha256": "8e3aa0a738693ef2b2eac2f12dfad9252642c30129bf8bfeab79dd59e7186700",
+          "size": 93661
+        },
+        "fail-blsMapG2.json": {
+          "sha256": "101e4e994c1c265a8f49b1ea220f7ee9e9b208a63473fcd86a55a0d5e4a2bd37",
+          "size": 1584
+        },
+        "p256Verify.json": {
+          "sha256": "72be71957c3e4292d874b3e2a6a2fc2142524433b01cb9a9552b9bb2528c214d",
+          "size": 443336
+        }
+      }
+    },
+    "execution-specs": {
+      "repository": "https://github.com/ethereum/execution-specs",
+      "tag": "tests@v20.0.2",
+      "commit": "abbe05777ab83fb94ce18c425daaa7ab79e779c1",
+      "url": "https://raw.githubusercontent.com/ethereum/execution-specs/abbe05777ab83fb94ce18c425daaa7ab79e779c1/tests",
+      "files": {
+        "prague/eip2537_bls_12_381_precompiles/vectors/add_G1_bls.json": {
+          "sha256": "da3a96ca5a963362d2845321bcb2bf49507e137302127b9821dd7123ba069516",
+          "size": 8019
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/add_G2_bls.json": {
+          "sha256": "d55a96fa1a30649f2ca1cd8e5020bf172ffcb3cea70e105d60228388af91defc",
+          "size": 14931
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-add_G1_bls.json": {
+          "sha256": "2e6c1c0116ae0e2ef4c3a12857afb2dd1a2aa41ce9a4d455a2e78d692d880507",
+          "size": 3902
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-add_G2_bls.json": {
+          "sha256": "96e6a124f4a4e9daec46c39c86725bc46bb2fdeb44a82640615eb70e29f1630c",
+          "size": 5812
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-map_fp2_to_G2_bls.json": {
+          "sha256": "101e4e994c1c265a8f49b1ea220f7ee9e9b208a63473fcd86a55a0d5e4a2bd37",
+          "size": 1584
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-map_fp_to_G1_bls.json": {
+          "sha256": "2dd3304500423bdf5aa1fa1d3886307f32b88b3cc913727d7ebc8adf0c0e8323",
+          "size": 1067
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-msm_G1_bls.json": {
+          "sha256": "76df82c81135e89d0fb97ad9bb93167326a477e18a01a426edceaba380901d66",
+          "size": 4673
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-msm_G2_bls.json": {
+          "sha256": "2cf18adfc4517861783f2582fb36600485a916ca77877b23a8adb170b1469108",
+          "size": 7747
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-mul_G1_bls.json": {
+          "sha256": "2b0ffc1de889c33f590d2243bfa8d66fba25628c2a69f7990643b141a77f5c12",
+          "size": 2754
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-mul_G2_bls.json": {
+          "sha256": "5f88baf4b14ca815b19692232eedfbfafdaa1b44db9e94f30c3cc37d2e6be9e5",
+          "size": 4290
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/fail-pairing_check_bls.json": {
+          "sha256": "211a34539d38684f16b18301fbb9149427ca990b2fdb19cede59150426b47689",
+          "size": 26917
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/map_fp2_to_G2_bls.json": {
+          "sha256": "00f39be8b922fa22a0d0f20b23dd270b9fe0882c5066873228492eea8eb520c8",
+          "size": 4472
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/map_fp_to_G1_bls.json": {
+          "sha256": "5669bf7e0e2a22a884aa8c2e4436db956216709bbe5c7ff6e982e54b393c5fd5",
+          "size": 2547
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/msm_G1_bls.json": {
+          "sha256": "163fadfa24cf73b38f890a4aac6f8385b115b2e0755f83f1f295309974378787",
+          "size": 3648985
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/msm_G2_bls.json": {
+          "sha256": "df0ffb2cc586a5d60fdbba1a0ce9004e54070cae2ae2739895a2e120fd6a314e",
+          "size": 6559908
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/mul_G1_bls.json": {
+          "sha256": "3518be34a3bb4fdf92ed21ee4ed4a083cfd4597b797dbeafa650a6d43b498b3d",
+          "size": 7753
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/mul_G2_bls.json": {
+          "sha256": "2af1e85ed661cf12f8b3b9516bb2cc59cddd2332c2f907ac428c7a8da7235582",
+          "size": 13385
+        },
+        "prague/eip2537_bls_12_381_precompiles/vectors/pairing_check_bls.json": {
+          "sha256": "01c49b33eef4c825a4e38f6bbcd00d88d723874dcee9990015ba5d1797ae43b3",
+          "size": 25293
+        },
+        "osaka/eip7883_modexp_gas_increase/vector/vectors.json": {
+          "sha256": "1cee4245560ec9d8d14c76924dc5840b8871c2424ad88662a6453c487cfe6eae",
+          "size": 68627
+        },
+        "osaka/eip7883_modexp_gas_increase/vector/legacy.json": {
+          "sha256": "943980f96ac39fe3b3c8edb41f29f0b372a4b3656c4b01f59313ac968d506bcf",
+          "size": 11169
+        },
+        "cancun/eip4844_blobs/point_evaluation_vectors/go_kzg_4844_verify_kzg_proof.json": {
+          "sha256": "464e5cfcca0f7c47d4f6cc302e21954289f1f1538f2a5c03ad551b8332081388",
+          "size": 63806
+        }
+      }
+    }
+  }
+}

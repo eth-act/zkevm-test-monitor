@@ -1,5 +1,5 @@
 #!/bin/bash
-# generate_elfs.sh - ACT4 self-checking ELF generation, shared by src/test.sh and `./run elfs`.
+# generate_elfs.sh - ACT4 self-checking ELF generation, shared by src/run-isa-tests.sh and `./run elfs`.
 #
 # Sourced:  defines generate_act4_elfs.
 # Executed: ./src/generate_elfs.sh <zkvm> [--force]
@@ -86,8 +86,8 @@ generate_act4_elfs() {
 }
 
 # Executed mode (`./run elfs`): run the function above for one zkVM.
-# When src/test.sh sources this file, BASH_SOURCE[0] is this file and $0 is
-# src/test.sh, so this block does not run.
+# When src/run-isa-tests.sh sources this file, BASH_SOURCE[0] is this file and
+# $0 is src/run-isa-tests.sh, so this block does not run.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   set -e
   ZKVM="${1:?usage: $0 <zkvm> [--force]}"
@@ -95,7 +95,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   # Each zkVM with ISA tests has an ELF-generation image in zkvms/<zkvm>/act4.Dockerfile.
   [ -f "zkvms/${ZKVM}/act4.Dockerfile" ] || { echo "Unknown ZKVM: $ZKVM (no zkvms/${ZKVM}/act4.Dockerfile)" >&2; exit 1; }
 
-  # Same location as `./run test`, so both commands share the ELFs.
+  # Same location as `./run isa-tests`, so both commands share the ELFs.
   ELF_DIR="out/${ZKVM}/elfs"
   generate_act4_elfs "$ZKVM" "$ELF_DIR"
 

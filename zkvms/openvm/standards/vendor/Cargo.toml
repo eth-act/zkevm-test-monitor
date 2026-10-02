@@ -1,0 +1,21 @@
+[package]
+name = "ere-openvm-c"
+version = "0.1.0"
+edition = "2021"
+description = "Static library for eth-act standards C test guests on OpenVM, built from eth-act/ere's ere-platform-openvm."
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+path = "lib.rs"
+
+# The path points into the ere checkout in the platform image (see Dockerfile).
+# Default features give zkvm_accelerators.h (`zkvm-accelerator`) and the
+# getrandom stub that OpenVM guests need.
+[dependencies]
+ere-platform-openvm = { path = "/ere/crates/platform/openvm" }
+
+[profile.release]
+panic = "abort"
+
+[workspace]

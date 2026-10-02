@@ -1,0 +1,109 @@
+/*
+ * Shared helpers for the accelerator tests.
+ *
+ * Each test includes a generated vectors/<function>.h that defines cases[],
+ * then checks every case against its expectation (see gen_accel_vectors.py):
+ *   EXPECT_OK      status ZKVM_EOK and the output equals the expected bytes
+ *   EXPECT_TRUE    status ZKVM_EOK and verified == true
+ *   EXPECT_REJECT  a failure status, or ZKVM_EOK with verified == false
+ *   EXPECT_EFAIL   a failure status
+ * A failing check reports id (case index + 1) * 16 + step and the case label.
+ */
+#ifndef ACCEL_H
+#define ACCEL_H
+
+#include "checks.h"
+#include "zkvm_accelerators.h"
+
+enum { EXPECT_OK, EXPECT_TRUE, EXPECT_REJECT, EXPECT_EFAIL };
+
+#define NUM_CASES (sizeof cases / sizeof cases[0])
+
+/* Steps within a case. */
+#define STEP_STATUS 1
+#define STEP_OUTPUT 2
+#define STEP_VERDICT 3
+
+#define CASE_ID(i, step) ((uint32_t)((i) + 1) * 16 + (step))
+
+/* Output buffers start with a marker, so a function that writes nothing is caught. */
+#define OUTPUT_MARKER 0xcc
+
+static inline bool accel_status_ok(int expect, zkvm_status status) {
+    switch (expect) {
+    case EXPECT_OK:
+    case EXPECT_TRUE:
+        return status == ZKVM_EOK;
+    case EXPECT_EFAIL:
+        return status != ZKVM_EOK;
+    default:
+        return true;
+    }
+}
+
+static inline bool accel_verdict_ok(int expect, zkvm_status status, bool verified) {
+    if (expect == EXPECT_TRUE) {
+        return status == ZKVM_EOK && verified;
+    }
+    return status != ZKVM_EOK || !verified;
+}
+
+/* Check a function that writes an output: status, then bytes when EXPECT_OK. */
+#define CHECK_OUTPUT(i, status, out, want, len) CHECK_OUTPUT_AT(i, 0, status, out, want, len)
+
+/* CHECK_OUTPUT with the step numbers moved up by `base`. */
+#define CHECK_OUTPUT_AT(i, base, status, out, want, len)                    \
+    do {                                                                    \
+        CHECK_LABEL(CASE_ID(i, (base) + STEP_STATUS), cases[i].label,       \
+                    accel_status_ok(cases[i].expect, status));              \
+        if (cases[i].expect == EXPECT_OK) {                                 \
+            CHECK_LABEL(CASE_ID(i, (base) + STEP_OUTPUT), cases[i].label,   \
+                        test_bytes_eq(out, want, len));                       \
+        }                                                                   \
+    } while (0)
+
+/*
+ * A byte buffer (uint8_t *) has no alignment requirement, so a function must
+ * accept it at any address. The tests run each case a second time with every
+ * byte buffer copied to an address 1 to 7 bytes past an 8-byte boundary; the
+ * checks of that run use steps STEP_UNALIGNED + n. (Pointers to the header's
+ * struct types stay aligned: those types are _Alignas(8).)
+ */
+#define STEP_UNALIGNED 8
+#define UNALIGNED_OFFSET(i) ((i) % 7 + 1)
+
+/* Copy len bytes to buf + offset (buf is 8-byte aligned) and return that address. */
+static inline uint8_t *unaligned_copy(uint8_t *buf, size_t size, const uint8_t *src, size_t len, size_t offset) {
+    if (offset + len > size) {
+        print_error("unaligned_copy: %u bytes do not fit\n", (unsigned)len);
+    }
+    for (size_t k = 0; k < len; k++) {
+        buf[offset + k] = src[k];
+    }
+    return buf + offset;
+}
+
+/*
+ * The first value of a verified flag: the opposite of the expected result.
+ * A function that returns ZKVM_EOK without writing the flag then fails.
+ */
+static inline bool accel_verdict_init(int expect) {
+    return expect != EXPECT_TRUE;
+}
+
+/* Check a function that reports a verified flag. */
+#define CHECK_VERDICT(i, status, verified)                   \
+    CHECK_LABEL(CASE_ID(i, STEP_VERDICT), cases[i].label, \
+                accel_verdict_ok(cases[i].expect, status, verified))
+
+/*
+ * The NULL-pointer tests (accel-null-*.c) expect the call to panic, so their
+ * expected outcome is "fail" (<test>.outcome). If the call returns, the guest
+ * prints what it returned and ends normally, which the runner reports as
+ * "did not panic".
+ */
+#define NULL_CALL_RETURNED(status, call)                                         \
+    printf("%s\n", (status) == ZKVM_EOK ? call " returned ZKVM_EOK"             \
+                                        : call " returned an error status")
+
+#endif /* ACCEL_H */
