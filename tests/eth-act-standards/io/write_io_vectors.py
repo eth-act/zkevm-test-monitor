@@ -29,6 +29,7 @@ CASES = {
     "io-read-unaligned-length": (pattern(13), None),
     "io-read-large": (pattern(65536 + 5), None),
     "io-read-idempotent": (pattern(24), None),
+    "io-read-no-side-effects": (pattern(65536 + 5), None),
     "io-echo": (pattern(37), pattern(37)),
     "io-read-after-write": (pattern(40), pattern(16) + pattern(40)),
     "io-write-split": (None, pattern(64)),
@@ -39,6 +40,9 @@ CASES = {
     "io-write-257-bytes-in-pieces": (None, pattern(257)),
     "io-write-buffer-reuse": (None, pattern(32)),
     "io-write-1024-bytes": (None, pattern(1024)),
+    "io-write-trailing-zeros": (None, pattern(13) + bytes(11)),
+    "io-write-nothing": (None, b""),
+    "io-write-static-data": (None, b"bytes from .rodata;" + b"bytes from .data;" + pattern(16)),
 }
 
 

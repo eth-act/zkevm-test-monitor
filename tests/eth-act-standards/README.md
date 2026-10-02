@@ -10,7 +10,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 
 | Group | Standard | Tests |
 |---|---|---|
-| `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
+| `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); no side effects of `read_input` (canaries around its out-parameters and in `.data` and `.bss`, and the input unchanged after the guest fills `.bss` and the stack); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; writes from `.rodata`, `.data` and `.bss`; an output that ends in zero bytes, and an empty output; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases (the byte-buffer functions `keccak256`, `sha256`, `ripemd160` and `modexp` also with each buffer at a misaligned address); three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution (`mem-link-*`) |
 
@@ -127,6 +127,10 @@ bytes exactly.
 
 OpenVM public values are a fixed area of 256 bytes with zero padding (ere's VM config), so the
 runner compares them as for ZisK.
+
+On ZisK and OpenVM, an output that ends in zero bytes therefore matches the same output without
+them. There, `io-write-trailing-zeros` cannot tell whether the zkVM kept the final zero bytes, and
+`io-write-nothing` checks only that the zkVM wrote no nonzero byte.
 
 ## Platforms
 
