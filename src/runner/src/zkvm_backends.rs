@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -309,7 +310,7 @@ impl Zkvm for LambdaVM {
 }
 
 /// OpenVM: `openvm-binary` (`--binary`) executes, proves and verifies; the
-/// eth-act standards executor (`--io-executor`) runs a guest with I/O.
+/// eth-act standards executor (`--io-executor`) does the same for a guest with I/O.
 pub struct OpenVM {
     pub executor: Executor,
     pub gpu: bool,
@@ -325,7 +326,7 @@ impl Zkvm for OpenVM {
     }
 
     fn can_prove(&self) -> bool {
-        matches!(self.executor, Executor::Cli(_))
+        true
     }
 
     fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution {
@@ -336,11 +337,10 @@ impl Zkvm for OpenVM {
     }
 
     fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
-        no_prover_input(self.name(), input)?;
-        let Executor::Cli(binary) = &self.executor else {
-            anyhow::bail!("openvm proves with openvm-binary (--binary)");
-        };
-        prove_openvm(binary, elf_path, verify, self.gpu)
+        if let Executor::Cli(_) = self.executor {
+            no_prover_input(self.name(), input)?;
+        }
+        prove_openvm(&self.executor, elf_path, input, verify, self.gpu)
     }
 }
 
@@ -374,11 +374,10 @@ impl Zkvm for Sp1 {
     }
 
     fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
-        no_prover_input(self.name(), input)?;
         let Some(sp1_perf) = &self.sp1_perf else {
             anyhow::bail!("sp1 needs --sp1-perf to prove");
         };
-        prove_sp1(sp1_perf, elf_path, verify, self.gpu)
+        prove_sp1(sp1_perf, elf_path, input, verify, self.gpu)
     }
 }
 
@@ -409,11 +408,10 @@ impl Zkvm for Zisk {
     }
 
     fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
-        no_prover_input(self.name(), input)?;
         let Some(cargo_zisk) = &self.cargo_zisk else {
             anyhow::bail!("zisk needs --cargo-zisk to prove");
         };
-        prove_zisk(cargo_zisk, self.witness_lib.as_deref(), elf_path, verify)
+        prove_zisk(cargo_zisk, self.witness_lib.as_deref(), elf_path, input, verify)
     }
 }
 
@@ -425,7 +423,9 @@ fn runner_error(elf_path: &Path, e: anyhow::Error) -> Execution {
 
 /// Zisk proving via `cargo-zisk prove [--verify-proofs]`, after an execution
 /// that passed (`run_zisk`):
-/// `cargo-zisk prove --elf <path> -o <file> [--verify-proof] [--gpu]`
+/// `cargo-zisk prove --elf <path> [-i <input>] -o <file> [--verify-proof] [--gpu]`
+///
+/// The input file has the framing that `ziskemu -i` reads (`zisk_frame_input`).
 ///
 /// As of zisk v0.17.0, `-o/--output` is a file path (not a directory) and proofs
 /// are aggregated by default (VadcopFinal). In v1.0.0 the Rust emulator became the
@@ -438,6 +438,7 @@ fn prove_zisk(
     cargo_zisk: &Path,
     witness_lib: Option<&Path>,
     elf_path: &Path,
+    input: Option<&[u8]>,
     verify: bool,
 ) -> anyhow::Result<Proof> {
     // Check once whether this cargo-zisk accepts --witness-lib
@@ -455,8 +456,16 @@ fn prove_zisk(
     let prove_start = Instant::now();
 
     let proof_path = tmp_dir.path().join("proof.bin");
+    let input_path = match input {
+        Some(input) => {
+            let path = tmp_dir.path().join("input.bin");
+            std::fs::write(&path, zisk_frame_input(input))?;
+            Some(path)
+        }
+        None => None,
+    };
     let prove_output = {
-        let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
+        let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, input_path.as_deref(), &proof_path,
                                       witness_lib.filter(|_| accepts_witness_lib),
                                       verify, is_gpu);
         cmd.output()?
@@ -490,7 +499,7 @@ fn prove_zisk(
 
             let retry_start = Instant::now();
             let retry_output = {
-                let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, &proof_path,
+                let mut cmd = zisk_prove_cmd(cargo_zisk, elf_path, input_path.as_deref(), &proof_path,
                                               witness_lib.filter(|_| accepts_witness_lib),
                                               verify, is_gpu);
                 cmd.output()?
@@ -549,11 +558,27 @@ fn sp1_guest_exit_code(output: &str) -> Option<u32> {
     })
 }
 
-/// Write an empty SP1Stdin (bincode): three zero-length fields = 24 zero bytes.
-fn write_empty_sp1_stdin(dir: &Path) -> anyhow::Result<PathBuf> {
+/// Write an `SP1Stdin` (bincode: the chunk list, `ptr`, then the proof list).
+/// With an input, it holds the input as one chunk, as the eth-act standards
+/// executor pushes it; without one, it is empty (24 zero bytes).
+fn write_sp1_stdin(dir: &Path, input: Option<&[u8]>) -> anyhow::Result<PathBuf> {
     let stdin_path = dir.join("stdin.bin");
-    std::fs::write(&stdin_path, [0u8; 24])?;
+    std::fs::write(&stdin_path, sp1_stdin(input))?;
     Ok(stdin_path)
+}
+
+fn sp1_stdin(input: Option<&[u8]>) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    match input {
+        Some(input) => {
+            bytes.extend_from_slice(&1u64.to_le_bytes());
+            bytes.extend_from_slice(&(input.len() as u64).to_le_bytes());
+            bytes.extend_from_slice(input);
+        }
+        None => bytes.extend_from_slice(&0u64.to_le_bytes()),
+    }
+    bytes.extend_from_slice(&[0u8; 16]);
+    bytes
 }
 
 /// SP1 execution: `sp1-perf-executor --program <elf> --param <stdin> --mode minimal --local`
@@ -564,7 +589,7 @@ fn write_empty_sp1_stdin(dir: &Path) -> anyhow::Result<PathBuf> {
 fn run_sp1(executor: &Path, elf_path: &Path) -> Execution {
     let inner = || -> anyhow::Result<Execution> {
         let tmp_dir = tempfile::tempdir()?;
-        let stdin_path = write_empty_sp1_stdin(tmp_dir.path())?;
+        let stdin_path = write_sp1_stdin(tmp_dir.path(), None)?;
 
         // Guest exit code + unimplemented-instruction check.
         let exec_output = Command::new(executor)
@@ -592,12 +617,18 @@ fn run_sp1(executor: &Path, elf_path: &Path) -> Execution {
 /// vs verify failure is distinguished by parsing the output: a `VerificationError`
 /// means proving succeeded but verification failed.
 ///
-/// `stdin` is an empty `SP1Stdin`. `--mode cuda` spawns the host-native
+/// `stdin` holds the test input (see `write_sp1_stdin`). `--mode cuda` spawns the host-native
 /// `sp1-gpu-server`; see prove_zisk for the analogous host-GPU serialization
 /// (one prove at a time via jobs=1).
-fn prove_sp1(sp1_perf: &Path, elf_path: &Path, verify: bool, gpu: bool) -> anyhow::Result<Proof> {
+fn prove_sp1(
+    sp1_perf: &Path,
+    elf_path: &Path,
+    input: Option<&[u8]>,
+    verify: bool,
+    gpu: bool,
+) -> anyhow::Result<Proof> {
     let tmp_dir = tempfile::tempdir()?;
-    let stdin_path = write_empty_sp1_stdin(tmp_dir.path())?;
+    let stdin_path = write_sp1_stdin(tmp_dir.path(), input)?;
 
     // Prove + verify (one process). GPU-only per project scope: `--mode cuda`
     // spawns the host-native sp1-gpu-server; `cpu` is a slow fallback.
@@ -735,6 +766,7 @@ fn is_verify_failure(output: &str) -> bool {
 fn zisk_prove_cmd(
     cargo_zisk: &Path,
     elf_path: &Path,
+    input_path: Option<&Path>,
     out_path: &Path,
     witness_lib: Option<&Path>,
     verify: bool,
@@ -754,6 +786,9 @@ fn zisk_prove_cmd(
     }
     cmd.process_group(0);
     cmd.args(["prove", "--elf"]).arg(elf_path);
+    if let Some(input_path) = input_path {
+        cmd.arg("-i").arg(input_path);
+    }
     if let Some(wl) = witness_lib {
         cmd.arg("--witness-lib").arg(wl);
     }
@@ -873,17 +908,39 @@ fn run_openvm(binary: &Path, elf_path: &Path) -> Execution {
 /// for the GPU to drain between tests, killing any stuck process after a failed prove —
 /// mirroring prove_zisk's GPU hygiene. `run_openvm` runs step 1; this function
 /// runs steps 2 and 3 after an execution that passed.
-fn prove_openvm(binary: &Path, elf_path: &Path, verify: bool, gpu: bool) -> anyhow::Result<Proof> {
+///
+/// The eth-act standards executor takes the test input instead:
+/// `<executor> prove <elf> <input> <proof>` and `<executor> verify <proof>`.
+fn prove_openvm(
+    executor: &Executor,
+    elf_path: &Path,
+    input: Option<&[u8]>,
+    verify: bool,
+    gpu: bool,
+) -> anyhow::Result<Proof> {
     // 2. Prove
     let tmp_dir = tempfile::tempdir()?;
     let proof_path = tmp_dir.path().join("proof.bin");
+    let input_path = tmp_dir.path().join("input.bin");
+    let (binary, prove_args, verify_args): (&Path, Vec<&OsStr>, Vec<&OsStr>) = match executor {
+        Executor::Cli(binary) => (
+            binary,
+            vec!["prove".as_ref(), elf_path.as_ref(), "-o".as_ref(), proof_path.as_ref()],
+            vec!["verify".as_ref(), proof_path.as_ref(), elf_path.as_ref()],
+        ),
+        Executor::Io(executor) => {
+            std::fs::write(&input_path, input.unwrap_or_default())?;
+            (
+                executor,
+                vec!["prove".as_ref(), elf_path.as_ref(), input_path.as_ref(), proof_path.as_ref()],
+                vec!["verify".as_ref(), proof_path.as_ref()],
+            )
+        }
+    };
     let prove_start = Instant::now();
 
     let prove_output = openvm_cmd(binary)
-        .args(["prove"])
-        .arg(elf_path)
-        .arg("-o")
-        .arg(&proof_path)
+        .args(&prove_args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .output()?;
@@ -891,7 +948,7 @@ fn prove_openvm(binary: &Path, elf_path: &Path, verify: bool, gpu: bool) -> anyh
 
     if gpu {
         if !prove_output.status.success() {
-            kill_openvm_processes();
+            kill_openvm_processes(binary);
         }
         wait_for_gpu_free(Duration::from_secs(30));
     }
@@ -911,9 +968,7 @@ fn prove_openvm(binary: &Path, elf_path: &Path, verify: bool, gpu: bool) -> anyh
     // 3. Verify
     let verified = if verify {
         let verify_output = openvm_cmd(binary)
-            .args(["verify"])
-            .arg(&proof_path)
-            .arg(elf_path)
+            .args(&verify_args)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .output()?;
@@ -956,10 +1011,12 @@ fn openvm_cmd(binary: &Path) -> Command {
     cmd
 }
 
-/// Kill any lingering openvm-binary processes that may be holding GPU memory.
-fn kill_openvm_processes() {
+/// Kill any lingering processes of the OpenVM prover `binary` that may be holding GPU memory.
+fn kill_openvm_processes(binary: &Path) {
+    let Some(name) = binary.file_name() else { return };
     let _ = Command::new("pkill")
-        .args(["-9", "openvm-binary"])
+        .arg("-9")
+        .arg(name)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
@@ -1347,6 +1404,47 @@ mod tests {
     }
 
     #[test]
+    fn sp1_stdin_holds_the_input_as_one_chunk() {
+        assert_eq!(sp1_stdin(None), [0u8; 24]);
+        let mut expected = vec![1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, b'a', b'b'];
+        expected.extend_from_slice(&[0u8; 16]);
+        assert_eq!(sp1_stdin(Some(b"ab")), expected);
+    }
+
+    #[test]
+    fn zisk_prove_takes_the_framed_input() {
+        let cmd = zisk_prove_cmd(Path::new("cargo-zisk"), Path::new("t.elf"), Some(Path::new("in.bin")), Path::new("p.bin"), None, true, false);
+        let args: Vec<_> = cmd.get_args().map(|a| a.to_str().unwrap()).collect();
+        assert_eq!(args, ["prove", "--elf", "t.elf", "-i", "in.bin", "-o", "p.bin", "--verify-proof"]);
+    }
+
+    /// Prove with a fake OpenVM standards executor: `prove` copies the input
+    /// file to the proof file, and `verify` runs `verify_body`.
+    fn openvm_io_prove(input: &[u8], verify_body: &str) -> Proof {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let body = format!(
+            "case \"$1\" in prove) cmp -s \"$3\" {dir}/expected && cp \"$3\" \"$4\" ;; verify) {verify_body} ;; *) exit 2 ;; esac",
+            dir = dir.path().display(),
+        );
+        std::fs::write(dir.path().join("expected"), input).unwrap();
+        let executor = Executor::Io(fake(dir.path(), "executor", &body));
+        prove_openvm(&executor, &dir.path().join("t.elf"), Some(input), true, false).unwrap()
+    }
+
+    #[test]
+    fn openvm_io_executor_proves_with_the_input() {
+        let proof = openvm_io_prove(b"input", "test -s \"$2\"");
+        assert!(proof.proved);
+        assert!(proof.written);
+        assert_eq!(proof.verified, Some(true));
+
+        let proof = openvm_io_prove(b"input", "exit 1");
+        assert!(proof.proved);
+        assert_eq!(proof.verified, Some(false));
+    }
+
+    #[test]
     fn io_executor_success() {
         let r = io_executor("printf PASS > \"$3\"; echo 0 > \"$4\"", None);
         assert_eq!(r.termination, Termination::Success);
@@ -1593,13 +1691,16 @@ mod tests {
             assert_eq!(zkvm.can_prove(), matches!(name, "lambdavm" | "openvm"), "{name}");
         }
 
-        // An eth-act standards executor takes an input, but does not prove.
+        // An eth-act standards executor takes an input. OpenVM's also proves;
+        // SP1 proves with sp1-perf.
         for name in ["openvm", "sp1"] {
             let zkvm = build(name, io_exec()).unwrap();
             assert_eq!(zkvm.name(), name);
             assert!(zkvm.supports_io(), "{name}");
-            assert!(!zkvm.can_prove(), "{name}");
+            assert_eq!(zkvm.can_prove(), name == "openvm", "{name}");
         }
+        let sp1 = build("sp1", Tools { sp1_perf: Some(PathBuf::from("sp1-perf")), ..io_exec() }).unwrap();
+        assert!(sp1.supports_io() && sp1.can_prove());
 
         let sp1 = build("sp1", Tools { sp1_perf: Some(PathBuf::from("sp1-perf")), ..binary() }).unwrap();
         assert!(sp1.can_prove());
@@ -1629,17 +1730,18 @@ mod tests {
         let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let elf = dir.path().join("t.elf");
-        for (name, tools) in [("sp1", binary()), ("zisk", binary()), ("openvm", io_exec()), ("sp1", io_exec())] {
+        for (name, tools) in [("sp1", binary()), ("zisk", binary()), ("sp1", io_exec())] {
             let zkvm = build(name, tools).unwrap();
             assert!(zkvm.prove(&elf, None, true).is_err(), "{name}");
             assert!(runner::check_mode(&*zkvm, Mode::Prove).is_err(), "{name}");
             assert!(runner::check_mode(&*zkvm, Mode::Full).is_err(), "{name}");
             assert!(runner::check_mode(&*zkvm, Mode::Execute).is_ok(), "{name}");
         }
-        // The provers take no input.
-        let zisk = build("zisk", Tools { cargo_zisk: Some(dir.path().join("cargo-zisk")), ..binary() }).unwrap();
-        let e = zisk.prove(&elf, Some(&[]), false).err().unwrap();
-        assert_eq!(e.to_string(), "the zisk prover cannot take an input");
+        // openvm-binary and lambdavm prove without an input.
+        for name in ["openvm", "lambdavm"] {
+            let e = build(name, binary()).unwrap().prove(&elf, Some(&[]), false).err().unwrap();
+            assert_eq!(e.to_string(), format!("the {name} prover cannot take an input"));
+        }
     }
 
     #[test]
