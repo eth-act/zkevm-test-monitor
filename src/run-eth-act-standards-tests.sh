@@ -187,6 +187,16 @@ docker run --rm --entrypoint bash \
 for entry in $IMAGE_COMMIT_FILES; do
   docker run --rm --entrypoint cat "$IMAGE" "${entry%%:*}" > "$ELF_DIR/${entry#*:}"
 done
+# A noere prover from ./run build must be the zkVM version that runs the tests:
+# build.sh records the commit it built in out/commits/<zkvm>.txt.
+if [ -n "$NOERE_PROVE" ] && [ "$ZKVM" != "openvm" ]; then
+  BUILT_COMMIT=$(head -c 8 "out/commits/${ZKVM}.txt" 2> /dev/null || echo none)
+  if [ "$BUILT_COMMIT" != "$(head -c 8 "$COMMIT_FILE")" ]; then
+    echo "  Error: the $ZKVM prover in out/bin is from $BUILT_COMMIT, but the tests run $(head -c 8 "$COMMIT_FILE")."
+    echo "  Run './run build $ZKVM' first (GPU=1 for zisk)."
+    exit 1
+  fi
+fi
 
 RUNNER_ARGS=(--zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR" --mode "$MODE" "${PROVER_ARGS[@]}")
 RUNNER="src/runner/target/release/runner"
