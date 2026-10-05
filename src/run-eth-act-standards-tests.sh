@@ -104,6 +104,13 @@ case "$ZKVM" in
                   --build-arg "CUDA_ARCH=${CUDA_ARCH:-120}")
     fi
     NOTES="OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/${ERE_COMMIT}) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output wrapper (zkvms/openvm/standards/vendor). ere caps public output at 256 bytes."
+    # OPENVM_EXECUTOR_GIT and OPENVM_EXECUTOR_REV build the host executor from
+    # another OpenVM commit (see zkvms/openvm/standards/Dockerfile).
+    if [ -n "${OPENVM_EXECUTOR_REV:-}" ]; then
+      BUILD_ARGS+=(--build-arg "OPENVM_EXECUTOR_GIT=${OPENVM_EXECUTOR_GIT:?set OPENVM_EXECUTOR_GIT with OPENVM_EXECUTOR_REV}"
+                   --build-arg "OPENVM_EXECUTOR_REV=$OPENVM_EXECUTOR_REV")
+      NOTES="$NOTES The host executor is NOT the pinned OpenVM: it is built from ${OPENVM_EXECUTOR_GIT} at ${OPENVM_EXECUTOR_REV}."
+    fi
     ;;
   *) echo "  eth-act standards tests: no executor for $ZKVM"; exit 1 ;;
 esac
