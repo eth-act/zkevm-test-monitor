@@ -9,11 +9,12 @@
 //!   must also report that error code. A successful termination or a host
 //!   error fails the test (see `runner::apply_outcome`).
 //!
-//! The standards backends default a missing input to empty. Without an
-//! expected output, a test is judged by the ACT4 halt verdict, and on SP1 and
-//! OpenVM its public output must also be `PASS` (`PASS_OUTPUT`), since their
-//! pass halt is exit code 0, like a return from `main`. The ISA backends have
-//! no defaults.
+//! In the standards suite (`runner::Suite`), a missing input is empty.
+//! Without an expected output, a test is judged by the ACT4 halt verdict, and
+//! in the standards suite its public output must also be `PASS`
+//! (`PASS_OUTPUT`) unless the zkVM reports the pass halt itself (ZisK), since
+//! the SP1 and OpenVM pass halt is exit code 0, like a return from `main` (see
+//! `runner::judge`). The ISA suite has no defaults.
 
 use std::path::Path;
 

@@ -41,13 +41,15 @@ mkdir -p "$RESULTS_DIR" out/bin
 # IMAGE_COMMIT_FILES: "<image path>:<name>" commit files copied next to the ELFs.
 # COMMIT_FILE: the zkVM commit to record for the run.
 # NOTES: a note to record with every run (shown on the dashboard).
+# EXECUTOR_ARG: the runner flag for the emulator: --binary for the zkVM's own
+#   executor, --io-executor for an eth-act standards executor.
 IMAGE_EMULATOR=""
 IMAGE_EMULATOR_LIBS=""
 COMMIT_FILE="out/commits/${ZKVM}.txt"
 NOTES=""
 case "$ZKVM" in
   zisk)
-    NATIVE_BACKEND="zisk-standards"
+    EXECUTOR_ARG="--binary"
     EMULATOR="out/bin/zisk-eth-act-standards-emu"
     IMAGE_EMULATOR="/usr/local/bin/ziskemu"
     IMAGE_EMULATOR_LIBS="/usr/local/lib/ziskemu"
@@ -58,7 +60,7 @@ case "$ZKVM" in
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   sp1)
-    NATIVE_BACKEND="sp1-standards"
+    EXECUTOR_ARG="--io-executor"
     EMULATOR="out/bin/sp1-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/sp1-eth-act-standards-executor"
     VENDOR_LIB="/opt/sp1/libzkevm.a"
@@ -68,7 +70,7 @@ case "$ZKVM" in
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
     ;;
   openvm)
-    NATIVE_BACKEND="openvm-standards"
+    EXECUTOR_ARG="--io-executor"
     EMULATOR="out/bin/openvm-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/openvm-eth-act-standards-executor"
     VENDOR_LIB="/opt/openvm/lib/libere_openvm_c.a"
@@ -161,7 +163,7 @@ for entry in $IMAGE_COMMIT_FILES; do
 done
 
 MODE="execute"
-RUNNER_ARGS=(--zkvm "$NATIVE_BACKEND" --binary "$EMULATOR")
+RUNNER_ARGS=(--zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR")
 RUNNER="src/runner/target/release/runner"
 CARGO_ARGS=()
 if [ "$BACKEND_KIND" = "ere" ]; then

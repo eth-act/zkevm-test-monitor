@@ -4,12 +4,58 @@ use std::time::Instant;
 
 use rayon::prelude::*;
 
-use crate::zkvm_backends::{Backend, Mode, RunResult, Termination};
-use crate::io_and_expected_failures::{IoVectors, Outcome};
+use crate::zkvm_backends::{Execution, Mode, PassHalt, RunResult, Termination, Zkvm};
+use crate::io_and_expected_failures::{self, IoVectors, Outcome};
 
-/// Discover all ELF files in `elf_dir` recursively, run each through the backend
-/// in parallel, and return results in deterministic (alphabetical) order.
-pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> Vec<(PathBuf, RunResult)> {
+/// The test suite. It sets the defaults of the test vectors (see `crate::io_and_expected_failures`);
+/// the zkVM backends do not depend on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Suite {
+    /// The ACT4 ISA tests (`--suite act4-*`): no defaults.
+    Isa,
+    /// The eth-act standards tests (`--suite eth-act-standards`): a missing
+    /// input is empty, and a test without an expected output must write `PASS`.
+    Standards,
+}
+
+impl Suite {
+    /// The suite of a `--suite` name.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "eth-act-standards" => Some(Suite::Standards),
+            _ if name.starts_with("act4-") => Some(Suite::Isa),
+            _ => None,
+        }
+    }
+}
+
+/// Check that the zkVM can run in `mode`: proving needs its prover tools.
+pub fn check_mode(zkvm: &dyn Zkvm, mode: Mode) -> anyhow::Result<()> {
+    if mode != Mode::Execute && !zkvm.can_prove() {
+        anyhow::bail!("zkvm '{}' has no prover tools for mode {mode:?}", zkvm.name());
+    }
+    Ok(())
+}
+
+/// Run every ELF in `elf_dir` through the zkVM backend (see `run_one`).
+pub fn run_tests(
+    zkvm: &dyn Zkvm,
+    suite: Suite,
+    elf_dir: &Path,
+    jobs: usize,
+    mode: Mode,
+) -> Vec<(PathBuf, RunResult)> {
+    run_elfs(elf_dir, jobs, |elf_path| run_one(zkvm, suite, elf_path, mode))
+}
+
+/// Discover all ELF files in `elf_dir` recursively, run each with `run` on
+/// `jobs` threads, and return results in deterministic (alphabetical) order.
+/// The ere backend (`--features ere`) uses this directly with its own `run`.
+pub fn run_elfs(
+    elf_dir: &Path,
+    jobs: usize,
+    run: impl Fn(&Path) -> RunResult + Sync,
+) -> Vec<(PathBuf, RunResult)> {
     let mut elfs = discover_elfs(elf_dir);
     elfs.sort();
     let total = elfs.len();
@@ -27,7 +73,7 @@ pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> 
     pool.install(|| {
         elfs.par_iter()
             .map(|elf_path| {
-                let result = run_one(backend, elf_path, mode);
+                let result = run(elf_path);
                 let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                 report_progress(done, total, elf_path, &result);
                 (elf_path.clone(), result)
@@ -36,11 +82,91 @@ pub fn run_tests(backend: &Backend, elf_dir: &Path, jobs: usize, mode: Mode) -> 
     })
 }
 
-/// Run one ELF with its test vectors (see `crate::io_and_expected_failures`) and apply its expected outcome.
-pub fn run_one(backend: &Backend, elf_path: &Path, mode: Mode) -> RunResult {
-    match IoVectors::load(elf_path, backend.is_standards()) {
-        Ok(vectors) => apply_outcome(backend.run_elf(elf_path, mode, &vectors), vectors.outcome),
-        Err(e) => RunResult::host_error(Instant::now(), None, format!("runner error: {e:#}")),
+/// Run one ELF with its test vectors (see `crate::io_and_expected_failures`), prove it in the prove
+/// modes, and apply its expected outcome.
+pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> RunResult {
+    let start = Instant::now();
+    let vectors = match IoVectors::load(elf_path, suite == Suite::Standards) {
+        Ok(vectors) => vectors,
+        Err(e) => return RunResult::host_error(start, None, format!("runner error: {e:#}")),
+    };
+    if vectors.has_io() && !zkvm.supports_io() {
+        let detail = format!("the {} backend cannot feed .input or check .expected", zkvm.name());
+        return RunResult::host_error(start, None, detail);
+    }
+
+    let execution = zkvm.execute(elf_path, vectors.input.as_deref());
+    let pass_output = suite == Suite::Standards;
+    let mut result = judge(execution, vectors.expected.as_deref(), pass_output, start);
+
+    // Prove only an execution that passed.
+    if mode != Mode::Execute && result.passed {
+        result = match zkvm.prove(elf_path, vectors.input.as_deref(), mode == Mode::Full) {
+            Ok(proof) => RunResult { duration: start.elapsed(), ..result.with_proof(proof) },
+            Err(e) => {
+                eprintln!("error running {}: {e}", elf_path.display());
+                RunResult::host_error(start, None, format!("runner error: {e:#}"))
+            }
+        };
+    }
+    apply_outcome(result, vectors.outcome)
+}
+
+/// Run one ELF through a backend that runs its own stages (the ere backend,
+/// `run`), with the same test vectors and expected outcome as `run_one`. `run`
+/// gets the vectors: the ere backend feeds `.input` and checks `.expected` for
+/// the standards suite only, so an ISA test with `.input` or `.expected` is a
+/// host error. `.outcome` applies. `name` names the backend in a failure detail.
+pub fn run_one_with(
+    name: &str,
+    suite: Suite,
+    elf_path: &Path,
+    run: impl FnOnce(&Path, &IoVectors) -> RunResult,
+) -> RunResult {
+    let start = Instant::now();
+    let vectors = match IoVectors::load(elf_path, suite == Suite::Standards) {
+        Ok(vectors) => vectors,
+        Err(e) => return RunResult::host_error(start, None, format!("runner error: {e:#}")),
+    };
+    if suite == Suite::Isa && vectors.has_io() {
+        return RunResult::host_error(start, None, format!("the {name} backend cannot feed .input or check .expected"));
+    }
+    let result = run(elf_path, &vectors);
+    apply_outcome(result, vectors.outcome)
+}
+
+/// Judge an execution against the test's expected output. This is the one
+/// verdict for both suites and every zkVM.
+///
+/// - Only a successful termination can pass; the execution's detail says why
+///   another one failed.
+/// - With an expected output, the public output must match it in the zkVM's
+///   output area.
+/// - Without one, the pass halt decides when the zkVM reports it (ZisK's
+///   `PASS` marker). Otherwise, with `pass_output` (a self-checking standards
+///   test), the output must be `PASS`: on SP1 and OpenVM the pass halt is exit
+///   code 0, like a return from `main` (tests/eth-act-standards/include/checks.h).
+///   Without `pass_output`, the successful termination passes.
+pub fn judge(execution: Execution, expected: Option<&[u8]>, pass_output: bool, start: Instant) -> RunResult {
+    let detail = match execution.termination {
+        Termination::Success => output_mismatch(&execution, expected, pass_output),
+        Termination::Failure { .. } | Termination::HostError => execution.detail,
+    };
+    RunResult::executed(start, execution.exit_code, execution.termination, detail)
+}
+
+/// Why a successful execution's output fails the test, or `None` if it passes.
+fn output_mismatch(execution: &Execution, expected: Option<&[u8]>, pass_output: bool) -> Option<String> {
+    let expected = match (expected, &execution.pass_halt) {
+        (Some(expected), _) => expected,
+        (None, PassHalt::Reached) => return None,
+        (None, PassHalt::Missed(reason)) => return Some(reason.clone()),
+        (None, PassHalt::Unknown) if pass_output => io_and_expected_failures::PASS_OUTPUT,
+        (None, PassHalt::Unknown) => return None,
+    };
+    match &execution.output {
+        Some(output) => output.mismatch(expected),
+        None => Some("the zkVM reports no public output".to_owned()),
     }
 }
 
@@ -134,10 +260,10 @@ fn collect_elfs(dir: &Path, out: &mut Vec<PathBuf>) {
 /// executors oversubscribe the host and can fail nondeterministically.
 pub fn default_jobs(zkvm: &str) -> usize {
     match zkvm {
-        // sp1-prove is not listed: its native (execute) suite runs parallel via the
-        // default, while its target (prove/full) suite is forced to 1 job in main.rs.
-        "openvm" | "openvm-prove" | "openvm-standards" => 1,
-        "zisk-prove" | "zisk" | "zisk-standards" => {
+        // sp1 is not listed: its execute runs parallel via the default, while
+        // prove/full runs are forced to 1 job in main.rs.
+        "openvm" => 1,
+        "zisk" => {
             let mem_bytes = read_available_memory_bytes().unwrap_or(0);
             // Use 80% of available memory, 8 GB per instance
             let by_mem = (mem_bytes as f64 * 0.8 / 8_000_000_000.0) as usize;
@@ -167,6 +293,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+    use crate::zkvm_backends::{OutputArea, Proof, PublicOutput};
 
     fn result(termination: Termination, detail: Option<&str>) -> RunResult {
         RunResult {
@@ -256,5 +383,215 @@ mod tests {
         let r = apply_outcome(result(Termination::Success, None), FAIL_7);
         assert!(!r.passed);
         assert_eq!(r.detail.as_deref(), Some("did not terminate abnormally: finished normally"));
+    }
+
+    fn execution(termination: Termination, output: Option<(&[u8], OutputArea)>, pass_halt: PassHalt) -> Execution {
+        Execution {
+            termination,
+            exit_code: None,
+            output: output.map(|(bytes, area)| PublicOutput { bytes: bytes.to_vec(), area }),
+            pass_halt,
+            detail: (termination != Termination::Success).then(|| "abnormal".to_owned()),
+        }
+    }
+
+    fn verdict(execution: Execution, expected: Option<&[u8]>, suite: Suite) -> RunResult {
+        judge(execution, expected, suite == Suite::Standards, Instant::now())
+    }
+
+    const PADDED_PASS: &[u8] = b"PASS\0\0\0\0";
+
+    #[test]
+    fn judge_isa_tests_on_the_termination() {
+        // LambdaVM, OpenVM and SP1: the exit status alone.
+        let r = verdict(execution(Termination::Success, None, PassHalt::Unknown), None, Suite::Isa);
+        assert!(r.passed);
+        let r = verdict(execution(failure(None), None, PassHalt::Unknown), None, Suite::Isa);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("abnormal"));
+        let r = verdict(execution(Termination::HostError, None, PassHalt::Unknown), None, Suite::Isa);
+        assert!(!r.passed);
+
+        // ZisK: the PASS marker.
+        let zisk = |bytes: &'static [u8], pass_halt| execution(Termination::Success, Some((bytes, OutputArea::ZeroPadded)), pass_halt);
+        assert!(verdict(zisk(PADDED_PASS, PassHalt::Reached), None, Suite::Isa).passed);
+        let r = verdict(zisk(b"\0\0\0\0", PassHalt::Missed("no marker".to_owned())), None, Suite::Isa);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("no marker"));
+    }
+
+    #[test]
+    fn judge_self_checking_standards_tests_on_the_pass_output() {
+        let run = |bytes: &'static [u8], area| {
+            verdict(execution(Termination::Success, Some((bytes, area)), PassHalt::Unknown), None, Suite::Standards)
+        };
+        // SP1: exactly PASS.
+        assert!(run(b"PASS", OutputArea::Exact).passed);
+        let r = run(b"PASS\0", OutputArea::Exact);
+        assert!(!r.passed);
+        assert!(r.detail.unwrap().ends_with("(5 bytes)"));
+        assert!(!run(b"", OutputArea::Exact).passed);
+        // OpenVM: PASS in a zero-padded area.
+        assert!(run(PADDED_PASS, OutputArea::ZeroPadded).passed);
+        assert!(!run(b"PASSX\0\0\0", OutputArea::ZeroPadded).passed);
+
+        // ZisK: the PASS marker decides, as for the ISA tests.
+        let zisk = |bytes: &'static [u8], pass_halt| {
+            let e = execution(Termination::Success, Some((bytes, OutputArea::ZeroPadded)), pass_halt);
+            verdict(e, None, Suite::Standards)
+        };
+        assert!(zisk(PADDED_PASS, PassHalt::Reached).passed);
+        let r = zisk(b"\0\0\0\0", PassHalt::Missed("no marker".to_owned()));
+        assert_eq!(r.detail.as_deref(), Some("no marker"));
+
+        // Without the output, the standards default cannot pass.
+        let r = verdict(execution(Termination::Success, None, PassHalt::Unknown), None, Suite::Standards);
+        assert_eq!(r.detail.as_deref(), Some("the zkVM reports no public output"));
+    }
+
+    #[test]
+    fn judge_the_expected_output_in_both_suites() {
+        for suite in [Suite::Isa, Suite::Standards] {
+            for pass_halt in [PassHalt::Unknown, PassHalt::Reached, PassHalt::Missed("no marker".to_owned())] {
+                let ok = execution(Termination::Success, Some((b"ab\0\0", OutputArea::ZeroPadded)), pass_halt.clone());
+                assert!(verdict(ok, Some(b"ab"), suite).passed, "{suite:?} {pass_halt:?}");
+                let bad = execution(Termination::Success, Some((b"ab\0\0", OutputArea::Exact)), pass_halt.clone());
+                assert!(!verdict(bad, Some(b"ab"), suite).passed, "{suite:?} {pass_halt:?}");
+            }
+            // A failure does not pass, whatever its output.
+            let r = verdict(execution(failure(Some(1)), None, PassHalt::Unknown), Some(b""), suite);
+            assert!(!r.passed);
+            assert_eq!(r.termination, failure(Some(1)));
+        }
+    }
+
+    /// A zkVM whose execution and proof are given, and which counts its proofs.
+    struct Fake {
+        success: bool,
+        proof: Option<bool>,
+        proofs: AtomicUsize,
+    }
+
+    impl Zkvm for Fake {
+        fn name(&self) -> &'static str {
+            "fake"
+        }
+
+        fn supports_io(&self) -> bool {
+            false
+        }
+
+        fn can_prove(&self) -> bool {
+            self.proof.is_some()
+        }
+
+        fn execute(&self, _elf_path: &Path, _input: Option<&[u8]>) -> Execution {
+            let termination = Termination::from_success(self.success);
+            execution(termination, None, PassHalt::Unknown)
+        }
+
+        fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+            self.proofs.fetch_add(1, Ordering::Relaxed);
+            match self.proof {
+                Some(proved) => {
+                    Ok(Proof { duration: Duration::ZERO, written: proved, proved, verified: (proved && verify).then_some(true) })
+                }
+                None => anyhow::bail!("no prover"),
+            }
+        }
+    }
+
+    fn run_fake(success: bool, proof: Option<bool>, mode: Mode) -> (RunResult, usize) {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        let fake = Fake { success, proof, proofs: AtomicUsize::new(0) };
+        let r = run_one(&fake, Suite::Isa, &elf, mode);
+        (r, fake.proofs.load(Ordering::Relaxed))
+    }
+
+    #[test]
+    fn the_mode_decides_whether_to_prove() {
+        let (r, proofs) = run_fake(true, Some(true), Mode::Execute);
+        assert!(r.passed);
+        assert_eq!((proofs, r.prove_status, r.verify_status), (0, None, None));
+
+        let (r, proofs) = run_fake(true, Some(true), Mode::Prove);
+        assert!(r.passed);
+        assert_eq!(proofs, 1);
+        assert_eq!((r.prove_status.as_deref(), r.verify_status.as_deref()), (Some("success"), None));
+
+        let (r, _) = run_fake(true, Some(true), Mode::Full);
+        assert_eq!((r.prove_status.as_deref(), r.verify_status.as_deref()), (Some("success"), Some("success")));
+
+        // A failed proof keeps the execution's pass; the results file lists it
+        // under prove_failed.
+        let (r, _) = run_fake(true, Some(false), Mode::Full);
+        assert!(r.passed);
+        assert_eq!((r.prove_status.as_deref(), r.verify_status.as_deref()), (Some("failed"), None));
+
+        // No proof of an execution that failed.
+        let (r, proofs) = run_fake(false, Some(true), Mode::Full);
+        assert!(!r.passed);
+        assert_eq!((proofs, r.prove_status), (0, None));
+
+        // A prover error is a runner error.
+        let (r, _) = run_fake(true, None, Mode::Prove);
+        assert!(!r.passed);
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("runner error: no prover"));
+        assert_eq!(r.prove_status, None);
+    }
+
+    #[test]
+    fn a_backend_without_io_rejects_io_vectors() {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(dir.path().join("t.expected"), b"x").unwrap();
+        let fake = Fake { success: true, proof: None, proofs: AtomicUsize::new(0) };
+        let r = run_one(&fake, Suite::Isa, &elf, Mode::Execute);
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("the fake backend cannot feed .input or check .expected"));
+
+        // The standards suite gives every test an input.
+        std::fs::remove_file(dir.path().join("t.expected")).unwrap();
+        let r = run_one(&fake, Suite::Standards, &elf, Mode::Execute);
+        assert_eq!(r.termination, Termination::HostError);
+        assert!(run_one(&fake, Suite::Isa, &elf, Mode::Execute).passed);
+    }
+
+    #[test]
+    fn parses_suite_names() {
+        assert_eq!(Suite::from_name("eth-act-standards"), Some(Suite::Standards));
+        for name in ["act4-full", "act4-standard", "act4-native"] {
+            assert_eq!(Suite::from_name(name), Some(Suite::Isa));
+        }
+        assert_eq!(Suite::from_name("standards"), None);
+    }
+
+    #[test]
+    fn run_one_with_applies_vectors_and_outcome() {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(&elf, b"").unwrap();
+        let run = |termination: Termination| {
+            run_one_with("ere-sp1", Suite::Isa, &elf, |_, _| result(termination, Some("detail")))
+        };
+
+        std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
+        assert!(run(Termination::Failure { code: None }).passed);
+        assert!(!run(Termination::HostError).passed);
+        assert!(!run(Termination::Success).passed);
+
+        std::fs::write(dir.path().join("t.input"), b"x").unwrap();
+        let r = run(Termination::Failure { code: None });
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("the ere-sp1 backend cannot feed .input or check .expected"));
+
+        // A standards test gets its vectors.
+        let r = run_one_with("ere-sp1", Suite::Standards, &elf, |_, vectors| {
+            assert_eq!(vectors.input.as_deref(), Some(&b"x"[..]));
+            result(Termination::Failure { code: None }, None)
+        });
+        assert!(r.passed);
     }
 }

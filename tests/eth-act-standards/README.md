@@ -188,9 +188,11 @@ config.
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
    - a `link.ld.patch` with the changes the zkVM's own linker script needs (or, if the zkVM
      publishes none, a `link-args` file with its link options and a placeholder `link.ld`).
-2. Add a `<zkvm>-standards` backend to `src/runner/src/backends.rs` that feeds the input to that
-   zkVM and reads its verdict and public output, and add its name to `src/runner/src/main.rs`.
-3. Add the vendor library path, the linker script path (`VENDOR_LD`), the backend and the executor to
+2. Make the zkVM's backend in `src/runner/src/zkvm_backends.rs` feed the input to the zkVM and
+   report its termination and public output: through the zkVM's own executor (`--binary`, as
+   ziskemu does) or an eth-act standards executor (`--io-executor`, as for SP1 and OpenVM).
+3. Add the vendor library path, the linker script path (`VENDOR_LD`), the executor and its runner
+   flag to
    `src/run-eth-act-standards-tests.sh`.
 
 ## Accelerator vectors
