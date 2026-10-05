@@ -33,8 +33,16 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# DUT directory: this platform's test_config.yaml and link.ld, the rest of the
-# zkVM's ISA config (rvmodel_macros.h, UDB config, sail.json, ...), the
+# The zkVM's C library, and its own linker script when it publishes one.
+VENDOR_LIBS=(/vendor/*.a)
+if [ "${#VENDOR_LIBS[@]}" -ne 1 ] || [ ! -f "${VENDOR_LIBS[0]}" ]; then
+  echo "error: expected one vendor library in /vendor" >&2
+  exit 1
+fi
+VENDOR_LIB="${VENDOR_LIBS[0]}"
+
+# DUT directory: this platform's test_config.yaml and linker script, the rest
+# of the zkVM's ISA config (rvmodel_macros.h, UDB config, sail.json, ...), the
 # standard headers and our checks.h.
 DUT="$WORK/dut"
 mkdir -p "$DUT"
@@ -45,7 +53,23 @@ for f in /act4-config/"$ISA_CONFIG"/*; do
     *) cp "$f" "$DUT/" ;;
   esac
 done
-cp "$PLATFORM_DIR/test_config.yaml" "$PLATFORM_DIR/link.ld" "$DUT/"
+cp "$PLATFORM_DIR/test_config.yaml" "$DUT/"
+# The linker script is the zkVM's own, unchanged except for link.ld.patch. A
+# zkVM that publishes no linker script (OpenVM) has its own link.ld here.
+if [ -f "$PLATFORM_DIR/link.ld.patch" ]; then
+  VENDOR_LDS=(/vendor/*.ld)
+  if [ "${#VENDOR_LDS[@]}" -ne 1 ] || [ ! -f "${VENDOR_LDS[0]}" ]; then
+    echo "error: expected the zkVM's linker script in /vendor" >&2
+    exit 1
+  fi
+  cp "${VENDOR_LDS[0]}" "$DUT/link.ld"
+  patch --quiet --fuzz=0 --no-backup-if-mismatch "$DUT/link.ld" "$PLATFORM_DIR/link.ld.patch" || {
+    echo "error: link.ld.patch does not apply to $(basename "${VENDOR_LDS[0]}")" >&2
+    exit 1
+  }
+else
+  cp "$PLATFORM_DIR/link.ld" "$DUT/"
+fi
 cp "$STANDARDS/io-interface/zkvm_io.h" "$STANDARDS/c-interface-accelerators/zkvm_accelerators.h" \
   "$HERE/include/checks.h" "$DUT/"
 
@@ -54,9 +78,26 @@ cp "$STANDARDS/io-interface/zkvm_io.h" "$STANDARDS/c-interface-accelerators/zkvm
 # --gc-sections drops the parts of the vendor library that a guest does not
 # use. Without it a ZisK guest keeps all of ziskos (4.7 MB of code, including
 # its proof verifier), and ZisK's prover compiles all that code for every ELF.
-cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<'EOF'
+# A link (no -c, -S or -E) also gets the zkVM's library, because ACT's link
+# line takes no libraries, and the zkVM's own link arguments (link-args, for a
+# zkVM that links with the default layout, such as OpenVM's -Ttext).
+LINK_ARGS=""
+if [ -f "$PLATFORM_DIR/link-args" ]; then
+  LINK_ARGS=$(sed 's/^/-Wl,/' "$PLATFORM_DIR/link-args" | tr '\n' ' ')
+fi
+# ACT's C start code (tests/env/c_test_start.S) references these symbols. It
+# is linked but never runs (the entry point is the vendor's _start), so their
+# values do not matter; defining them here keeps them out of the zkVMs' linker
+# scripts. A definition in a linker script takes precedence over --defsym.
+LINK_ARGS="$LINK_ARGS-Wl,--defsym=__bss_start=0,--defsym=__bss_end=0,--defsym=__stack_top=0,--defsym=__stack_size=0,--defsym=__num_harts=1 "
+cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<EOF
 #!/bin/sh
-exec riscv64-unknown-elf-gcc "$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections
+for arg in "\$@"; do
+  case "\$arg" in
+    -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections ;;
+  esac
+done
+exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"
@@ -88,19 +129,22 @@ for f in "$TESTS/rv64i/memory/optimized-routines"/mem*.c; do
 done
 
 # mem-link-<fn> checks that the library's strong <fn> wins symbol resolution
-# against a weak <fn> in the guest. Acceleration is optional: without a strong
-# <fn>, a guest falls back to the toolchain's <fn>, so the test does not apply.
-VENDOR_LIBS=(/vendor/*.a)
-if [ "${#VENDOR_LIBS[@]}" -ne 1 ] || [ ! -f "${VENDOR_LIBS[0]}" ]; then
-  echo "error: expected one vendor library in /vendor" >&2
-  exit 1
-fi
-VENDOR_SYMS=$(riscv64-unknown-elf-nm -g --defined-only "${VENDOR_LIBS[0]}")
+# against a weak <fn> in the guest. Acceleration is optional: a library without
+# a strong <fn> does not accelerate <fn>, so the linking rule has nothing to
+# check, and mem-link-<fn> is built as a stub that passes (vacuously).
+VENDOR_SYMS=$(riscv64-unknown-elf-nm -g --defined-only "$VENDOR_LIB")
 MEMOPS="memcpy memmove memset memcmp"
+VACUOUS=""
 for fn in $MEMOPS; do
   if ! grep -Eqx "[0-9a-f]+ T $fn" <<< "$VENDOR_SYMS"; then
-    echo "note: $(basename "${VENDOR_LIBS[0]}") has no strong $fn, so mem-link-$fn does not apply"
-    rm "$TESTS/rv64i/memory/mem-link-$fn.c"
+    echo "note: $(basename "$VENDOR_LIB") has no strong $fn, so mem-link-$fn passes vacuously"
+    VACUOUS="$VACUOUS $fn"
+    src="$TESTS/rv64i/memory/mem-link-$fn.c"
+    { sed -n '1,/END_TEST_CONFIG/p' "$src"
+      echo "/* The vendor library has no strong $fn: $fn is not accelerated, so the linking rule does not apply. */"
+      echo '#include "checks.h"'
+      echo 'int main(void) { rvtest_pass(); return 0; }'
+    } > "$src.stub" && mv "$src.stub" "$src"
   fi
 done
 
@@ -114,16 +158,13 @@ UV_CACHE_DIR=/cache/uv uv run --no-project --with pycryptodome --with ecdsa \
   --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
 
 ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
-# SP1 and OpenVM decode every word of the code segment; replace the data words
-# that ACT places in code with NOPs, as for the ISA tests.
-python3 /act4/patch_elfs.py "$ELF_ROOT"
 
 # Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition
 # (pass) or to the guest's decoy_<fn> (fail). Any other weak definition, such
 # as compiler-builtins', would copy correctly and let the test pass.
 for fn in $MEMOPS; do
+  case " $VACUOUS " in *" $fn "*) continue ;; esac
   elf="$ELF_ROOT/memory/mem-link-$fn.elf"
-  [ -f "$elf" ] || continue
   syms=$(riscv64-unknown-elf-nm "$elf")
   kind=$(awk -v s="$fn" '$3 == s { print $2 }' <<< "$syms")
   addr=$(awk -v s="$fn" '$3 == s { print $1 }' <<< "$syms")

@@ -1,0 +1,26 @@
+--- a/link.ld
++++ b/link.ld
+@@ -11,7 +11,6 @@
+   text PT_LOAD FLAGS(1);
+   rodata PT_LOAD FLAGS(4);
+   data PT_LOAD FLAGS(6);
+-  bss PT_LOAD FLAGS(6);
+   output_data PT_LOAD FLAGS(6);
+   general_registers_data PT_LOAD FLAGS(6);
+   float_registers_data PT_LOAD FLAGS(6);
+@@ -131,11 +130,14 @@
+ 
+   .data : { *(.data .data.* .sdata .sdata.*) } >ram AT>ram :data
+ 
++  /* eth-act standards: .bss shares the data PT_LOAD. With GNU ld, a guest
++     without initialized data otherwise gets an empty PT_LOAD at address 0,
++     which ziskemu rejects. */
+   .bss : {
+     PROVIDE(_bss_start = .);
+     *(.bss .bss.* .sbss .sbss.*);
+     PROVIDE(_bss_end = .); /* ... and one at the end */
+-  } >ram AT>ram :bss
++  } >ram AT>ram :data
+ 
+   PROVIDE(_heap_bottom = .);
+   PROVIDE(_heap_top = ORIGIN(ram) + LENGTH(ram) - _float_ram_data_size);
