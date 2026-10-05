@@ -14,8 +14,10 @@
 #      ACT4_MODE=execute|prove|full (default: execute). Proving runs on an NVIDIA
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
 #      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk).
-# TESTS="<name|group> ..." runs only those tests (a test name such as rand-call,
-# or a group such as randomness) and records no history.
+# TESTS="<word> ..." runs only the selected tests and records no history. A word
+# that is a test name (io-echo) or a group (io, accelerators, memory) selects
+# exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
+# test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 
@@ -263,28 +265,12 @@ rm -f "$RESULTS_FILE" "$RESULTS_DIR/summary-eth-act-standards.json" \
 # Runner exit status: 0 all passed, 1 some test failed; anything else (a
 # usage error, no ELFs, a host error) means the run is not valid.
 RUNNER_STATUS=0
+# TESTS: the runner runs only the tests it selects (see the header).
+if [ -n "${TESTS:-}" ]; then RUNNER_ARGS+=(--select "$TESTS"); fi
 # shellcheck disable=SC2086
-# TESTS: link the selected ELFs and their test vectors into a separate directory.
-RUN_ELF_DIR="$ELF_DIR"
-if [ -n "${TESTS:-}" ]; then
-  RUN_ELF_DIR="$RESULTS_DIR/eth-act-standards-selected"
-  rm -rf "$RUN_ELF_DIR"
-  for elf in $(find "$ELF_DIR" -name '*.elf'); do
-    name=$(basename "$elf" .elf)
-    group=$(basename "$(dirname "$elf")")
-    if [[ " ${TESTS//,/ } " == *" $name "* || " ${TESTS//,/ } " == *" $group "* ]]; then
-      mkdir -p "$RUN_ELF_DIR/$group"
-      for file in "${elf%.elf}".*; do ln -sf "$PWD/$file" "$RUN_ELF_DIR/$group/"; done
-    fi
-  done
-  if [ ! -d "$RUN_ELF_DIR" ]; then
-    echo "  Error: no test matches TESTS=\"$TESTS\""
-    exit 1
-  fi
-fi
 "$RUNNER" \
   "${RUNNER_ARGS[@]}" \
-  --elf-dir "$RUN_ELF_DIR" \
+  --elf-dir "$ELF_DIR" \
   --output-dir "$RESULTS_DIR" \
   --suite eth-act-standards --groups \
   $RUNNER_JOBS || RUNNER_STATUS=$?

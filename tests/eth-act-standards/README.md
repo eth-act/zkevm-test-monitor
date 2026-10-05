@@ -194,14 +194,24 @@ execution, on an NVIDIA GPU:
 
 `OPENVM_EXECUTOR_GIT` and `OPENVM_EXECUTOR_REV` build the OpenVM executor, and so its prover, from
 another OpenVM commit. The guest library keeps ere's pin, and the run's notes say that the
-executor is not the pinned OpenVM. `TESTS="<name|group> ..."` runs only those tests and records no
-history.
+executor is not the pinned OpenVM.
 
 ```bash
 BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
-TESTS="io-echo accelerators" BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
 OPENVM_EXECUTOR_GIT=https://github.com/<owner>/openvm OPENVM_EXECUTOR_REV=<commit> \
   BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
+```
+
+### Selecting tests
+
+On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
+spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
+`memory`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of
+the test names. A word that selects no test stops the run.
+
+```bash
+TESTS=io-echo BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
+TESTS="io bls" ./run eth-act-standards-tests zisk
 ```
 
 ## Adding a zkVM
