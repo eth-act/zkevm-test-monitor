@@ -47,6 +47,10 @@ mkdir -p "$RESULTS_DIR" out/bin
 # IMAGE_EMULATOR_LIBS: an image directory of shared libraries the emulator
 #   needs, copied to "${EMULATOR}-lib".
 # VENDOR_LIB: the zkVM's C library in the image, copied out for the guest build.
+# VENDOR_LD: the zkVM's own linker script in the image, at the same commit, copied
+#   out for the guest build, which applies zkvms/<zkvm>/standards/link.ld.patch to
+#   it. Empty when the zkVM publishes none (OpenVM): then
+#   zkvms/<zkvm>/standards/link.ld is used.
 # IMAGE_COMMIT_FILES: "<image path>:<name>" commit files copied next to the ELFs.
 # COMMIT_FILE: the zkVM commit to record for the run.
 # NOTES: a note to record with every run (shown on the dashboard).
@@ -67,6 +71,7 @@ case "$ZKVM" in
     IMAGE_EMULATOR="/usr/local/bin/ziskemu"
     IMAGE_EMULATOR_LIBS="/usr/local/lib/ziskemu"
     VENDOR_LIB="/opt/zisk/lib/libziskos_staticlib.a"
+    VENDOR_LD="/zisk/ziskbuild/zisk_linker_script.ld"
     IMAGE_COMMIT_FILES="/zisk-commit.txt:vendor-commit.txt"
     # The image pins the ZisK version that eth-act/ere uses, so record that commit.
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
@@ -83,6 +88,7 @@ case "$ZKVM" in
     EMULATOR="out/bin/sp1-eth-act-standards-executor"
     IMAGE_EMULATOR="/usr/local/bin/sp1-eth-act-standards-executor"
     VENDOR_LIB="/opt/sp1/libzkevm.a"
+    VENDOR_LD="/opt/sp1/zkvm.ld"
     IMAGE_COMMIT_FILES="/sp1-commit.txt:vendor-commit.txt"
     # The image pins its own SP1 tag (the ISA pin has no C SDK), so record that commit.
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
@@ -95,6 +101,7 @@ case "$ZKVM" in
     IMAGE_EMULATOR="/usr/local/bin/openvm-eth-act-standards-executor"
     IMAGE_EMULATOR_LIBS="/usr/local/lib/openvm-executor"
     VENDOR_LIB="/opt/openvm/lib/libere_openvm_c.a"
+    VENDOR_LD=""
     IMAGE_COMMIT_FILES="/ere-commit.txt:vendor-commit.txt /openvm-commit.txt:openvm-commit.txt"
     # The image pins OpenVM at the tag eth-act/ere uses and records its commit.
     COMMIT_FILE="$ELF_DIR/openvm-commit.txt"
@@ -162,6 +169,9 @@ VENDOR_DIR="$RESULTS_DIR/eth-act-standards-vendor"
 rm -rf "$VENDOR_DIR"
 mkdir -p "$VENDOR_DIR"
 docker run --rm --entrypoint cat "$IMAGE" "$VENDOR_LIB" > "$VENDOR_DIR/$(basename "$VENDOR_LIB")"
+if [ -n "$VENDOR_LD" ]; then
+  docker run --rm --entrypoint cat "$IMAGE" "$VENDOR_LD" > "$VENDOR_DIR/$(basename "$VENDOR_LD")"
+fi
 
 # The guests are built as ACT4 C tests in the zkVM's ACT4 image, the image the
 # ISA tests use (same Dockerfile and build arguments as src/run-isa-tests.sh).

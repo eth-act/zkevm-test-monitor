@@ -1,0 +1,56 @@
+--- a/link.ld
++++ b/link.ld
+@@ -38,6 +38,16 @@
+     RAM (rwx) : ORIGIN = 0x78000000, LENGTH = 0x1B88000000  /* MAX_MEMORY - INPUT_REGION - STACK_TOP */
+ }
+ 
++/* eth-act standards: the guests link with GNU ld, which without PHDRS puts
++ * code and data in one writable and executable segment. SP1's loader rejects
++ * such a segment. */
++PHDRS
++{
++    text PT_LOAD FLAGS(5);   /* R+X */
++    rodata PT_LOAD FLAGS(4); /* R */
++    data PT_LOAD FLAGS(6);   /* R+W */
++}
++
+ SECTIONS
+ {
+     . = ORIGIN(RAM);
+@@ -46,13 +56,16 @@
+     {
+         KEEP(*(.text._start))
+         *(.text .text.*)
+-    } > RAM
++    /* eth-act standards: fill alignment gaps with NOPs. GNU ld fills them with
++     * zeros, and SP1's loader rejects a word in an executable segment that does
++     * not decode. */
++    } > RAM :text =0x13000000
+ 
+     .rodata : ALIGN(16)
+     {
+         *(.rodata .rodata.*)
+         *(.srodata .srodata.*)
+-    } > RAM
++    } > RAM :rodata
+ 
+     .data : ALIGN(16)
+     {
+@@ -60,7 +73,7 @@
+         *(.data .data.*)
+         *(.sdata .sdata.*)
+         __data_end = .;
+-    } > RAM
++    } > RAM :data
+     __data_load = LOADADDR(.data);
+ 
+     .bss (NOLOAD) : ALIGN(16)
+@@ -71,7 +84,7 @@
+         *(COMMON)
+         . = ALIGN(8);
+         __bss_end = .;
+-    } > RAM
++    } > RAM :data
+ 
+     /*
+      * `_end` marks the end of the static data region — `sp1-zkvm`'s

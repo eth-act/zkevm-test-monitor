@@ -54,7 +54,7 @@ RUN mise install ruby gem:bundler uv && \
     uv sync
 
 COPY src/shared/patch_elfs.py /act4/patch_elfs.py
-COPY zkvms/sp1/entrypoint.sh /act4/entrypoint.sh
-RUN chmod +x /act4/entrypoint.sh
+COPY zkvms/sp1/isa-tests-entrypoint.sh /act4/isa-tests-entrypoint.sh
+RUN chmod +x /act4/isa-tests-entrypoint.sh
 
-ENTRYPOINT ["/act4/entrypoint.sh"]
+ENTRYPOINT ["/act4/isa-tests-entrypoint.sh"]

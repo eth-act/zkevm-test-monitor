@@ -28,9 +28,28 @@ links against the vendor's static library and calls it only through the standard
 
 `build-guests.sh` compiles the programs with ACT4 (`act`) in the zkVM's ACT4 image
 (`zkvms/<zkvm>/act4.Dockerfile`). It uses the zkVM's ISA config (`zkvms/<zkvm>/isa-configs/`) with the
-`test_config.yaml` and `link.ld` in `zkvms/<zkvm>/standards/`. The linker script puts the vendor's
-static library on the link line, so the vendor's `_start` runs `main`. The test ends through the
-zkVM's ACT4 halt macros, the same as an ISA test.
+`test_config.yaml` in `zkvms/<zkvm>/standards/`, and links the vendor's static library, so the
+vendor's `_start` runs `main`. The test ends through the zkVM's ACT4 halt macros, the same as an
+ISA test.
+
+The linker script is the zkVM's own, from its repository at the pinned commit, with only the changes
+in `zkvms/<zkvm>/standards/link.ld.patch`. Each change in the patch is a deviation of the vendor's
+script, with a comment that gives its reason (#58):
+
+- ZisK (`ziskbuild/zisk_linker_script.ld`): `.bss` shares the data segment, because with GNU ld a
+  guest without initialized data gets an empty segment at address 0, which `ziskemu` rejects.
+- SP1 (`zkevm/zkvm.ld`): `PHDRS`, because without them GNU ld emits a writable and executable
+  segment, which SP1's loader rejects; and a NOP fill, because SP1's loader rejects a word in an
+  executable segment that does not decode (the ELF loading standard allows such words).
+- OpenVM publishes no linker script: its guest build uses the linker's default layout with
+  `-Ttext=0x00200800`. The OpenVM guests link the same way (`zkvms/openvm/standards/link-args`, plus
+  `-z separate-code`, which LLD does by default). ACT requires a linker script, so
+  `zkvms/openvm/standards/link.ld` is an empty placeholder (`INSERT`, so GNU ld's default script
+  stays).
+
+ACT's C start code references `__bss_start`, `__bss_end`, `__stack_top`, `__stack_size` and
+`__num_harts`. It is linked but never runs, so `build-guests.sh` defines them on the link line
+(`--defsym`), not in the linker scripts. Building without ACT would remove them (#57).
 
 The runner judges a test in one of three ways:
 
@@ -86,10 +105,17 @@ before the library in the link, so the wrong `<fn>` wins unless the library puts
 object that every guest links (such as the one with `_start`) or requires `--whole-archive`. Our
 link does not use `--whole-archive`, so a library that relies on it fails. `build-guests.sh`:
 
-- builds `mem-link-<fn>` only if the library has a strong `<fn>`, because acceleration is optional;
+- builds `mem-link-<fn>` as a stub that passes when the library has no strong `<fn>`: acceleration is
+  optional, so a function that is not accelerated has no linking rule to check;
 - stops if a `mem-link-<fn>` ELF resolves `<fn>` to anything other than the library's strong `<fn>`
   or the guest's `decoy_<fn>`, because another weak `<fn>` (such as compiler-builtins') would let
   the test pass.
+
+The ELF check treats any strong `<fn>` as the library's. That holds because nothing else on our link
+line defines a strong `<fn>`: ACT links no C library. In a link that has another strong `<fn>` (for
+example from a libc), the linker loads only the first archive member that defines it, without an
+error, so a strong symbol alone does not show its source. `-Wl,--trace-symbol=<fn>` (or a map file,
+`-Wl,-Map=<file>`) shows which input defined it.
 
 The test does not check the standard's documentation or LTO clauses.
 
@@ -156,12 +182,13 @@ config.
 1. Add `zkvms/<zkvm>/standards/`:
    - a `Dockerfile` that builds the vendor library and the host executor;
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
-   - a `link.ld` that includes the vendor library (`INPUT(/vendor/<lib>.a)`) and defines the
-     `__stack_*`, `__bss_*` and `__num_harts` symbols that ACT4's C runtime needs.
-2. Make the zkVM's backend in `src/runner/src/backends.rs` feed the input to the zkVM and report
-   its termination and public output: through the zkVM's own executor (`--binary`, as ziskemu
-   does) or an eth-act standards executor (`--io-executor`, as for SP1 and OpenVM).
-3. Add the vendor library path, the executor and its runner flag to
+   - a `link.ld.patch` with the changes the zkVM's own linker script needs (or, if the zkVM
+     publishes none, a `link-args` file with its link options and a placeholder `link.ld`).
+2. Make the zkVM's backend in `src/runner/src/zkvm_backends.rs` feed the input to the zkVM and
+   report its termination and public output: through the zkVM's own executor (`--binary`, as
+   ziskemu does) or an eth-act standards executor (`--io-executor`, as for SP1 and OpenVM).
+3. Add the vendor library path, the linker script path (`VENDOR_LD`), the executor and its runner
+   flag to
    `src/run-eth-act-standards-tests.sh`.
 
 ## Accelerator vectors
