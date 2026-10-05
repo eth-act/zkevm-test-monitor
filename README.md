@@ -130,7 +130,7 @@ BACKEND=native ./run isa-tests zisk     # native path (ere is the default)
 
 1. Add entry to `config.json`
 2. Create `zkvms/<name>/build.Dockerfile`
-3. Create `zkvms/<name>/act4.Dockerfile` + `entrypoint.sh`
+3. Create `zkvms/<name>/act4.Dockerfile` + `isa-tests-entrypoint.sh`
 4. Create `zkvms/<name>/isa-configs/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
 5. Optional: `zkvms/<name>/standards/` for the eth-act standards tests (see
    [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md))
@@ -146,9 +146,9 @@ src/runner/               Host-side test runner (Rust) for both suites, and the 
 src/shared/               Shared utilities (patch_elfs.py)
 zkvms/<zkvm>/             Everything specific to one ZK-VM:
   build.Dockerfile          binary build
-  act4.Dockerfile           ACT4 image (+ entrypoint.sh)
+  act4.Dockerfile           ACT4 image (+ isa-tests-entrypoint.sh: ISA test ELF generation)
   isa-configs/<isa>/        ACT4 ISA/platform configs
-  standards/                eth-act standards platform: C library, executor, link.ld
+  standards/                eth-act standards platform: C library, executor, linker script patch
 tests/eth-act-standards/  eth-act standards tests: C guests, headers, vector tools
 site/                     Dashboard (GitHub Pages)
 results/history/          Historical pass/fail tracking (read by the dashboard)

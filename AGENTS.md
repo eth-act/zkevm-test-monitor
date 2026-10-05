@@ -6,7 +6,7 @@ compliance tests, and serves a results dashboard.
 ## Key Directories
 
 ```
-zkvms/<zkvm>/           # Per-ZKVM: build.Dockerfile, act4.Dockerfile + entrypoint.sh,
+zkvms/<zkvm>/           # Per-ZKVM: build.Dockerfile, act4.Dockerfile + isa-tests-entrypoint.sh,
                         #   isa-configs/<isa>/ (ACT4 configs), standards/ (eth-act standards platform)
 src/                    # Scripts: build.sh, run-isa-tests.sh, run-eth-act-standards-tests.sh
 src/runner/             # Host-side test runner (Rust) for both suites
@@ -56,7 +56,7 @@ the native path, execute only (`./run build <zkvm>` first).
 
 1. Add entry to `config.json` with `repo_url`, `commit`, `binary_name`
 2. Create `zkvms/<name>/build.Dockerfile` (builds and copies binary to `/usr/local/bin/<name>-binary`)
-3. Create `zkvms/<name>/act4.Dockerfile` + `entrypoint.sh` (ACT4 ELF generation)
+3. Create `zkvms/<name>/act4.Dockerfile` + `isa-tests-entrypoint.sh` (ACT4 ELF generation for the ISA tests)
 4. Create `zkvms/<name>/isa-configs/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
 5. Build: `./run build <name>`
 6. Test: `./run isa-tests <name>`
