@@ -3,7 +3,7 @@
 //! Usage:
 //!   openvm-eth-act-standards-executor <elf> <input> <public-values-out> <exit-code-out>
 //!   openvm-eth-act-standards-executor prove <elf> <input> <proof-out>
-//!   openvm-eth-act-standards-executor verify <proof>
+//!   openvm-eth-act-standards-executor verify <elf> <proof> [<public-values>]
 //!
 //! The VM config is the one eth-act/ere's OpenVM prover uses (`sdk_vm_config` in
 //! ere-prover-openvm): OpenVM's standard config with 256 bytes of public values.
@@ -19,7 +19,9 @@
 //!
 //! `prove` writes an app-level continuation STARK proof of the same execution
 //! (same VM config, same input vector), and `verify` checks one against the
-//! app verifying key. Both exit 0 on success, 1 when proving or verification
+//! app verifying key. The app verifying key depends only on the VM config, so
+//! `verify` also checks that the proof is of <elf> (its app exe commit) and,
+//! when given, that it proves exactly the <public-values> bytes. Both exit 0 on success, 1 when proving or verification
 //! fails, and 2 on a usage or I/O error. With the `cuda` feature, both run on
 //! the GPU.
 
@@ -28,12 +30,13 @@ use std::process::ExitCode;
 use openvm_sdk::{
     config::{AggregationSystemParams, AppConfig},
     fs::{read_object_from_file, write_object_to_file},
-    openvm_circuit::arch::{ExecutionError, VirtualMachineError},
+    openvm_circuit::arch::{ContinuationVmProof, ExecutionError, VirtualMachineError},
     prover::verify_app_proof,
-    DefaultStarkEngine, Sdk, SdkError, StdIn,
+    DefaultStarkEngine, Sdk, SdkError, StdIn, SC,
 };
 use openvm_sdk_config::SdkVmConfig;
 use openvm_stark_sdk::config::{app_params_with_100_bits_security, MAX_APP_LOG_STACKED_HEIGHT};
+use openvm_stark_sdk::openvm_stark_backend::p3_field::PrimeField32;
 
 /// `NUM_PUBLIC_VALUES_BYTES` in ere-verifier-openvm.
 const NUM_PUBLIC_VALUES_BYTES: usize = 256;
@@ -44,7 +47,10 @@ fn main() -> ExitCode {
         [_, cmd, elf_path, input_path, proof_path] if cmd == "prove" => {
             prove(elf_path, input_path, proof_path)
         }
-        [_, cmd, proof_path] if cmd == "verify" => verify(proof_path),
+        [_, cmd, elf_path, proof_path] if cmd == "verify" => verify(elf_path, proof_path, None),
+        [_, cmd, elf_path, proof_path, pv_path] if cmd == "verify" => {
+            verify(elf_path, proof_path, Some(pv_path))
+        }
         [_, elf_path, input_path, output_path, code_path] => {
             run(elf_path, input_path, output_path, code_path)
         }
@@ -52,7 +58,7 @@ fn main() -> ExitCode {
             eprintln!(
                 "usage: openvm-eth-act-standards-executor <elf> <input> <public-values-out> <exit-code-out>\n\
                  \x20      openvm-eth-act-standards-executor prove <elf> <input> <proof-out>\n\
-                 \x20      openvm-eth-act-standards-executor verify <proof>"
+                 \x20      openvm-eth-act-standards-executor verify <elf> <proof> [<public-values>]"
             );
             ExitCode::from(2)
         }
@@ -107,24 +113,70 @@ fn prove(elf_path: &str, input_path: &str, proof_path: &str) -> ExitCode {
     }
 }
 
-fn verify(proof_path: &str) -> ExitCode {
-    let proof = match read_object_from_file(proof_path) {
-        Ok(proof) => proof,
+fn verify(elf_path: &str, proof_path: &str, pv_path: Option<&str>) -> ExitCode {
+    let read = |path: &str| std::fs::read(path).map_err(|e| format!("read {path}: {e}"));
+    let inputs = read(elf_path).and_then(|elf| {
+        let proof =
+            read_object_from_file(proof_path).map_err(|e| format!("read {proof_path}: {e}"))?;
+        let public_values = pv_path.map(read).transpose()?;
+        Ok((elf, proof, public_values))
+    });
+    let (elf, proof, public_values) = match inputs {
+        Ok(inputs) => inputs,
         Err(e) => {
-            eprintln!("error: read {proof_path}: {e}");
+            eprintln!("error: {e}");
             return ExitCode::from(2);
         }
     };
-    let verified = make_sdk().map_err(|e| e.to_string()).and_then(|sdk| {
-        verify_app_proof::<DefaultStarkEngine>(&sdk.app_vk(), &proof).map_err(|e| e.to_string())
-    });
-    match verified {
-        Ok(_) => ExitCode::SUCCESS,
+    match check_proof(elf, &proof, public_values.as_deref()) {
+        Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("verify failed: {e}");
             ExitCode::from(1)
         }
     }
+}
+
+/// Verify `proof` and check that it proves `elf` with `public_values`.
+fn check_proof(
+    elf: Vec<u8>,
+    proof: &ContinuationVmProof<SC>,
+    public_values: Option<&[u8]>,
+) -> Result<(), String> {
+    let sdk = make_sdk().map_err(|e| e.to_string())?;
+    let exe_commit =
+        verify_app_proof::<DefaultStarkEngine>(&sdk.app_vk(), proof).map_err(|e| e.to_string())?;
+    let expected_commit = sdk
+        .app_prover(elf)
+        .map_err(|e| e.to_string())?
+        .app_exe_commit();
+    if exe_commit != expected_commit {
+        return Err("the proof is of another program (app exe commit mismatch)".to_owned());
+    }
+    if let Some(expected) = public_values {
+        // Each public-values cell holds `cell_bytes` little-endian bytes: two at
+        // v2.1.0-preview (u16 cells), one where the config counts bytes.
+        let cells = &proof.user_public_values.public_values;
+        let cell_bytes = NUM_PUBLIC_VALUES_BYTES / cells.len().max(1);
+        let proven: Vec<u8> = cells
+            .iter()
+            .flat_map(|cell| {
+                cell.as_canonical_u32()
+                    .to_le_bytes()
+                    .into_iter()
+                    .take(cell_bytes)
+            })
+            .collect();
+        if proven != expected {
+            let at = proven.iter().zip(expected).position(|(a, b)| a != b);
+            return Err(format!(
+                "the proof's public values differ from the execution's ({} vs {} bytes, first difference at {at:?})",
+                proven.len(),
+                expected.len(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn run(elf_path: &str, input_path: &str, output_path: &str, code_path: &str) -> ExitCode {
