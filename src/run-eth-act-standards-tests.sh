@@ -112,7 +112,7 @@ case "$ZKVM" in
       BUILD_ARGS=(--build-arg BASE_IMAGE=nvidia/cuda:12.9.1-devel-ubuntu24.04 --build-arg GPU=1
                   --build-arg "CUDA_ARCH=${CUDA_ARCH:-120}")
     fi
-    NOTES="OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/${ERE_COMMIT}) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output wrapper (zkvms/openvm/standards/vendor). ere caps public output at 256 bytes."
+    NOTES="OpenVM ships no C library for guests (its C-interface PRs https://github.com/openvm-org/openvm/pull/3075 to #3080 were closed unmerged). These results use eth-act/ere's C layer (ere-platform-openvm at https://github.com/eth-act/ere/commit/${ERE_COMMIT}) over OpenVM v2.1.0-preview guest libraries, plus a thin read_input/write_output/zkvm_random_u64 wrapper (zkvms/openvm/standards/vendor). ere caps public output at 256 bytes."
     # OPENVM_EXECUTOR_GIT and OPENVM_EXECUTOR_REV build the host executor from
     # another OpenVM commit (see zkvms/openvm/standards/Dockerfile).
     if [ -n "${OPENVM_EXECUTOR_REV:-}" ]; then
