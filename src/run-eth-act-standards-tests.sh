@@ -14,6 +14,8 @@
 #      ACT4_MODE=execute|prove|full (default: execute). Proving runs on an NVIDIA
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
 #      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk).
+# TESTS="<name|group> ..." runs only those tests (a test name such as rand-call,
+# or a group such as randomness) and records no history.
 set -euo pipefail
 
 ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
@@ -253,9 +255,27 @@ rm -f "$RESULTS_FILE" "$RESULTS_DIR/summary-eth-act-standards.json" \
 # usage error, no ELFs, a host error) means the run is not valid.
 RUNNER_STATUS=0
 # shellcheck disable=SC2086
+# TESTS: link the selected ELFs and their test vectors into a separate directory.
+RUN_ELF_DIR="$ELF_DIR"
+if [ -n "${TESTS:-}" ]; then
+  RUN_ELF_DIR="$RESULTS_DIR/eth-act-standards-selected"
+  rm -rf "$RUN_ELF_DIR"
+  for elf in $(find "$ELF_DIR" -name '*.elf'); do
+    name=$(basename "$elf" .elf)
+    group=$(basename "$(dirname "$elf")")
+    if [[ " ${TESTS//,/ } " == *" $name "* || " ${TESTS//,/ } " == *" $group "* ]]; then
+      mkdir -p "$RUN_ELF_DIR/$group"
+      for file in "${elf%.elf}".*; do ln -sf "$PWD/$file" "$RUN_ELF_DIR/$group/"; done
+    fi
+  done
+  if [ ! -d "$RUN_ELF_DIR" ]; then
+    echo "  Error: no test matches TESTS=\"$TESTS\""
+    exit 1
+  fi
+fi
 "$RUNNER" \
   "${RUNNER_ARGS[@]}" \
-  --elf-dir "$ELF_DIR" \
+  --elf-dir "$RUN_ELF_DIR" \
   --output-dir "$RESULTS_DIR" \
   --suite eth-act-standards --groups \
   $RUNNER_JOBS || RUNNER_STATUS=$?
@@ -266,6 +286,10 @@ fi
 if [ ! -f "$RESULTS_FILE" ]; then
   echo "  Error: no eth-act standards results generated for $ZKVM; no history recorded"
   exit 1
+fi
+if [ -n "${TESTS:-}" ]; then
+  echo "  eth-act standards ${ZKVM}: $(jq '.passed | length' "$RESULTS_FILE")/$(jq '.total' "$RESULTS_FILE") selected tests passed (TESTS set: no history recorded)"
+  exit 0
 fi
 # Every ELF this run built must have a result.
 ELF_COUNT=$(find "$ELF_DIR" -name '*.elf' | wc -l)
