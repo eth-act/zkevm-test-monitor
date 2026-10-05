@@ -188,7 +188,9 @@ execution, on an NVIDIA GPU:
   also checks that the proof is of the test's ELF (its app exe commit) and proves the execution's
   public output, so a valid proof of another program or output fails.
 - SP1 and ZisK: `sp1-prover` and `cargo-zisk-cuda` from `./run build <zkvm>` (`GPU=1` for ZisK).
-  The script refuses a prover built from another commit than the standards image.
+  The script refuses a prover built from another commit than the standards image. SP1's GPU
+  server needs a CUDA 12 runtime (`libcudart.so.12`); the script finds one or stops (set
+  `SP1_CUDA_LIB=<dir>` to choose it).
 
 `OPENVM_EXECUTOR_GIT` and `OPENVM_EXECUTOR_REV` build the OpenVM executor, and so its prover, from
 another OpenVM commit. The guest library keeps ere's pin, and the run's notes say that the

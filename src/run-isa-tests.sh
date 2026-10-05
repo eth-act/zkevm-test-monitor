@@ -2,6 +2,7 @@
 set -e
 
 source "$(dirname "$0")/generate_elfs.sh"
+source "$(dirname "$0")/shared/cuda.sh"
 
 # Parse targets (positional args only; no suite flag needed)
 TARGETS=""
@@ -308,23 +309,9 @@ run_sp1_split_pipeline() {
     RUNNER_JOBS="-j ${JOBS}"
   fi
 
-  # sp1-perf's CUDA prover spawns a host-native sp1-gpu-server that needs
-  # libcudart.so.12. The host /opt/cuda may be absent, so locate a dir that
-  # provides it (SP1_CUDA_LIB env overrides).
+  # The CUDA 12 runtime for sp1-gpu-server (src/shared/cuda.sh).
   if [ "$MODE" != "execute" ]; then
-    local CUDA_LIB="${SP1_CUDA_LIB:-}"
-    if [ -z "$CUDA_LIB" ]; then
-      for d in /usr/local/cuda/lib64 /opt/cuda/lib64 /usr/local/cuda-12/lib64 \
-               /usr/local/cuda-12.8/lib64 /usr/local/lib/ollama/cuda_v12; do
-        if ls "$d"/libcudart.so.12* >/dev/null 2>&1; then CUDA_LIB="$d"; break; fi
-      done
-    fi
-    if [ -n "$CUDA_LIB" ]; then
-      export LD_LIBRARY_PATH="${CUDA_LIB}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-      echo "  CUDA runtime for sp1-gpu-server: $CUDA_LIB"
-    else
-      echo "  Warning: no libcudart.so.12 found — GPU proving may fail. Set SP1_CUDA_LIB=<dir>."
-    fi
+    add_sp1_cuda_runtime || echo "  Warning: GPU proving may fail."
   fi
 
   # Run native suite — always execute-only (proving only applies to the target ISA)

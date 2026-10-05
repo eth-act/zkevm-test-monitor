@@ -17,6 +17,7 @@
 # TESTS="<name|group> ..." runs only those tests (a test name such as rand-call,
 # or a group such as randomness) and records no history.
 set -euo pipefail
+source "$(dirname "$0")/shared/cuda.sh"
 
 ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
 # ere (default) or noere; see the header.
@@ -244,17 +245,15 @@ if [ -d "$EMULATOR_LIB_DIR" ]; then
   export LD_LIBRARY_PATH="$PWD/$EMULATOR_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 # The noere provers' shared libraries, as src/run-isa-tests.sh sets them: cargo-zisk's
-# bundled libraries, and a CUDA runtime for sp1-perf's GPU server.
+# bundled libraries, and a CUDA 12 runtime for sp1-perf's GPU server. Without the
+# runtime, every SP1 proof would fail, so the run stops.
 if [ -n "$NOERE_PROVE" ]; then
   if [ "$ZKVM" = "zisk" ] && [ -d out/bin/zisk-lib ]; then
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$PWD/out/bin/zisk-lib"
   fi
-  for cuda_dir in /usr/local/cuda/lib64 /opt/cuda/lib64 "$PWD/out/bin/openvm-lib"; do
-    if ls "$cuda_dir"/libcudart.so.12* > /dev/null 2>&1; then
-      export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$cuda_dir"
-      break
-    fi
-  done
+  if [ "$ZKVM" = "sp1" ]; then
+    add_sp1_cuda_runtime || exit 1
+  fi
 fi
 
 echo "Running $ZKVM eth-act standards tests ($BACKEND_KIND, mode: $MODE)..."
