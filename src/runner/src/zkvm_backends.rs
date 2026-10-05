@@ -30,8 +30,11 @@ pub trait Zkvm: Sync {
     fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution;
 
     /// Prove the ELF, and verify the proof with `verify`. The runner calls
-    /// this only after an execution that passed. An error is a runner error.
-    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof>;
+    /// this only after an execution that passed. `output` is that execution's
+    /// public output; a backend that reads the proof's public values checks
+    /// them against it (OpenVM's standards executor). An error is a runner error.
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, output: Option<&[u8]>, verify: bool)
+        -> anyhow::Result<Proof>;
 }
 
 /// The tool paths from the command line. Each zkVM uses the ones it needs.
@@ -303,7 +306,7 @@ impl Zkvm for LambdaVM {
         }
     }
 
-    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, _output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
         no_prover_input(self.name(), input)?;
         prove_lambdavm(&self.binary, elf_path, verify)
     }
@@ -336,11 +339,11 @@ impl Zkvm for OpenVM {
         }
     }
 
-    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
         if let Executor::Cli(_) = self.executor {
             no_prover_input(self.name(), input)?;
         }
-        prove_openvm(&self.executor, elf_path, input, verify, self.gpu)
+        prove_openvm(&self.executor, elf_path, input, output, verify, self.gpu)
     }
 }
 
@@ -373,7 +376,7 @@ impl Zkvm for Sp1 {
         }
     }
 
-    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, _output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
         let Some(sp1_perf) = &self.sp1_perf else {
             anyhow::bail!("sp1 needs --sp1-perf to prove");
         };
@@ -407,7 +410,7 @@ impl Zkvm for Zisk {
         run_zisk(&self.ziskemu, elf_path, input)
     }
 
-    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+    fn prove(&self, elf_path: &Path, input: Option<&[u8]>, _output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
         let Some(cargo_zisk) = &self.cargo_zisk else {
             anyhow::bail!("zisk needs --cargo-zisk to prove");
         };
@@ -910,11 +913,14 @@ fn run_openvm(binary: &Path, elf_path: &Path) -> Execution {
 /// runs steps 2 and 3 after an execution that passed.
 ///
 /// The eth-act standards executor takes the test input instead:
-/// `<executor> prove <elf> <input> <proof>` and `<executor> verify <proof>`.
+/// `<executor> prove <elf> <input> <proof>` and
+/// `<executor> verify <elf> <proof> [<public-values>]`, which also checks that
+/// the proof is of the ELF and proves `output`.
 fn prove_openvm(
     executor: &Executor,
     elf_path: &Path,
     input: Option<&[u8]>,
+    output: Option<&[u8]>,
     verify: bool,
     gpu: bool,
 ) -> anyhow::Result<Proof> {
@@ -922,6 +928,7 @@ fn prove_openvm(
     let tmp_dir = tempfile::tempdir()?;
     let proof_path = tmp_dir.path().join("proof.bin");
     let input_path = tmp_dir.path().join("input.bin");
+    let output_path = tmp_dir.path().join("public-values.bin");
     let (binary, prove_args, verify_args): (&Path, Vec<&OsStr>, Vec<&OsStr>) = match executor {
         Executor::Cli(binary) => (
             binary,
@@ -930,10 +937,15 @@ fn prove_openvm(
         ),
         Executor::Io(executor) => {
             std::fs::write(&input_path, input.unwrap_or_default())?;
+            let mut verify_args: Vec<&OsStr> = vec!["verify".as_ref(), elf_path.as_ref(), proof_path.as_ref()];
+            if let Some(output) = output {
+                std::fs::write(&output_path, output)?;
+                verify_args.push(output_path.as_ref());
+            }
             (
                 executor,
                 vec!["prove".as_ref(), elf_path.as_ref(), input_path.as_ref(), proof_path.as_ref()],
-                vec!["verify".as_ref(), proof_path.as_ref()],
+                verify_args,
             )
         }
     };
@@ -1418,30 +1430,38 @@ mod tests {
         assert_eq!(args, ["prove", "--elf", "t.elf", "-i", "in.bin", "-o", "p.bin", "--verify-proof"]);
     }
 
-    /// Prove with a fake OpenVM standards executor: `prove` copies the input
-    /// file to the proof file, and `verify` runs `verify_body`.
-    fn openvm_io_prove(input: &[u8], verify_body: &str) -> Proof {
+    /// Prove with a fake OpenVM standards executor: `prove` writes the input file
+    /// as the proof, and `verify <elf> <proof> [<public-values>]` runs `verify_body`.
+    fn openvm_io_prove(input: &[u8], output: Option<&[u8]>, verify_body: &str) -> Proof {
         let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let body = format!(
-            "case \"$1\" in prove) cmp -s \"$3\" {dir}/expected && cp \"$3\" \"$4\" ;; verify) {verify_body} ;; *) exit 2 ;; esac",
+            "case \"$1\" in prove) cmp -s \"$3\" {dir}/input && cp \"$3\" \"$4\" ;; verify) {verify_body} ;; *) exit 2 ;; esac",
             dir = dir.path().display(),
         );
-        std::fs::write(dir.path().join("expected"), input).unwrap();
+        std::fs::write(dir.path().join("input"), input).unwrap();
         let executor = Executor::Io(fake(dir.path(), "executor", &body));
-        prove_openvm(&executor, &dir.path().join("t.elf"), Some(input), true, false).unwrap()
+        prove_openvm(&executor, &dir.path().join("t.elf"), Some(input), output, true, false).unwrap()
     }
 
     #[test]
     fn openvm_io_executor_proves_with_the_input() {
-        let proof = openvm_io_prove(b"input", "test -s \"$2\"");
+        let proof = openvm_io_prove(b"input", None, "test -s \"$3\" && test $# -eq 3");
         assert!(proof.proved);
         assert!(proof.written);
         assert_eq!(proof.verified, Some(true));
 
-        let proof = openvm_io_prove(b"input", "exit 1");
+        let proof = openvm_io_prove(b"input", None, "exit 1");
         assert!(proof.proved);
         assert_eq!(proof.verified, Some(false));
+    }
+
+    #[test]
+    fn openvm_io_executor_verifies_the_program_and_the_output() {
+        // verify gets the ELF and the execution's public output.
+        let check = "case \"$2\" in */t.elf) ;; *) exit 1 ;; esac; test \"$(cat \"$4\")\" = PASS";
+        assert_eq!(openvm_io_prove(b"in", Some(b"PASS"), check).verified, Some(true));
+        assert_eq!(openvm_io_prove(b"in", Some(b"FAIL"), check).verified, Some(false));
     }
 
     #[test]
@@ -1732,14 +1752,14 @@ mod tests {
         let elf = dir.path().join("t.elf");
         for (name, tools) in [("sp1", binary()), ("zisk", binary()), ("sp1", io_exec())] {
             let zkvm = build(name, tools).unwrap();
-            assert!(zkvm.prove(&elf, None, true).is_err(), "{name}");
+            assert!(zkvm.prove(&elf, None, None, true).is_err(), "{name}");
             assert!(runner::check_mode(&*zkvm, Mode::Prove).is_err(), "{name}");
             assert!(runner::check_mode(&*zkvm, Mode::Full).is_err(), "{name}");
             assert!(runner::check_mode(&*zkvm, Mode::Execute).is_ok(), "{name}");
         }
         // openvm-binary and lambdavm prove without an input.
         for name in ["openvm", "lambdavm"] {
-            let e = build(name, binary()).unwrap().prove(&elf, Some(&[]), false).err().unwrap();
+            let e = build(name, binary()).unwrap().prove(&elf, Some(&[]), None, false).err().unwrap();
             assert_eq!(e.to_string(), format!("the {name} prover cannot take an input"));
         }
     }

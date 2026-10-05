@@ -96,12 +96,13 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
     }
 
     let execution = zkvm.execute(elf_path, vectors.input.as_deref());
+    let output = execution.output.as_ref().map(|output| output.bytes.clone());
     let pass_output = suite == Suite::Standards;
     let mut result = judge(execution, vectors.expected.as_deref(), pass_output, start);
 
-    // Prove only an execution that passed.
+    // Prove only an execution that passed, and check that the proof proves its output.
     if mode != Mode::Execute && result.passed {
-        result = match zkvm.prove(elf_path, vectors.input.as_deref(), mode == Mode::Full) {
+        result = match zkvm.prove(elf_path, vectors.input.as_deref(), output.as_deref(), mode == Mode::Full) {
             Ok(proof) => RunResult { duration: start.elapsed(), ..result.with_proof(proof) },
             Err(e) => {
                 eprintln!("error running {}: {e}", elf_path.display());
@@ -490,7 +491,7 @@ mod tests {
             execution(termination, None, PassHalt::Unknown)
         }
 
-        fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+        fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, _output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
             self.proofs.fetch_add(1, Ordering::Relaxed);
             match self.proof {
                 Some(proved) => {
