@@ -132,7 +132,7 @@ if [ -z "$IMAGE_EMULATOR" ] && [ ! -f "$EMULATOR" ]; then
 fi
 for arg in "${PROVER_ARGS[@]}"; do
   case "$arg" in
-    out/bin/*) [ -f "$arg" ] || { echo "  Error: $arg not found (needed for mode $MODE). Run './run build $ZKVM' first."; exit 1; } ;;
+    out/bin/*) [ -f "$arg" ] || { echo "  Error: $arg not found (needed for mode $MODE). Run './run build $ZKVM' first (GPU=1 for zisk)."; exit 1; } ;;
   esac
 done
 
@@ -210,7 +210,9 @@ for entry in $IMAGE_COMMIT_FILES; do
   docker run --rm --entrypoint cat "$IMAGE" "${entry%%:*}" > "$ELF_DIR/${entry#*:}"
 done
 # A noere prover from ./run build must be the zkVM version that runs the tests:
-# build.sh records the commit it built in out/commits/<zkvm>.txt.
+# build.sh records the commit in out/commits/<zkvm>.txt once every binary it built
+# is in out/bin, and it removes optional binaries it could not extract, so a
+# prover from an older build cannot pass this check.
 if [ -n "$NOERE_PROVE" ] && [ "$ZKVM" != "openvm" ]; then
   BUILT_COMMIT=$(head -c 8 "out/commits/${ZKVM}.txt" 2> /dev/null || echo none)
   if [ "$BUILT_COMMIT" != "$(head -c 8 "$COMMIT_FILE")" ]; then
