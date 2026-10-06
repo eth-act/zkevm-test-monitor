@@ -38,6 +38,12 @@ struct Cli {
     #[arg(long)]
     elf_dir: PathBuf,
 
+    /// Run only the selected tests: words separated by spaces or commas, each
+    /// a test name or a group (an ELF's parent directory), else a pattern on
+    /// the test names (a glob with `*` and `?`, or a substring).
+    #[arg(long)]
+    select: Vec<String>,
+
     /// Directory for JSON output files.
     #[arg(long)]
     output_dir: PathBuf,
@@ -103,6 +109,14 @@ fn main() {
         process::exit(2);
     };
 
+    let elfs = suite::find_elfs(&cli.elf_dir, &cli.select).unwrap_or_else(|e| {
+        eprintln!("error: {e}");
+        process::exit(2);
+    });
+    if !cli.select.is_empty() {
+        eprintln!("Selected {} tests", elfs.len());
+    }
+
     // The ere path (`--zkvm ere-<zkvm>`, `--features ere`) runs the ELFs on the official
     // ere images. ere runs its own execute, prove and verify stages, so it is not a
     // `Zkvm` backend. It runs one test at a time: one server per zkVM.
@@ -113,7 +127,7 @@ fn main() {
             eprintln!("error: {e:#}");
             process::exit(2);
         });
-        let runs = suite::run_elfs(&cli.elf_dir, 1, |elf| {
+        let runs = suite::run_elfs(&elfs, 1, |elf| {
             suite::run_one_with(&cli.zkvm, suite_kind, elf, |elf, vectors| {
                 ere.run_elf(elf, mode, vectors, std::time::Instant::now())
             })
@@ -147,7 +161,7 @@ fn main() {
         }
     });
 
-    let runs = suite::run_tests(&*zkvm, suite_kind, &cli.elf_dir, jobs, mode);
+    let runs = suite::run_tests(&*zkvm, suite_kind, &elfs, jobs, mode);
     report(&cli, &runs, || Ok(()));
 }
 

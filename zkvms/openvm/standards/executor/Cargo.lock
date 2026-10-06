@@ -529,6 +529,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e71406cd8807725f7ac2f999a4cdd32e98f829fdf65f528343cebf945e41df1e"
+dependencies = [
+ "crossbeam-channel",
+ "crossbeam-deque",
+ "crossbeam-epoch",
+ "crossbeam-queue",
+ "crossbeam-utils",
+]
+
+[[package]]
+name = "crossbeam-channel"
+version = "0.5.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98b0cc327b5bc766e7fda9c9260cc0fa81b43a8e240440422dff70788e3f9ef1"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -543,6 +565,15 @@ name = "crossbeam-epoch"
 version = "0.9.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d6914041f254d6e9176c01941b21115dcfb7089e55135a35411081bd106ef3f"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
+name = "crossbeam-queue"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03e8bd762f7479489c70ed6c768ddca99d7296857de437a68dcb2a94365b3fae"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -580,6 +611,22 @@ dependencies = [
  "generic-array",
  "typenum",
 ]
+
+[[package]]
+name = "ctor"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67773048316103656a637612c4a62477603b777d91d9c62ff2290f9cde178fdb"
+dependencies = [
+ "ctor-proc-macro",
+ "dtor",
+]
+
+[[package]]
+name = "ctor-proc-macro"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2931af7e13dc045d8e9d26afccc6fa115d64e115c9c84b1166288b46f6782c2"
 
 [[package]]
 name = "darling"
@@ -720,6 +767,21 @@ name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
+
+[[package]]
+name = "dtor"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "404d02eeb088a82cfd873006cb713fe411306c7d182c344905e101fb1167d301"
+dependencies = [
+ "dtor-proc-macro",
+]
+
+[[package]]
+name = "dtor-proc-macro"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f678cf4a922c215c63e0de95eb1ff08a958a81d47e485cf9da1e27bf6305cfa5"
 
 [[package]]
 name = "dyn-clone"
@@ -969,6 +1031,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "halo2-axiom"
+version = "0.5.2"
+source = "git+https://github.com/axiom-crypto/halo2.git?tag=v0.5.2#1eed471495b64ec1edf22f0661bbc65d0e4381d5"
+dependencies = [
+ "blake2b_simd",
+ "crossbeam",
+ "ff 0.13.1",
+ "group 0.13.0",
+ "halo2curves-axiom 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.11.0",
+ "maybe-rayon",
+ "pairing 0.23.0",
+ "rand 0.8.7",
+ "rand_core 0.6.4",
+ "rayon",
+ "rustc-hash 1.1.0",
+ "sha3",
+ "tracing",
+]
+
+[[package]]
+name = "halo2-base"
+version = "0.5.4"
+source = "git+https://github.com/axiom-crypto/halo2-lib.git?branch=develop-v2.1.0#d59f41ac884d18a985025090a227fa6733398ae8"
+dependencies = [
+ "getset",
+ "halo2-axiom",
+ "itertools 0.11.0",
+ "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "poseidon-primitives",
+ "rand_chacha 0.3.1",
+ "rayon",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "halo2_proofs"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -980,6 +1083,34 @@ dependencies = [
  "pasta_curves 0.4.1",
  "rand_core 0.6.4",
  "rayon",
+]
+
+[[package]]
+name = "halo2curves-axiom"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "276d6c463e0e8e70c1a221baae62b670453f6ef851dd1c73f0764e5215fda64d"
+dependencies = [
+ "blake2b_simd",
+ "digest",
+ "ff 0.13.1",
+ "group 0.13.0",
+ "hex",
+ "lazy_static",
+ "num-bigint",
+ "num-traits",
+ "pairing 0.23.0",
+ "pasta_curves 0.5.2",
+ "paste",
+ "rand 0.8.7",
+ "rand_core 0.6.4",
+ "rayon",
+ "serde",
+ "serde_arrays",
+ "sha2",
+ "static_assertions",
+ "subtle",
+ "unroll",
 ]
 
 [[package]]
@@ -1144,6 +1275,15 @@ dependencies = [
 
 [[package]]
 name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -1269,6 +1409,16 @@ checksum = "3f607c237553f086e7043417a51df26b2eb899d3caff94e6a67592ff992fedc7"
 dependencies = [
  "autocfg",
  "rawpointer",
+]
+
+[[package]]
+name = "maybe-rayon"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ea1f30cedd69f0a2954655f7188c6a834246d2bcf1e315e2ac40c4b24dc9519"
+dependencies = [
+ "cfg-if",
+ "rayon",
 ]
 
 [[package]]
@@ -1484,6 +1634,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nvtx"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad2e855e8019f99e4b94ac33670eb4e4f570a2e044f3749a0b2c7f83b841e52c"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "object"
 version = "0.37.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1528,7 +1687,7 @@ dependencies = [
  "derive-new 0.6.0",
  "derive_more",
  "eyre",
- "halo2curves-axiom",
+ "halo2curves-axiom 0.7.3 (git+https://github.com/axiom-crypto/halo2curves.git?tag=v0.7.3)",
  "num-bigint",
  "num-traits",
  "once_cell",
@@ -1539,6 +1698,9 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-instructions",
  "openvm-mod-circuit-builder",
  "openvm-platform",
@@ -1567,7 +1729,7 @@ name = "openvm-algebra-guest"
 version = "2.0.0"
 source = "git+https://github.com/openvm-org/openvm?rev=538c5488130da56c8442d33445efe3c1fe5ea8b8#538c5488130da56c8442d33445efe3c1fe5ea8b8"
 dependencies = [
- "halo2curves-axiom",
+ "halo2curves-axiom 0.7.3 (git+https://github.com/axiom-crypto/halo2curves.git?tag=v0.7.3)",
  "num-bigint",
  "once_cell",
  "openvm-algebra-complex-macros",
@@ -1628,6 +1790,9 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-instructions",
  "openvm-riscv-adapters",
  "openvm-riscv-circuit",
@@ -1694,6 +1859,9 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-instructions",
  "openvm-platform",
  "openvm-poseidon2-air",
@@ -1702,7 +1870,7 @@ dependencies = [
  "p3-baby-bear",
  "p3-field",
  "rand 0.9.5",
- "rustc-hash",
+ "rustc-hash 2.1.3",
  "rvr-state",
  "serde",
  "serde-big-array",
@@ -1733,7 +1901,9 @@ dependencies = [
  "num-traits",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
  "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-stark-backend",
  "rand 0.9.5",
  "struct-reflection",
@@ -1777,6 +1947,8 @@ dependencies = [
  "openvm-circuit",
  "openvm-circuit-primitives",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-common",
  "openvm-instructions",
  "openvm-poseidon2-air",
  "openvm-recursion-circuit",
@@ -1785,6 +1957,7 @@ dependencies = [
  "openvm-stark-sdk",
  "openvm-verify-stark-host",
  "p3-air",
+ "p3-bn254",
  "p3-field",
  "p3-matrix",
  "serde",
@@ -1810,10 +1983,37 @@ dependencies = [
  "p3-maybe-rayon",
  "p3-util",
  "rayon",
- "rustc-hash",
+ "rustc-hash 2.1.3",
  "serde",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "openvm-cuda-backend"
+version = "2.0.0"
+source = "git+https://github.com/openvm-org/stark-backend.git?branch=develop-v2.1.0#be2b6983cbd70976b37acbb72ceb1b3593dc67ae"
+dependencies = [
+ "derive-new 0.7.0",
+ "getset",
+ "glob",
+ "itertools 0.14.0",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
+ "openvm-stark-backend",
+ "openvm-stark-sdk",
+ "p3-baby-bear",
+ "p3-bn254",
+ "p3-dft",
+ "p3-field",
+ "p3-symmetric",
+ "p3-util",
+ "rand 0.9.5",
+ "rustc-hash 2.1.3",
+ "serde",
+ "thiserror 1.0.69",
+ "tracing",
+ "zkhash-axiom",
 ]
 
 [[package]]
@@ -1823,6 +2023,20 @@ source = "git+https://github.com/openvm-org/stark-backend.git?branch=develop-v2.
 dependencies = [
  "cc",
  "glob",
+]
+
+[[package]]
+name = "openvm-cuda-common"
+version = "2.0.0"
+source = "git+https://github.com/openvm-org/stark-backend.git?branch=develop-v2.1.0#be2b6983cbd70976b37acbb72ceb1b3593dc67ae"
+dependencies = [
+ "bytesize",
+ "ctor",
+ "lazy_static",
+ "metrics",
+ "openvm-cuda-builder",
+ "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]
@@ -1855,6 +2069,9 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-deferral-transpiler",
  "openvm-instructions",
  "openvm-poseidon2-air",
@@ -1863,7 +2080,7 @@ dependencies = [
  "openvm-stark-sdk",
  "p3-field",
  "rand 0.9.5",
- "rustc-hash",
+ "rustc-hash 2.1.3",
  "serde",
 ]
 
@@ -1901,7 +2118,7 @@ dependencies = [
  "cfg-if",
  "derive-new 0.6.0",
  "derive_more",
- "halo2curves-axiom",
+ "halo2curves-axiom 0.7.3 (git+https://github.com/axiom-crypto/halo2curves.git?tag=v0.7.3)",
  "hex-literal",
  "lazy_static",
  "num-bigint",
@@ -1912,6 +2129,8 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-common",
  "openvm-ecc-transpiler",
  "openvm-instructions",
  "openvm-mod-circuit-builder",
@@ -1919,6 +2138,7 @@ dependencies = [
  "openvm-riscv-adapters",
  "openvm-riscv-circuit",
  "openvm-stark-backend",
+ "openvm-stark-sdk",
  "rand 0.9.5",
  "serde",
  "serde_with",
@@ -1933,7 +2153,7 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "group 0.13.0",
- "halo2curves-axiom",
+ "halo2curves-axiom 0.7.3 (git+https://github.com/axiom-crypto/halo2curves.git?tag=v0.7.3)",
  "once_cell",
  "openvm",
  "openvm-algebra-guest",
@@ -2016,6 +2236,9 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-instructions",
  "openvm-keccak256-transpiler",
  "openvm-riscv-circuit",
@@ -2089,7 +2312,7 @@ dependencies = [
  "derive-new 0.6.0",
  "derive_more",
  "eyre",
- "halo2curves-axiom",
+ "halo2curves-axiom 0.7.3 (git+https://github.com/axiom-crypto/halo2curves.git?tag=v0.7.3)",
  "num-bigint",
  "num-traits",
  "openvm-algebra-circuit",
@@ -2097,6 +2320,7 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
  "openvm-ecc-circuit",
  "openvm-ecc-guest",
  "openvm-instructions",
@@ -2105,6 +2329,7 @@ dependencies = [
  "openvm-pairing-transpiler",
  "openvm-riscv-circuit",
  "openvm-stark-backend",
+ "openvm-stark-sdk",
  "rand 0.9.5",
  "serde",
  "strum",
@@ -2116,7 +2341,7 @@ version = "2.0.0"
 source = "git+https://github.com/openvm-org/openvm?rev=538c5488130da56c8442d33445efe3c1fe5ea8b8#538c5488130da56c8442d33445efe3c1fe5ea8b8"
 dependencies = [
  "blst",
- "halo2curves-axiom",
+ "halo2curves-axiom 0.7.3 (git+https://github.com/axiom-crypto/halo2curves.git?tag=v0.7.3)",
  "hex-literal",
  "itertools 0.14.0",
  "lazy_static",
@@ -2182,6 +2407,9 @@ dependencies = [
  "openvm-circuit",
  "openvm-circuit-primitives",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-poseidon2-air",
  "openvm-recursion-circuit-derive",
  "openvm-stark-backend",
@@ -2239,10 +2467,14 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-instructions",
  "openvm-platform",
  "openvm-riscv-transpiler",
  "openvm-stark-backend",
+ "openvm-stark-sdk",
  "rand 0.9.5",
  "serde",
  "strum",
@@ -2292,11 +2524,13 @@ dependencies = [
  "openvm-build",
  "openvm-circuit",
  "openvm-continuations",
+ "openvm-cuda-backend",
  "openvm-deferral-circuit",
  "openvm-recursion-circuit",
  "openvm-sdk-config",
  "openvm-stark-backend",
  "openvm-stark-sdk",
+ "openvm-static-verifier",
  "openvm-transpiler",
  "openvm-verify-stark-circuit",
  "openvm-verify-stark-host",
@@ -2322,6 +2556,7 @@ dependencies = [
  "openvm-circuit",
  "openvm-continuations",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
  "openvm-deferral-circuit",
  "openvm-deferral-transpiler",
  "openvm-ecc-circuit",
@@ -2372,6 +2607,9 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
  "openvm-instructions",
  "openvm-riscv-circuit",
  "openvm-sha2-air",
@@ -2417,6 +2655,7 @@ dependencies = [
  "getset",
  "hex-literal",
  "itertools 0.14.0",
+ "num-bigint",
  "openvm-codec-derive",
  "p3-air",
  "p3-challenger",
@@ -2429,7 +2668,7 @@ dependencies = [
  "p3-util",
  "postcard",
  "rayon",
- "rustc-hash",
+ "rustc-hash 2.1.3",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -2449,10 +2688,14 @@ dependencies = [
  "itertools 0.14.0",
  "metrics-tracing-context",
  "metrics-util",
+ "num-bigint",
+ "nvtx",
  "openvm-cpu-backend",
  "openvm-stark-backend",
  "p3-baby-bear",
+ "p3-bn254",
  "p3-field",
+ "p3-poseidon2",
  "rand 0.9.5",
  "serde",
  "serde_json",
@@ -2460,6 +2703,27 @@ dependencies = [
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
+ "zkhash-axiom",
+]
+
+[[package]]
+name = "openvm-static-verifier"
+version = "2.0.0"
+source = "git+https://github.com/openvm-org/openvm?rev=538c5488130da56c8442d33445efe3c1fe5ea8b8#538c5488130da56c8442d33445efe3c1fe5ea8b8"
+dependencies = [
+ "halo2-base",
+ "itertools 0.14.0",
+ "num-bigint",
+ "num-integer",
+ "openvm-continuations",
+ "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-recursion-circuit",
+ "openvm-stark-sdk",
+ "openvm-verify-stark-host",
+ "rand_chacha 0.3.1",
+ "serde",
+ "tracing",
 ]
 
 [[package]]
@@ -2490,6 +2754,8 @@ dependencies = [
  "openvm-circuit-primitives",
  "openvm-continuations",
  "openvm-cpu-backend",
+ "openvm-cuda-backend",
+ "openvm-cuda-common",
  "openvm-deferral-circuit",
  "openvm-poseidon2-air",
  "openvm-recursion-circuit",
@@ -2554,6 +2820,22 @@ dependencies = [
  "p3-poseidon2",
  "p3-symmetric",
  "rand 0.9.5",
+]
+
+[[package]]
+name = "p3-bn254"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "923bd91df7dd93481b4bfb53aa903d46d1a49d51160513472a5e95ca92ef1b46"
+dependencies = [
+ "num-bigint",
+ "p3-field",
+ "p3-poseidon2",
+ "p3-symmetric",
+ "p3-util",
+ "paste",
+ "rand 0.9.5",
+ "serde",
 ]
 
 [[package]]
@@ -2832,6 +3114,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "poseidon-primitives"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e4aaeda7a092e21165cc5f0cbc738e72a46f31c03c3cbd87b71ceae9d2d93bc"
+dependencies = [
+ "bitvec",
+ "ff 0.13.1",
+ "lazy_static",
+ "log",
+ "rand 0.8.7",
+ "rand_xorshift",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "postcard"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3103,6 +3400,12 @@ name = "rustc-demangle"
 version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b74b56ffa8bb2830709a538c2cbcae9aa062db0d2a42563bfb09bdaae44020eb"
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"

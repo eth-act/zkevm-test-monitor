@@ -24,7 +24,8 @@ config.json             # ZKVM repo URLs and commit pins
 ```bash
 ./run build sp1             # Build sp1 binary via Docker
 ./run isa-tests sp1         # Run the ISA tests (ACT4) for sp1
-./run eth-act-standards-tests zisk  # Run the eth-act standards tests (through ere; BACKEND=native: execute only)
+./run eth-act-standards-tests zisk  # Run the eth-act standards tests (through ere; BACKEND=noere: without ere, ACT4_MODE default execute)
+TESTS="io-echo bls" ./run eth-act-standards-tests zisk  # Only the selected standards tests (name or group, else glob or substring); no history
 ./run tests                 # Run both suites for all ZKVMs
 ./run all sp1               # Build + both suites
 ./run serve                 # Serve dashboard at localhost:8000
@@ -33,12 +34,12 @@ config.json             # ZKVM repo URLs and commit pins
 
 Limit CPU cores: `JOBS=8 ./run tests zisk`
 
-## ere path (default) and native path (`BACKEND=native`)
+## ere path (default) and noere path (`BACKEND=noere`)
 
 `./run isa-tests <openvm|sp1|zisk>` runs the Standard ISA suite (RV64IM_Zicclsm) on the
 official `ghcr.io/eth-act/ere` images of the ere revision that `src/runner/Cargo.toml`
 pins (`ere-dockerized`). ere builds and runs the zkVM. It then runs the Full ISA suite on
-the native path, execute only (`./run build <zkvm>` first).
+the noere path, execute only (`./run build <zkvm>` first).
 
 - Needs Docker; `ACT4_MODE=full` (default) or `prove` also needs an NVIDIA GPU.
   `ACT4_MODE=execute` runs on the CPU images.
@@ -46,11 +47,11 @@ the native path, execute only (`./run build <zkvm>` first).
   error of each test) and `results/history/<zkvm>-ere-act4-standard.json`.
 - The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the
   ere history files.
-- `BACKEND=native ./run isa-tests <zkvm>` builds the zkVM in this repository's containers from
+- `BACKEND=noere ./run isa-tests <zkvm>` builds the zkVM in this repository's containers from
   `config.json` (`./run build <zkvm>` first), for reproducing bugs and testing forks or
-  branches. Native results go to `results/history/<zkvm>-act4-*.json`. For zkVMs that run
-  through ere, the site shows only the native Full ISA results.
-  LambdaVM is native only.
+  branches. Noere results go to `results/history/<zkvm>-act4-*.json`. For zkVMs that run
+  through ere, the site shows only the noere Full ISA results.
+  LambdaVM runs only on the noere path.
 
 ## Adding a New ZKVM
 

@@ -2,6 +2,7 @@
 set -e
 
 source "$(dirname "$0")/generate_elfs.sh"
+source "$(dirname "$0")/shared/cuda.sh"
 
 # Parse targets (positional args only; no suite flag needed)
 TARGETS=""
@@ -25,15 +26,15 @@ else
   ZKVMS="$TARGETS"
 fi
 
-# process_results <zkvm> [notes] [native|ere] — reads summary/results JSON and updates
+# process_results <zkvm> [notes] [noere|ere] — reads summary/results JSON and updates
 # history. The ere path reads out/<zkvm>/ere/, writes
 # results/history/<zkvm>-ere-<suite>.json, and records the ere provenance of the run
 # (ere-act4-<label>.json) and its mode (ERE_MODE)
-# instead of the native build commit.
+# instead of the noere build commit.
 process_results() {
   local ZKVM="$1"
   local NOTES="${2:-}"
-  local BACKEND_KIND="${3:-native}"
+  local BACKEND_KIND="${3:-noere}"
   local RESULTS_DIR="out/${ZKVM}"
   [ "$BACKEND_KIND" = "ere" ] && RESULTS_DIR="out/${ZKVM}/ere"
 
@@ -59,9 +60,9 @@ process_results() {
     fi
   fi
 
-  # NATIVE_SUITES limits which native suites are recorded (the ere default records
-  # only the native Full ISA suite).
-  local SUITE_TYPES="${NATIVE_SUITES:-full standard}"
+  # NOERE_SUITES limits which noere suites are recorded (the ere default records
+  # only the noere Full ISA suite).
+  local SUITE_TYPES="${NOERE_SUITES:-full standard}"
   [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="standard"
   for SUITE_TYPE in $SUITE_TYPES; do
     if [ "$SUITE_TYPE" = "full" ]; then
@@ -300,7 +301,7 @@ run_sp1_split_pipeline() {
 
   mkdir -p "out/${ZKVM}"
 
-  # Determine job count for runner (native execute; prove is forced to 1)
+  # Determine job count for runner (noere execute; prove is forced to 1)
   local RUNNER_JOBS=""
   if [ -n "${ACT4_JOBS:-}" ]; then
     RUNNER_JOBS="-j ${ACT4_JOBS}"
@@ -308,23 +309,9 @@ run_sp1_split_pipeline() {
     RUNNER_JOBS="-j ${JOBS}"
   fi
 
-  # sp1-perf's CUDA prover spawns a host-native sp1-gpu-server that needs
-  # libcudart.so.12. The host /opt/cuda may be absent, so locate a dir that
-  # provides it (SP1_CUDA_LIB env overrides).
+  # The CUDA 12 runtime for sp1-gpu-server (src/shared/cuda.sh).
   if [ "$MODE" != "execute" ]; then
-    local CUDA_LIB="${SP1_CUDA_LIB:-}"
-    if [ -z "$CUDA_LIB" ]; then
-      for d in /usr/local/cuda/lib64 /opt/cuda/lib64 /usr/local/cuda-12/lib64 \
-               /usr/local/cuda-12.8/lib64 /usr/local/lib/ollama/cuda_v12; do
-        if ls "$d"/libcudart.so.12* >/dev/null 2>&1; then CUDA_LIB="$d"; break; fi
-      done
-    fi
-    if [ -n "$CUDA_LIB" ]; then
-      export LD_LIBRARY_PATH="${CUDA_LIB}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-      echo "  CUDA runtime for sp1-gpu-server: $CUDA_LIB"
-    else
-      echo "  Warning: no libcudart.so.12 found — GPU proving may fail. Set SP1_CUDA_LIB=<dir>."
-    fi
+    add_sp1_cuda_runtime || echo "  Warning: GPU proving may fail."
   fi
 
   # Run native suite — always execute-only (proving only applies to the target ISA)
@@ -562,25 +549,25 @@ run_ere_pipeline() {
   "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/target" --output-dir "$OUT_DIR" \
     --suite act4-standard --label standard-isa --mode "$MODE" $GPU_ARG || true
 
-  # ere runs the Standard ISA (RV64IM_Zicclsm) only; Full ISA stays on the native path.
+  # ere runs the Standard ISA (RV64IM_Zicclsm) only; Full ISA stays on the noere path.
   ERE_MODE="$MODE" process_results "$ZKVM" "" ere
 }
 
 # BACKEND=ere (default) runs the Standard ISA suite of OpenVM, SP1 and ZisK through ere,
-# then the Full ISA suite on the native path (execute only; needs ./run build <zkvm>).
-# BACKEND=native builds and runs both suites in this repository's containers, for
-# reproducing bugs and testing branches. LambdaVM always runs native until ere supports it.
+# then the Full ISA suite on the noere path (execute only; needs ./run build <zkvm>).
+# BACKEND=noere builds and runs both suites in this repository's containers, for
+# reproducing bugs and testing branches. LambdaVM always runs noere until ere supports it.
 BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
-  native|ere) ;;
-  *) echo "Unknown BACKEND=$BACKEND (expected native or ere)" >&2; exit 2 ;;
+  noere|ere) ;;
+  *) echo "Unknown BACKEND=$BACKEND (expected noere or ere)" >&2; exit 2 ;;
 esac
 
 for ZKVM in $ZKVMS; do
   if [ "$BACKEND" = "ere" ] && [[ " openvm sp1 zisk " == *" $ZKVM "* ]]; then
     run_ere_pipeline "$ZKVM" || true
-    echo "Running $ZKVM Full ISA suite on the native path (mode: execute)..."
-    ACT4_MODE=execute NATIVE_SUITES=full "run_${ZKVM}_split_pipeline" || true
+    echo "Running $ZKVM Full ISA suite on the noere path (mode: execute)..."
+    ACT4_MODE=execute NOERE_SUITES=full "run_${ZKVM}_split_pipeline" || true
   elif [ "$ZKVM" = "zisk" ]; then
     run_zisk_split_pipeline || true
   elif [ "$ZKVM" = "lambdavm" ]; then

@@ -12,9 +12,14 @@
 # rustflags, plus one target feature of OpenVM's own target (see below). OpenVM is the version ere pins (tag v2.1.0-preview); the
 # COMMIT_HASH build argument is ignored.
 #
-# The image also builds openvm-eth-act-standards-executor (./executor), which runs a guest
-# in OpenVM's SDK executor at the same tag; src/run-eth-act-standards-tests.sh copies it to out/bin/.
-FROM ubuntu:24.04
+# The image also builds openvm-eth-act-standards-executor (./executor), which runs, proves
+# and verifies a guest with OpenVM's SDK at the same tag; src/run-eth-act-standards-tests.sh
+# copies it to out/bin/. GPU=1 builds it with OpenVM's GPU prover (the `cuda` feature): set
+# BASE_IMAGE to a CUDA devel image and CUDA_ARCH to the GPU's compute capability, as in
+# zkvms/openvm/build.Dockerfile. The CUDA runtime libraries it links are staged in
+# /usr/local/lib/openvm-executor.
+ARG BASE_IMAGE=ubuntu:24.04
+FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -51,9 +56,45 @@ RUN git init /ere && cd /ere && \
     grep -m1 -o 'openvm\.git?tag=v2\.1\.0-preview#[0-9a-f]*' Cargo.lock | cut -d'#' -f2 > /openvm-commit.txt && \
     test -s /openvm-commit.txt
 
+# OPENVM_EXECUTOR_GIT and OPENVM_EXECUTOR_REV build the host executor from
+# another OpenVM commit, for example a fork under test. The guest library keeps
+# ere's pin. Such a run is not the pinned version, so
+# src/run-eth-act-standards-tests.sh says so in its notes. The executor then
+# takes its lockfile and its stark-backend branch from that commit, so its
+# dependencies resolve as OpenVM's own build does (a deleted stark-backend branch
+# still resolves through the locked commit). OpenVM commits without
+# with_public_values_bytes count public values in bytes in with_public_values.
+ARG OPENVM_EXECUTOR_GIT=
+ARG OPENVM_EXECUTOR_REV=
+ARG GPU=
+ARG CUDA_ARCH=120
 COPY executor /executor
-RUN cargo build --release --locked --manifest-path /executor/Cargo.toml && \
+RUN if [ -n "$OPENVM_EXECUTOR_REV" ]; then \
+      git init -q /openvm && \
+      git -C /openvm fetch -q --depth 1 "$OPENVM_EXECUTOR_GIT" "$OPENVM_EXECUTOR_REV" && \
+      git -C /openvm show FETCH_HEAD:Cargo.lock > /executor/Cargo.lock && \
+      stark_branch=$(git -C /openvm show FETCH_HEAD:Cargo.toml | sed -n 's/^openvm-stark-sdk = .*branch = "\([^"]*\)".*/\1/p') && \
+      test -n "$stark_branch" && \
+      sed -i -e "s#git = \"https://github.com/openvm-org/openvm\", rev = \"[0-9a-f]*\"#git = \"$OPENVM_EXECUTOR_GIT\", rev = \"$OPENVM_EXECUTOR_REV\"#" \
+        -e "s#branch = \"[^\"]*\"#branch = \"$stark_branch\"#" /executor/Cargo.toml && \
+      if ! git -C /openvm show FETCH_HEAD:crates/vm/src/arch/config.rs | grep -q 'fn with_public_values_bytes'; then \
+        sed -i 's/\.with_public_values_bytes(/.with_public_values(/' /executor/src/main.rs; \
+      fi && \
+      rm -rf /openvm; \
+    else \
+      locked=--locked; \
+    fi && \
+    if [ -n "$GPU" ]; then \
+      features="--features cuda"; \
+      export CUDA_ARCH CUDA_HOME=/usr/local/cuda PATH="/usr/local/cuda/bin:$PATH"; \
+    fi && \
+    cargo build --release $locked $features --manifest-path /executor/Cargo.toml && \
     cp /executor/target/release/openvm-eth-act-standards-executor /usr/local/bin/ && \
+    mkdir -p /usr/local/lib/openvm-executor && \
+    for lib in libcudart libcublasLt libcublas; do \
+      path=$(ldd /usr/local/bin/openvm-eth-act-standards-executor | grep "$lib" | grep -oP '/\S+\.so\S*' | head -1); \
+      [ -z "$path" ] || cp -n "$path" /usr/local/lib/openvm-executor/; \
+    done && \
     rm -rf /executor/target
 
 # Start from ere's lockfile so the guest crates resolve to the versions ere tests.

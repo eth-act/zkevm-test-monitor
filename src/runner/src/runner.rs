@@ -37,27 +37,85 @@ pub fn check_mode(zkvm: &dyn Zkvm, mode: Mode) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Run every ELF in `elf_dir` through the zkVM backend (see `run_one`).
+/// Run the ELFs through the zkVM backend (see `run_one`).
 pub fn run_tests(
     zkvm: &dyn Zkvm,
     suite: Suite,
-    elf_dir: &Path,
+    elfs: &[PathBuf],
     jobs: usize,
     mode: Mode,
 ) -> Vec<(PathBuf, RunResult)> {
-    run_elfs(elf_dir, jobs, |elf_path| run_one(zkvm, suite, elf_path, mode))
+    run_elfs(elfs, jobs, |elf_path| run_one(zkvm, suite, elf_path, mode))
 }
 
-/// Discover all ELF files in `elf_dir` recursively, run each with `run` on
-/// `jobs` threads, and return results in deterministic (alphabetical) order.
-/// The ere backend (`--features ere`) uses this directly with its own `run`.
+/// Find the ELF files in `elf_dir` (searched recursively) in alphabetical
+/// order, and keep the ones that `select` picks (all of them when it is empty).
+///
+/// `select` holds words separated by spaces or commas. A test's name is its
+/// ELF's file stem and its group is the ELF's parent directory. A word that is
+/// exactly a test's or a group's name picks only that test or group. Any other
+/// word is a pattern on the test names: a glob with `*` and `?`, else a
+/// substring. A word that picks no test is an error.
+pub fn find_elfs(elf_dir: &Path, select: &[String]) -> anyhow::Result<Vec<PathBuf>> {
+    let mut elfs = discover_elfs(elf_dir);
+    elfs.sort();
+    let words: Vec<&str> = select.iter().flat_map(|s| s.split([' ', ','])).filter(|w| !w.is_empty()).collect();
+    if words.is_empty() {
+        return Ok(elfs);
+    }
+
+    let file_name = |path: Option<&Path>| path.and_then(Path::file_name).map(|n| n.to_string_lossy().into_owned());
+    let tests: Vec<(String, String)> = elfs
+        .iter()
+        .map(|elf| {
+            let name = elf.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            (name, file_name(elf.parent()).unwrap_or_default())
+        })
+        .collect();
+    let mut picked = vec![false; elfs.len()];
+    for word in words {
+        let exact = tests.iter().any(|(name, group)| name == word || group == word);
+        let mut found = false;
+        for ((name, group), picked) in tests.iter().zip(&mut picked) {
+            let hit = if exact { name == word || group == word } else { pattern_matches(word, name) };
+            if hit {
+                *picked = true;
+                found = true;
+            }
+        }
+        if !found {
+            anyhow::bail!("no test in {} matches '{word}'", elf_dir.display());
+        }
+    }
+    Ok(elfs.into_iter().zip(picked).filter_map(|(elf, picked)| picked.then_some(elf)).collect())
+}
+
+/// Whether `pattern` matches `name`: as a glob when it has `*` (any characters)
+/// or `?` (one character), else as a substring.
+fn pattern_matches(pattern: &str, name: &str) -> bool {
+    fn glob(pattern: &[u8], name: &[u8]) -> bool {
+        match pattern.split_first() {
+            None => name.is_empty(),
+            Some((b'*', rest)) => (0..=name.len()).any(|i| glob(rest, &name[i..])),
+            Some((b'?', rest)) => !name.is_empty() && glob(rest, &name[1..]),
+            Some((c, rest)) => name.first() == Some(c) && glob(rest, &name[1..]),
+        }
+    }
+    if pattern.contains(['*', '?']) {
+        glob(pattern.as_bytes(), name.as_bytes())
+    } else {
+        name.contains(pattern)
+    }
+}
+
+/// Run each ELF with `run` on `jobs` threads, and return the results in the
+/// order of `elfs`. The ere backend (`--features ere`) uses this directly with
+/// its own `run`.
 pub fn run_elfs(
-    elf_dir: &Path,
+    elfs: &[PathBuf],
     jobs: usize,
     run: impl Fn(&Path) -> RunResult + Sync,
 ) -> Vec<(PathBuf, RunResult)> {
-    let mut elfs = discover_elfs(elf_dir);
-    elfs.sort();
     let total = elfs.len();
 
     let pool = rayon::ThreadPoolBuilder::new()
@@ -96,12 +154,13 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
     }
 
     let execution = zkvm.execute(elf_path, vectors.input.as_deref());
+    let output = execution.output.as_ref().map(|output| output.bytes.clone());
     let pass_output = suite == Suite::Standards;
     let mut result = judge(execution, vectors.expected.as_deref(), pass_output, start);
 
-    // Prove only an execution that passed.
+    // Prove only an execution that passed, and check that the proof proves its output.
     if mode != Mode::Execute && result.passed {
-        result = match zkvm.prove(elf_path, vectors.input.as_deref(), mode == Mode::Full) {
+        result = match zkvm.prove(elf_path, vectors.input.as_deref(), output.as_deref(), mode == Mode::Full) {
             Ok(proof) => RunResult { duration: start.elapsed(), ..result.with_proof(proof) },
             Err(e) => {
                 eprintln!("error running {}: {e}", elf_path.display());
@@ -490,7 +549,7 @@ mod tests {
             execution(termination, None, PassHalt::Unknown)
         }
 
-        fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
+        fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, _output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
             self.proofs.fetch_add(1, Ordering::Relaxed);
             match self.proof {
                 Some(proved) => {
@@ -557,6 +616,59 @@ mod tests {
         let r = run_one(&fake, Suite::Standards, &elf, Mode::Execute);
         assert_eq!(r.termination, Termination::HostError);
         assert!(run_one(&fake, Suite::Isa, &elf, Mode::Execute).passed);
+    }
+
+    /// Find the tests that `select` picks among a standards-like ELF tree.
+    fn selected(select: &[&str]) -> anyhow::Result<Vec<String>> {
+        let dir = tempfile::tempdir().unwrap();
+        for test in [
+            "io/io-echo",
+            "io/io-write-257-bytes",
+            "io/io-write-257-bytes-in-pieces",
+            "accelerators/accel-bls12-g1-add",
+            "accelerators/accel-keccak256",
+            "memory/mem-memcpy",
+            "memory/mem-link-memcpy",
+        ] {
+            let elf = dir.path().join(format!("{test}.elf"));
+            std::fs::create_dir_all(elf.parent().unwrap()).unwrap();
+            std::fs::write(&elf, b"").unwrap();
+            std::fs::write(elf.with_extension("input"), b"").unwrap();
+        }
+        let select: Vec<String> = select.iter().map(|s| s.to_string()).collect();
+        let elfs = find_elfs(dir.path(), &select)?;
+        Ok(elfs.iter().map(|elf| elf.file_stem().unwrap().to_string_lossy().into_owned()).collect())
+    }
+
+    #[test]
+    fn selects_tests_by_name_group_or_pattern() {
+        assert_eq!(selected(&[]).unwrap().len(), 7);
+        // A test name selects only that test, though it is a substring of another.
+        assert_eq!(selected(&["io-write-257-bytes"]).unwrap(), ["io-write-257-bytes"]);
+        // A group selects its tests (in path order: `-` sorts before `.`).
+        assert_eq!(selected(&["io"]).unwrap(), ["io-echo", "io-write-257-bytes-in-pieces", "io-write-257-bytes"]);
+        // Other words are globs or substrings of the test names.
+        assert_eq!(selected(&["io-write-*"]).unwrap(), ["io-write-257-bytes-in-pieces", "io-write-257-bytes"]);
+        assert_eq!(selected(&["accel-?eccak*"]).unwrap(), ["accel-keccak256"]);
+        assert_eq!(selected(&["memcpy"]).unwrap(), ["mem-link-memcpy", "mem-memcpy"]);
+        assert_eq!(selected(&["*-memcpy"]).unwrap(), ["mem-link-memcpy", "mem-memcpy"]);
+        assert_eq!(selected(&["io-*-pieces"]).unwrap(), ["io-write-257-bytes-in-pieces"]);
+        // Words separated by spaces or commas, in one value or several.
+        let both = ["accel-bls12-g1-add", "io-echo"];
+        assert_eq!(selected(&["io-echo bls"]).unwrap(), both);
+        assert_eq!(selected(&["io-echo,bls"]).unwrap(), both);
+        assert_eq!(selected(&["io-echo", "bls"]).unwrap(), both);
+        // Selecting a test twice runs it once.
+        assert_eq!(selected(&["io-echo io"]).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_word_that_selects_nothing_is_an_error() {
+        let e = selected(&["io-echo", "nosuch"]).unwrap_err();
+        assert!(e.to_string().ends_with("matches 'nosuch'"), "{e}");
+        assert!(selected(&["io-echo*x"]).is_err());
+        // Only the ELF names count, not the test vectors.
+        assert!(selected(&["input"]).is_err());
     }
 
     #[test]

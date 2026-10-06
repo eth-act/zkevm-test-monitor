@@ -89,8 +89,16 @@ for ZKVM in $ZKVMS; do
   ACTUAL_COMMIT=$(docker run --rm --entrypoint cat zkvm-${ZKVM}:latest /commit.txt 2>/dev/null || echo "$COMMIT")
   echo "  Built from commit: ${ACTUAL_COMMIT:0:8}"
 
+  # out/commits/<zkvm>.txt names the commit of every binary this build extracts, so
+  # it is written only after they are all in place (at the end of the loop). Until
+  # then no commit is claimed, and optional binaries from an earlier build are
+  # removed: a build that cannot extract one must not leave an older one behind.
   mkdir -p out/commits
-  echo "${ACTUAL_COMMIT:0:8}" > "out/commits/${ZKVM}.txt"
+  rm -f "out/commits/${ZKVM}.txt"
+  case "$ZKVM" in
+    zisk) rm -f out/bin/cargo-zisk-cuda out/bin/cargo-zisk-dev out/bin/libzisk_witness.so ;;
+    sp1) rm -f out/bin/sp1-prover ;;
+  esac
 
   # Extract binary using docker cp (needed to test CI using act)
   mkdir -p out/bin
@@ -226,5 +234,6 @@ for ZKVM in $ZKVMS; do
   fi
 
   docker rm "$CONTAINER_ID" > /dev/null 2>&1 || true
+  echo "${ACTUAL_COMMIT:0:8}" > "out/commits/${ZKVM}.txt"
   echo "  ✅ Built ${ZKVM}"
 done

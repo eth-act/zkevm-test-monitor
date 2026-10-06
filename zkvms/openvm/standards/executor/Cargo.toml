@@ -12,4 +12,8 @@ openvm-sdk = { git = "https://github.com/openvm-org/openvm", rev = "538c5488130d
 openvm-sdk-config = { git = "https://github.com/openvm-org/openvm", rev = "538c5488130da56c8442d33445efe3c1fe5ea8b8" }
 openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", branch = "develop-v2.1.0", default-features = false }
 
+[features]
+# Prove and verify on the GPU (openvm-sdk's GPU engine).
+cuda = ["openvm-sdk/cuda"]
+
 [workspace]

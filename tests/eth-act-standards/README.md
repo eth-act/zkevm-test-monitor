@@ -17,8 +17,9 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
 termination (`.outcome`) has no valid proof, so it is only executed, and the dashboard counts
-proving and verification over the other tests. `BACKEND=native` runs the suite on the host
-executors below, execute only.
+proving and verification over the other tests. `BACKEND=noere` runs the suite without ere, on
+the host executors and provers below; there `ACT4_MODE` defaults to `execute` (see Running).
+`TESTS` runs only some tests (see Selecting tests).
 
 ## How a test works
 
@@ -177,6 +178,42 @@ prover uses and the input as one input vector.
 
 The results go to `out/<zkvm>/results-eth-act-standards.json` and
 `results/history/<zkvm>-eth-act-standards.json`. The dashboard shows one column per group.
+
+### Without ere
+
+`BACKEND=noere` builds each zkVM's executor in this repository's containers, so it can test any
+commit or fork. `ACT4_MODE=prove` or `full` proves (and in `full` verifies) every test that passes
+execution, on an NVIDIA GPU:
+
+- OpenVM: the standards executor proves and verifies, built with OpenVM's GPU prover. `verify`
+  also checks that the proof is of the test's ELF (its app exe commit) and proves the execution's
+  public output, so a valid proof of another program or output fails.
+- SP1 and ZisK: `sp1-prover` and `cargo-zisk-cuda` from `./run build <zkvm>` (`GPU=1` for ZisK).
+  The script refuses a prover built from another commit than the standards image. SP1's GPU
+  server needs a CUDA 12 runtime (`libcudart.so.12`); the script finds one or stops (set
+  `SP1_CUDA_LIB=<dir>` to choose it).
+
+`OPENVM_EXECUTOR_GIT` and `OPENVM_EXECUTOR_REV` build the OpenVM executor, and so its prover, from
+another OpenVM commit. The guest library keeps ere's pin, and the run's notes say that the
+executor is not the pinned OpenVM.
+
+```bash
+BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
+OPENVM_EXECUTOR_GIT=https://github.com/<owner>/openvm OPENVM_EXECUTOR_REV=<commit> \
+  BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
+```
+
+### Selecting tests
+
+On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
+spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
+`memory`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of
+the test names. A word that selects no test stops the run.
+
+```bash
+TESTS=io-echo BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
+TESTS="io bls" ./run eth-act-standards-tests zisk
+```
 
 ## Adding a zkVM
 
