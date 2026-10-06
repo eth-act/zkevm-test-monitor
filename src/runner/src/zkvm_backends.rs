@@ -951,17 +951,12 @@ fn prove_openvm(
     };
     let prove_start = Instant::now();
 
-    let prove_output = openvm_cmd(binary)
-        .args(&prove_args)
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output()?;
+    let prove_output = output_killing_group(
+        openvm_cmd(binary).args(&prove_args).stdout(Stdio::null()).stderr(Stdio::piped()),
+    )?;
     let prove_duration = prove_start.elapsed();
 
     if gpu {
-        if !prove_output.status.success() {
-            kill_openvm_processes(binary);
-        }
         wait_for_gpu_free(Duration::from_secs(30));
     }
 
@@ -1023,16 +1018,34 @@ fn openvm_cmd(binary: &Path) -> Command {
     cmd
 }
 
-/// Kill any lingering processes of the OpenVM prover `binary` that may be holding GPU memory.
-fn kill_openvm_processes(binary: &Path) {
-    let Some(name) = binary.file_name() else { return };
-    let _ = Command::new("pkill")
-        .arg("-9")
-        .arg(name)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-    std::thread::sleep(Duration::from_secs(3));
+/// Run `cmd`, which `openvm_cmd` puts in its own process group, until its
+/// process exits, then kill what is left of the group. A prover process that
+/// outlives the prover, for example after a failed prove, can hold GPU memory,
+/// and it would keep the output pipes open, so the runner would wait for it.
+/// (A name match could not find the eth-act standards executor, because
+/// `pkill` sees only the first 15 characters of a name.)
+fn output_killing_group(cmd: &mut Command) -> std::io::Result<std::process::Output> {
+    use std::io::Read;
+    fn read_all(pipe: Option<impl Read + Send + 'static>) -> std::thread::JoinHandle<Vec<u8>> {
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            if let Some(mut pipe) = pipe {
+                let _ = pipe.read_to_end(&mut bytes);
+            }
+            bytes
+        })
+    }
+    let mut child = cmd.stdin(Stdio::null()).spawn()?;
+    let group = child.id() as libc::pid_t;
+    let (stdout, stderr) = (read_all(child.stdout.take()), read_all(child.stderr.take()));
+    let status = child.wait()?;
+    // The group lives on while any member runs; ESRCH means none is left.
+    unsafe { libc::kill(-group, libc::SIGKILL) };
+    Ok(std::process::Output {
+        status,
+        stdout: stdout.join().unwrap_or_default(),
+        stderr: stderr.join().unwrap_or_default(),
+    })
 }
 
 /// Encode input for ziskemu: one record of `[u64 LE length][data, zero-padded to 8 bytes]`.
@@ -1454,6 +1467,29 @@ mod tests {
         let proof = openvm_io_prove(b"input", None, "exit 1");
         assert!(proof.proved);
         assert_eq!(proof.verified, Some(false));
+    }
+
+    #[test]
+    fn an_openvm_prove_kills_its_process_group() {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let pid_file = dir.path().join("pid");
+        // A prover that leaves a child behind and fails. Its name is longer
+        // than the 15 characters that `pkill` matches.
+        let body = format!("sleep 60 & echo $! > {}; exit 1", pid_file.display());
+        let executor = Executor::Io(fake(dir.path(), "openvm-eth-act-standards-executor", &body));
+        let start = Instant::now();
+        let proof = prove_openvm(&executor, &dir.path().join("t.elf"), Some(b""), None, true, false).unwrap();
+        assert!(!proof.proved);
+        // The child holds the prover's stderr, so without the kill, the runner
+        // would wait for it to exit.
+        assert!(start.elapsed() < Duration::from_secs(30), "waited for the child");
+
+        // The child is killed (its new parent then reaps it).
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        let stat = format!("/proc/{}/stat", pid.trim());
+        let running = || std::fs::read_to_string(&stat).is_ok_and(|s| !s.rsplit(')').next().unwrap().trim_start().starts_with('Z'));
+        assert!((0..50).any(|_| !running() || { std::thread::sleep(Duration::from_millis(100)); false }), "child still runs");
     }
 
     #[test]
