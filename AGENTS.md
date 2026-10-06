@@ -24,7 +24,8 @@ config.json             # ZKVM repo URLs and commit pins
 ```bash
 ./run build sp1             # Build sp1 binary via Docker
 ./run isa-tests sp1         # Run the ISA tests (ACT4) for sp1
-./run eth-act-standards-tests zisk  # Run the eth-act standards tests (through ere; BACKEND=noere: without ere, execute only)
+./run eth-act-standards-tests zisk  # Run the eth-act standards tests (through ere; BACKEND=noere: without ere, ACT4_MODE default execute)
+TESTS="io-echo bls" ./run eth-act-standards-tests zisk  # Only the selected standards tests (name or group, else glob or substring); no history
 ./run tests                 # Run both suites for all ZKVMs
 ./run all sp1               # Build + both suites
 ./run serve                 # Serve dashboard at localhost:8000

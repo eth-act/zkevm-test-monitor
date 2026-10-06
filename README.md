@@ -84,7 +84,9 @@ flowchart LR
   the revision that `src/runner/Cargo.toml` pins, with execute, prove and verify
   (`ACT4_MODE`, default `full`; prove and full need an NVIDIA GPU). A test that expects an
   abnormal termination has no valid proof, so it is only executed. `BACKEND=noere` runs the
-  suite on the host executors instead, execute only. Each standards test image pins its own
+  suite on this repository's executors and provers instead, so it can test any zkVM commit or
+  fork (`ACT4_MODE` defaults to `execute` there; `prove` and `full` prove on the GPU). `TESTS`
+  runs only some tests (see below). Each standards test image pins its own
   zkVM version (the version that ere pins), independent of `config.json`. See
   [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md).
 - `./run eth-act-standards-tests <zkvm>` runs this pipeline. `./run tests <zkvm>` runs both
@@ -124,7 +126,16 @@ ACT4_MODE=execute ./run isa-tests zisk  # Execution only (no proving); also: pro
 GPU=1 ./run build zisk              # Build with GPU support
 GPU=1 ./run isa-tests zisk              # Prove with GPU
 BACKEND=noere ./run isa-tests zisk      # noere path (ere is the default)
+BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests zisk  # prove the standards tests without ere
+TESTS=io-echo ./run eth-act-standards-tests sp1       # one standards test (no history)
+TESTS="io bls" ./run eth-act-standards-tests openvm   # a group (io) and a pattern (bls)
+SP1_CUDA_LIB=<dir> ...                  # CUDA 12 runtime for SP1's GPU prover (found if unset)
 ```
+
+`TESTS` holds words separated by spaces or commas. A word that is a test name (`io-echo`) or a
+group (`io`, `accelerators`, `memory`) selects exactly that; any other word is a glob
+(`io-write-*`) or a substring (`bls`) of the test names. A word that selects no test stops the
+run. It applies to the eth-act standards tests only.
 
 ## Adding a ZK-VM
 

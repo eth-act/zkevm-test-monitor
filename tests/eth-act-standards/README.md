@@ -18,7 +18,8 @@ By default the suite runs through ere, with execute, prove and verify (`ACT4_MOD
 `full`). Every stage must give the expected public output. A test that expects an abnormal
 termination (`.outcome`) has no valid proof, so it is only executed, and the dashboard counts
 proving and verification over the other tests. `BACKEND=noere` runs the suite without ere, on
-the host executors below; there `ACT4_MODE` defaults to `execute` (see Running).
+the host executors and provers below; there `ACT4_MODE` defaults to `execute` (see Running).
+`TESTS` runs only some tests (see Selecting tests).
 
 ## How a test works
 

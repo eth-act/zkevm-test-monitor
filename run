@@ -110,7 +110,8 @@ Commands:
   eth-act-standards-tests [zkvm ...]
                             Run the eth-act standards tests (I/O, accelerators,
                             memory operations; zisk, sp1, openvm; through ere;
-                            BACKEND=noere runs the host executors, execute only)
+                            BACKEND=noere runs this repository's executors and
+                            provers, by default execute only)
   tests [zkvm ...]          Run both test suites
   all [zkvm ...]            Build + both test suites
   elfs <zkvm> [--force]     Generate ACT4 ELFs only (no zkVM binary, no test run)
@@ -123,6 +124,11 @@ Environment Variables:
   FORCE=1                   Force regeneration of ELFs / rebuild of binaries
   ACT4_MODE=execute|prove|full   Test mode (default: full) of the Standard ISA
                             suite and the eth-act standards tests through ere
+                            (BACKEND=noere eth-act standards tests: default execute)
+  TESTS="<word> ..."        eth-act standards tests: run only the selected tests,
+                            with no history. A test name or group (io) selects
+                            exactly that; another word is a glob (io-write-*)
+                            or a substring (bls)
   GPU=1                    Build/use GPU variants for Zisk proving
 
 Examples:
@@ -131,6 +137,8 @@ Examples:
   ./run tests                              # both suites for all zkVMs
   ./run isa-tests zisk                     # ISA tests only
   ./run eth-act-standards-tests sp1        # eth-act standards tests only
+  TESTS="io bls" ./run eth-act-standards-tests zisk   # the io group and the bls tests
+  BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm   # prove without ere
   ./run all
   JOBS=8 ./run tests zisk
   ACT4_MODE=execute ./run isa-tests zisk   # ISA tests without proving
