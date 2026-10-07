@@ -4,9 +4,9 @@
 // NEEDS_SIGNATURE: false
 // END_TEST_CONFIG
 /*
- * Returning a non-zero value from main is a failed termination, with that value as
- * the error code (Termination Semantics standard, "Application Entry Point Return
- * Value"). The expected outcome is an abnormal termination with code 1.
+ * Returning a non-zero value from main is a failed termination (Termination Semantics
+ * standard, "Application Entry Point Return Value"). The standard mandates only zero
+ * versus non-zero, so the expected outcome is an abnormal termination with any code.
  */
 #include "termination.h"
 
