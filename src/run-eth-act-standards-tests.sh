@@ -19,9 +19,9 @@
 # (reference/, at the commit config.json pins): its zkvm-run runs the guests,
 # always in execute mode on the noere path, and the run records no history.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
-# that is a test name (io-echo) or a group (io, accelerators, memory) selects
-# exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
-# test names.
+# that is a test name (io-echo) or a group (io, accelerators, memory, termination)
+# selects exactly that; any other word is a glob (io-write-*) or a substring (bls)
+# of the test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 
