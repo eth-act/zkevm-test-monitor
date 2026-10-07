@@ -158,9 +158,15 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
     let pass_output = suite == Suite::Standards;
     let mut result = judge(execution, vectors.expected.as_deref(), pass_output, start);
 
-    // Prove only an execution that passed, and check that the proof proves its output.
-    if mode != Mode::Execute && result.passed {
+    // Prove an execution that passed, and check that the proof proves its output. Prove an
+    // expected failure too: no proof of it may verify (see `apply_outcome`).
+    let expected_failure = matches!(vectors.outcome, Outcome::Fail { .. });
+    let prove = if expected_failure { result.termination != Termination::HostError } else { result.passed };
+    if mode != Mode::Execute && prove {
         result = match zkvm.prove(elf_path, vectors.input.as_deref(), output.as_deref(), mode == Mode::Full) {
+            Ok(proof) if expected_failure => {
+                RunResult { duration: start.elapsed(), ..result.with_failure_proof(proof) }
+            }
             Ok(proof) => RunResult { duration: start.elapsed(), ..result.with_proof(proof) },
             Err(e) => {
                 eprintln!("error running {}: {e}", elf_path.display());
@@ -236,10 +242,18 @@ fn output_mismatch(execution: &Execution, expected: Option<&[u8]>, pass_output: 
 /// no code. A successful termination fails ("did not panic" without an
 /// expected code, "did not terminate abnormally" with one). A host error
 /// always fails: it is not a guest outcome.
+///
+/// In the prove modes the runner also proves the execution. A failed execution
+/// may have no proof that verifies (Termination Semantics standard), so a test
+/// whose proof verifies fails, whatever its execution gave.
 pub fn apply_outcome(result: RunResult, outcome: Outcome) -> RunResult {
     let Outcome::Fail { code: expected } = outcome else {
         return result;
     };
+    if result.verify_status.as_deref() == Some("success") {
+        let detail = Some("a proof of the failed execution verifies".to_owned());
+        return RunResult { passed: false, detail, ..result };
+    }
     let detail = match result.termination {
         Termination::HostError => return RunResult { passed: false, ..result },
         Termination::Success => {
@@ -417,6 +431,28 @@ mod tests {
         let r = apply_outcome(result(Termination::HostError, Some("executor error (exit 2): usage")), FAIL_7);
         assert!(!r.passed);
         assert_eq!(r.detail.as_deref(), Some("executor error (exit 2): usage"));
+    }
+
+    #[test]
+    fn expected_fail_rejects_a_proof_that_verifies() {
+        let proved = |termination, verify: &str| RunResult {
+            prove_status: Some("success".to_owned()),
+            verify_status: Some(verify.to_owned()),
+            ..result(termination, Some("guest terminated abnormally"))
+        };
+        for termination in [failure(None), failure(Some(1)), Termination::Success] {
+            let r = apply_outcome(proved(termination, "success"), FAIL);
+            assert!(!r.passed);
+            assert_eq!(r.detail.as_deref(), Some("a proof of the failed execution verifies"));
+        }
+
+        let r = apply_outcome(proved(failure(None), "rejected"), FAIL);
+        assert!(r.passed);
+        let refused = RunResult {
+            prove_status: Some("refused".to_owned()),
+            ..result(failure(None), Some("guest terminated abnormally"))
+        };
+        assert!(apply_outcome(refused, FAIL).passed);
     }
 
     #[test]
