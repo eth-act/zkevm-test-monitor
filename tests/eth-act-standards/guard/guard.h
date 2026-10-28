@@ -31,4 +31,23 @@ static inline void guard_sb(uintptr_t addr) {
     __asm__ volatile("sb %0, 0(%1)" : : "r"(0xa5), "r"(p) : "memory");
 }
 
+/*
+ * The stack bottom, the lowest byte of the stack: the vendor linker symbol that
+ * zkvms/<zkvm>/standards/layout.yaml names (symbols.stack_bottom).
+ * build-guests.sh defines GUARD_STACK_BOTTOM as that symbol. A platform that
+ * declares no stack bottom has no stack guard region to test, so the
+ * guard-stack-* guests fail.
+ */
+#ifdef GUARD_STACK_BOTTOM
+extern char GUARD_STACK_BOTTOM[];
+
+static inline uintptr_t guard_stack_bottom(void) {
+    return (uintptr_t)GUARD_STACK_BOTTOM;
+}
+#else
+static inline uintptr_t guard_stack_bottom(void) {
+    print_error("the platform declares no stack bottom\n");
+}
+#endif
+
 #endif /* GUARD_H */

@@ -90,14 +90,26 @@ fi
 # values do not matter; defining them here keeps them out of the zkVMs' linker
 # scripts. A definition in a linker script takes precedence over --defsym.
 LINK_ARGS="$LINK_ARGS-Wl,--defsym=__bss_start=0,--defsym=__bss_end=0,--defsym=__stack_top=0,--defsym=__stack_size=0,--defsym=__num_harts=1 "
+# The stack bottom, the platform's lowest stack byte: a vendor linker symbol,
+# or none (symbols.stack_bottom in layout.yaml). The guard-stack-* guests
+# access the bytes at and below it (GUARD_STACK_BOTTOM, guard/guard.h).
+STACK_BOTTOM=$(sed -n 's/^  stack_bottom: *\([^ #]*\).*/\1/p' "$PLATFORM_DIR/layout.yaml")
+if [ -z "$STACK_BOTTOM" ]; then
+  echo "error: $PLATFORM_DIR/layout.yaml has no symbols.stack_bottom" >&2
+  exit 1
+fi
+GUARD_CFLAGS=""
+if [ "$STACK_BOTTOM" != none ]; then
+  GUARD_CFLAGS="-DGUARD_STACK_BOTTOM=$STACK_BOTTOM"
+fi
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<EOF
 #!/bin/sh
 for arg in "\$@"; do
   case "\$arg" in
-    -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections ;;
+    -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections $GUARD_CFLAGS ;;
   esac
 done
-exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
+exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections $GUARD_CFLAGS -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"
@@ -148,6 +160,14 @@ for fn in $MEMOPS; do
   fi
 done
 
+# Without a stack bottom, the platform has no stack guard region to test: the
+# guard-stack-* guests fail through print_error() (guard/guard.h), so they are
+# built without their expected abnormal termination.
+if [ "$STACK_BOTTOM" = none ]; then
+  echo "note: the platform declares no stack bottom, so the guard-stack-* tests fail"
+  rm "$TESTS/rv64i/guard"/guard-stack-*.outcome
+fi
+
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
 # go-ethereum and execution-specs files (tools/accel_vector_sources.json) and
 # the extracted execution-specs pytest cases (tools/eest_pytest_vectors.json).
@@ -193,8 +213,8 @@ for group in $GROUPS_LIST; do
     # cat, not cp: ACT's build cache may leave the ELFs as symlinks.
     cat "$elf" > "$OUT/$group/$name.elf"
     for vector in input expected outcome; do
-      if [ -f "$HERE/$group/$name.$vector" ]; then
-        cp "$HERE/$group/$name.$vector" "$OUT/$group/$name.$vector"
+      if [ -f "$TESTS/rv64i/$group/$name.$vector" ]; then
+        cp "$TESTS/rv64i/$group/$name.$vector" "$OUT/$group/$name.$vector"
       fi
     done
     count=$((count + 1))
