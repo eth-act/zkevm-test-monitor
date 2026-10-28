@@ -92,15 +92,20 @@ fi
 LINK_ARGS="$LINK_ARGS-Wl,--defsym=__bss_start=0,--defsym=__bss_end=0,--defsym=__stack_top=0,--defsym=__stack_size=0,--defsym=__num_harts=1 "
 # The stack bottom, the platform's lowest stack byte: a vendor linker symbol,
 # or none (symbols.stack_bottom in layout.yaml). The guard-stack-* guests
-# access the bytes at and below it (GUARD_STACK_BOTTOM, guard/guard.h).
+# access the bytes at and below it (GUARD_STACK_BOTTOM, guard/guard.h), and
+# guard-layout checks the 4 kB below it.
 STACK_BOTTOM=$(sed -n 's/^  stack_bottom: *\([^ #]*\).*/\1/p' "$PLATFORM_DIR/layout.yaml")
 if [ -z "$STACK_BOTTOM" ]; then
   echo "error: $PLATFORM_DIR/layout.yaml has no symbols.stack_bottom" >&2
   exit 1
 fi
+# --require-defined makes the linker script define the symbol in every guest,
+# also where it is a PROVIDE that no guest code references, so guard-layout can
+# check each ELF.
 GUARD_CFLAGS=""
 if [ "$STACK_BOTTOM" != none ]; then
   GUARD_CFLAGS="-DGUARD_STACK_BOTTOM=$STACK_BOTTOM"
+  LINK_ARGS="$LINK_ARGS-Wl,--require-defined=$STACK_BOTTOM "
 fi
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<EOF
 #!/bin/sh
@@ -164,7 +169,7 @@ done
 # guard-stack-* guests fail through print_error() (guard/guard.h), so they are
 # built without their expected abnormal termination.
 if [ "$STACK_BOTTOM" = none ]; then
-  echo "note: the platform declares no stack bottom, so the guard-stack-* tests fail"
+  echo "note: the platform declares no stack bottom, so the guard-stack-* tests and guard-layout fail"
   rm "$TESTS/rv64i/guard"/guard-stack-*.outcome
 fi
 
@@ -183,10 +188,11 @@ run_act
 ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
 
 # guard-layout checks the memory map of every linked guest against the null
-# pointer trap region. tools/check_guard_layout.py writes it as a guest that
-# passes, or fails with the violations. A second ACT run builds it; ACT's
-# build cache keeps the other ELFs.
-python3 "$HERE/tools/check_guard_layout.py" "$TESTS/rv64i/guard/guard-layout.c" "$ELF_ROOT"/*/*.elf
+# pointer trap region and the stack guard region. tools/check_guard_layout.py
+# writes it as a guest that passes, or fails with the violations. A second ACT
+# run builds it; ACT's build cache keeps the other ELFs.
+python3 "$HERE/tools/check_guard_layout.py" --stack-bottom "$STACK_BOTTOM" \
+  "$TESTS/rv64i/guard/guard-layout.c" "$ELF_ROOT"/*/*.elf
 run_act
 
 # Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition

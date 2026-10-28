@@ -142,13 +142,18 @@ it has no stack guard region to test: there the `guard-stack-*` programs fail th
 `print_error()` ("the platform declares no stack bottom"), and `build-guests.sh` drops their
 `.outcome`.
 
-`guard-layout` checks two rules of the null region: it "must not be mapped to readable or writable
-memory", and it "must not be used by the zkVM runtime, linker scripts, or any other system
-component". After ACT links the other guests, `tools/check_guard_layout.py` reads each ELF. An ELF fails when a `PT_LOAD` segment or
-an allocated section of non-zero size overlaps the region, or when it defines the standard heap
-symbols `_heap_start` and `_heap_end` and the heap overlaps the region. The script writes
-`guard-layout` as a program that passes, or that fails through `print_error()` with the first
-violations (they are also in the build log). A second ACT run builds it.
+`guard-layout` checks the memory map that the standard requires. The null region "must not be
+mapped to readable or writable memory" and "must not be used by the zkVM runtime, linker scripts,
+or any other system component"; the stack guard region "must not be mapped to readable or
+writable memory". After ACT links the other guests, `tools/check_guard_layout.py` reads each ELF.
+An ELF fails when a `PT_LOAD` segment or an allocated section of non-zero size overlaps the null
+region or the 4 kB below the stack bottom, when it defines the standard heap symbols `_heap_start`
+and `_heap_end` and the heap overlaps one of them, or when the stack bottom is in the null region.
+Without a stack bottom, `guard-layout` fails. Every guest is linked with
+`--require-defined=<stack bottom>`, so the symbol is in each ELF also when the linker script
+defines it with `PROVIDE`. The script writes `guard-layout` as a program that passes, or that
+fails through `print_error()` with the first violations (they are also in the build log). A
+second ACT run builds it.
 
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
