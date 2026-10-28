@@ -166,7 +166,8 @@ The runtime guests (`runtime/*.c`, `runtime/*.cpp`) are plain C and C++ programs
   makes the run invalid. A runtime ELF comes from the vendor's own library and linker script,
   so a load error is a finding of the zkVM. The run script therefore passes
   `--host-error-fails-test runtime,runtime-lld` to the runner: in these groups, a host error
-  fails only its test.
+  fails only its test. On the ere path, such an ELF can cost ere's server timeout of 5 minutes:
+  SP1 does not load its four GNU ld ELFs.
 
 Each guest defines `int main(void)` and checks a post-condition of the vendor's `_start` from
 `main`. When every check holds, the guest writes `PASS` with `write_output` and returns 0. Its
