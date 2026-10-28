@@ -15,7 +15,7 @@
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
 #      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk).
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
-# that is a test name (io-echo) or a group (io, accelerators, memory) selects
+# that is a test name (io-echo) or a group (io, accelerators, memory, guard) selects
 # exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
 # test names.
 set -euo pipefail
