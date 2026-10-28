@@ -13,11 +13,13 @@
 #    - BACKEND=noere: on the host executor from step 1, without ere.
 #      ACT4_MODE=execute|prove|full (default: execute). Proving runs on an NVIDIA
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
-#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk).
+#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk). The prover
+#      also gets each ELF that the zkVM rejected (outcome reject) and must make no
+#      proof of it.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
-# that is a test name (io-echo) or a group (io, accelerators, memory) selects
-# exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
-# test names.
+# that is a test name (io-echo) or a group (io, accelerators, memory, elf)
+# selects exactly that; any other word is a glob (io-write-*) or a substring (bls)
+# of the test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 
@@ -295,8 +297,9 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
   exit 1
 fi
 
-# Tests that expect an abnormal termination (.outcome) have no valid proof, so
-# the dashboard counts proving and verification over the other tests.
+# Tests that expect an abnormal termination or a rejection (.outcome) have no
+# valid proof, so the dashboard counts proving and verification over the other
+# tests.
 EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
 
 mkdir -p results/history

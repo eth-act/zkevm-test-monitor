@@ -168,6 +168,18 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
             }
         };
     }
+    // An ELF that the zkVM rejects must not reach its prover either
+    // ("Validation before proving"): prove a rejected `reject` test, and
+    // `apply_expected` fails it if the prover makes a proof.
+    if mode != Mode::Execute && vectors.outcome == Outcome::Reject && result.termination == Termination::Rejected {
+        result = match zkvm.prove(elf_path, vectors.input.as_deref(), None, mode == Mode::Full) {
+            Ok(proof) => RunResult { duration: start.elapsed(), ..result.with_refused_proof(proof) },
+            Err(e) => {
+                eprintln!("error running {}: {e}", elf_path.display());
+                RunResult::host_error(start, None, format!("runner error: {e:#}"))
+            }
+        };
+    }
     apply_expected(result, vectors.outcome)
 }
 
@@ -232,12 +244,16 @@ fn output_mismatch(execution: &Execution, expected: Option<&[u8]>, pass_output: 
 /// Judge a result against the test's expected outcome: `reject` and
 /// `pass-or-fail` here, `pass`, `fail` and `fail <code>` in `apply_outcome`.
 ///
-/// - `reject` passes only when the zkVM rejected the ELF. A guest that ran
-///   fails it, whatever its termination, and so does a host error.
+/// - `reject` passes only when the zkVM rejected the ELF and, in the prove
+///   modes, its prover made no proof (`run_one`). A guest that ran fails it,
+///   whatever its termination, and so does a host error.
 /// - `pass-or-fail` passes on an abnormal termination. Any other result is
 ///   judged as for `pass`.
 pub fn apply_expected(result: RunResult, outcome: Outcome) -> RunResult {
     let detail = match (outcome, result.termination) {
+        (Outcome::Reject, Termination::Rejected) if result.prove_status.as_deref() == Some("success") || result.proof_written => {
+            Some("the zkVM rejected the ELF, but its prover made a proof".to_owned())
+        }
         (Outcome::Reject, Termination::Rejected) => None,
         (Outcome::Reject, Termination::HostError) => return RunResult { passed: false, ..result },
         (Outcome::Reject, Termination::Success | Termination::Failure { .. }) => {
@@ -474,6 +490,82 @@ mod tests {
         let r = apply_expected(result(Termination::HostError, Some("runner error: x")), Outcome::Reject);
         assert!(!r.passed);
         assert_eq!(r.detail.as_deref(), Some("runner error: x"));
+    }
+
+    #[test]
+    fn expected_reject_needs_a_prover_that_refuses() {
+        let rejected = |prove_status: &str, proof_written| RunResult {
+            prove_status: Some(prove_status.to_owned()),
+            proof_written,
+            ..result(Termination::Rejected, Some("the zkVM rejected the ELF: x"))
+        };
+        assert!(apply_expected(rejected("refused", false), Outcome::Reject).passed);
+        for (status, written) in [("success", true), ("success", false), ("refused", true)] {
+            let r = apply_expected(rejected(status, written), Outcome::Reject);
+            assert!(!r.passed, "{status} {written}");
+            assert_eq!(r.detail.as_deref(), Some("the zkVM rejected the ELF, but its prover made a proof"));
+        }
+    }
+
+    /// A zkVM whose loader rejects every ELF, and whose prover proves
+    /// (`Some(true)`), refuses (`Some(false)`) or fails to run (`None`).
+    struct Rejecting {
+        prover: Option<bool>,
+        proofs: AtomicUsize,
+    }
+
+    impl Zkvm for Rejecting {
+        fn name(&self) -> &'static str {
+            "rejecting"
+        }
+
+        fn supports_io(&self) -> bool {
+            true
+        }
+
+        fn can_prove(&self) -> bool {
+            true
+        }
+
+        fn execute(&self, _elf_path: &Path, _input: Option<&[u8]>) -> Execution {
+            Execution { detail: Some("the zkVM rejected the ELF: x".to_owned()), ..execution(Termination::Rejected, None, PassHalt::Unknown) }
+        }
+
+        fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, _output: Option<&[u8]>, _verify: bool) -> anyhow::Result<Proof> {
+            self.proofs.fetch_add(1, Ordering::Relaxed);
+            match self.prover {
+                Some(proved) => Ok(Proof { duration: Duration::ZERO, written: proved, proved, verified: None }),
+                None => anyhow::bail!("no prover"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_reject_test_proves_in_the_prove_modes() {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(dir.path().join("t.outcome"), "reject\n").unwrap();
+        let run = |prover, mode| {
+            let zkvm = Rejecting { prover, proofs: AtomicUsize::new(0) };
+            let r = run_one(&zkvm, Suite::Standards, &elf, mode);
+            (r, zkvm.proofs.load(Ordering::Relaxed))
+        };
+
+        let (r, proofs) = run(Some(true), Mode::Execute);
+        assert!(r.passed);
+        assert_eq!((proofs, r.prove_status), (0, None));
+
+        let (r, proofs) = run(Some(false), Mode::Full);
+        assert!(r.passed);
+        assert_eq!((proofs, r.prove_status.as_deref()), (1, Some("refused")));
+
+        let (r, _) = run(Some(true), Mode::Prove);
+        assert!(!r.passed);
+        assert_eq!(r.prove_status.as_deref(), Some("success"));
+
+        let (r, _) = run(None, Mode::Prove);
+        assert!(!r.passed);
+        assert_eq!(r.termination, Termination::HostError);
     }
 
     #[test]

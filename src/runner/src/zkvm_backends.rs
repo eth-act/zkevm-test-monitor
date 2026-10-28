@@ -218,9 +218,9 @@ impl Proof {
         Proof { duration, written, proved: true, verified }
     }
 
-    /// Proving failed.
-    fn failed(duration: Duration) -> Self {
-        Proof { duration, written: false, proved: false, verified: None }
+    /// Proving failed; `written` says whether the prover still wrote a proof file.
+    fn failed(duration: Duration, written: bool) -> Self {
+        Proof { duration, written, proved: false, verified: None }
     }
 }
 
@@ -265,6 +265,17 @@ impl RunResult {
     /// The result when the host could not run the guest to an outcome.
     pub fn host_error(start: Instant, exit_code: Option<i32>, detail: String) -> Self {
         Self::executed(start, exit_code, Termination::HostError, Some(detail))
+    }
+
+    /// Add the result of proving an ELF that the zkVM rejected: `refused`
+    /// when the prover made no proof.
+    pub fn with_refused_proof(self, proof: Proof) -> Self {
+        RunResult {
+            prove_duration: Some(proof.duration),
+            proof_written: proof.written,
+            prove_status: Some(if proof.proved { "success" } else { "refused" }.to_owned()),
+            ..self
+        }
     }
 
     /// Add the result of proving.
@@ -555,7 +566,7 @@ fn prove_zisk(
         return Ok(if is_verify_failure(&combined) {
             Proof::proved(prove_duration, false, Some(false))
         } else {
-            Proof::failed(prove_duration)
+            Proof::failed(prove_duration, proof_path.exists())
         });
     }
 
@@ -708,7 +719,8 @@ fn prove_sp1(
                 .collect::<Vec<_>>()
                 .join("\n");
             eprintln!("sp1-perf prove failed for {}:\n{}", elf_path.display(), tail);
-            Proof::failed(prove_duration)
+            // sp1-perf proves and verifies in memory: it writes no proof file.
+            Proof::failed(prove_duration, false)
         });
     }
 
@@ -861,7 +873,7 @@ fn prove_lambdavm(binary: &Path, elf_path: &Path, verify: bool) -> anyhow::Resul
             elf_path.display(),
             prove_stderr.lines().last().unwrap_or("(no output)"),
         );
-        return Ok(Proof::failed(prove_duration));
+        return Ok(Proof::failed(prove_duration, proof_path.exists()));
     }
 
     let proof_written = proof_path.exists();
@@ -981,7 +993,7 @@ fn prove_openvm(
             elf_path.display(),
             prove_stderr.lines().last().unwrap_or("(no output)"),
         );
-        return Ok(Proof::failed(prove_duration));
+        return Ok(Proof::failed(prove_duration, proof_path.exists()));
     }
 
     let proof_written = proof_path.exists();
