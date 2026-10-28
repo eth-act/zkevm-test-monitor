@@ -2,7 +2,7 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers four
+asks of each zkVM. It covers five
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
 `zkvm_io.h` and `zkvm_accelerators.h` from it. `src/run-eth-act-standards-tests.sh` fetches that
@@ -13,6 +13,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); no side effects of `read_input` (canaries around its out-parameters and in `.data` and `.bss`, and the input unchanged after the guest fills `.bss` and the stack); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; writes from `.rodata`, `.data` and `.bss`; an output that ends in zero bytes, and an empty output; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases (the byte-buffer functions `keccak256`, `sha256`, `ripemd160` and `modexp` also with each buffer at a misaligned address); three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution (`mem-link-*`) |
+| `layout/` | [Memory layout restrictions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-layout-restrictions) | static checks of a linked guest against the zkVM's `layout.yaml` (`layout-static-a1` to `-a3`: a vendor linker script; each `PT_LOAD` segment, the heap and the stack in memory that the zkVM defines; symbols for the heap and stack bounds); writes and reads at the first and last bytes of the declared heap (`layout-heap-ends`); `sp` at `main` in the declared stack, and writes and reads at its lowest bytes (`layout-stack-ends`) |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -120,6 +121,35 @@ error, so a strong symbol alone does not show its source. `-Wl,--trace-symbol=<f
 
 The test does not check the standard's documentation or LTO clauses.
 
+The `layout/` tests check this sentence of the memory layout standard: "Each zkVM vendor must
+provide its own linker script that correctly describes its memory constraints, including the
+location and size of critical memory regions such as heap and stack areas".
+`zkvms/<zkvm>/standards/layout.yaml` records, from the zkVM's source at the pinned version:
+
+- the vendor's linker script, or `none`;
+- the memory regions that the zkVM defines (from its executor and prover, not from the linker
+  script), each with a citation;
+- the vendor's linker symbols for the heap start and end and for the stack bottom and top, or
+  `none` for each. The standard names no symbols, so the file uses the vendor's names.
+
+`tools/check_layout.py` checks a linked `layout/` guest against this file. Each check becomes
+a test, `layout-static-<check>`, that passes or fails with the reason:
+
+- `a1`: the zkVM vendor provides its own linker script;
+- `a2`: each `PT_LOAD` segment, the heap and the stack are in one region of `layout.yaml`. A
+  bound that the linker script does not declare is not checked (`a3` fails for it);
+- `a3`: the ELF has a symbol for each of the four bounds.
+
+The check needs a linked guest, so `build-guests.sh` builds these tests in a second act pass.
+The guests get the declared symbols as macros (`layout/layout.h`). A guest that needs a symbol
+that is `none` fails with "linker script declares no <bound>", so a missing symbol fails one
+test and does not stop the build. The guests access only the declared ends of the heap and the
+stack, because the standard sets no size and requires no fault.
+
+The `layout/` tests do not check the standard's `libc` clause ("the linker script must define
+symbols that the `libc` implementation depends upon"): the standard names no C library, and
+ACT links the guests without one.
+
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
 
@@ -207,8 +237,8 @@ OPENVM_EXECUTOR_GIT=https://github.com/<owner>/openvm OPENVM_EXECUTOR_REV=<commi
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of
-the test names. A word that selects no test stops the run.
+`memory`, `layout`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring
+(`bls`) of the test names. A word that selects no test stops the run.
 
 ```bash
 TESTS=io-echo BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
@@ -223,6 +253,7 @@ config.
 1. Add `zkvms/<zkvm>/standards/`:
    - a `Dockerfile` that builds the vendor library and the host executor;
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
+   - a `layout.yaml` with the zkVM's memory layout (see the `layout/` tests);
    - a `link.ld.patch` with the changes the zkVM's own linker script needs (or, if the zkVM
      publishes none, a `link-args` file with its link options and a placeholder `link.ld`).
 2. Make the zkVM's backend in `src/runner/src/zkvm_backends.rs` feed the input to the zkVM and
