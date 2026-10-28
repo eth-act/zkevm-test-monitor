@@ -3,11 +3,14 @@
 //! Every ELF may have these files next to it:
 //! - `<stem>.input`: the private input bytes;
 //! - `<stem>.expected`: the expected public output bytes;
-//! - `<stem>.outcome`: `pass` (the default), `fail` or `fail <code>`. With
-//!   `fail`, the guest must terminate abnormally (a panic, an abort, a non-zero
-//!   return from `main`, a failed execution), and with `fail <code>` the zkVM
-//!   must also report that error code. A successful termination or a host
-//!   error fails the test (see `runner::apply_outcome`).
+//! - `<stem>.outcome`: `pass` (the default), `fail`, `fail <code>`, `reject`
+//!   or `pass-or-fail`. With `fail`, the guest must terminate abnormally (a
+//!   panic, an abort, a non-zero return from `main`, a failed execution), and
+//!   with `fail <code>` the zkVM must also report that error code. A
+//!   successful termination or a host error fails the test (see
+//!   `runner::apply_outcome`). With `reject`, the zkVM must reject the ELF
+//!   before the guest runs. With `pass-or-fail`, the guest must either pass or
+//!   terminate abnormally (see `runner::apply_expected`).
 //!
 //! In the standards suite (`runner::Suite`), a missing input is empty.
 //! Without an expected output, a test is judged by the ACT4 halt verdict, and
@@ -34,15 +37,22 @@ pub enum Outcome {
     /// Terminate abnormally: a panic, an abort, a non-zero return from `main`
     /// or a failed execution. With `code`, the zkVM must report that error code.
     Fail { code: Option<i32> },
+    /// The zkVM rejects the ELF before the guest runs.
+    Reject,
+    /// Either finish normally (as for `Pass`) or terminate abnormally.
+    PassOrFail,
 }
 
 impl Outcome {
-    /// Parse the text of a `.outcome` file: `pass`, `fail` or `fail <code>`.
+    /// Parse the text of a `.outcome` file: `pass`, `fail`, `fail <code>`,
+    /// `reject` or `pass-or-fail`.
     pub fn parse(text: &str) -> Option<Self> {
         match text.split_whitespace().collect::<Vec<_>>().as_slice() {
             ["pass"] => Some(Outcome::Pass),
             ["fail"] => Some(Outcome::Fail { code: None }),
             ["fail", code] => code.parse().ok().map(|code| Outcome::Fail { code: Some(code) }),
+            ["reject"] => Some(Outcome::Reject),
+            ["pass-or-fail"] => Some(Outcome::PassOrFail),
             _ => None,
         }
     }
@@ -214,5 +224,8 @@ mod tests {
         assert_eq!(Outcome::parse("fail 7 8"), None);
         assert_eq!(Outcome::parse("pass 0"), None);
         assert_eq!(Outcome::parse(""), None);
+        assert_eq!(Outcome::parse("reject\n"), Some(Outcome::Reject));
+        assert_eq!(Outcome::parse("pass-or-fail\n"), Some(Outcome::PassOrFail));
+        assert_eq!(Outcome::parse("reject 3"), None);
     }
 }
