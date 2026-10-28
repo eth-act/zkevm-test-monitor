@@ -264,6 +264,18 @@ impl RunResult {
             ..self
         }
     }
+
+    /// The result with the proof of an expected failure: a prover that gives no
+    /// proof `refused`, and a verifier that rejects the proof `rejected`.
+    pub fn with_failure_proof(self, proof: Proof) -> Self {
+        RunResult {
+            prove_duration: Some(proof.duration),
+            proof_written: proof.written,
+            prove_status: Some(if proof.proved { "success" } else { "refused" }.to_owned()),
+            verify_status: proof.verified.map(|ok| if ok { "success" } else { "rejected" }.to_owned()),
+            ..self
+        }
+    }
 }
 
 /// Fail `prove` for a prover that takes no input.

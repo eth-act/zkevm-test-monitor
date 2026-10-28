@@ -230,10 +230,17 @@ impl EreBackend {
             let executed = zkvm.execute(&input);
             detail.execute_secs = Some(started.elapsed().as_secs_f64());
             result.termination = execution_termination(&executed);
+            // Prove an expected failure whatever its execution gave: no proof of it may
+            // verify (runner::apply_outcome).
+            let expected_failure = matches!(vectors.outcome, io_and_expected_failures::Outcome::Fail { .. });
+            if expected_failure && mode != Mode::Execute && result.termination != Termination::HostError {
+                prove_failure(&zkvm, &input, mode, detail, result);
+            }
             let (public_values, _) = executed.map_err(|err| ("failed", err))?;
             self.verdict(&public_values, vectors).map_err(|err| ("failed", err))?;
             result.passed = true;
-            if mode == Mode::Execute {
+            // An expected failure is proved above.
+            if mode == Mode::Execute || expected_failure {
                 return Ok(());
             }
 
@@ -345,6 +352,29 @@ fn execution_termination<T>(executed: &anyhow::Result<(PublicValues, T)>) -> Ter
         }
         Err(_) => Termination::HostError,
     }
+}
+
+/// Proves an expected failure, and in `Mode::Full` verifies the proof. A prover
+/// that gives no proof is `refused`, and a verifier that rejects it `rejected`.
+fn prove_failure(zkvm: &DockerizedzkVM, input: &Input, mode: Mode, detail: &mut TestDetail, result: &mut RunResult) {
+    let started = Instant::now();
+    let proved = zkvm.prove(input);
+    let secs = started.elapsed();
+    detail.prove_secs = Some(secs.as_secs_f64());
+    result.prove_duration = Some(secs);
+    let Ok((_, proof, _)) = proved else {
+        result.prove_status = Some("refused".to_string());
+        return;
+    };
+    result.prove_status = Some("success".to_string());
+    result.proof_written = true;
+    if mode == Mode::Prove {
+        return;
+    }
+    let started = Instant::now();
+    let verified = zkvm.verify(&proof);
+    detail.verify_secs = Some(started.elapsed().as_secs_f64());
+    result.verify_status = Some(if verified.is_ok() { "success" } else { "rejected" }.to_string());
 }
 
 /// Sets `key` to `value` unless the user set it already.
