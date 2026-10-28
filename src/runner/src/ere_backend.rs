@@ -385,6 +385,7 @@ fn prove_failure(
     let proof = match proved {
         Ok((_, proof, _)) => proof,
         Err(err) if is_zkvm_error(&err) => {
+            eprintln!("    {}: prove refused: {err:#}", detail.name);
             result.prove_status = Some("refused".to_string());
             return Ok(());
         }
@@ -404,7 +405,10 @@ fn prove_failure(
     detail.verify_secs = Some(started.elapsed().as_secs_f64());
     let status = match verified {
         Ok(_) => "success",
-        Err(err) if is_zkvm_error(&err) => "rejected",
+        Err(err) if is_zkvm_error(&err) => {
+            eprintln!("    {}: verify rejected: {err:#}", detail.name);
+            "rejected"
+        }
         Err(err) => {
             result.verify_status = Some("failed".to_string());
             return Err(("verify_failed", err));
