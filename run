@@ -106,7 +106,8 @@ Commands:
   build [zkvm ...]          Build ZKVM binaries
   isa-tests [zkvm ...]      Run the ISA tests (ACT4 RISC-V compliance; OpenVM/SP1/ZisK:
                             Standard ISA through ere, Full ISA noere; BACKEND=noere
-                            builds and runs both suites locally)
+                            builds and runs both suites locally), and the misaligned
+                            suite (execute only)
   eth-act-standards-tests [zkvm ...]
                             Run the eth-act standards tests (I/O, accelerators,
                             memory operations; zisk, sp1, openvm; through ere;

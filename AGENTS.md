@@ -12,6 +12,7 @@ src/                    # Scripts: build.sh, run-isa-tests.sh, run-eth-act-stand
 src/runner/             # Host-side test runner (Rust) for both suites
 src/shared/             # Shared utilities (patch_elfs.py)
 tests/eth-act-standards/ # eth-act standards tests: C guests for the I/O, accelerator and memory interfaces
+tests/instruction-address-misaligned/ # misaligned suite (act4-misaligned, part of ./run isa-tests): misaligned jumps
 site/                   # Dashboard (GitHub Pages)
 results/history/        # Historical pass/fail tracking (tracked)
 out/                    # Local outputs (not tracked): bin/ binaries, <zkvm>/ ELFs and logs, commits/, deps/
@@ -52,6 +53,10 @@ the noere path, execute only (`./run build <zkvm>` first).
   branches. Noere results go to `results/history/<zkvm>-act4-*.json`. For zkVMs that run
   through ere, the site shows only the noere Full ISA results.
   LambdaVM runs only on the noere path.
+- The misaligned suite (`act4-misaligned`, `tests/instruction-address-misaligned/`) runs
+  execute only, on the ere path for OpenVM, SP1 and ZisK and on the noere path for all four:
+  `results/history/<zkvm>-ere-act4-misaligned.json` and `<zkvm>-act4-misaligned.json`. The
+  site does not show it.
 
 ## Adding a New ZKVM
 

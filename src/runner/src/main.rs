@@ -9,8 +9,8 @@ use runner::runner::{self as suite, Suite};
 /// Test runner for RISC-V ZK-VMs: the ACT4 ISA tests and the eth-act
 /// standards tests.
 ///
-/// Every ELF may have `<stem>.input`, `<stem>.expected` and `<stem>.outcome`
-/// files next to it (see the `io_and_expected_failures` module).
+/// Every ELF may have `<stem>.input`, `<stem>.expected`, `<stem>.outcome` and
+/// `<stem>.control` files next to it (see the `io_and_expected_failures` module).
 ///
 /// Exit status: 0 when every test passed, 1 when a test failed, 2 on a usage
 /// error or when the ELF directory holds no ELFs, 3 when a test could not run
@@ -127,11 +127,12 @@ fn main() {
             eprintln!("error: {e:#}");
             process::exit(2);
         });
-        let runs = suite::run_elfs(&elfs, 1, |elf| {
+        let mut runs = suite::run_elfs(&elfs, 1, |elf| {
             suite::run_one_with(&cli.zkvm, suite_kind, elf, |elf, vectors| {
                 ere.run_elf(elf, mode, vectors, std::time::Instant::now())
             })
         });
+        suite::apply_controls(&mut runs);
         let label = cli.label.as_deref().unwrap_or(&cli.suite);
         report(&cli, &runs, || ere.finish(&cli.output_dir, label, &provenance));
         return;
@@ -161,7 +162,8 @@ fn main() {
         }
     });
 
-    let runs = suite::run_tests(&*zkvm, suite_kind, &elfs, jobs, mode);
+    let mut runs = suite::run_tests(&*zkvm, suite_kind, &elfs, jobs, mode);
+    suite::apply_controls(&mut runs);
     report(&cli, &runs, || Ok(()));
 }
 
