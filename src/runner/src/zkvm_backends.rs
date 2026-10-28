@@ -30,9 +30,12 @@ pub trait Zkvm: Sync {
     fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution;
 
     /// Prove the ELF, and verify the proof with `verify`. The runner calls
-    /// this only after an execution that passed. `output` is that execution's
-    /// public output; a backend that reads the proof's public values checks
-    /// them against it (OpenVM's standards executor). An error is a runner error.
+    /// this after an execution that passed, and after any execution of a test
+    /// that expects an abnormal termination, except a host error. `output` is
+    /// the execution's public output; a backend that reads the proof's public
+    /// values checks them against it (OpenVM's standards executor). The
+    /// verification accepts only a proof of a successful execution (see
+    /// `Proof::verified`). An error is a runner error.
     fn prove(&self, elf_path: &Path, input: Option<&[u8]>, output: Option<&[u8]>, verify: bool)
         -> anyhow::Result<Proof>;
 }
@@ -194,7 +197,10 @@ pub struct Proof {
     pub duration: Duration,
     pub written: bool,
     pub proved: bool,
-    /// `None`: not verified.
+    /// Whether the verifier accepted the proof as a proof of a successful
+    /// execution (exit code 0). Under a Type 2 verifier (Termination Semantics
+    /// standard), a proof of a failed execution verifies only with its own exit
+    /// code, so it gives `false` here. `None`: not verified.
     pub verified: Option<bool>,
 }
 
@@ -218,9 +224,11 @@ pub struct RunResult {
     pub duration: Duration,
     pub prove_duration: Option<Duration>,
     pub proof_written: bool,
-    /// "success", "failed", or None (not attempted).
+    /// "success", "failed", "refused" (no proof of an expected failure), or
+    /// None (not attempted).
     pub prove_status: Option<String>,
-    /// "success", "failed", or None (not attempted).
+    /// "success", "failed", "rejected" (the proof of an expected failure does
+    /// not verify), or None (not attempted).
     pub verify_status: Option<String>,
     pub termination: Termination,
     /// Why the test failed, when the backend reports it.
@@ -261,6 +269,19 @@ impl RunResult {
             proof_written: proof.written,
             prove_status: Some(status(proof.proved)),
             verify_status: proof.verified.map(status),
+            ..self
+        }
+    }
+
+    /// Add the result of proving a test that expects an abnormal termination: a
+    /// prover that gives no proof is `refused`, and a verifier that rejects the
+    /// proof `rejected`.
+    pub fn with_failure_proof(self, proof: Proof) -> Self {
+        RunResult {
+            prove_duration: Some(proof.duration),
+            proof_written: proof.written,
+            prove_status: Some(if proof.proved { "success" } else { "refused" }.to_owned()),
+            verify_status: proof.verified.map(|ok| if ok { "success" } else { "rejected" }.to_owned()),
             ..self
         }
     }
@@ -425,10 +446,15 @@ fn runner_error(elf_path: &Path, e: anyhow::Error) -> Execution {
 }
 
 /// Zisk proving via `cargo-zisk prove [--verify-proofs]`, after an execution
-/// that passed (`run_zisk`):
+/// (`run_zisk`; see `Zkvm::prove`):
 /// `cargo-zisk prove --elf <path> [-i <input>] -o <file> [--verify-proof] [--gpu]`
 ///
 /// The input file has the framing that `ziskemu -i` reads (`zisk_frame_input`).
+///
+/// `--verify-proof` checks the proof against the program's verifying key. A
+/// ZisK proof has no exit status (ZisK >= 1.2 ignores `a0` at the exit ecall),
+/// so a proof that verifies claims a complete execution, and the runner counts
+/// it as a proof of a successful execution.
 ///
 /// As of zisk v0.17.0, `-o/--output` is a file path (not a directory) and proofs
 /// are aggregated by default (VadcopFinal). In v1.0.0 the Rust emulator became the
@@ -613,12 +639,16 @@ fn run_sp1(executor: &Path, elf_path: &Path) -> Execution {
     inner().unwrap_or_else(|e| runner_error(elf_path, e))
 }
 
-/// SP1 GPU prove+verify via the `sp1-perf` binary, after an execution that
-/// passed (`run_sp1`): `sp1-perf --program <elf> --stdin <stdin> --mode cuda`
+/// SP1 GPU prove+verify via the `sp1-perf` binary, after an execution
+/// (`run_sp1`; see `Zkvm::prove`): `sp1-perf --program <elf> --stdin <stdin> --mode cuda`
 /// — executes, generates a core proof, and verifies it in one process (exit 0 =
 /// prove and verify both succeeded). SP1 always verifies after proving, so prove
 /// vs verify failure is distinguished by parsing the output: a `VerificationError`
 /// means proving succeeded but verification failed.
+///
+/// SP1's verifier takes an expected exit code (Type 2), and `sp1-perf` gives it
+/// none, which means success (`verify_proof` in sp1-sdk): a proof of a guest
+/// that exits with another code fails verification ("Unexpected exit code").
 ///
 /// `stdin` holds the test input (see `write_sp1_stdin`). `--mode cuda` spawns the host-native
 /// `sp1-gpu-server`; see prove_zisk for the analogous host-GPU serialization
@@ -910,12 +940,16 @@ fn run_openvm(binary: &Path, elf_path: &Path) -> Execution {
 /// the GPU. We serialize GPU work (the runner defaults prove/full to one job) and wait
 /// for the GPU to drain between tests, killing any stuck process after a failed prove —
 /// mirroring prove_zisk's GPU hygiene. `run_openvm` runs step 1; this function
-/// runs steps 2 and 3 after an execution that passed.
+/// runs steps 2 and 3 after it (see `Zkvm::prove`).
 ///
 /// The eth-act standards executor takes the test input instead:
 /// `<executor> prove <elf> <input> <proof>` and
 /// `<executor> verify <elf> <proof> [<public-values>]`, which also checks that
 /// the proof is of the ELF and proves `output`.
+///
+/// Both verify with OpenVM's `verify_app_proof`, which requires exit code 0 in
+/// the last segment (`verify_segments`): a proof of a failed execution does not
+/// verify (Type 1).
 fn prove_openvm(
     executor: &Executor,
     elf_path: &Path,
@@ -1434,6 +1468,19 @@ mod tests {
         let mut expected = vec![1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, b'a', b'b'];
         expected.extend_from_slice(&[0u8; 16]);
         assert_eq!(sp1_stdin(Some(b"ab")), expected);
+    }
+
+    /// SP1's verifier is Type 2. `sp1-perf` verifies a proof as a successful
+    /// execution, so a proof of a guest that exits with code 1 does not verify.
+    #[test]
+    fn sp1_proof_of_a_failure_does_not_verify() {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let panic = "called `Result::unwrap()` on an `Err` value: VerificationError(UnexpectedExitCode(1))";
+        let sp1_perf = fake(dir.path(), "sp1-perf", &format!("echo '{panic}' >&2; exit 101"));
+        let proof = prove_sp1(&sp1_perf, &dir.path().join("t.elf"), None, true, false).unwrap();
+        assert!(proof.proved);
+        assert_eq!(proof.verified, Some(false));
     }
 
     #[test]
