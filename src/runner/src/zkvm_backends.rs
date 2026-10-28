@@ -1951,6 +1951,19 @@ mod tests {
             Some("emulator error (exit 101): Mem::write_silent() invalid addr=0=0 write section start=a0000000 end=c0000000")
         );
 
+        // A load from the null region (ZisK v1.3.0-alpha).
+        let r = ziskemu(
+            "echo \"thread 'main' (7) panicked at core/src/mem.rs:391:13:\" >&2
+             echo 'Mem::read() section not found for addr: 0=0 with width: 1' >&2
+             exit 101",
+            None,
+        );
+        assert_eq!(r.termination, failure(None));
+        assert_eq!(
+            r.detail.as_deref(),
+            Some("emulator error (exit 101): Mem::read() section not found for addr: 0=0 with width: 1")
+        );
+
         let r = ziskemu(
             "echo \"thread 'main' panicked at core/src/zisk_rom.rs:372:21:\" >&2
              echo 'ZiskRom::get_instruction() pc=0x80001BC0 (0) is out of range rom_bios_instructions' >&2
