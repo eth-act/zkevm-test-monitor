@@ -198,6 +198,14 @@ The `layout/` tests do not check the standard's `libc` clause ("the linker scrip
 symbols that the `libc` implementation depends upon"): the standard names no C library, and
 ACT links the guests without one.
 
+`guard-layout` checks two rules of the null region: it "must not be mapped to readable or writable
+memory", and it "must not be used by the zkVM runtime, linker scripts, or any other system
+component". After ACT links the other guests, `tools/check_guard_layout.py` reads each ELF. An ELF fails when a `PT_LOAD` segment or
+an allocated section of non-zero size overlaps the region, or when it defines the standard heap
+symbols `_heap_start` and `_heap_end` and the heap overlaps the region. The script writes
+`guard-layout` as a program that passes, or that fails through `print_error()` with the first
+violations (they are also in the build log). A second ACT run builds it.
+
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
 
