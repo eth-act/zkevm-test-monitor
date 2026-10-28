@@ -1084,7 +1084,9 @@ fn zisk_emulation_error(stderr: &str) -> bool {
 /// stderr. Only complete fault records count:
 /// - exit 101 with a Rust panic in `core/src/mem.rs` whose message is a
 ///   `Mem::... invalid addr` record (a memory access outside the guest's
-///   sections), or in `core/src/zisk_rom.rs` whose message is a
+///   sections) or a `Mem::read() section not found for addr` record (a load
+///   from an address without readable data, such as an execute-only
+///   segment), or in `core/src/zisk_rom.rs` whose message is a
 ///   `ZiskRom::get_instruction() pc=... is out of range` record (a jump
 ///   outside the program);
 /// - exit 0 with an "Emu::...() finished with error" line.
@@ -1103,7 +1105,7 @@ fn zisk_guest_fault(exit_code: Option<i32>, stderr: &str) -> bool {
                 let (header, message) = (pair[0], pair[1]);
                 (header.contains(" panicked at core/src/mem.rs:")
                     && message.starts_with("Mem::")
-                    && message.contains(" invalid addr"))
+                    && (message.contains(" invalid addr") || message.contains(" section not found for addr")))
                     || (header.contains(" panicked at core/src/zisk_rom.rs:")
                         && message.starts_with("ZiskRom::get_instruction() pc=")
                         && message.contains(" is out of range"))
@@ -1611,6 +1613,15 @@ mod tests {
         let r = ziskemu(
             "echo \"thread 'main' panicked at core/src/zisk_rom.rs:372:21:\" >&2
              echo 'ZiskRom::get_instruction() pc=0x80001BC0 (0) is out of range rom_bios_instructions' >&2
+             exit 101",
+            None,
+        );
+        assert_eq!(r.termination, failure(None));
+
+        // A load from an execute-only segment (no readable section there).
+        let r = ziskemu(
+            "echo \"thread 'main' (7) panicked at core/src/mem.rs:391:13:\" >&2
+             echo 'Mem::read() section not found for addr: 2147494556=80002a9c with width: 4' >&2
              exit 101",
             None,
         );
