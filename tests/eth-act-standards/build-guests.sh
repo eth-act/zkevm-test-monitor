@@ -194,7 +194,7 @@ done
 # guard-stack-* guests fail through print_error() (guard/guard.h), so they are
 # built without their expected abnormal termination.
 if [ "$STACK_BOTTOM" = none ]; then
-  echo "note: the platform declares no stack bottom, so the guard-stack-* tests fail"
+  echo "note: the platform declares no stack bottom, so the guard-stack-* tests and guard-layout fail"
   rm "$TESTS/rv64i/guard"/guard-stack-*.outcome
 fi
 
@@ -226,10 +226,11 @@ run_act
 ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
 
 # guard-layout checks the memory map of every linked guest against the null
-# pointer trap region. tools/check_guard_layout.py writes it as a guest that
-# passes, or fails with the violations. A second ACT run builds it; ACT's
-# build cache keeps the other ELFs.
-python3 "$HERE/tools/check_guard_layout.py" "$TESTS/rv64i/guard/guard-layout.c" "$ELF_ROOT"/*/*.elf
+# pointer trap region and the stack guard region. tools/check_guard_layout.py
+# writes it as a guest that passes, or fails with the violations. A second ACT
+# run builds it; ACT's build cache keeps the other ELFs.
+python3 "$HERE/tools/check_guard_layout.py" --stack-bottom "$STACK_BOTTOM" \
+  "$TESTS/rv64i/guard/guard-layout.c" "$ELF_ROOT"/*/*.elf
 run_act
 
 # Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition

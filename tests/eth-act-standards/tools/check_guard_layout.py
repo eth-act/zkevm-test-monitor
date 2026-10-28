@@ -1,27 +1,38 @@
 #!/usr/bin/env python3
 """Check the memory map of the linked guests against the guard region standard.
 
-Usage: check_guard_layout.py <out.c> <elf>...
+Usage: check_guard_layout.py --stack-bottom <symbol|none> <out.c> <elf>...
 
 The memory-safety-guard-regions standard says that the null pointer trap
 region (0x0000 through 0x0FFF) "must not be mapped to readable or writable
 memory" and "must not be used by the zkVM runtime, linker scripts, or any
-other system component". Each ELF fails the check when:
-- a PT_LOAD segment with a non-zero memory size overlaps the region;
-- an allocated section (SHF_ALLOC) with a non-zero size overlaps the region;
+other system component". It also says that the stack guard region, at least
+4 kB "immediately below the bottom of the stack", "must not be mapped to
+readable or writable memory".
+
+--stack-bottom is the vendor linker symbol of the stack bottom, the lowest
+stack byte (symbols.stack_bottom in zkvms/<zkvm>/standards/layout.yaml). With
+none, the platform declares no stack bottom, so it has no stack guard region,
+and the check fails. Each ELF fails the check when:
+- a PT_LOAD segment with a non-zero memory size overlaps the null region or
+  the 4 kB below the stack bottom;
+- an allocated section (SHF_ALLOC) with a non-zero size overlaps one of them;
 - it defines _heap_start and _heap_end (the heap symbols of the static
-  library standard), and the heap [_heap_start, _heap_end) overlaps the region.
+  library standard), and the heap [_heap_start, _heap_end) overlaps one of them;
+- it does not define the stack bottom symbol, or the stack bottom is in the
+  null region (the stack would use the region).
 
 Writes <out.c>, the guard-layout guest: it calls rvtest_pass() when every ELF
 passes, else print_error() with the first violations. It also prints the
 violations. Exits 0 in both cases.
 """
 
+import argparse
 import struct
-import sys
 from pathlib import Path
 
 NULL_REGION = (0x0, 0x1000)
+STACK_GUARD_SIZE = 0x1000
 MAX_SHOWN = 4
 
 PT_LOAD = 1
@@ -38,9 +49,11 @@ HEADER = """\
 /*
  * Written by tools/check_guard_layout.py from the memory map of the linked
  * guests: no segment, allocated section or heap of a guest overlaps the null
- * pointer trap region (memory-safety-guard-regions: "The region must not be
- * mapped to readable or writable memory. It must not be used by the zkVM
- * runtime, linker scripts, or any other system component.").
+ * pointer trap region or the 4 kB below the stack bottom
+ * (memory-safety-guard-regions: "The region must not be mapped to readable or
+ * writable memory. It must not be used by the zkVM runtime, linker scripts,
+ * or any other system component."; "It must not be mapped to readable or
+ * writable memory.").
  */
 #include "checks.h"
 
@@ -84,19 +97,31 @@ def overlaps(start, size, region):
     return size > 0 and start < region[1] and region[0] < start + size
 
 
-def violations(path):
+def violations(path, stack_bottom):
     segments, sections, symbols = read_elf(path)
     found = []
-    for vaddr, memsz in segments:
-        if overlaps(vaddr, memsz, NULL_REGION):
-            found.append(f"a PT_LOAD segment at {vaddr:#x} (size {memsz:#x}) overlaps the null region")
-    for name, addr, size in sections:
-        if overlaps(addr, size, NULL_REGION):
-            found.append(f"section {name} at {addr:#x} (size {size:#x}) overlaps the null region")
+    regions = [("the null region", NULL_REGION)]
+    if stack_bottom is not None:
+        if stack_bottom not in symbols:
+            found.append(f"no stack bottom symbol {stack_bottom}")
+        else:
+            bottom = symbols[stack_bottom]
+            if bottom < NULL_REGION[1]:
+                found.append(f"the stack bottom {stack_bottom} ({bottom:#x}) is in the null region")
+            guard = (bottom - STACK_GUARD_SIZE, bottom)
+            regions.append((f"the stack guard region [{guard[0]:#x}, {guard[1]:#x})", guard))
+    heap = None
     if "_heap_start" in symbols and "_heap_end" in symbols:
-        start, end = symbols["_heap_start"], symbols["_heap_end"]
-        if overlaps(start, end - start, NULL_REGION):
-            found.append(f"the heap [{start:#x}, {end:#x}) overlaps the null region")
+        heap = (symbols["_heap_start"], symbols["_heap_end"])
+    for what, region in regions:
+        for vaddr, memsz in segments:
+            if overlaps(vaddr, memsz, region):
+                found.append(f"a PT_LOAD segment at {vaddr:#x} (size {memsz:#x}) overlaps {what}")
+        for name, addr, size in sections:
+            if overlaps(addr, size, region):
+                found.append(f"section {name} at {addr:#x} (size {size:#x}) overlaps {what}")
+        if heap and overlaps(heap[0], heap[1] - heap[0], region):
+            found.append(f"the heap [{heap[0]:#x}, {heap[1]:#x}) overlaps {what}")
     return found
 
 
@@ -105,10 +130,14 @@ def c_string(text):
 
 
 def main():
-    if len(sys.argv) < 3:
-        sys.exit(__doc__)
-    out, elfs = Path(sys.argv[1]), sys.argv[2:]
-    found = [f"{Path(elf).name}: {v}" for elf in elfs for v in violations(elf)]
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--stack-bottom", required=True, help="the stack bottom symbol, or none")
+    parser.add_argument("out", type=Path, help="the guard-layout guest to write")
+    parser.add_argument("elfs", nargs="+", help="the linked guests")
+    args = parser.parse_args()
+    stack_bottom = None if args.stack_bottom == "none" else args.stack_bottom
+    found = [] if stack_bottom else ["the platform declares no stack bottom"]
+    found += [f"{Path(elf).name}: {v}" for elf in args.elfs for v in violations(elf, stack_bottom)]
     for line in found:
         print(f"guard-layout: {line}")
     if found:
@@ -118,7 +147,7 @@ def main():
         body = f"    print_error(\"%s\\n\", {c_string('; '.join(shown))});\n"
     else:
         body = "    rvtest_pass();\n"
-    out.write_text(HEADER + "int main(void) {\n" + body + "    return 0;\n}\n")
+    args.out.write_text(HEADER + "int main(void) {\n" + body + "    return 0;\n}\n")
 
 
 if __name__ == "__main__":
