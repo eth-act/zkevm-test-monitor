@@ -225,15 +225,23 @@ impl EreBackend {
         let zkvm = setup.map_err(|err| ("failed", err.context("setup")))?;
 
         let input = Input::new().with_stdin(vectors.input.clone().unwrap_or_default());
+        let expected_failure = matches!(vectors.outcome, io_and_expected_failures::Outcome::Fail { .. });
         let outcome = (|| {
             let started = Instant::now();
             let executed = zkvm.execute(&input);
             detail.execute_secs = Some(started.elapsed().as_secs_f64());
             result.termination = execution_termination(&executed);
+            // Prove a test that expects an abnormal termination whatever its execution
+            // gave, unless that was a host error: no proof of a failed execution may
+            // verify as a successful one (runner::apply_outcome).
+            if expected_failure && mode != Mode::Execute && result.termination != Termination::HostError {
+                prove_failure(&zkvm, &input, mode, detail, result)?;
+            }
             let (public_values, _) = executed.map_err(|err| ("failed", err))?;
             self.verdict(&public_values, vectors).map_err(|err| ("failed", err))?;
             result.passed = true;
-            if mode == Mode::Execute {
+            // An expected failure is proved above.
+            if mode == Mode::Execute || expected_failure {
                 return Ok(());
             }
 
@@ -347,6 +355,74 @@ fn execution_termination<T>(executed: &anyhow::Result<(PublicValues, T)>) -> Ter
     }
 }
 
+/// Proves a test that expects an abnormal termination, and in `Mode::Full`
+/// verifies the proof. A zkVM error from `prove` means that the prover gave no
+/// proof (`refused`), and one from `verify` that the verifier rejected the proof
+/// (`rejected`). Any other error (a timeout, or a Docker or transport error) is
+/// returned, as for a test that passed (`prove_failed`, `verify_failed`).
+///
+/// A proof that verifies counts as a proof of a successful execution
+/// (`Proof::verified`):
+/// - SP1: ere's prover refuses a proof whose exit code is not 0 (`SP1Sdk::prove`
+///   in ere-prover-sp1). ere's verifier does not check the exit code, so only a
+///   proof of a successful execution gets to it.
+/// - OpenVM: ere's verifier (`verify_vm_stark_proof_decoded`) requires exit
+///   code 0 (Type 1).
+/// - ZisK: the proof has no exit status (ZisK >= 1.2 ignores `a0` at the exit
+///   ecall), so a proof that verifies claims a complete execution.
+fn prove_failure(
+    zkvm: &DockerizedzkVM,
+    input: &Input,
+    mode: Mode,
+    detail: &mut TestDetail,
+    result: &mut RunResult,
+) -> Result<(), (&'static str, anyhow::Error)> {
+    let started = Instant::now();
+    let proved = zkvm.prove(input);
+    let secs = started.elapsed();
+    detail.prove_secs = Some(secs.as_secs_f64());
+    result.prove_duration = Some(secs);
+    let proof = match proved {
+        Ok((_, proof, _)) => proof,
+        Err(err) if is_zkvm_error(&err) => {
+            eprintln!("    {}: prove refused: {err:#}", detail.name);
+            result.prove_status = Some("refused".to_string());
+            return Ok(());
+        }
+        Err(err) => {
+            result.prove_status = Some("failed".to_string());
+            return Err(("prove_failed", err));
+        }
+    };
+    result.prove_status = Some("success".to_string());
+    result.proof_written = true;
+    if mode == Mode::Prove {
+        return Ok(());
+    }
+
+    let started = Instant::now();
+    let verified = zkvm.verify(&proof);
+    detail.verify_secs = Some(started.elapsed().as_secs_f64());
+    let status = match verified {
+        Ok(_) => "success",
+        Err(err) if is_zkvm_error(&err) => {
+            eprintln!("    {}: verify rejected: {err:#}", detail.name);
+            "rejected"
+        }
+        Err(err) => {
+            result.verify_status = Some("failed".to_string());
+            return Err(("verify_failed", err));
+        }
+    };
+    result.verify_status = Some(status.to_string());
+    Ok(())
+}
+
+/// Whether `err` comes from the zkVM, not from Docker or the transport.
+fn is_zkvm_error(err: &anyhow::Error) -> bool {
+    matches!(err.downcast_ref::<EreError>(), Some(EreError::zkVM(_)))
+}
+
 /// Sets `key` to `value` unless the user set it already.
 ///
 /// # Safety
@@ -406,6 +482,16 @@ mod tests {
         assert_eq!(execution_termination(&executed(Err(guest))), failure);
         let transport = anyhow!("RPC to zkVM server error");
         assert_eq!(execution_termination(&executed(Err(transport))), Termination::HostError);
+    }
+
+    /// Only a zkVM error from `prove` or `verify` refuses or rejects the proof
+    /// of an expected failure (`prove_failure`); a timeout or a transport error
+    /// does not.
+    #[test]
+    fn only_a_zkvm_error_refuses_or_rejects() {
+        assert!(is_zkvm_error(&EreError::zkVM("execution failed with exit code 1".to_owned()).into()));
+        assert!(!is_zkvm_error(&EreError::Timeout { timeout: PROVE }.into()));
+        assert!(!is_zkvm_error(&anyhow!("RPC to zkVM server error")));
     }
 
     fn backend(kind: &str, standards: bool) -> EreBackend {
