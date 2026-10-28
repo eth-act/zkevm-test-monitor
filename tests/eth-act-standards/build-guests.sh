@@ -190,6 +190,14 @@ for fn in $MEMOPS; do
   fi
 done
 
+# Without a stack bottom, the platform has no stack guard region to test: the
+# guard-stack-* guests fail through print_error() (guard/guard.h), so they are
+# built without their expected abnormal termination.
+if [ "$STACK_BOTTOM" = none ]; then
+  echo "note: the platform declares no stack bottom, so the guard-stack-* tests fail"
+  rm "$TESTS/rv64i/guard"/guard-stack-*.outcome
+fi
+
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
 # go-ethereum and execution-specs files (tools/accel_vector_sources.json) and
 # the extracted execution-specs pytest cases (tools/eest_pytest_vectors.json).

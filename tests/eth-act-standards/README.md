@@ -198,6 +198,20 @@ The `layout/` tests do not check the standard's `libc` clause ("the linker scrip
 symbols that the `libc` implementation depends upon"): the standard names no C library, and
 ACT links the guests without one.
 
+The `guard-stack-*` programs test the stack guard region: "A guard region of at least 4 kB must be
+placed immediately below the bottom of the stack", and any access to it must trigger abnormal
+termination. The stack bottom, the lowest stack byte, is a vendor linker symbol: the static
+library standard leaves stack symbols vendor-internal. `zkvms/<zkvm>/standards/layout.yaml` names
+it (`symbols.stack_bottom`), and `build-guests.sh` passes it to the guests as
+`GUARD_STACK_BOTTOM`. `guard-stack-lb-1`, `guard-stack-sb-1`, `guard-stack-lb-4096` and
+`guard-stack-sb-4096` access the highest and the lowest byte of the required 4 kB and expect
+`fail`. `guard-stack-bottom` loads and stores the stack bottom and must pass. With the `-1`
+programs, it shows that the guard region is "adjacent to the bottom of the stack with no gap
+between them". A platform with `stack_bottom: none` (SP1 and OpenVM) declares no stack bottom, so
+it has no stack guard region to test: there the `guard-stack-*` programs fail through
+`print_error()` ("the platform declares no stack bottom"), and `build-guests.sh` drops their
+`.outcome`.
+
 `guard-layout` checks two rules of the null region: it "must not be mapped to readable or writable
 memory", and it "must not be used by the zkVM runtime, linker scripts, or any other system
 component". After ACT links the other guests, `tools/check_guard_layout.py` reads each ELF. An ELF fails when a `PT_LOAD` segment or
