@@ -109,7 +109,8 @@ Commands:
                             builds and runs both suites locally)
   eth-act-standards-tests [zkvm ...]
                             Run the eth-act standards tests (I/O, accelerators,
-                            memory operations; zisk, sp1, openvm; through ere;
+                            memory operations, ELF loading; zisk, sp1, openvm;
+                            through ere;
                             BACKEND=noere runs this repository's executors and
                             provers, by default execute only)
   tests [zkvm ...]          Run both test suites
