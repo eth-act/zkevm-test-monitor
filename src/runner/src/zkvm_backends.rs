@@ -106,6 +106,9 @@ pub enum Termination {
     /// non-zero return from `main`, or an execution that the zkVM rejected.
     /// `code` is the error code when the zkVM reports it.
     Failure { code: Option<i32> },
+    /// The zkVM rejected the ELF, so the guest never ran: its loader did not
+    /// accept the file. Only a test that expects the rejection passes.
+    Rejected,
     /// The host could not run the guest to an outcome: a usage or I/O error,
     /// an executor killed by a signal, or a runner error. This is never a
     /// guest outcome, so it never passes a test.

@@ -168,7 +168,7 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
             }
         };
     }
-    apply_outcome(result, vectors.outcome)
+    apply_expected(result, vectors.outcome)
 }
 
 /// Run one ELF through a backend that runs its own stages (the ere backend,
@@ -191,7 +191,7 @@ pub fn run_one_with(
         return RunResult::host_error(start, None, format!("the {name} backend cannot feed .input or check .expected"));
     }
     let result = run(elf_path, &vectors);
-    apply_outcome(result, vectors.outcome)
+    apply_expected(result, vectors.outcome)
 }
 
 /// Judge an execution against the test's expected output. This is the one
@@ -209,7 +209,7 @@ pub fn run_one_with(
 pub fn judge(execution: Execution, expected: Option<&[u8]>, pass_output: bool, start: Instant) -> RunResult {
     let detail = match execution.termination {
         Termination::Success => output_mismatch(&execution, expected, pass_output),
-        Termination::Failure { .. } | Termination::HostError => execution.detail,
+        Termination::Failure { .. } | Termination::Rejected | Termination::HostError => execution.detail,
     };
     RunResult::executed(start, execution.exit_code, execution.termination, detail)
 }
@@ -229,6 +229,27 @@ fn output_mismatch(execution: &Execution, expected: Option<&[u8]>, pass_output: 
     }
 }
 
+/// Judge a result against the test's expected outcome: `reject` and
+/// `pass-or-fail` here, `pass`, `fail` and `fail <code>` in `apply_outcome`.
+///
+/// - `reject` passes only when the zkVM rejected the ELF. A guest that ran
+///   fails it, whatever its termination, and so does a host error.
+/// - `pass-or-fail` passes on an abnormal termination. Any other result is
+///   judged as for `pass`.
+pub fn apply_expected(result: RunResult, outcome: Outcome) -> RunResult {
+    let detail = match (outcome, result.termination) {
+        (Outcome::Reject, Termination::Rejected) => None,
+        (Outcome::Reject, Termination::HostError) => return RunResult { passed: false, ..result },
+        (Outcome::Reject, Termination::Success | Termination::Failure { .. }) => {
+            let how = if result.termination == Termination::Success { "finished normally" } else { "terminated abnormally" };
+            Some(format!("not rejected: the zkVM loaded the ELF, and the guest {how}"))
+        }
+        (Outcome::PassOrFail, Termination::Failure { .. }) => None,
+        _ => return apply_outcome(result, outcome),
+    };
+    RunResult { passed: detail.is_none(), detail, ..result }
+}
+
 /// Judge a result against the expected outcome `fail` or `fail <code>`.
 ///
 /// An abnormal termination passes when no code is expected, or when the zkVM
@@ -241,7 +262,7 @@ pub fn apply_outcome(result: RunResult, outcome: Outcome) -> RunResult {
         return result;
     };
     let detail = match result.termination {
-        Termination::HostError => return RunResult { passed: false, ..result },
+        Termination::HostError | Termination::Rejected => return RunResult { passed: false, ..result },
         Termination::Success => {
             let what = if expected.is_some() { "did not terminate abnormally" } else { "did not panic" };
             Some(match &result.detail {
@@ -435,6 +456,48 @@ mod tests {
         let r = apply_outcome(result(failure(None), Some("emulator error")), FAIL_7);
         assert!(!r.passed);
         assert!(r.detail.as_deref().unwrap().starts_with("error code not reported: expected 7"));
+    }
+
+    #[test]
+    fn expected_reject_needs_a_rejection() {
+        let r = apply_expected(result(Termination::Rejected, Some("the zkVM rejected the ELF: bad magic")), Outcome::Reject);
+        assert!(r.passed);
+        assert_eq!(r.detail, None);
+
+        let r = apply_expected(result(Termination::Success, None), Outcome::Reject);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("not rejected: the zkVM loaded the ELF, and the guest finished normally"));
+        let r = apply_expected(result(failure(Some(1)), Some("guest terminated abnormally")), Outcome::Reject);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("not rejected: the zkVM loaded the ELF, and the guest terminated abnormally"));
+
+        let r = apply_expected(result(Termination::HostError, Some("runner error: x")), Outcome::Reject);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("runner error: x"));
+    }
+
+    #[test]
+    fn a_rejection_fails_the_other_outcomes() {
+        for outcome in [Outcome::Pass, FAIL, FAIL_7, Outcome::PassOrFail] {
+            let r = apply_expected(result(Termination::Rejected, Some("the zkVM rejected the ELF: x")), outcome);
+            assert!(!r.passed, "{outcome:?}");
+            assert_eq!(r.detail.as_deref(), Some("the zkVM rejected the ELF: x"), "{outcome:?}");
+        }
+    }
+
+    #[test]
+    fn pass_or_fail_accepts_a_pass_or_an_abnormal_termination() {
+        assert!(apply_expected(result(Termination::Success, None), Outcome::PassOrFail).passed);
+        for code in [None, Some(1)] {
+            let r = apply_expected(result(failure(code), Some("guest terminated abnormally")), Outcome::PassOrFail);
+            assert!(r.passed, "{code:?}");
+            assert_eq!(r.detail, None);
+        }
+
+        let r = apply_expected(result(Termination::Success, Some("output mismatch")), Outcome::PassOrFail);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("output mismatch"));
+        assert!(!apply_expected(result(Termination::HostError, Some("runner error: x")), Outcome::PassOrFail).passed);
     }
 
     #[test]
