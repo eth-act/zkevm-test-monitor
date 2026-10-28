@@ -83,7 +83,8 @@ flowchart LR
 - The suite runs for ZisK, SP1 and OpenVM through ere by default: on the official ere image of
   the revision that `src/runner/Cargo.toml` pins, with execute, prove and verify
   (`ACT4_MODE`, default `full`; prove and full need an NVIDIA GPU). A test that expects an
-  abnormal termination has no valid proof, so it is only executed. `BACKEND=noere` runs the
+  abnormal termination is proved too, and fails if its proof verifies as a successful
+  execution. `BACKEND=noere` runs the
   suite on this repository's executors and provers instead, so it can test any zkVM commit or
   fork (`ACT4_MODE` defaults to `execute` there; `prove` and `full` prove on the GPU). `TESTS`
   runs only some tests (see below). Each standards test image pins its own

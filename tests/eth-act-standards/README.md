@@ -16,8 +16,9 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
-termination (`.outcome`) has no valid proof, so it is only executed, and the dashboard counts
-proving and verification over the other tests. `BACKEND=noere` runs the suite without ere, on
+termination (`.outcome`) is proved too, and no proof of it may verify as a successful execution
+(see "Expected abnormal termination" below). The dashboard counts proving and verification over
+the other tests. `BACKEND=noere` runs the suite without ere, on
 the host executors and provers below; there `ACT4_MODE` defaults to `execute` (see Running).
 `TESTS` runs only some tests (see Selecting tests).
 
@@ -73,6 +74,26 @@ The runner judges a test in one of three ways:
   - a normal finish fails with `did not panic` (for `fail`) or `did not terminate abnormally`
     (for `fail <code>`);
   - a host error fails.
+
+  In `prove` and `full` mode the runner also proves the execution, unless it was a host error.
+  The [termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics)
+  require that no proof of a failed execution verifies as a successful one. So an abnormal
+  termination whose proof verifies fails with `a proof of the failed execution verifies`. A
+  prover that gives no proof (`prove=refused`) or a verifier that rejects the proof
+  (`verify=rejected`) leaves the verdict of the execution. A refusal shows only that this prover
+  declined: the test can find an accepted proof of a failed execution, but it cannot show that
+  none exists. A normal finish is proved too, and fails as above. The verification accepts only
+  a proof of a successful execution:
+  - SP1: the verifier takes an expected exit code (Type 2 in the standard). `sp1-perf` (noere)
+    verifies with exit code 0, so a proof of a failure is `rejected`. ere's prover refuses a
+    proof whose exit code is not 0, and ere's verifier does not check the exit code.
+  - OpenVM: both verifiers require exit code 0 (Type 1).
+  - ZisK: a proof has no exit status, because ZisK 1.2 and later ignore `a0`. The runner counts
+    every ZisK proof that verifies as a proof of a successful execution.
+
+  On the noere path, a prover that fails (after one retry) without a verification error counts
+  as `refused`, so a prover crash also looks like a refusal. On the ere path, only a zkVM error
+  counts. A timeout or a Docker error gives `prove=failed`, as for a test that passed.
 
   The `accel-null-*` programs expect `fail`: the standard says that a function called with a
   NULL pointer SHOULD panic. If the call returns, the program prints the status.
@@ -183,7 +204,7 @@ The results go to `out/<zkvm>/results-eth-act-standards.json` and
 
 `BACKEND=noere` builds each zkVM's executor in this repository's containers, so it can test any
 commit or fork. `ACT4_MODE=prove` or `full` proves (and in `full` verifies) every test that passes
-execution, on an NVIDIA GPU:
+execution and every test that expects an abnormal termination (see above), on an NVIDIA GPU:
 
 - OpenVM: the standards executor proves and verifies, built with OpenVM's GPU prover. `verify`
   also checks that the proof is of the test's ELF (its app exe commit) and proves the execution's
