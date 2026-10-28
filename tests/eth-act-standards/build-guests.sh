@@ -15,7 +15,8 @@
 # Every <group>/<name>.c (group: io, accelerators, memory, elf) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
-# writes the rest of the I/O vectors.
+# writes the rest of the I/O vectors. elf/mutate_elf.py writes the crafted ELF
+# variants of the elf group.
 #
 # /platform/elf.env sets the zkVM's ELF loading parameters for the elf group:
 # ELF_EXEC_PERM, the flags of an executable segment that the zkVM accepts:
@@ -215,5 +216,7 @@ done
 if [ "$ELF_EXEC_PERM" = x ]; then
   echo fail > "$OUT/elf/elf-text-read.outcome"
 fi
+# The crafted variants of elf-image and elf-tail.
+python3 "$HERE/elf/mutate_elf.py" "$OUT/elf"
 
 echo "Built $count eth-act standards test ELFs for $ZKVM in $OUT"
