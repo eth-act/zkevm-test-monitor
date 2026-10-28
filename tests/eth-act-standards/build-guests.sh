@@ -16,7 +16,8 @@
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
 # writes the rest of the I/O vectors. elf/mutate_elf.py writes the crafted ELF
-# variants of the elf group.
+# variants of the elf group. For a PF_X zkVM, elf/static_checks.py checks the
+# guests and writes <out-dir>/elf/elf-static.json.
 #
 # /platform/elf.env sets the zkVM's ELF loading parameters for the elf group:
 # - ELF_EXEC_PERM: the flags of an executable segment that the zkVM accepts,
@@ -221,6 +222,12 @@ done
 # abnormally.
 if [ "$ELF_EXEC_PERM" = x ]; then
   echo fail > "$OUT/elf/elf-text-read.outcome"
+fi
+# A PF_X zkVM's linker script keeps read-only data out of the executable
+# segment, and the linked ELFs have to show it: two static checks of every guest
+# above (not of the crafted variants below). The run script adds the results.
+if [ "$ELF_EXEC_PERM" = x ]; then
+  python3 -B "$HERE/elf/static_checks.py" "$OUT/elf/elf-static.json" "$OUT"/*/*.elf
 fi
 # The crafted variants of elf-image and elf-tail.
 python3 "$HERE/elf/mutate_elf.py" "$OUT/elf" "$ELF_EXEC_PERM" "$ELF_OUTSIDE_ADDR" "$ELF_BOOT_ADDR"

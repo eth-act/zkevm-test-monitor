@@ -297,10 +297,26 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
   exit 1
 fi
 
+# The static checks of the elf group (PF_X zkVMs, tests/eth-act-standards/elf/
+# static_checks.py) check the guest build, not a run: add them to the results as
+# tests of the elf group.
+STATIC_CHECKS="$ELF_DIR/elf/elf-static.json"
+STATIC_NAMES="[]"
+if [ -f "$STATIC_CHECKS" ]; then
+  jq --slurpfile checks "$STATIC_CHECKS" '($checks[0] | to_entries) as $c
+    | .total += ($c | length)
+    | .passed += [$c[] | select(.value.passed) | .key]
+    | .failed += [$c[] | select(.value.passed | not) | .key]
+    | .groups += ($c | map({key, value: "elf"}) | from_entries)
+    | .details += ($c | map(select(.value.passed | not) | {key, value: .value.detail}) | from_entries)' \
+    "$RESULTS_FILE" > "$RESULTS_FILE.tmp" && mv "$RESULTS_FILE.tmp" "$RESULTS_FILE"
+  STATIC_NAMES=$(jq -c 'keys' "$STATIC_CHECKS")
+fi
+
 # Tests that expect an abnormal termination or a rejection (.outcome) have no
-# valid proof, so the dashboard counts proving and verification over the other
-# tests.
-EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
+# valid proof, and the static checks have no proof, so the dashboard counts
+# proving and verification over the other tests.
+EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc ". + $STATIC_NAMES")
 
 mkdir -p results/history
 HISTORY_FILE="results/history/${ZKVM}-eth-act-standards.json"
