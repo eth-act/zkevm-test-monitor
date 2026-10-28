@@ -154,10 +154,20 @@ done
 UV_CACHE_DIR=/cache/uv uv run --no-project --with pycryptodome --with ecdsa \
   "$HERE/tools/gen_accel_vectors.py" --out "$TESTS/rv64i/accelerators/vectors" --cache /cache/vectors
 
-(cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
-  --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
+run_act() {
+  (cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
+    --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
+}
+run_act
 
 ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
+
+# guard-layout checks the memory map of every linked guest against the null
+# pointer trap region. tools/check_guard_layout.py writes it as a guest that
+# passes, or fails with the violations. A second ACT run builds it; ACT's
+# build cache keeps the other ELFs.
+python3 "$HERE/tools/check_guard_layout.py" "$TESTS/rv64i/guard/guard-layout.c" "$ELF_ROOT"/*/*.elf
+run_act
 
 # Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition
 # (pass) or to the guest's decoy_<fn> (fail). Any other weak definition, such
