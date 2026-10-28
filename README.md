@@ -3,7 +3,7 @@
 Compliance testing for zkVMs with two test suites:
 
 - **ISA tests:** RISC-V ISA compliance, with the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
-- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
+- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations, memory layout), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
 
 **Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 
@@ -60,7 +60,7 @@ flowchart LR
         exe["zkVM executor<br/>(same version)"]
     end
     subgraph act["Docker: zkvms/&lt;zkvm&gt;/act4.Dockerfile"]
-        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(eth-act/zkevm-standards, pinned in config.json)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
+        src["tests/eth-act-standards/{io,accelerators,memory,layout}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(eth-act/zkevm-standards, pinned in config.json)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
         build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
     end
     vendor --> build
@@ -133,7 +133,7 @@ SP1_CUDA_LIB=<dir> ...                  # CUDA 12 runtime for SP1's GPU prover (
 ```
 
 `TESTS` holds words separated by spaces or commas. A word that is a test name (`io-echo`) or a
-group (`io`, `accelerators`, `memory`) selects exactly that; any other word is a glob
+group (`io`, `accelerators`, `memory`, `layout`) selects exactly that; any other word is a glob
 (`io-write-*`) or a substring (`bls`) of the test names. A word that selects no test stops the
 run. It applies to the eth-act standards tests only.
 

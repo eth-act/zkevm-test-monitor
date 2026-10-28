@@ -1,0 +1,25 @@
+# OpenVM memory layout for the eth-act standards layout/ tests (memory-layout-restrictions
+# standard). From the OpenVM source at v2.1.0-preview (538c5488, the commit that
+# eth-act/ere pins, see zkvms/openvm/standards/Dockerfile); paths are in
+# github.com/openvm-org/openvm.
+
+# The vendor's linker script in its repository, or none. OpenVM's guest build
+# links with the linker's default script and -Ttext (see link.ld).
+linker_script: none
+
+# Memory that the zkVM defines, from its source (not from the linker script).
+# start is the first byte, end is one past the last byte.
+regions:
+  - name: memory
+    start: 0x400
+    end: 0x20000000
+    source: crates/toolchain/platform/src/memory.rs:1-4,13-15 (GUEST_MIN_MEM, GUEST_MAX_MEM); extensions/riscv/circuit/src/adapters/mod.rs:295 (the executor rejects addresses of MEM_SIZE or more)
+
+# The vendor's linker symbols for the heap and the stack, or none. heap_start and
+# stack_bottom are the lowest byte; heap_end and stack_top are one past the
+# highest byte.
+symbols:
+  heap_start: _end     # crates/toolchain/platform/src/memory.rs:33,45: the allocator starts at _end (from the linker's default script)
+  heap_end: none       # crates/toolchain/platform/src/memory.rs:58: the allocator ends at the constant GUEST_MAX_MEM
+  stack_bottom: none
+  stack_top: none      # crates/toolchain/openvm/src/lib.rs:128: _start sets sp to the constant STACK_TOP (0x200400)

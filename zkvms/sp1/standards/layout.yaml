@@ -1,0 +1,23 @@
+# SP1 memory layout for the eth-act standards layout/ tests (memory-layout-restrictions
+# standard). From the SP1 source at v6.6.0 (f5a5bbf6, the commit that
+# zkvms/sp1/standards/Dockerfile pins); paths are in github.com/succinctlabs/sp1.
+
+# The vendor's linker script in its repository, or none.
+linker_script: zkevm/zkvm.ld
+
+# Memory that the zkVM defines, from its source (not from the linker script).
+# start is the first byte, end is one past the last byte.
+regions:
+  - name: memory
+    start: 0x10000
+    end: 0x10000000000
+    source: crates/core/machine/src/operations/address.rs:84-87 (the prover requires addresses of 2^16 or more); crates/primitives/src/consts.rs:11 and crates/core/runner/src/native.rs:73 (the executor has 2^40 bytes of memory)
+
+# The vendor's linker symbols for the heap and the stack, or none. heap_start and
+# stack_bottom are the lowest byte; heap_end and stack_top are one past the
+# highest byte.
+symbols:
+  heap_start: _heap_start    # zkevm/zkvm.ld:107
+  heap_end: _heap_end        # zkevm/zkvm.ld:108
+  stack_bottom: none         # zkevm/zkvm.ld:84-88: the stack grows down from __stack_top toward 0
+  stack_top: __stack_top     # zkevm/zkvm.ld:88
