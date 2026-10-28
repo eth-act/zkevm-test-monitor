@@ -11,9 +11,25 @@
  * data.
  *
  * elf-image is the base ELF of most variants that mutate_elf.py writes. It
- * finds elf_image_data by its symbol.
+ * finds elf_image_data and elf_image_pad by their symbols. The entry point of
+ * reject-entry-misaligned is 2 bytes into the `nop` of elf_image_pad, so a
+ * zkVM that runs it meets the halfword 0x0000, an illegal instruction.
  */
 #include "checks.h"
+
+void elf_image_pad(void);
+
+__asm__(
+    "    .pushsection .text.elf_image_pad, \"ax\", @progbits\n"
+    "    .globl elf_image_pad\n"
+    "    .p2align 2\n"
+    "    .option push\n"
+    "    .option norvc\n"
+    "elf_image_pad:\n"
+    "    nop\n"
+    "    ret\n"
+    "    .option pop\n"
+    "    .popsection\n");
 
 #define IMAGE_SIZE 64
 #define BSS_SIZE 4096
@@ -32,6 +48,7 @@ const uint8_t elf_image_rodata[IMAGE_SIZE] = {R16(0), R16(16), R16(32), R16(48)}
 uint8_t elf_image_bss[BSS_SIZE];
 
 int main(void) {
+    elf_image_pad();
     /* Volatile loads, so the compiler cannot use the initializers instead. */
     const volatile uint8_t *data = elf_image_data;
     const volatile uint8_t *rodata = elf_image_rodata;

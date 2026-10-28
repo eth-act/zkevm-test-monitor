@@ -19,8 +19,12 @@
 # variants of the elf group.
 #
 # /platform/elf.env sets the zkVM's ELF loading parameters for the elf group:
-# ELF_EXEC_PERM, the flags of an executable segment that the zkVM accepts:
-# x (PF_X alone) or rx (PF_X | PF_R).
+# - ELF_EXEC_PERM: the flags of an executable segment that the zkVM accepts,
+#   x (PF_X alone) or rx (PF_X | PF_R);
+# - ELF_OUTSIDE_ADDR: an address outside the zkVM's addressable space
+#   (default 0x4000000000000000);
+# - ELF_BOOT_ADDR: the fixed address where the zkVM begins execution, for a
+#   zkVM that does not start at e_entry (default: none).
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -31,6 +35,8 @@ STANDARDS="/zkevm-standards/standards"
 GROUPS_LIST="io accelerators memory elf"
 
 ELF_EXEC_PERM=""
+ELF_OUTSIDE_ADDR=0x4000000000000000
+ELF_BOOT_ADDR=""
 # shellcheck source=/dev/null
 . "$PLATFORM_DIR/elf.env"
 case "$ELF_EXEC_PERM" in
@@ -217,6 +223,19 @@ if [ "$ELF_EXEC_PERM" = x ]; then
   echo fail > "$OUT/elf/elf-text-read.outcome"
 fi
 # The crafted variants of elf-image and elf-tail.
-python3 "$HERE/elf/mutate_elf.py" "$OUT/elf"
+python3 "$HERE/elf/mutate_elf.py" "$OUT/elf" "$ELF_EXEC_PERM" "$ELF_OUTSIDE_ADDR" "$ELF_BOOT_ADDR"
+# reject-class32: an rv32 program at the zkVM's entry address, in a segment
+# with the zkVM's executable segment flags.
+ENTRY=$(riscv64-unknown-elf-readelf -h "$OUT/elf/elf-image.elf" | awk '/Entry point address:/ { print $4 }')
+TEXT_FLAGS=5
+if [ "$ELF_EXEC_PERM" = x ]; then TEXT_FLAGS=1; fi
+cat > "$WORK/class32.ld" <<EOF
+ENTRY(_start)
+PHDRS { text PT_LOAD FLAGS($TEXT_FLAGS); }
+SECTIONS { . = $ENTRY; .text : { *(.text) } :text }
+EOF
+riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -nostdlib -static -T "$WORK/class32.ld" \
+  -o "$OUT/elf/reject-class32.elf" "$HERE/elf/rv32/reject-class32.S"
+echo reject > "$OUT/elf/reject-class32.outcome"
 
 echo "Built $count eth-act standards test ELFs for $ZKVM in $OUT"
