@@ -12,7 +12,7 @@ src/                    # Scripts: build.sh, run-isa-tests.sh, run-eth-act-stand
 src/runner/             # Host-side test runner (Rust) for both suites
 src/shared/             # Shared utilities (patch_elfs.py)
 tests/eth-act-standards/ # eth-act standards tests: C guests for the I/O, accelerator and memory interfaces, termination,
-                        #   ELF loading, and the static library and linker script (build-runtime-guests.sh)
+                        #   ELF loading, memory layout, and the static library and linker script (build-runtime-guests.sh)
 tests/instruction-address-misaligned/ # misaligned suite (act4-misaligned, part of ./run isa-tests): misaligned jumps
 site/                   # Dashboard (GitHub Pages)
 results/history/        # Historical pass/fail tracking (tracked)
