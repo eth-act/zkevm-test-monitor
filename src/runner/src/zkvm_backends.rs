@@ -180,6 +180,17 @@ impl Execution {
         }
     }
 
+    /// The zkVM rejected the ELF.
+    fn rejected(exit_code: Option<i32>, detail: String) -> Self {
+        Execution {
+            termination: Termination::Rejected,
+            exit_code,
+            output: None,
+            pass_halt: PassHalt::Unknown,
+            detail: Some(detail),
+        }
+    }
+
     /// The host could not run the guest to an outcome.
     pub fn host_error(exit_code: Option<i32>, detail: String) -> Self {
         Execution {
@@ -1118,6 +1129,17 @@ fn zisk_guest_fault(exit_code: Option<i32>, stderr: &str) -> bool {
     }
 }
 
+/// Whether `ziskemu` rejected the ELF: exit 1 with the line that it prints
+/// when it cannot convert the ELF to a ZisK ROM (`Error during emulation:
+/// Unknown(...)`, `emulator/src/emulator.rs` `process_elf_file`). An ELF file
+/// that it cannot read is a host error.
+fn zisk_loader_error(exit_code: Option<i32>, stderr: &str) -> bool {
+    exit_code == Some(1)
+        && stderr.lines().map(str::trim).any(|l| {
+            l.starts_with("Error during emulation: Unknown(") && !l.contains("Error reading ELF file")
+        })
+}
+
 /// Zisk: invoke `<binary> -e <elf_path> -o <file>`, with `-i` (the framed input)
 /// when the test has an input vector.
 ///
@@ -1132,6 +1154,7 @@ fn zisk_guest_fault(exit_code: Option<i32>, stderr: &str) -> bool {
 ///   returned from `main` or exited: a successful termination without the
 ///   pass halt.
 /// - ZisK's public output is a fixed area of 64 u32 words with zero padding.
+/// - A loader error (`zisk_loader_error`) means that ZisK rejected the ELF.
 /// - A spawn failure, a missing output file or a death by signal is a host error.
 fn run_zisk(binary: &Path, elf_path: &Path, input: Option<&[u8]>) -> Execution {
     let inner = || -> anyhow::Result<Execution> {
@@ -1160,6 +1183,9 @@ fn run_zisk(binary: &Path, elf_path: &Path, input: Option<&[u8]>) -> Execution {
             return Ok(Execution::host_error(exit_code, detail));
         }
         if !output.status.success() || zisk_emulation_error(&stderr) {
+            if zisk_loader_error(exit_code, &stderr) {
+                return Ok(Execution::rejected(exit_code, format!("the zkVM rejected the ELF: {reason}")));
+            }
             let detail = format!("emulator error (exit {}): {reason}", exit_text(exit_code));
             if !zisk_guest_fault(exit_code, &stderr) {
                 return Ok(Execution::host_error(exit_code, detail));
@@ -1217,6 +1243,7 @@ impl PublicOutput {
 /// - 0: the guest terminated successfully;
 /// - 1: the guest terminated abnormally. The executor writes the guest's
 ///   error code (decimal) to the exit code file when the zkVM reports it;
+/// - 3: the zkVM rejected the ELF (its loader returned an error);
 /// - anything else, or a death by signal: a host error.
 fn run_io_executor(executor: &Path, elf_path: &Path, input: Option<&[u8]>, area: OutputArea) -> Execution {
     let inner = || -> anyhow::Result<Execution> {
@@ -1254,6 +1281,9 @@ fn run_io_executor(executor: &Path, elf_path: &Path, input: Option<&[u8]>, area:
                 let code_text = code.map_or_else(|| "no error code".to_owned(), |c| format!("error code {c}"));
                 let detail = format!("guest terminated abnormally ({code_text}): {reason}");
                 return Ok(Execution::failure(exit_code, code, detail));
+            }
+            Some(3) => {
+                return Ok(Execution::rejected(exit_code, format!("the zkVM rejected the ELF: {reason}")));
             }
             _ => {
                 let detail = format!("executor error (exit {}): {reason}", exit_text(exit_code));
@@ -1543,6 +1573,14 @@ mod tests {
     }
 
     #[test]
+    fn io_executor_rejection() {
+        let r = io_executor("echo 'error: load ELF: must be executable' >&2; exit 3", None);
+        assert_eq!(r.termination, Termination::Rejected);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("the zkVM rejected the ELF: error: load ELF: must be executable"));
+    }
+
+    #[test]
     fn io_executor_host_errors() {
         // Usage, I/O or executor errors.
         let r = io_executor("echo 'error: read input' >&2; exit 2", None);
@@ -1636,10 +1674,24 @@ mod tests {
     }
 
     #[test]
-    fn zisk_host_errors() {
-        // Failures before the guest runs: not an ELF, a loader error.
+    fn zisk_rejected_elf() {
         let r = ziskemu(
             "echo 'Error during emulation: Unknown(\"ROM file is not a valid ELF file\")' >&2; exit 1",
+            None,
+        );
+        assert_eq!(r.termination, Termination::Rejected);
+        assert_eq!(
+            r.detail.as_deref(),
+            Some("the zkVM rejected the ELF: Error during emulation: Unknown(\"ROM file is not a valid ELF file\")")
+        );
+    }
+
+    #[test]
+    fn zisk_host_errors() {
+        // Failures before the guest runs: an ELF file that ziskemu cannot
+        // read, a shared library loader error.
+        let r = ziskemu(
+            "echo 'Error during emulation: Unknown(\"Error reading ELF file: No such file or directory (os error 2)\")' >&2; exit 1",
             None,
         );
         assert_eq!(r.termination, Termination::HostError);

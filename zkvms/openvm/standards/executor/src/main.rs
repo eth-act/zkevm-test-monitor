@@ -14,8 +14,9 @@
 //!
 //! Exit status: 0 when the guest halted with exit code 0, 1 when the guest
 //! terminated abnormally (a non-zero exit code, or an execution that OpenVM
-//! rejected), 2 on a usage, I/O, SDK or compile error. When the guest's exit
-//! code is known, it is written (decimal) to <exit-code-out>.
+//! rejected), 2 on a usage, I/O, SDK or compile error, 3 when OpenVM's loader
+//! (ELF decoder or transpiler) rejected the ELF. When the guest's exit code is
+//! known, it is written (decimal) to <exit-code-out>.
 //!
 //! `prove` writes an app-level continuation STARK proof of the same execution
 //! (same VM config, same input vector), and `verify` checks one against the
@@ -25,7 +26,7 @@
 //! fails, and 2 on a usage or I/O error. With the `cuda` feature, both run on
 //! the GPU.
 
-use std::process::ExitCode;
+use std::{path::Path, process::ExitCode};
 
 use openvm_sdk::{
     config::{AggregationSystemParams, AppConfig},
@@ -180,9 +181,9 @@ fn check_proof(
 }
 
 fn run(elf_path: &str, input_path: &str, output_path: &str, code_path: &str) -> ExitCode {
-    let (elf, input) = match (std::fs::read(elf_path), std::fs::read(input_path)) {
-        (Ok(elf), Ok(input)) => (elf, input),
-        (Err(e), _) | (_, Err(e)) => {
+    let input = match std::fs::read(input_path) {
+        Ok(input) => input,
+        Err(e) => {
             eprintln!("error: read input files: {e}");
             return ExitCode::from(2);
         }
@@ -196,8 +197,14 @@ fn run(elf_path: &str, input_path: &str, output_path: &str, code_path: &str) -> 
         }
     };
 
-    let compiled = match sdk.compile(elf) {
+    // From a path, the SDK decodes the ELF with an error (`Other`) instead of
+    // the panic of its conversion from bytes; `Transpiler` is a transpiler error.
+    let compiled = match sdk.compile(Path::new(elf_path)) {
         Ok(compiled) => compiled,
+        Err(e @ (SdkError::Other(_) | SdkError::Transpiler(_))) => {
+            eprintln!("error: load ELF: {e}");
+            return ExitCode::from(3);
+        }
         Err(e) => {
             eprintln!("error: compile: {e}");
             return ExitCode::from(2);
