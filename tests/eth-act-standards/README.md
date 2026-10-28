@@ -2,7 +2,7 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers four
+asks of each zkVM. It covers five
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
 `zkvm_io.h` and `zkvm_accelerators.h` from it. `src/run-eth-act-standards-tests.sh` fetches that
@@ -13,6 +13,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); no side effects of `read_input` (canaries around its out-parameters and in `.data` and `.bss`, and the input unchanged after the guest fills `.bss` and the stack); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; writes from `.rodata`, `.data` and `.bss`; an output that ends in zero bytes, and an empty output; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases (the byte-buffer functions `keccak256`, `sha256`, `ripemd160` and `modexp` also with each buffer at a misaligned address); three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution (`mem-link-*`) |
+| `guard/` | [Memory safety guard regions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-safety-guard-regions) | a byte load and a byte store at the first and the last byte of the null pointer trap region (`guard-null-*`: `0x0` and `0xfff`) and at the highest and the lowest byte of the 4 kB below the stack bottom (`guard-stack-{lb,sb}-{1,4096}`), each expected to terminate abnormally; a byte load and a byte store at the stack bottom, expected to complete (`guard-stack-bottom`); the memory map of every linked guest (`guard-layout`) |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -120,6 +121,40 @@ error, so a strong symbol alone does not show its source. `-Wl,--trace-symbol=<f
 
 The test does not check the standard's documentation or LTO clauses.
 
+The `guard-null-*` programs expect `fail`: the guard region standard says that any read or write
+access to the null pointer trap region (`0x0000` through `0x0FFF`) must trigger abnormal
+termination. Each program makes one byte access (`lb` or `sb`), so it touches one address. If the
+access completes, the program calls `rvtest_pass()`, and the runner reports `did not panic`. The
+address goes through a `volatile` variable into inline assembly, because GCC replaces a load or
+store through a known null pointer with a trap.
+
+The `guard-stack-*` programs test the stack guard region: "A guard region of at least 4 kB must be
+placed immediately below the bottom of the stack", and any access to it must trigger abnormal
+termination. The stack bottom, the lowest stack byte, is a vendor linker symbol: the static
+library standard leaves stack symbols vendor-internal. `zkvms/<zkvm>/standards/layout.yaml` names
+it (`symbols.stack_bottom`), and `build-guests.sh` passes it to the guests as
+`GUARD_STACK_BOTTOM`. `guard-stack-lb-1`, `guard-stack-sb-1`, `guard-stack-lb-4096` and
+`guard-stack-sb-4096` access the highest and the lowest byte of the required 4 kB and expect
+`fail`. `guard-stack-bottom` loads and stores the stack bottom and must pass. With the `-1`
+programs, it shows that the guard region is "adjacent to the bottom of the stack with no gap
+between them". A platform with `stack_bottom: none` (SP1 and OpenVM) declares no stack bottom, so
+it has no stack guard region to test: there the `guard-stack-*` programs fail through
+`print_error()` ("the platform declares no stack bottom"), and `build-guests.sh` drops their
+`.outcome`.
+
+`guard-layout` checks the memory map that the standard requires. The null region "must not be
+mapped to readable or writable memory" and "must not be used by the zkVM runtime, linker scripts,
+or any other system component"; the stack guard region "must not be mapped to readable or
+writable memory". After ACT links the other guests, `tools/check_guard_layout.py` reads each ELF.
+An ELF fails when a `PT_LOAD` segment or an allocated section of non-zero size overlaps the null
+region or the 4 kB below the stack bottom, when it defines the standard heap symbols `_heap_start`
+and `_heap_end` and the heap overlaps one of them, or when the stack bottom is in the null region.
+Without a stack bottom, `guard-layout` fails. Every guest is linked with
+`--require-defined=<stack bottom>`, so the symbol is in each ELF also when the linker script
+defines it with `PROVIDE`. The script writes `guard-layout` as a program that passes, or that
+fails through `print_error()` with the first violations (they are also in the build log). A
+second ACT run builds it.
+
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
 
@@ -207,8 +242,8 @@ OPENVM_EXECUTOR_GIT=https://github.com/<owner>/openvm OPENVM_EXECUTOR_REV=<commi
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of
-the test names. A word that selects no test stops the run.
+`memory`, `guard`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring
+(`bls`) of the test names. A word that selects no test stops the run.
 
 ```bash
 TESTS=io-echo BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
