@@ -17,15 +17,16 @@
 #    - BACKEND=noere: on the host executor from step 1, without ere.
 #      ACT4_MODE=execute|prove|full (default: execute). Proving runs on an NVIDIA
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
-#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk). Pico has
-#      no noere path: it runs only through ere.
+#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk). The prover
+#      also gets each ELF that the zkVM rejected (outcome reject) and must make no
+#      proof of it. Pico has no noere path: it runs only through ere.
 # The zkVM `reference` is the executable reference of eth-act/zkevm-standards
 # (reference/, at the commit config.json pins): its zkvm-run runs the guests,
 # always in execute mode on the noere path, and the run records no history.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
 # that is a test name (io-echo) or a group (io, accelerators, memory, termination,
-# library, runtime, runtime-lld) selects exactly that; any other word is a glob
-# (io-write-*) or a substring (bls) of the test names.
+# elf, library, runtime, runtime-lld) selects exactly that; any other word is a
+# glob (io-write-*) or a substring (bls) of the test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 
@@ -407,9 +408,10 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$((ELF_COUNT + STATIC_COUNT))" ]; then
   exit 1
 fi
 
-# Tests that expect an abnormal termination (.outcome) pass only if no proof of
-# them verifies, which their verdict records, and the static verdicts do not
-# run, so the dashboard counts proving and verification over the other tests.
+# Tests that expect an abnormal termination or a rejection (.outcome) pass only
+# if no proof of them verifies, which their verdict records, and the static
+# verdicts do not run, so the dashboard counts proving and verification over the
+# other tests.
 EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
 STATIC_TESTS=$(jq -c '[.[].name]' "$STATIC_RESULTS")
 
