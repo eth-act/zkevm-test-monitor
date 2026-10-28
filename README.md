@@ -49,6 +49,18 @@ flowchart LR
     `config.json` and runs both suites. Use it to reproduce bugs and to test forks or branches.
     LambdaVM always runs here.
 - In `ACT4_MODE=prove` or `full`, a target test must also prove, and in `full` also verify.
+- The misaligned suite (`act4-misaligned`) tests the eth-act standard
+  [instruction-address-misaligned exception semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/instruction-address-misaligned-exception-semantics).
+  Each test in [`tests/instruction-address-misaligned/`](tests/instruction-address-misaligned/)
+  makes one jump to an address that is not 4-byte aligned: a taken branch (each of the six), a
+  JAL, or a JALR with `rs1 + imm` at 2 or 3 mod 4. Its `.outcome` is `fail`: the zkVM must
+  terminate abnormally, with any code. A continuation (the target rounded down or up, or the jump
+  skipped) reaches the pass halt, so the test fails. Each test has a control (`.control`): the
+  same code with an aligned target, which must pass, or the test fails. Each zkVM's ACT4 image
+  builds the tests with its `rv64im-zicclsm` config, without the reference model
+  (`NEEDS_SIGNATURE: false`). The suite runs in execute mode on both paths (on the ere path for
+  OpenVM, SP1 and ZisK). The results go to `results/history/<zkvm>-act4-misaligned.json` and
+  `<zkvm>-ere-act4-misaligned.json`; the dashboard does not show them.
 - `./run isa-tests <zkvm>` runs this pipeline. `FORCE=1` regenerates the ELFs.
 
 ### eth-act standards tests (guest interfaces)
@@ -161,6 +173,8 @@ zkvms/<zkvm>/             Everything specific to one ZK-VM:
   isa-configs/<isa>/        ACT4 ISA/platform configs
   standards/                eth-act standards platform: C library, executor, linker script patch
 tests/eth-act-standards/  eth-act standards tests: C guests, headers, vector tools
+tests/instruction-address-misaligned/
+                          misaligned suite: ACT4 assembly tests, built in the ACT4 images
 site/                     Dashboard (GitHub Pages)
 results/history/          Historical pass/fail tracking (read by the dashboard)
 out/                      Local outputs, not tracked: bin/, <zkvm>/ ELFs and logs,
