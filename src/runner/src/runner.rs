@@ -158,9 +158,17 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
     let pass_output = suite == Suite::Standards;
     let mut result = judge(execution, vectors.expected.as_deref(), pass_output, start);
 
-    // Prove only an execution that passed, and check that the proof proves its output.
-    if mode != Mode::Execute && result.passed {
+    // Prove an execution that passed, and check that the proof proves its output. Prove a
+    // test that expects an abnormal termination too, unless its execution was a host
+    // error: no proof of a failed execution may verify as a successful one (see
+    // `apply_outcome`).
+    let expected_failure = matches!(vectors.outcome, Outcome::Fail { .. });
+    let prove = if expected_failure { result.termination != Termination::HostError } else { result.passed };
+    if mode != Mode::Execute && prove {
         result = match zkvm.prove(elf_path, vectors.input.as_deref(), output.as_deref(), mode == Mode::Full) {
+            Ok(proof) if expected_failure => {
+                RunResult { duration: start.elapsed(), ..result.with_failure_proof(proof) }
+            }
             Ok(proof) => RunResult { duration: start.elapsed(), ..result.with_proof(proof) },
             Err(e) => {
                 eprintln!("error running {}: {e}", elf_path.display());
@@ -236,11 +244,21 @@ fn output_mismatch(execution: &Execution, expected: Option<&[u8]>, pass_output: 
 /// no code. A successful termination fails ("did not panic" without an
 /// expected code, "did not terminate abnormally" with one). A host error
 /// always fails: it is not a guest outcome.
+///
+/// In the prove modes the runner also proves the execution. No proof of a
+/// failed execution may verify as a successful one (Termination Semantics
+/// standard), so an abnormal termination whose proof verifies (`verify_status`
+/// "success", see `Proof::verified`) fails. A prover that gives no proof
+/// (`refused`) or a verifier that rejects the proof (`rejected`) leaves the
+/// verdict of the execution.
 pub fn apply_outcome(result: RunResult, outcome: Outcome) -> RunResult {
     let Outcome::Fail { code: expected } = outcome else {
         return result;
     };
     let detail = match result.termination {
+        Termination::Failure { .. } if result.verify_status.as_deref() == Some("success") => {
+            Some("a proof of the failed execution verifies".to_owned())
+        }
         Termination::HostError => return RunResult { passed: false, ..result },
         Termination::Success => {
             let what = if expected.is_some() { "did not terminate abnormally" } else { "did not panic" };
@@ -420,6 +438,29 @@ mod tests {
     }
 
     #[test]
+    fn expected_fail_rejects_a_proof_that_verifies() {
+        let proved = |termination, verify: &str| RunResult {
+            prove_status: Some("success".to_owned()),
+            verify_status: Some(verify.to_owned()),
+            ..result(termination, Some("guest terminated abnormally"))
+        };
+        for (termination, outcome) in [(failure(None), FAIL), (failure(Some(7)), FAIL_7), (failure(Some(1)), FAIL_7)] {
+            let r = apply_outcome(proved(termination, "success"), outcome);
+            assert!(!r.passed, "{termination:?}");
+            assert_eq!(r.detail.as_deref(), Some("a proof of the failed execution verifies"));
+        }
+
+        // A rejected proof leaves the verdict of the execution.
+        assert!(apply_outcome(proved(failure(None), "rejected"), FAIL).passed);
+        let r = apply_outcome(proved(failure(Some(1)), "rejected"), FAIL_7);
+        assert_eq!(r.detail.as_deref(), Some("wrong error code: expected 7, got 1"));
+
+        // A normal finish fails as such: its proof is not of a failed execution.
+        let r = apply_outcome(proved(Termination::Success, "success"), FAIL);
+        assert_eq!(r.detail.as_deref(), Some("did not panic: finished normally (guest terminated abnormally)"));
+    }
+
+    #[test]
     fn expected_code_must_match() {
         let r = apply_outcome(result(failure(Some(7)), Some("guest terminated abnormally")), FAIL_7);
         assert!(r.passed);
@@ -526,8 +567,11 @@ mod tests {
 
     /// A zkVM whose execution and proof are given, and which counts its proofs.
     struct Fake {
-        success: bool,
+        termination: Termination,
+        /// Whether the prover gives a proof; `None`: a prover error.
         proof: Option<bool>,
+        /// Whether the verifier accepts the proof as a successful execution.
+        accepts: bool,
         proofs: AtomicUsize,
     }
 
@@ -545,16 +589,18 @@ mod tests {
         }
 
         fn execute(&self, _elf_path: &Path, _input: Option<&[u8]>) -> Execution {
-            let termination = Termination::from_success(self.success);
-            execution(termination, None, PassHalt::Unknown)
+            execution(self.termination, None, PassHalt::Unknown)
         }
 
         fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, _output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
             self.proofs.fetch_add(1, Ordering::Relaxed);
             match self.proof {
-                Some(proved) => {
-                    Ok(Proof { duration: Duration::ZERO, written: proved, proved, verified: (proved && verify).then_some(true) })
-                }
+                Some(proved) => Ok(Proof {
+                    duration: Duration::ZERO,
+                    written: proved,
+                    proved,
+                    verified: (proved && verify).then_some(self.accepts),
+                }),
                 None => anyhow::bail!("no prover"),
             }
         }
@@ -563,9 +609,64 @@ mod tests {
     fn run_fake(success: bool, proof: Option<bool>, mode: Mode) -> (RunResult, usize) {
         let dir = tempfile::tempdir().unwrap();
         let elf = dir.path().join("t.elf");
-        let fake = Fake { success, proof, proofs: AtomicUsize::new(0) };
+        let fake = Fake { termination: Termination::from_success(success), proof, accepts: true, proofs: AtomicUsize::new(0) };
         let r = run_one(&fake, Suite::Isa, &elf, mode);
         (r, fake.proofs.load(Ordering::Relaxed))
+    }
+
+    /// Run a fake for a test that expects an abnormal termination (`fail`).
+    fn run_expected_failure(termination: Termination, proof: Option<bool>, accepts: bool, mode: Mode) -> (RunResult, usize) {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
+        let fake = Fake { termination, proof, accepts, proofs: AtomicUsize::new(0) };
+        let r = run_one(&fake, Suite::Isa, &elf, mode);
+        (r, fake.proofs.load(Ordering::Relaxed))
+    }
+
+    #[test]
+    fn an_expected_failure_is_proved() {
+        let statuses = |r: &RunResult| (r.prove_status.clone(), r.verify_status.clone());
+        let some = |s: &str| Some(s.to_owned());
+
+        let (r, proofs) = run_expected_failure(failure(None), Some(true), true, Mode::Execute);
+        assert!(r.passed);
+        assert_eq!(proofs, 0);
+
+        // The prover gives no proof.
+        let (r, proofs) = run_expected_failure(failure(None), Some(false), true, Mode::Full);
+        assert!(r.passed);
+        assert_eq!(proofs, 1);
+        assert_eq!(statuses(&r), (some("refused"), None));
+
+        // The verifier rejects the proof. A Type 2 proof of the failure shows the
+        // same way: it verifies only with its own exit code, not as a successful
+        // execution (`Proof::verified`).
+        let (r, _) = run_expected_failure(failure(Some(1)), Some(true), false, Mode::Full);
+        assert!(r.passed);
+        assert_eq!(statuses(&r), (some("success"), some("rejected")));
+
+        // The proof verifies as a successful execution.
+        let (r, _) = run_expected_failure(failure(None), Some(true), true, Mode::Full);
+        assert!(!r.passed);
+        assert_eq!(statuses(&r), (some("success"), some("success")));
+        assert_eq!(r.detail.as_deref(), Some("a proof of the failed execution verifies"));
+
+        // Without verification, the execution decides.
+        let (r, _) = run_expected_failure(failure(None), Some(true), true, Mode::Prove);
+        assert!(r.passed);
+        assert_eq!(statuses(&r), (some("success"), None));
+
+        // A normal finish is proved too, and fails as before.
+        let (r, proofs) = run_expected_failure(Termination::Success, Some(true), true, Mode::Full);
+        assert_eq!(proofs, 1);
+        assert!(!r.passed);
+        assert_eq!(r.detail.as_deref(), Some("did not panic: finished normally"));
+
+        // A host error is not proved.
+        let (r, proofs) = run_expected_failure(Termination::HostError, Some(true), true, Mode::Full);
+        assert!(!r.passed);
+        assert_eq!((proofs, statuses(&r)), (0, (None, None)));
     }
 
     #[test]
@@ -606,7 +707,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let elf = dir.path().join("t.elf");
         std::fs::write(dir.path().join("t.expected"), b"x").unwrap();
-        let fake = Fake { success: true, proof: None, proofs: AtomicUsize::new(0) };
+        let fake = Fake { termination: Termination::Success, proof: None, accepts: true, proofs: AtomicUsize::new(0) };
         let r = run_one(&fake, Suite::Isa, &elf, Mode::Execute);
         assert_eq!(r.termination, Termination::HostError);
         assert_eq!(r.detail.as_deref(), Some("the fake backend cannot feed .input or check .expected"));
