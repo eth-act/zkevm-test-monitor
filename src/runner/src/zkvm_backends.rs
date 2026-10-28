@@ -301,7 +301,7 @@ impl Zkvm for LambdaVM {
             .stderr(Stdio::piped())
             .output();
         match output {
-            Ok(o) => Execution::from_status(o.status.code(), o.status.success()),
+            Ok(o) => lambdavm_execution(o.status.code(), &String::from_utf8_lossy(&o.stderr)),
             Err(e) => runner_error(elf_path, e.into()),
         }
     }
@@ -309,6 +309,23 @@ impl Zkvm for LambdaVM {
     fn prove(&self, elf_path: &Path, input: Option<&[u8]>, _output: Option<&[u8]>, verify: bool) -> anyhow::Result<Proof> {
         no_prover_input(self.name(), input)?;
         prove_lambdavm(&self.binary, elf_path, verify)
+    }
+}
+
+/// The termination of a `lambdavm execute` run, from its exit code and stderr.
+/// The CLI exits 0 when the guest halts, and 1 with an "Execution failed: <error>"
+/// line when the executor stops the guest: the Panic syscall (`RVMODEL_HALT_FAIL`)
+/// or a fault, such as a misaligned instruction address. Any other failure (for
+/// example an ELF load error, or a death by signal) is a host error.
+fn lambdavm_execution(exit_code: Option<i32>, stderr: &str) -> Execution {
+    let failure = stderr.lines().map(str::trim).find(|l| l.starts_with("Execution failed: "));
+    match (exit_code, failure) {
+        (Some(0), _) => Execution::from_status(exit_code, true),
+        (Some(1), Some(line)) => Execution::failure(exit_code, None, line.to_owned()),
+        _ => {
+            let reason = emulator_error_reason(stderr);
+            Execution::host_error(exit_code, format!("lambdavm error (exit {}): {reason}", exit_text(exit_code)))
+        }
     }
 }
 
@@ -1426,6 +1443,26 @@ mod tests {
         if unsafe { libc::getuid() } != 0 {
             assert!(!is_own_process(1)); // init runs as root
         }
+    }
+
+    #[test]
+    fn lambdavm_failure_needs_the_execution_failed_line() {
+        let r = lambdavm_execution(Some(0), "");
+        assert_eq!(r.termination, Termination::Success);
+
+        let stderr = "Execution failed: InstructionAddressMisaligned(2147483718)\n";
+        let r = lambdavm_execution(Some(1), stderr);
+        assert_eq!(r.termination, failure(None));
+        assert_eq!(r.detail.as_deref(), Some("Execution failed: InstructionAddressMisaligned(2147483718)"));
+        let r = lambdavm_execution(Some(1), "Execution failed: ExecutionError(Panic(\"\"))\n");
+        assert_eq!(r.termination, failure(None));
+
+        // A failure before the guest ran, another exit status, or a signal.
+        let r = lambdavm_execution(Some(1), "Failed to load ELF program: InvalidElf\n");
+        assert_eq!(r.termination, Termination::HostError);
+        assert_eq!(r.detail.as_deref(), Some("lambdavm error (exit 1): Failed to load ELF program: InvalidElf"));
+        assert_eq!(lambdavm_execution(Some(101), stderr).termination, Termination::HostError);
+        assert_eq!(lambdavm_execution(None, "").termination, Termination::HostError);
     }
 
     #[test]
