@@ -12,10 +12,14 @@
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #   /cache                    download cache for the accelerator vector sources and uv
 #
-# Every <group>/<name>.c (group: io, accelerators, memory) becomes
+# Every <group>/<name>.c (group: io, accelerators, memory, elf) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
 # writes the rest of the I/O vectors.
+#
+# /platform/elf.env sets the zkVM's ELF loading parameters for the elf group:
+# ELF_EXEC_PERM, the flags of an executable segment that the zkVM accepts:
+# x (PF_X alone) or rx (PF_X | PF_R).
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -23,7 +27,15 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory"
+GROUPS_LIST="io accelerators memory elf"
+
+ELF_EXEC_PERM=""
+# shellcheck source=/dev/null
+. "$PLATFORM_DIR/elf.env"
+case "$ELF_EXEC_PERM" in
+  x | rx) ;;
+  *) echo "error: $PLATFORM_DIR/elf.env: ELF_EXEC_PERM must be x or rx" >&2; exit 1 ;;
+esac
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
@@ -117,6 +129,11 @@ fi
 for group in $GROUPS_LIST; do
   cp -r "$HERE/$group" "$TESTS/rv64i/$group"
 done
+# elf-text-data keeps data in the executable segment, which only a PF_X | PF_R
+# zkVM allows.
+if [ "$ELF_EXEC_PERM" = x ]; then
+  rm "$TESTS/rv64i/elf/elf-text-data.c"
+fi
 # The vendored optimized-routines tests sweep lengths up to LEN = 250000, which
 # is billions of guest instructions per test. Build them with a smaller LEN.
 AOR_LEN=1024
@@ -193,5 +210,10 @@ for group in $GROUPS_LIST; do
     python3 "$HERE/$group/write_io_vectors.py" "$OUT/$group"
   fi
 done
+# On a PF_X zkVM, a load from the executable segment terminates the program
+# abnormally.
+if [ "$ELF_EXEC_PERM" = x ]; then
+  echo fail > "$OUT/elf/elf-text-read.outcome"
+fi
 
 echo "Built $count eth-act standards test ELFs for $ZKVM in $OUT"
