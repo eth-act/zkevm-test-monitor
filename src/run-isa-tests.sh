@@ -30,7 +30,8 @@ fi
 # history. The ere path reads out/<zkvm>/ere/, writes
 # results/history/<zkvm>-ere-<suite>.json, and records the ere provenance of the run
 # (ere-act4-<label>.json) and its mode (ERE_MODE)
-# instead of the noere build commit.
+# instead of the noere build commit. ERE_SUITES selects the ere suites (default:
+# standard).
 process_results() {
   local ZKVM="$1"
   local NOTES="${2:-}"
@@ -60,12 +61,15 @@ process_results() {
     fi
   fi
 
-  local SUITE_TYPES="full standard"
-  [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="standard"
+  local SUITE_TYPES="full standard misaligned"
+  [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="${ERE_SUITES:-standard}"
   for SUITE_TYPE in $SUITE_TYPES; do
     if [ "$SUITE_TYPE" = "full" ]; then
       FILE_LABEL="full-isa"
       SUITE="act4-full"
+    elif [ "$SUITE_TYPE" = "misaligned" ]; then
+      FILE_LABEL="misaligned"
+      SUITE="act4-misaligned"
     else
       FILE_LABEL="standard-isa"
       SUITE="act4-standard"
@@ -259,6 +263,19 @@ run_zisk_split_pipeline() {
       $TARGET_PROVE_ARGS $RUNNER_JOBS || true
   fi
 
+  # Run the instruction-address-misaligned suite — execute only
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm zisk --binary out/bin/zisk-binary \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
   process_results "$ZKVM"
 
 }
@@ -342,6 +359,19 @@ run_sp1_split_pipeline() {
       $TARGET_GPU_ARG $RUNNER_JOBS || true
   fi
 
+  # Run the instruction-address-misaligned suite — execute only
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm sp1 --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
   process_results "$ZKVM"
 
 }
@@ -407,6 +437,19 @@ run_lambdavm_split_pipeline() {
       --suite act4-standard \
       --label standard-isa \
       --mode "$MODE" \
+      $RUNNER_JOBS || true
+  fi
+
+  # Run the instruction-address-misaligned suite (execute-only)
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm lambdavm --binary out/bin/lambdavm-binary \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
       $RUNNER_JOBS || true
   fi
 
@@ -516,6 +559,19 @@ run_openvm_split_pipeline() {
     fi
   fi
 
+  # Run the instruction-address-misaligned suite (execute-only)
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm openvm --binary out/bin/openvm-binary \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
   process_results "$ZKVM"
 
 }
@@ -547,15 +603,21 @@ run_ere_pipeline() {
   "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/target" --output-dir "$OUT_DIR" \
     --suite act4-standard --label standard-isa --mode "$MODE" $GPU_ARG || true
 
-  # ere runs the Standard ISA suite (RV64IM_Zicclsm) only.
-  ERE_MODE="$MODE" process_results "$ZKVM" "" ere
+  # The instruction-address-misaligned suite, execute only (on the same image).
+  echo "Running $ZKVM misaligned suite on ere (mode: execute)..."
+  "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/misaligned" --output-dir "$OUT_DIR" \
+    --suite act4-misaligned --label misaligned --mode execute $GPU_ARG || true
+
+  # ere runs the Standard ISA suite (RV64IM_Zicclsm) and the misaligned suite.
+  ERE_MODE="$MODE" ERE_SUITES=standard process_results "$ZKVM" "" ere
+  ERE_MODE=execute ERE_SUITES=misaligned process_results "$ZKVM" "" ere
 }
 
-# BACKEND=ere (default) runs only the Standard ISA suite of OpenVM, Pico, SP1 and ZisK,
-# through ere. BACKEND=noere builds the zkVM in this repository's containers and runs both
-# the Full and the Standard ISA suites, for reproducing bugs and testing branches. LambdaVM
-# runs only on the noere path: this repository does not run it through ere yet. Pico has no
-# noere path.
+# BACKEND=ere (default) runs only the Standard ISA and misaligned suites of OpenVM, Pico,
+# SP1 and ZisK, through ere. BACKEND=noere builds the zkVM in this repository's containers
+# and runs the Full ISA, Standard ISA and misaligned suites, for reproducing bugs and testing
+# branches. LambdaVM runs only on the noere path: this repository does not run it through ere
+# yet. Pico has no noere path.
 BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
   noere|ere) ;;
