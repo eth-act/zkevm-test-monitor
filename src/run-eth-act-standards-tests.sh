@@ -5,6 +5,10 @@
 #    (zkvms/<zkvm>/standards/Dockerfile).
 # 2. Builds the C test guests in tests/eth-act-standards/ as ACT4 C tests in the
 #    zkVM's ACT4 image (zkvms/<zkvm>/act4.Dockerfile), linked against that library.
+#    Then builds the runtime guests, which link only that library with the zkVM's
+#    linker script unchanged, with GNU ld and LLD, and checks the library and the
+#    script (tests/eth-act-standards/build-runtime-guests.sh, in the image
+#    tests/eth-act-standards/runtime.Dockerfile).
 # 3. Runs them with runner, and appends a run to
 #    results/history/<zkvm>-eth-act-standards.json:
 #    - ere path (default): on the official ere image of the revision that
@@ -15,9 +19,9 @@
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
 #      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk).
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
-# that is a test name (io-echo) or a group (io, accelerators, memory) selects
-# exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
-# test names.
+# that is a test name (io-echo) or a group (io, accelerators, memory, library,
+# runtime, runtime-lld) selects exactly that; any other word is a glob
+# (io-write-*) or a substring (bls) of the test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 
@@ -52,8 +56,9 @@ mkdir -p "$RESULTS_DIR" out/bin
 # VENDOR_LIB: the zkVM's C library in the image, copied out for the guest build.
 # VENDOR_LD: the zkVM's own linker script in the image, at the same commit, copied
 #   out for the guest build, which applies zkvms/<zkvm>/standards/link.ld.patch to
-#   it. Empty when the zkVM publishes none (OpenVM): then
-#   zkvms/<zkvm>/standards/link.ld is used.
+#   it. The runtime guests use it unchanged. Empty when the zkVM publishes none
+#   (OpenVM): then zkvms/<zkvm>/standards/link.ld is used, and the runtime guests
+#   link with zkvms/<zkvm>/standards/link-args.
 # IMAGE_COMMIT_FILES: "<image path>:<name>" commit files copied next to the ELFs.
 # COMMIT_FILE: the zkVM commit to record for the run.
 # NOTES: a note to record with every run (shown on the dashboard).
@@ -206,6 +211,28 @@ docker run --rm --entrypoint bash \
   echo "  Failed to build eth-act standards test guests — check $RESULTS_DIR/eth-act-standards-build.log"
   exit 1
 }
+
+# The runtime guests (groups runtime and runtime-lld) and the static checks of
+# the library and its linker script (group library, in library/static-results.json).
+RUNTIME_IMAGE="eth-act-standards-runtime:latest"
+echo "Building the runtime guest image..."
+docker build -t "$RUNTIME_IMAGE" - < tests/eth-act-standards/runtime.Dockerfile \
+  > "$RESULTS_DIR/eth-act-standards-runtime-image.log" 2>&1 || {
+  echo "  Failed to build $RUNTIME_IMAGE — check $RESULTS_DIR/eth-act-standards-runtime-image.log"
+  exit 1
+}
+echo "Building eth-act standards runtime guests for $ZKVM..."
+docker run --rm --entrypoint bash \
+  -v "$PWD/tests/eth-act-standards:/eth-act-standards-tests:ro" \
+  -v "$PWD/$PLATFORM_DIR:/platform:ro" \
+  -v "$PWD/$STANDARDS_DIR:/zkevm-standards:ro" \
+  -v "$PWD/$VENDOR_DIR:/vendor:ro" \
+  -v "$PWD/$ELF_DIR:/elfs" \
+  "$RUNTIME_IMAGE" -c "/eth-act-standards-tests/build-runtime-guests.sh $ZKVM /elfs; status=\$?; chown -R $(id -u):$(id -g) /elfs; exit \$status" \
+  > "$RESULTS_DIR/eth-act-standards-runtime-build.log" 2>&1 || {
+  echo "  Failed to build eth-act standards runtime guests — check $RESULTS_DIR/eth-act-standards-runtime-build.log"
+  exit 1
+}
 for entry in $IMAGE_COMMIT_FILES; do
   docker run --rm --entrypoint cat "$IMAGE" "${entry%%:*}" > "$ELF_DIR/${entry#*:}"
 done
@@ -269,6 +296,9 @@ rm -f "$RESULTS_FILE" "$RESULTS_DIR/summary-eth-act-standards.json" \
 RUNNER_STATUS=0
 # TESTS: the runner runs only the tests it selects (see the header).
 if [ -n "${TESTS:-}" ]; then RUNNER_ARGS+=(--select "$TESTS"); fi
+# The runtime guests link with the zkVM's linker script unchanged. A zkVM that
+# does not load such an ELF reports a host error, which fails only that test.
+RUNNER_ARGS+=(--host-error-fails-test runtime,runtime-lld)
 # shellcheck disable=SC2086
 "$RUNNER" \
   "${RUNNER_ARGS[@]}" \
@@ -288,16 +318,20 @@ if [ -n "${TESTS:-}" ]; then
   echo "  eth-act standards ${ZKVM}: $(jq '.passed | length' "$RESULTS_FILE")/$(jq '.total' "$RESULTS_FILE") selected tests passed (TESTS set: no history recorded)"
   exit 0
 fi
-# Every ELF this run built must have a result.
+# Every ELF this run built and every static verdict must have a result.
 ELF_COUNT=$(find "$ELF_DIR" -name '*.elf' | wc -l)
-if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
-  echo "  Error: $(jq .total "$RESULTS_FILE") results for $ELF_COUNT ELFs; no history recorded"
+STATIC_RESULTS="$ELF_DIR/library/static-results.json"
+STATIC_COUNT=$(jq length "$STATIC_RESULTS")
+if [ "$(jq .total "$RESULTS_FILE")" -ne "$((ELF_COUNT + STATIC_COUNT))" ]; then
+  echo "  Error: $(jq .total "$RESULTS_FILE") results for $ELF_COUNT ELFs and $STATIC_COUNT static verdicts; no history recorded"
   exit 1
 fi
 
-# Tests that expect an abnormal termination (.outcome) have no valid proof, so
-# the dashboard counts proving and verification over the other tests.
+# Tests that expect an abnormal termination (.outcome) have no valid proof, and
+# the static verdicts do not run, so the dashboard counts proving and
+# verification over the other tests.
 EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
+STATIC_TESTS=$(jq -c '[.[].name]' "$STATIC_RESULTS")
 
 mkdir -p results/history
 HISTORY_FILE="results/history/${ZKVM}-eth-act-standards.json"
@@ -312,13 +346,15 @@ RUN_ENTRY=$(jq -n \
   --arg notes "$NOTES" \
   --arg mode "$MODE" \
   --argjson expected_failures "$EXPECTED_FAILURES" \
+  --argjson static_tests "$STATIC_TESTS" \
   --slurpfile results "$RESULTS_FILE" \
   '$results[0] as $r | {
      date: $date, commit: $commit, library_commit: $library_commit,
      monitor_commit: $monitor_commit, standards_commit: $standards_commit, isa: $isa,
      mode: $mode, total: $r.total, passed: $r.passed, failed: $r.failed,
      prove_failed: $r.prove_failed, verify_failed: $r.verify_failed,
-     expected_failures: $expected_failures, has_proving: ($mode != "execute"),
+     expected_failures: $expected_failures, static_tests: $static_tests,
+     has_proving: ($mode != "execute"),
      groups: $r.groups, details: $r.details
    } + (if $notes == "" then {} else {notes: $notes} end)')
 # The ere path records what ran the tests: the ere revision, image and SDK version.

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::runner::StaticVerdict;
 use crate::zkvm_backends::RunResult;
 
 use anyhow::{Context, Result};
@@ -73,6 +74,21 @@ impl TestEntry {
             prove_status: result.prove_status.clone(),
             verify_status: result.verify_status.clone(),
             detail: result.detail.clone(),
+        }
+    }
+
+    /// Build an entry for a static verdict: a test without a run, so without
+    /// proving stages.
+    pub fn from_static(verdict: &StaticVerdict) -> Self {
+        TestEntry {
+            name: verdict.name.clone(),
+            extension: verdict.group.clone(),
+            passed: verdict.passed,
+            prove_duration_secs: None,
+            proof_written: None,
+            prove_status: None,
+            verify_status: None,
+            detail: verdict.detail.clone(),
         }
     }
 }

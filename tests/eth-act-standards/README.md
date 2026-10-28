@@ -2,7 +2,7 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers four
+asks of each zkVM. It covers five
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
 `zkvm_io.h` and `zkvm_accelerators.h` from it. `src/run-eth-act-standards-tests.sh` fetches that
@@ -13,6 +13,8 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `io/` | [I/O interface](https://github.com/eth-act/zkevm-standards/tree/main/standards/io-interface) (`zkvm_io.h`) | input sizes 0, 1, 13 and 64 KiB; `read_input` idempotence (bytes checked after every call, and repeated calls for the empty and 64 KiB inputs); no side effects of `read_input` (canaries around its out-parameters and in `.data` and `.bss`, and the input unchanged after the guest fills `.bss` and the stack); echo; a first `read_input` after output writes and stack use; split, byte-wise and zero-length writes, including `write_output(NULL, 0)`; a buffer changed between writes; writes from `.rodata`, `.data` and `.bss`; an output that ends in zero bytes, and an empty output; outputs of 257 bytes (in one call and in 64-byte pieces) and 1024 bytes |
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases (the byte-buffer functions `keccak256`, `sha256`, `ripemd160` and `modexp` also with each buffer at a misaligned address); three programs that pass a NULL pointer and expect a panic |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution (`mem-link-*`) |
+| `library/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | static checks: the library is an `ar` archive of RISC-V objects that defines `_start` and every function of `zkvm_io.h` and `zkvm_accelerators.h`; the zkVM supplies a linker script, with `PHDRS`; with each linker, the entry point of every runtime ELF is `_start`, the script defines `_heap_start` and `_heap_end`, and a probe's code and read-only data sections are in separate segments with the required flags |
+| `runtime/`, `runtime-lld/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | plain C and C++ guests that link only the vendor library, with the vendor's linker script unchanged, with GNU ld (`runtime/`) and with LLD (`runtime-lld/`): the C environment at `main` (`.data`, `.sdata`, `.rodata`, `.bss`, `.sbss` and the stack), zero `.bss` and `.sbss` at `main`, a C++ static constructor, and the heap symbols |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -22,6 +24,10 @@ the host executors and provers below; there `ACT4_MODE` defaults to `execute` (s
 `TESTS` runs only some tests (see Selecting tests).
 
 ## How a test works
+
+The `library`, `runtime` and `runtime-lld` groups are built without ACT4: see
+[Static library and linker script](#static-library-and-linker-script). The rest of this section
+describes the other groups.
 
 Each test is a small, standalone C program. It is an ACT4 C test (ACT4 4.1.0 or later), so it
 has the ACT4 test header (`START_TEST_CONFIG`) and uses ACT4's C test runtime (`c_test.h`). It
@@ -35,7 +41,8 @@ ISA test.
 
 The linker script is the zkVM's own, from its repository at the pinned commit, with only the changes
 in `zkvms/<zkvm>/standards/link.ld.patch`. Each change in the patch is a deviation of the vendor's
-script, with a comment that gives its reason (#58):
+script, with a comment that gives its reason (#58). The runtime guests link without the patch.
+The changes are:
 
 - ZisK (`ziskbuild/zisk_linker_script.ld`): `.bss` shares the data segment, because with GNU ld a
   guest without initialized data gets an empty segment at address 0, which `ziskemu` rejects.
@@ -50,7 +57,8 @@ script, with a comment that gives its reason (#58):
 
 ACT's C start code references `__bss_start`, `__bss_end`, `__stack_top`, `__stack_size` and
 `__num_harts`. It is linked but never runs, so `build-guests.sh` defines them on the link line
-(`--defsym`), not in the linker scripts. Building without ACT would remove them (#57).
+(`--defsym`), not in the linker scripts. The runtime guests build without ACT, so they do not
+need them (#57).
 
 The runner judges a test in one of three ways:
 
@@ -88,7 +96,9 @@ define them:
 | Host error | any other exit status (2: a usage, I/O, SDK, ELF load or compile error), or a death by signal | any other non-zero `ziskemu` exit (for example a file that is not an ELF, or a loader error), no output file, or a death by signal |
 
 A host error is not a guest outcome, so it never passes a test. The runner exits 3 when a test
-hit a host error and 2 when it finds no ELFs; the run script then records no history. The executors write the guest's
+hit a host error and 2 when it finds no ELFs; the run script then records no history. In the
+`runtime` and `runtime-lld` groups, a host error fails only its test (see
+[Static library and linker script](#static-library-and-linker-script)). The executors write the guest's
 exit code to a file that the runner names as their fourth argument. ZisK reports no error code,
 because ZisK 1.2 and later ignore `a0` at the exit ecall.
 
@@ -132,6 +142,80 @@ runner compares them as for ZisK.
 On ZisK and OpenVM, an output that ends in zero bytes therefore matches the same output without
 them. There, `io-write-trailing-zeros` cannot tell whether the zkVM kept the final zero bytes, and
 `io-write-nothing` checks only that the zkVM wrote no nonzero byte.
+
+## Static library and linker script
+
+The `library`, `runtime` and `runtime-lld` groups test the
+[static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script)
+standard. After the ACT4 build, `build-runtime-guests.sh` builds them in the image
+`runtime.Dockerfile`: the RISC-V GNU toolchain of the ACT4 images (with `g++`) and LLD.
+
+The runtime guests (`runtime/*.c`, `runtime/*.cpp`) are plain C and C++ programs, not ACT4 tests:
+
+- The compiler options are `-march=rv64im_zicclsm -mabi=lp64 -mcmodel=medany -ffreestanding`.
+  `medany` is necessary because ZisK puts code and data above 2 GiB.
+- The link options are `-nostdlib -nostartfiles -static` and the vendor library, without libgcc
+  or a C library. The link uses the vendor's linker script without `link.ld.patch`. The other
+  groups keep the patched script, so their results do not change.
+- Each guest links one time with GNU ld (`runtime/<name>.elf`) and one time with LLD
+  (`runtime-lld/<name>-lld.elf`). The standard requires a script that both linkers accept.
+- The guests link with `--gc-sections`, like the ACT4 guests (see `build-guests.sh`).
+- A guest that does not link has no ELF. It is a failed test in its group, with the first error
+  of the linker.
+- The backends report an ELF that the zkVM does not load as a host error, and a host error
+  makes the run invalid. A runtime ELF comes from the vendor's own library and linker script,
+  so a load error is a finding of the zkVM. The run script therefore passes
+  `--host-error-fails-test runtime,runtime-lld` to the runner: in these groups, a host error
+  fails only its test. On the ere path, such an ELF can cost ere's server timeout of 5 minutes:
+  SP1 does not load its four GNU ld ELFs.
+
+Each guest defines `int main(void)` and checks a post-condition of the vendor's `_start` from
+`main`. When every check holds, the guest writes `PASS` with `write_output` and returns 0. Its
+`.expected` is `PASS`. A failed check writes its reason instead and the guest returns 0, so the
+output mismatch shows the reason. The reason never starts with `FAIL`, because the runner reads
+the `FAIL` marker as an abnormal termination.
+
+| Guest | Clause | Check at `main` |
+|---|---|---|
+| `rt-c-runtime` | "`_start` must perform all machine initialization required before C/C++ code can execute" | initialized `.data`, `.sdata` and `.rodata` hold their values; `.bss` and `.sbss` hold written values; the stack keeps the locals of a call chain 8 frames deep |
+| `rt-bss-zero` | "the BSS segment contains only zero bytes when `main` is entered" | a 64 KiB `.bss` array and a `.sbss` variable are zero |
+| `rt-cxx-static` | the same initialization clause: "Invoking C++ static constructors" | the constructor of a global object ran |
+| `rt-heap-symbols` | the linker script defines `_heap_start` and `_heap_end` | both are defined, `_heap_start <= _heap_end`, and the first and the last heap byte hold a written value |
+
+`rt-cxx-static` has no destructor. The "must" clause requires the initialization before C/C++
+code executes. Destructors run after `main`, and only the list of typical steps and the Rationale
+name them. A destructor also needs `__cxa_atexit` and `__dso_handle`. `rt-heap-symbols` references
+the heap symbols weakly, so a missing symbol fails the test, not the link.
+
+`tools/check_static_library.py` runs after the links, in the same image. It writes one verdict per
+check to `library/static-results.json`:
+
+| Check | Clause | Method |
+|---|---|---|
+| `lib-archive` | "Each zkVM vendor must provide a static library (`.a` archive) targeting their zkVM." | an `ar` archive whose ELF members are all RISC-V ELF64 objects |
+| `lib-start`, `lib-io-functions`, `lib-accelerator-functions` | "The library must include implementations of" `_start`, the I/O functions and the accelerator functions | `nm --defined-only`; the function names come from the pinned `zkvm_io.h` and `zkvm_accelerators.h` |
+| `lib-linker-script` | "The vendor must supply a linker script alongside the static library." | the zkVM's platform names a linker script (`VENDOR_LD` in `src/run-eth-act-standards-tests.sh`) |
+| `lib-script-phdrs` | "Using a `PHDRS` declaration, ..." | the script has a `PHDRS` declaration |
+| `lib-entry`, `lib-entry-lld` | "The linker script must set the ELF entry point to `_start`." | in every runtime ELF of the linker, `e_entry` is the address of `_start` |
+| `lib-heap-symbols`, `lib-heap-symbols-lld` | "Define the following two symbols": `_heap_start` and `_heap_end` | `rt-heap-symbols` defines both. It references them, so a `PROVIDE` in the script also defines them |
+| `lib-segments`, `lib-segments-lld` | "assign the code sections (`.text*`, `.init`, `.fini`) to an executable, non-writable segment, and assign every read-only data section (`.rodata*`, `.srodata*`, `.eh_frame*`, `.gcc_except_table`, `.data.rel.ro`, ...) to a separate readable, non-executable segment" | the probe `library/rt-segments.c` has a symbol in each named section and an `.eh_frame`. In the linked probe (`library/rt-segments.probe`, `rt-segments-lld.probe`), each code section is in a segment with `PF_X` and without `PF_W`, and each read-only data section is in a segment with `PF_R` and without `PF_X` |
+
+The probe links without `--gc-sections`, because GNU ld then drops its `.eh_frame`. It does not
+run. A section that the link discards is in no segment, so it passes: SP1's script discards
+`.eh_frame`. The checks of a linker fail when no guest links with it. A zkVM that supplies no
+linker script (OpenVM) fails the checks of the script and of the ELFs. Its runtime guests link
+with `zkvms/<zkvm>/standards/link-args`, so that the guests still test the library.
+
+The runner reads `library/static-results.json` and records each verdict as a test of its group.
+A static verdict does not run, so it has no prove or verify stage, and the dashboard counts
+proving and verification over the other tests (`static_tests` in the history).
+
+These clauses have no test here:
+
+- A non-zero return from `main`: the termination tests cover it.
+- The behavior of `read_input` and of the accelerators: the `io` and `accelerators` groups test
+  it. The runtime guests call `write_output` from `main`.
+- The values of `gp` and `sp`, and the stack size: the standard mandates only the post-conditions.
 
 ## Platforms
 
@@ -207,7 +291,7 @@ OPENVM_EXECUTOR_GIT=https://github.com/<owner>/openvm OPENVM_EXECUTOR_REV=<commi
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of
+`memory`, `library`, `runtime`, `runtime-lld`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of
 the test names. A word that selects no test stops the run.
 
 ```bash
@@ -224,7 +308,8 @@ config.
    - a `Dockerfile` that builds the vendor library and the host executor;
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
    - a `link.ld.patch` with the changes the zkVM's own linker script needs (or, if the zkVM
-     publishes none, a `link-args` file with its link options and a placeholder `link.ld`).
+     publishes none, a `link-args` file with its link options and a placeholder `link.ld`). The
+     runtime guests use the script without the patch, or the `link-args`.
 2. Make the zkVM's backend in `src/runner/src/zkvm_backends.rs` feed the input to the zkVM and
    report its termination and public output: through the zkVM's own executor (`--binary`, as
    ziskemu does) or an eth-act standards executor (`--io-executor`, as for SP1 and OpenVM).
