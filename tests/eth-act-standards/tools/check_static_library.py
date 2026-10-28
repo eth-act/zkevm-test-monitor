@@ -82,7 +82,7 @@ class Elf:
             start = headers[table][4] + offset
             return data[start:data.index(b"\0", start)].decode()
 
-        self.section_names = [string(shstrndx, h[0]) if shnum else "" for h in headers]
+        self.section_names = [string(shstrndx, h[0]) for h in headers]
         # name -> (address, size)
         self.sections = {name: (h[3], h[5]) for name, h in zip(self.section_names, headers)}
         # Defined global and weak symbols: name -> (value, size, section index).
@@ -165,9 +165,10 @@ def missing(names, symbols):
     return [f"not defined: {', '.join(lost)}"] if lost else []
 
 
-def script_has_phdrs(script):
+def check_phdrs(script):
+    """The linker script uses a PHDRS declaration."""
     text = re.sub(r"/\*.*?\*/", "", Path(script).read_text(), flags=re.S)
-    return re.search(r"\bPHDRS\s*\{", text) is not None
+    return [] if re.search(r"\bPHDRS\s*\{", text) else ["the linker script has no PHDRS declaration"]
 
 
 def check_entry(elfs, linker):
@@ -241,8 +242,11 @@ def check_probe_object(path):
 
 
 def link_failure(path):
-    """The first error line of a linker's output, else its first line."""
-    lines = [line.strip() for line in path.read_text(errors="replace").splitlines() if line.strip()]
+    """The first error line of a linker's output, else its first line, without
+    the gcc driver's summary line and the linker's directory."""
+    lines = [re.sub(r"^\S*/(ld|ld\.lld): ", r"\1: ", line.strip())
+             for line in path.read_text(errors="replace").splitlines()
+             if line.strip() and not line.startswith("collect2:")]
     errors = [line for line in lines if "error" in line or "undefined reference" in line]
     return ((errors or lines or ["no linker output"])[0])[:300]
 
@@ -272,8 +276,7 @@ def main():
         verdict("lib-io-functions", missing(io_functions, symbols)),
         verdict("lib-accelerator-functions", missing(accel_functions, symbols)),
         verdict("lib-linker-script", [] if script else no_script),
-        verdict("lib-script-phdrs", (["the linker script has no PHDRS declaration"]
-                                     if not script_has_phdrs(script) else []) if script else no_script),
+        verdict("lib-script-phdrs", check_phdrs(script) if script else no_script),
     ]
     for linker, group, suffix in LINKERS:
         elfs = []
