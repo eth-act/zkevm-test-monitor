@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
@@ -261,6 +262,44 @@ pub fn apply_outcome(result: RunResult, outcome: Outcome) -> RunResult {
         },
     };
     RunResult { passed: detail.is_none(), detail, ..result }
+}
+
+/// Fail each test whose control did not pass (`<stem>.control`, see
+/// `crate::io_and_expected_failures`). The control is the test's program with
+/// the fault removed, so the test's verdict counts only when the control
+/// passes. A control that did not run (not selected) also fails the test. A
+/// test with a host error keeps it.
+pub fn apply_controls(runs: &mut [(PathBuf, RunResult)]) {
+    let passed: HashMap<PathBuf, bool> = runs.iter().map(|(elf, result)| (elf.clone(), result.passed)).collect();
+    for (elf_path, result) in runs.iter_mut() {
+        if result.termination == Termination::HostError {
+            continue;
+        }
+        let control = match io_and_expected_failures::load_control(elf_path) {
+            Ok(Some(control)) => control,
+            Ok(None) => continue,
+            Err(e) => {
+                result.passed = false;
+                result.termination = Termination::HostError;
+                result.detail = Some(format!("runner error: {e:#}"));
+                continue;
+            }
+        };
+        let what = match passed.get(&control) {
+            Some(true) => continue,
+            Some(false) => "did not pass",
+            None => "did not run",
+        };
+        let name = control.file_stem().unwrap_or_default().to_string_lossy();
+        let detail = match &result.detail {
+            Some(detail) => format!("control failed: {name} {what} ({detail})"),
+            None => format!("control failed: {name} {what}"),
+        };
+        let test = elf_path.file_stem().unwrap_or_default().to_string_lossy();
+        eprintln!("  FAIL {test}: {detail}");
+        result.passed = false;
+        result.detail = Some(detail);
+    }
 }
 
 /// Print a one-line progress report for a finished test to stderr.
@@ -669,6 +708,59 @@ mod tests {
         assert!(selected(&["io-echo*x"]).is_err());
         // Only the ELF names count, not the test vectors.
         assert!(selected(&["input"]).is_err());
+    }
+
+    /// A test for `apply_controls`: its name, verdict, termination, detail
+    /// and control.
+    type Controlled<'a> = (&'a str, bool, Termination, Option<&'a str>, Option<&'a str>);
+
+    /// Run `apply_controls` on tests in one directory.
+    fn controlled(tests: &[Controlled]) -> Vec<RunResult> {
+        let dir = tempfile::tempdir().unwrap();
+        let mut runs: Vec<(PathBuf, RunResult)> = tests
+            .iter()
+            .map(|&(name, passed, termination, detail, control)| {
+                let elf = dir.path().join(format!("{name}.elf"));
+                if let Some(control) = control {
+                    std::fs::write(elf.with_extension("control"), control).unwrap();
+                }
+                (elf, RunResult { passed, ..result(termination, detail) })
+            })
+            .collect();
+        apply_controls(&mut runs);
+        runs.into_iter().map(|(_, result)| result).collect()
+    }
+
+    #[test]
+    fn a_test_counts_only_when_its_control_passes() {
+        let fault = failure(None);
+        let twin_passed = ("twin", true, Termination::Success, None, None);
+        let twin_failed = ("twin", false, fault, Some("guest terminated abnormally"), None);
+
+        let r = controlled(&[("fault", true, fault, None, Some("twin")), twin_passed]);
+        assert!(r[0].passed && r[1].passed);
+        assert_eq!(r[0].detail, None);
+
+        let r = controlled(&[("fault", true, fault, None, Some("twin\n")), twin_failed]);
+        assert!(!r[0].passed);
+        assert_eq!(r[0].termination, fault);
+        assert_eq!(r[0].detail.as_deref(), Some("control failed: twin did not pass"));
+
+        // A test that failed keeps its own detail.
+        let continued = ("fault", false, Termination::Success, Some("did not panic: finished normally"), Some("twin"));
+        let r = controlled(&[continued, twin_failed]);
+        assert_eq!(r[0].detail.as_deref(), Some("control failed: twin did not pass (did not panic: finished normally)"));
+
+        let r = controlled(&[("fault", true, fault, None, Some("twin"))]);
+        assert!(!r[0].passed);
+        assert_eq!(r[0].detail.as_deref(), Some("control failed: twin did not run"));
+
+        // A host error stays; an invalid control is one.
+        let r = controlled(&[("fault", false, Termination::HostError, Some("runner error: x"), Some("twin")), twin_failed]);
+        assert_eq!(r[0].detail.as_deref(), Some("runner error: x"));
+        let r = controlled(&[("fault", true, fault, None, Some("a b"))]);
+        assert_eq!(r[0].termination, Termination::HostError);
+        assert!(r[0].detail.as_deref().unwrap().starts_with("runner error: invalid control 'a b'"));
     }
 
     #[test]

@@ -7,7 +7,11 @@
 //!   `fail`, the guest must terminate abnormally (a panic, an abort, a non-zero
 //!   return from `main`, a failed execution), and with `fail <code>` the zkVM
 //!   must also report that error code. A successful termination or a host
-//!   error fails the test (see `runner::apply_outcome`).
+//!   error fails the test (see `runner::apply_outcome`);
+//! - `<stem>.control`: the name of the test's control, an ELF in the same
+//!   directory (without `.elf`). The test fails when its control does not
+//!   pass, because then the ELF or the harness does not work (see
+//!   `runner::apply_controls`).
 //!
 //! In the standards suite (`runner::Suite`), a missing input is empty.
 //! Without an expected output, a test is judged by the ACT4 halt verdict, and
@@ -16,7 +20,7 @@
 //! the SP1 and OpenVM pass halt is exit code 0, like a return from `main` (see
 //! `runner::judge`). The ISA suite has no defaults.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 
@@ -94,6 +98,20 @@ impl IoVectors {
     /// Whether the test feeds an input or checks the output.
     pub fn has_io(&self) -> bool {
         self.input.is_some() || self.expected.is_some()
+    }
+}
+
+/// The control of the test at `elf_path` (`<stem>.control`): the path of the
+/// ELF that the file names, or `None` without the file.
+pub fn load_control(elf_path: &Path) -> Result<Option<PathBuf>> {
+    let path = elf_path.with_extension("control");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let text = std::fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
+    match text.split_whitespace().collect::<Vec<_>>().as_slice() {
+        [name] if !name.contains('/') => Ok(Some(elf_path.with_file_name(format!("{name}.elf")))),
+        _ => bail!("invalid control '{}' in {}", text.trim(), path.display()),
     }
 }
 
@@ -202,6 +220,21 @@ mod tests {
 
         std::fs::write(dir.path().join("t.outcome"), b"maybe").unwrap();
         assert!(IoVectors::load(&elf, false).is_err());
+    }
+
+    #[test]
+    fn loads_the_control() {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        assert_eq!(load_control(&elf).unwrap(), None);
+
+        std::fs::write(dir.path().join("t.control"), "c\n").unwrap();
+        assert_eq!(load_control(&elf).unwrap(), Some(dir.path().join("c.elf")));
+
+        for bad in ["", "a b", "../c"] {
+            std::fs::write(dir.path().join("t.control"), bad).unwrap();
+            assert!(load_control(&elf).is_err(), "{bad:?}");
+        }
     }
 
     #[test]
