@@ -43,10 +43,10 @@ flowchart LR
   - **ere path** (the default): OpenVM, SP1 and ZisK run on the official
     [eth-act/ere](https://github.com/eth-act/ere) images of the ere revision that
     `src/runner/Cargo.toml` pins. ere builds and runs the zkVM; there is no local zkVM build.
-    It runs the Standard ISA suite (RV64IM_Zicclsm); the Full ISA suite then runs on the
-    noere path (below), execute only.
+    It runs only the Standard ISA suite (RV64IM_Zicclsm).
   - **noere path** (`BACKEND=noere`, without ere): builds each zkVM in this repository's containers from
-    `config.json` and runs both suites. Use it to reproduce bugs and to test forks or branches.
+    `config.json` and runs both suites, Full and Standard ISA. Use it to reproduce bugs and to
+    test forks or branches.
     LambdaVM always runs here.
 - In `ACT4_MODE=prove` or `full`, a target test must also prove, and in `full` also verify.
 - `./run isa-tests <zkvm>` runs this pipeline. `FORCE=1` regenerates the ELFs.

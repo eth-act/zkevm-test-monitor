@@ -38,8 +38,8 @@ Limit CPU cores: `JOBS=8 ./run tests zisk`
 
 `./run isa-tests <openvm|sp1|zisk>` runs the Standard ISA suite (RV64IM_Zicclsm) on the
 official `ghcr.io/eth-act/ere` images of the ere revision that `src/runner/Cargo.toml`
-pins (`ere-dockerized`). ere builds and runs the zkVM. It then runs the Full ISA suite on
-the noere path, execute only (`./run build <zkvm>` first).
+pins (`ere-dockerized`). ere builds and runs the zkVM. The default runs no Full ISA suite
+and needs no local zkVM build.
 
 - Needs Docker; `ACT4_MODE=full` (default) or `prove` also needs an NVIDIA GPU.
   `ACT4_MODE=execute` runs on the CPU images.
@@ -49,8 +49,9 @@ the noere path, execute only (`./run build <zkvm>` first).
   ere history files.
 - `BACKEND=noere ./run isa-tests <zkvm>` builds the zkVM in this repository's containers from
   `config.json` (`./run build <zkvm>` first), for reproducing bugs and testing forks or
-  branches. Noere results go to `results/history/<zkvm>-act4-*.json`. For zkVMs that run
-  through ere, the site shows only the noere Full ISA results.
+  branches; it runs both the Full and the Standard ISA suites. Noere results go to
+  `results/history/<zkvm>-act4-*.json`. For zkVMs that run through ere, the site shows the
+  noere Full ISA results of earlier runs, but not noere Standard ISA results.
   LambdaVM runs only on the noere path.
 
 ## Adding a New ZKVM
