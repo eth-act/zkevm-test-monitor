@@ -8,7 +8,7 @@
 # tests/eth-act-standards/build-guests.sh), which links /opt/sp1/libzkevm.a.
 #
 # The SDK is not in the monitor's pinned SP1 fork (v6.1.0), so this image
-# pins upstream tag v6.6.0 (the version eth-act/ere pins, including its
+# pins upstream tag v6.9.0 (the version eth-act/ere pins, including its
 # `libzkevm`) and ignores the COMMIT_HASH build argument.
 FROM ubuntu:24.04
 
@@ -36,14 +36,14 @@ ENV PATH="/root/.cargo/bin:${PATH}" RUSTUP_TOOLCHAIN=1.94.0 CARGO_NET_GIT_FETCH_
 # The succinct toolchain that this SP1 commit expects
 # (LATEST_SUPPORTED_TOOLCHAIN_VERSION_TAG in crates/cli/src/lib.rs). This is
 # what `cargo prove install-toolchain` installs.
-ARG SUCCINCT_TOOLCHAIN=succinct-1.94.0-64bit
+ARG SUCCINCT_TOOLCHAIN=succinct-1.96.0-64bit-v3
 RUN mkdir -p /root/.sp1/toolchains/succinct && \
     curl -sSfL "https://github.com/succinctlabs/rust/releases/download/${SUCCINCT_TOOLCHAIN}/rust-toolchain-x86_64-unknown-linux-gnu.tar.gz" | \
     tar -xz -C /root/.sp1/toolchains/succinct && \
     rustup toolchain link succinct /root/.sp1/toolchains/succinct
 
 ARG REPO_URL=https://github.com/succinctlabs/sp1.git
-ARG SP1_COMMIT=f5a5bbf6a1cf6007315b410d88678d96fb399fb5
+ARG SP1_COMMIT=b8387fa61e1361d90ee7de49f551863418ca0f08
 RUN git init /sp1 && cd /sp1 && \
     git remote add origin "$REPO_URL" && \
     git fetch --depth 1 origin "$SP1_COMMIT" && \

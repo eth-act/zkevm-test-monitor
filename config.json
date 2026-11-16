@@ -5,7 +5,7 @@
   "zkvms": {
     "sp1": {
       "repo_url": "https://github.com/succinctlabs/sp1",
-      "commit": "f5a5bbf6a1cf6007315b410d88678d96fb399fb5",
+      "commit": "b8387fa61e1361d90ee7de49f551863418ca0f08",
       "build_cmd": "cargo build --release --bin sp1-perf-executor --bin sp1-perf",
       "binary_name": "sp1-perf-executor",
       "binary_path": "target/release/sp1-perf-executor",
@@ -33,7 +33,7 @@
     },
     "zisk": {
       "repo_url": "https://github.com/0xPolygonHermez/zisk",
-      "commit": "02d2ae7b711454ce4574d852f8bfbddbfcbb1d67",
+      "commit": "64a1f1664184e76053686745d50c6b9aaa51b034",
       "build_cmd": "cargo build --release --bin ziskemu",
       "binary_name": "ziskemu",
       "binary_path": "target/release/ziskemu",

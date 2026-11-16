@@ -1,10 +1,10 @@
 /* ZisK memory map (core/src/mem.rs, ziskbuild/zisk_linker_script.ld): program code in
-   ROM [ROM_ADDR 0x80000000, +128 MiB), which ZisK maps execute-only; RAM
+   ROM [ROM_ADDR 0x90000000, +128 MiB), which ZisK maps execute-only; RAM
    [RAM_ADDR 0xa0000000, +512 MiB) holds the stack (first 4 MiB), the system area
    (0xa0400000; UART at 0xa0400200), the public output (OUTPUT_ADDR 0xa0410000, where
    rvmodel_macros.h stores the PASS/FAIL marker), and program data from 0xa0430000.
    sail.json's ROM and RAM regions cover the same ranges. */
-ROM_ORIGIN = 0x80000000;
+ROM_ORIGIN = 0x90000000;
 ROM_LENGTH = 0x08000000;
 RAM_ORIGIN = 0xa0000000;
 RAM_LENGTH = 0x20000000;

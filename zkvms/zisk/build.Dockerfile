@@ -55,7 +55,7 @@ ENV CXXFLAGS="-std=c++17"
 
 # Build arguments for repository and commit
 ARG REPO_URL=https://github.com/0xPolygonHermez/zisk.git
-ARG COMMIT_HASH=02d2ae7b
+ARG COMMIT_HASH=64a1f166
 ARG GPU=0
 ARG CUDA_ARCH=sm_89
 
