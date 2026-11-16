@@ -43,6 +43,10 @@ and needs no local zkVM build.
 
 - Needs Docker; `ACT4_MODE=full` (default) or `prove` also needs an NVIDIA GPU.
   `ACT4_MODE=execute` runs on the CPU images.
+- The ZisK GPU server downloads its proving key (6 GB) at the first prove into the
+  volume `ere-zisk-proving-key-<version>`. That takes longer than the 120 s prove limit
+  of an ISA test, so after a ZisK version change, fill the volume first with
+  `TESTS=io-echo ./run eth-act-standards-tests zisk` (30 min limit).
 - Results: `out/<zkvm>/ere/` (including `details-act4-*.json`, the outcome and
   error of each test) and `results/history/<zkvm>-ere-act4-standard.json`.
 - The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the
