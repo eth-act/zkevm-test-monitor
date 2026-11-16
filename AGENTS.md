@@ -47,6 +47,9 @@ and needs no local zkVM build.
   volume `ere-zisk-proving-key-<version>`. That takes longer than the 120 s prove limit
   of an ISA test, so after a ZisK version change, fill the volume first with
   `TESTS=io-echo ./run eth-act-standards-tests zisk` (30 min limit).
+- Each prove has a time limit: 120 s for an ISA test, 30 min for an eth-act standards
+  test. `PROVE_TIMEOUT=<secs>` replaces it (for example for the BLS12-381 MSM tests), and
+  the history records the limit of each run (`prove_timeout_secs`).
 - Results: `out/<zkvm>/ere/` (including `details-act4-*.json`, the outcome and
   error of each test) and `results/history/<zkvm>-ere-act4-standard.json`.
 - The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the

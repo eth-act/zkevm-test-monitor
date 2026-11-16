@@ -36,6 +36,10 @@ const PROVE: Duration = Duration::from_secs(120);
 /// run far longer than an ISA test (for example the BLS12-381 MSM cases).
 const PROVE_STANDARDS: Duration = Duration::from_secs(30 * 60);
 
+/// Environment variable that replaces the prove time limit of either suite, in
+/// seconds (opt-in, for example for the BLS12-381 MSM cases).
+const PROVE_TIMEOUT_ENV: &str = "PROVE_TIMEOUT";
+
 /// What was tested: recorded next to the results of each run.
 #[derive(Serialize)]
 pub struct Provenance {
@@ -49,6 +53,8 @@ pub struct Provenance {
     pub sdk_version: String,
     /// `cpu` or `gpu`.
     pub resource: String,
+    /// Time limit on each prove, in seconds: a prove that took longer failed.
+    pub prove_timeout_secs: u64,
 }
 
 /// Outcome, error and time of one test, for the details file.
@@ -86,6 +92,8 @@ pub struct EreBackend {
     /// public output (`.expected`, or `PASS` without one), and they get their
     /// `.input` as stdin.
     standards: bool,
+    /// Time limit on each prove (`PROVE`, `PROVE_STANDARDS` or `PROVE_TIMEOUT`).
+    prove_timeout: Duration,
     /// The running server, kept for the next test; `None` before the first test
     /// and after an error that can leave it broken. The lock also makes tests
     /// run one at a time.
@@ -110,6 +118,16 @@ impl EreBackend {
             "unset ERE_FORCE_REBUILD_DOCKER_IMAGE: the ere path runs published images only"
         );
         let sdk_version = kind.sdk_version().to_string();
+        let prove_timeout = match std::env::var(PROVE_TIMEOUT_ENV) {
+            Ok(secs) => Duration::from_secs(
+                secs.parse()
+                    .ok()
+                    .filter(|&secs| secs > 0)
+                    .ok_or_else(|| anyhow!("{PROVE_TIMEOUT_ENV} must be a number of seconds, not `{secs}`"))?,
+            ),
+            Err(_) if standards => PROVE_STANDARDS,
+            Err(_) => PROVE,
+        };
 
         // SAFETY: called before other threads exist (see above).
         unsafe {
@@ -131,11 +149,13 @@ impl EreBackend {
             ere_image,
             sdk_version,
             resource: if gpu { "gpu" } else { "cpu" }.to_string(),
+            prove_timeout_secs: prove_timeout.as_secs(),
         };
         let backend = Self {
             kind,
             resource: if gpu { ProverResource::Gpu } else { ProverResource::Cpu },
             standards,
+            prove_timeout,
             server: Mutex::new(None),
             details: Mutex::new(Vec::new()),
         };
@@ -214,7 +234,7 @@ impl EreBackend {
             Some(mut zkvm) => zkvm.setup(Elf(elf)).map(|()| zkvm),
             None => {
                 let config = DockerizedzkVMConfig {
-                    prove_timeout: Some(if self.standards { PROVE_STANDARDS } else { PROVE }),
+                    prove_timeout: Some(self.prove_timeout),
                     ..Default::default()
                 };
                 DockerizedzkVM::new(self.kind, Elf(elf), self.resource.clone(), config)
@@ -413,6 +433,7 @@ mod tests {
             kind: kind.parse().unwrap(),
             resource: ProverResource::Cpu,
             standards,
+            prove_timeout: PROVE,
             server: Mutex::new(None),
             details: Mutex::new(Vec::new()),
         }
