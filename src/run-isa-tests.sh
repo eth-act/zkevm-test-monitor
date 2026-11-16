@@ -551,10 +551,11 @@ run_ere_pipeline() {
   ERE_MODE="$MODE" process_results "$ZKVM" "" ere
 }
 
-# BACKEND=ere (default) runs only the Standard ISA suite of OpenVM, SP1 and ZisK, through
-# ere. BACKEND=noere builds the zkVM in this repository's containers and runs both the Full
-# and the Standard ISA suites, for reproducing bugs and testing branches. LambdaVM runs
-# only on the noere path: this repository does not run it through ere yet.
+# BACKEND=ere (default) runs only the Standard ISA suite of OpenVM, Pico, SP1 and ZisK,
+# through ere. BACKEND=noere builds the zkVM in this repository's containers and runs both
+# the Full and the Standard ISA suites, for reproducing bugs and testing branches. LambdaVM
+# runs only on the noere path: this repository does not run it through ere yet. Pico has no
+# noere path.
 BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
   noere|ere) ;;
@@ -562,8 +563,16 @@ case "$BACKEND" in
 esac
 
 for ZKVM in $ZKVMS; do
-  if [ "$BACKEND" = "ere" ] && [[ " openvm sp1 zisk " == *" $ZKVM "* ]]; then
+  if [ "$BACKEND" = "ere" ] && [[ " openvm pico sp1 zisk " == *" $ZKVM "* ]]; then
     run_ere_pipeline "$ZKVM" || true
+  elif [ "$ZKVM" = "pico" ]; then
+    # A run of all zkVMs skips Pico; an explicit request fails.
+    if [ "$TARGETS" = "all" ]; then
+      echo "Skipping pico: it has no noere path"
+    else
+      echo "  Error: the noere path is not implemented for pico; run it through ere (unset BACKEND)"
+      exit 1
+    fi
   elif [ "$ZKVM" = "zisk" ]; then
     run_zisk_split_pipeline || true
   elif [ "$ZKVM" = "lambdavm" ]; then

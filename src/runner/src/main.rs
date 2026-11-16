@@ -19,7 +19,7 @@ use runner::runner::{self as suite, Suite};
 #[command(name = "runner")]
 struct Cli {
     /// ZK-VM backend to use: lambdavm, openvm, sp1 or zisk. With `--features ere`:
-    /// ere-openvm, ere-sp1 or ere-zisk (the ere path).
+    /// ere-openvm, ere-pico, ere-sp1 or ere-zisk (the ere path).
     #[arg(long)]
     zkvm: String,
 

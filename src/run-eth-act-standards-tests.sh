@@ -13,7 +13,8 @@
 #    - BACKEND=noere: on the host executor from step 1, without ere.
 #      ACT4_MODE=execute|prove|full (default: execute). Proving runs on an NVIDIA
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
-#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk).
+#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk). Pico has
+#      no noere path: it runs only through ere.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
 # that is a test name (io-echo) or a group (io, accelerators, memory) selects
 # exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
@@ -124,9 +125,23 @@ case "$ZKVM" in
       NOTES="$NOTES The host executor is NOT the pinned OpenVM: it is built from ${OPENVM_EXECUTOR_GIT} at ${OPENVM_EXECUTOR_REV}."
     fi
     ;;
+  pico)
+    # Pico runs only through ere: there is no host executor or prover here.
+    if [ "$BACKEND_KIND" = "noere" ]; then
+      echo "  Error: the noere path is not implemented for pico; run it through ere (unset BACKEND)"
+      exit 1
+    fi
+    EXECUTOR_ARG=""
+    EMULATOR=""
+    VENDOR_LIB="/opt/pico/libpico_zkvm.a"
+    VENDOR_LD="/opt/pico/pico.ld"
+    IMAGE_COMMIT_FILES="/pico-commit.txt:vendor-commit.txt"
+    # The image pins the Pico version that eth-act/ere uses, so record that commit.
+    COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
+    ;;
   *) echo "  eth-act standards tests: no executor for $ZKVM"; exit 1 ;;
 esac
-if [ -z "$IMAGE_EMULATOR" ] && [ ! -f "$EMULATOR" ]; then
+if [ -n "$EMULATOR" ] && [ -z "$IMAGE_EMULATOR" ] && [ ! -f "$EMULATOR" ]; then
   echo "  Error: $EMULATOR not found. Run './run build $ZKVM' first."
   exit 1
 fi
