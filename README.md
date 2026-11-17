@@ -3,7 +3,7 @@
 Compliance testing for zkVMs with two test suites:
 
 - **ISA tests:** RISC-V ISA compliance, with the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
-- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
+- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations, termination), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
 
 **Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 
@@ -77,13 +77,13 @@ flowchart LR
 - A self-checking program ends through the zkVM's ACT4 halt macros, which write `PASS` or
   `FAIL` to public output 0, so the runner reads its verdict as for an ISA test. A program that
   ends before `rvtest_pass()` writes no `PASS` and fails. An I/O write program must write its `.expected` public output. A
-  program with the `.outcome` `fail` must terminate abnormally (the NULL-pointer tests). With
+  program with the `.outcome` `fail` must terminate abnormally (the NULL-pointer and termination tests). With
   `fail <code>`, the zkVM must also report that error code. A host error (for example, an executor usage or I/O error) never
   passes a test. The runner gives each program its `.input` file.
 - The suite runs for ZisK, SP1 and OpenVM through ere by default: on the official ere image of
   the revision that `src/runner/Cargo.toml` pins, with execute, prove and verify
   (`ACT4_MODE`, default `full`; prove and full need an NVIDIA GPU). A test that expects an
-  abnormal termination has no valid proof, so it is only executed. `BACKEND=noere` runs the
+  abnormal termination is proved too, and fails if its proof verifies. `BACKEND=noere` runs the
   suite on this repository's executors and provers instead, so it can test any zkVM commit or
   fork (`ACT4_MODE` defaults to `execute` there; `prove` and `full` prove on the GPU). `TESTS`
   runs only some tests (see below). Each standards test image pins its own
