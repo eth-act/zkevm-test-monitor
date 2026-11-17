@@ -163,7 +163,7 @@
     }
 
     // Prove and verify counts of a run. A test that expects an abnormal
-    // termination (expected_failures) has no valid proof, so it is left out.
+    // termination or a rejection, or that has no proof (expected_failures), is left out.
     function countProveVerify(run) {
         if (!run?.has_proving) return { prove: null, verify: null, total: null };
         const skip = new Set(run.expected_failures || []);
@@ -257,7 +257,7 @@
     }
 
     // eth-act standards test groups, in display order.
-    const STANDARDS_GROUPS = [['io', 'I/O interface'], ['accelerators', 'Cryptographic accelerators'], ['memory', 'Accelerated memory operations']];
+    const STANDARDS_GROUPS = [['io', 'I/O interface'], ['accelerators', 'Cryptographic accelerators'], ['memory', 'Accelerated memory operations'], ['elf', 'ELF loading and validation']];
 
     function escapeHtml(text) {
         return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

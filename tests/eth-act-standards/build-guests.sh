@@ -12,10 +12,20 @@
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #   /cache                    download cache for the accelerator vector sources and uv
 #
-# Every <group>/<name>.c (group: io, accelerators, memory) becomes
+# Every <group>/<name>.c (group: io, accelerators, memory, elf) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
-# writes the rest of the I/O vectors.
+# writes the rest of the I/O vectors. elf/mutate_elf.py writes the crafted ELF
+# variants of the elf group. For a PF_X zkVM, elf/static_checks.py checks the
+# guests and writes <out-dir>/elf/elf-static.json.
+#
+# /platform/elf.env sets the zkVM's ELF loading parameters for the elf group:
+# - ELF_EXEC_PERM: the flags of an executable segment that the zkVM accepts,
+#   x (PF_X alone) or rx (PF_X | PF_R);
+# - ELF_OUTSIDE_ADDR: an address outside the zkVM's addressable space
+#   (default 0x4000000000000000);
+# - ELF_BOOT_ADDR: the fixed address where the zkVM begins execution, for a
+#   zkVM that does not start at e_entry (default: none).
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -23,7 +33,17 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory"
+GROUPS_LIST="io accelerators memory elf"
+
+ELF_EXEC_PERM=""
+ELF_OUTSIDE_ADDR=0x4000000000000000
+ELF_BOOT_ADDR=""
+# shellcheck source=/dev/null
+. "$PLATFORM_DIR/elf.env"
+case "$ELF_EXEC_PERM" in
+  x | rx) ;;
+  *) echo "error: $PLATFORM_DIR/elf.env: ELF_EXEC_PERM must be x or rx" >&2; exit 1 ;;
+esac
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
@@ -117,6 +137,11 @@ fi
 for group in $GROUPS_LIST; do
   cp -r "$HERE/$group" "$TESTS/rv64i/$group"
 done
+# elf-text-data keeps data in the executable segment, which only a PF_X | PF_R
+# zkVM allows.
+if [ "$ELF_EXEC_PERM" = x ]; then
+  rm "$TESTS/rv64i/elf/elf-text-data.c"
+fi
 # The vendored optimized-routines tests sweep lengths up to LEN = 250000, which
 # is billions of guest instructions per test. Build them with a smaller LEN.
 AOR_LEN=1024
@@ -193,5 +218,31 @@ for group in $GROUPS_LIST; do
     python3 "$HERE/$group/write_io_vectors.py" "$OUT/$group"
   fi
 done
+# On a PF_X zkVM, a load from the executable segment terminates the program
+# abnormally.
+if [ "$ELF_EXEC_PERM" = x ]; then
+  echo fail > "$OUT/elf/elf-text-read.outcome"
+fi
+# A PF_X zkVM's linker script keeps read-only data out of the executable
+# segment, and the linked ELFs have to show it: two static checks of every guest
+# above (not of the crafted variants below). The run script adds the results.
+if [ "$ELF_EXEC_PERM" = x ]; then
+  python3 -B "$HERE/elf/static_checks.py" "$OUT/elf/elf-static.json" "$OUT"/*/*.elf
+fi
+# The crafted variants of elf-image and elf-tail.
+python3 "$HERE/elf/mutate_elf.py" "$OUT/elf" "$ELF_EXEC_PERM" "$ELF_OUTSIDE_ADDR" "$ELF_BOOT_ADDR"
+# reject-class32: an rv32 program at the zkVM's entry address, in a segment
+# with the zkVM's executable segment flags.
+ENTRY=$(riscv64-unknown-elf-readelf -h "$OUT/elf/elf-image.elf" | awk '/Entry point address:/ { print $4 }')
+TEXT_FLAGS=5
+if [ "$ELF_EXEC_PERM" = x ]; then TEXT_FLAGS=1; fi
+cat > "$WORK/class32.ld" <<EOF
+ENTRY(_start)
+PHDRS { text PT_LOAD FLAGS($TEXT_FLAGS); }
+SECTIONS { . = $ENTRY; .text : { *(.text) } :text }
+EOF
+riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -nostdlib -static -T "$WORK/class32.ld" \
+  -o "$OUT/elf/reject-class32.elf" "$HERE/elf/rv32/reject-class32.S"
+echo reject > "$OUT/elf/reject-class32.outcome"
 
 echo "Built $count eth-act standards test ELFs for $ZKVM in $OUT"

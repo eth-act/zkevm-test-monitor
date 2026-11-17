@@ -3,7 +3,7 @@
 Compliance testing for zkVMs with two test suites:
 
 - **ISA tests:** RISC-V ISA compliance, with the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
-- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
+- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations) and ELF loading, which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
 
 **Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 
@@ -60,13 +60,13 @@ flowchart LR
         exe["zkVM executor<br/>(same version)"]
     end
     subgraph act["Docker: zkvms/&lt;zkvm&gt;/act4.Dockerfile"]
-        src["tests/eth-act-standards/{io,accelerators,memory}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(eth-act/zkevm-standards, pinned in config.json)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
+        src["tests/eth-act-standards/{io,accelerators,memory,elf}/*.c<br/>+ zkvm_io.h, zkvm_accelerators.h<br/>(eth-act/zkevm-standards, pinned in config.json)"] --> build["act: ACT4 C tests<br/>(build-guests.sh)"]
         build --> elfs["guest ELFs<br/>+ .input / .expected / .outcome"]
     end
     vendor --> build
     elfs --> runner["Host: runner<br/>(ere, or the noere backends<br/>with BACKEND=noere)"]
     exe --> runner
-    runner --> verdict{"ACT4 verdict,<br/>output == .expected,<br/>or .outcome (fail [code])"}
+    runner --> verdict{"ACT4 verdict,<br/>output == .expected,<br/>or .outcome (fail [code],<br/>reject, pass-or-fail)"}
     verdict --> hist["results/history/&lt;zkvm&gt;-eth-act-standards.json"]
     hist --> dash["dashboard: Execution, Prove, Verify columns"]
 ```
@@ -78,12 +78,15 @@ flowchart LR
   `FAIL` to public output 0, so the runner reads its verdict as for an ISA test. A program that
   ends before `rvtest_pass()` writes no `PASS` and fails. An I/O write program must write its `.expected` public output. A
   program with the `.outcome` `fail` must terminate abnormally (the NULL-pointer tests). With
-  `fail <code>`, the zkVM must also report that error code. A host error (for example, an executor usage or I/O error) never
+  `fail <code>`, the zkVM must also report that error code. With `reject`, the zkVM must reject
+  the ELF (the ELF loading tests); with `pass-or-fail`, the program must pass or terminate
+  abnormally. A host error (for example, an executor usage or I/O error) never
   passes a test. The runner gives each program its `.input` file.
 - The suite runs for ZisK, SP1 and OpenVM through ere by default: on the official ere image of
   the revision that `src/runner/Cargo.toml` pins, with execute, prove and verify
   (`ACT4_MODE`, default `full`; prove and full need an NVIDIA GPU). A test that expects an
-  abnormal termination has no valid proof, so it is only executed. `BACKEND=noere` runs the
+  abnormal termination or a rejection has no valid proof, so it is only executed (on the noere
+  path, the prover must also refuse a rejected ELF). `BACKEND=noere` runs the
   suite on this repository's executors and provers instead, so it can test any zkVM commit or
   fork (`ACT4_MODE` defaults to `execute` there; `prove` and `full` prove on the GPU). `TESTS`
   runs only some tests (see below). Each standards test image pins its own
@@ -133,7 +136,7 @@ SP1_CUDA_LIB=<dir> ...                  # CUDA 12 runtime for SP1's GPU prover (
 ```
 
 `TESTS` holds words separated by spaces or commas. A word that is a test name (`io-echo`) or a
-group (`io`, `accelerators`, `memory`) selects exactly that; any other word is a glob
+group (`io`, `accelerators`, `memory`, `elf`) selects exactly that; any other word is a glob
 (`io-write-*`) or a substring (`bls`) of the test names. A word that selects no test stops the
 run. It applies to the eth-act standards tests only.
 

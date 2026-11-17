@@ -7,8 +7,13 @@
 //! to each new ELF. After an error that can leave the server in a bad state, the
 //! next test starts a new container. Tests run one at a time, because the
 //! container name and port are fixed per zkVM.
+//!
+//! A zkVM error from `setup` means that the zkVM rejected the ELF; the server
+//! keeps its last ELF. A server that starts with an ELF that its zkVM rejects
+//! exits, so for the eth-act standards tests a new server starts with
+//! `BOOT_ELF` and `setup` then switches it to the test's ELF.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -35,6 +40,10 @@ const PROVE: Duration = Duration::from_secs(120);
 /// Time limit on each prove of an eth-act standards test. Some of these tests
 /// run far longer than an ISA test (for example the BLS12-381 MSM cases).
 const PROVE_STANDARDS: Duration = Duration::from_secs(30 * 60);
+
+/// The ELF that a new server starts with in the eth-act standards suite, under
+/// the ELF directory: a guest that the zkVMs load.
+const BOOT_ELF: &str = "elf/elf-image.elf";
 
 /// What was tested: recorded next to the results of each run.
 #[derive(Serialize)]
@@ -86,6 +95,9 @@ pub struct EreBackend {
     /// public output (`.expected`, or `PASS` without one), and they get their
     /// `.input` as stdin.
     standards: bool,
+    /// The ELF that a new server starts with (`BOOT_ELF`); without it, a new
+    /// server starts with the test's ELF.
+    boot_elf: Option<PathBuf>,
     /// The running server, kept for the next test; `None` before the first test
     /// and after an error that can leave it broken. The lock also makes tests
     /// run one at a time.
@@ -97,11 +109,11 @@ pub struct EreBackend {
 impl EreBackend {
     /// Pulls the image of the pinned revision and returns the backend and what
     /// it tests. `zkvm` is `openvm`, `sp1` or `zisk`. With `standards`, the
-    /// ELFs are eth-act standards tests.
+    /// ELFs in `elf_dir` are eth-act standards tests.
     ///
     /// Call this before any other thread starts: it sets the environment
     /// variables that `ere-dockerized` reads.
-    pub fn new(zkvm: &str, gpu: bool, standards: bool) -> anyhow::Result<(Self, Provenance)> {
+    pub fn new(zkvm: &str, gpu: bool, standards: bool, elf_dir: &Path) -> anyhow::Result<(Self, Provenance)> {
         let kind: zkVMKind = zkvm
             .parse()
             .map_err(|_| anyhow!("ere has no zkVM named `{zkvm}`"))?;
@@ -136,6 +148,7 @@ impl EreBackend {
             kind,
             resource: if gpu { ProverResource::Gpu } else { ProverResource::Cpu },
             standards,
+            boot_elf: Some(elf_dir.join(BOOT_ELF)).filter(|path| standards && path.is_file()),
             server: Mutex::new(None),
             details: Mutex::new(Vec::new()),
         };
@@ -208,19 +221,23 @@ impl EreBackend {
             .with_context(|| format!("failed to read {}", elf_path.display()))
             .map_err(|err| ("failed", err))?;
 
-        // Setup: switch the running server to this ELF, or start one.
+        // Setup: switch the running server to this ELF, or start one first.
         let started = Instant::now();
-        let setup = match server.take() {
-            Some(mut zkvm) => zkvm.setup(Elf(elf)).map(|()| zkvm),
-            None => {
-                let config = DockerizedzkVMConfig {
-                    prove_timeout: Some(if self.standards { PROVE_STANDARDS } else { PROVE }),
-                    ..Default::default()
-                };
-                DockerizedzkVM::new(self.kind, Elf(elf), self.resource.clone(), config)
-                    .map_err(Into::into)
-            }
+        let started_zkvm = match server.take() {
+            Some(zkvm) => Ok(zkvm),
+            None => self.start(&elf),
         };
+        let setup = started_zkvm.and_then(|mut zkvm| match zkvm.setup(Elf(elf)) {
+            Ok(()) => Ok(zkvm),
+            Err(err) => {
+                // After a rejection, the server keeps its last ELF.
+                result.termination = setup_termination(&err);
+                if result.termination == Termination::Rejected {
+                    *server = Some(zkvm);
+                }
+                Err(err)
+            }
+        });
         detail.setup_secs = started.elapsed().as_secs_f64();
         let zkvm = setup.map_err(|err| ("failed", err.context("setup")))?;
 
@@ -277,6 +294,19 @@ impl EreBackend {
             *server = Some(zkvm);
         }
         outcome
+    }
+
+    /// Starts a server with the boot ELF, or with `elf` when there is none.
+    fn start(&self, elf: &[u8]) -> anyhow::Result<DockerizedzkVM> {
+        let first = match &self.boot_elf {
+            Some(path) => std::fs::read(path).with_context(|| format!("failed to read {}", path.display()))?,
+            None => elf.to_vec(),
+        };
+        let config = DockerizedzkVMConfig {
+            prove_timeout: Some(if self.standards { PROVE_STANDARDS } else { PROVE }),
+            ..Default::default()
+        };
+        Ok(DockerizedzkVM::new(self.kind, Elf(first), self.resource.clone(), config)?)
     }
 
     /// Decides whether a stage passed from the public values it returned.
@@ -347,6 +377,16 @@ fn execution_termination<T>(executed: &anyhow::Result<(PublicValues, T)>) -> Ter
     }
 }
 
+/// How a failed `setup` ends the test: a zkVM error means that the zkVM
+/// rejected the ELF (its loader did not accept it). Any other error, such as
+/// a Docker or transport error, is a host error.
+fn setup_termination(err: &anyhow::Error) -> Termination {
+    match err.downcast_ref::<EreError>() {
+        Some(EreError::zkVM(_)) => Termination::Rejected,
+        _ => Termination::HostError,
+    }
+}
+
 /// Sets `key` to `value` unless the user set it already.
 ///
 /// # Safety
@@ -408,11 +448,21 @@ mod tests {
         assert_eq!(execution_termination(&executed(Err(transport))), Termination::HostError);
     }
 
+    #[test]
+    fn classifies_a_failed_setup() {
+        let loader = anyhow::Error::from(EreError::zkVM("failed to disassemble program: must be executable".to_owned()));
+        assert_eq!(setup_termination(&loader), Termination::Rejected);
+        let timeout = anyhow::Error::from(EreError::Timeout { timeout: Duration::from_secs(1) });
+        assert_eq!(setup_termination(&timeout), Termination::HostError);
+        assert_eq!(setup_termination(&anyhow!("docker: no such image")), Termination::HostError);
+    }
+
     fn backend(kind: &str, standards: bool) -> EreBackend {
         EreBackend {
             kind: kind.parse().unwrap(),
             resource: ProverResource::Cpu,
             standards,
+            boot_elf: None,
             server: Mutex::new(None),
             details: Mutex::new(Vec::new()),
         }

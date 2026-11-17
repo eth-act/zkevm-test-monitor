@@ -123,7 +123,7 @@ fn main() {
     #[cfg(feature = "ere")]
     if let Some(name) = cli.zkvm.strip_prefix("ere-") {
         let standards = suite_kind == Suite::Standards;
-        let (ere, provenance) = runner::ere_backend::EreBackend::new(name, cli.gpu, standards).unwrap_or_else(|e| {
+        let (ere, provenance) = runner::ere_backend::EreBackend::new(name, cli.gpu, standards, &cli.elf_dir).unwrap_or_else(|e| {
             eprintln!("error: {e:#}");
             process::exit(2);
         });
