@@ -12,10 +12,11 @@
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #   /cache                    download cache for the accelerator vector sources and uv
 #
-# Every <group>/<name>.c (group: io, accelerators, memory) becomes
-# <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
-# and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
-# writes the rest of the I/O vectors.
+# Every <group>/<name>.c (group: io, accelerators, memory, layout) becomes
+# <out-dir>/<group>/<name>.elf, and the static layout checks become
+# <out-dir>/layout/layout-static-<check>.elf. The test vectors <name>.input,
+# <name>.expected and <name>.outcome are copied next to the ELF, and
+# <group>/write_io_vectors.py writes the rest of the I/O vectors.
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -23,7 +24,7 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory"
+GROUPS_LIST="io accelerators memory layout"
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
@@ -90,14 +91,21 @@ fi
 # values do not matter; defining them here keeps them out of the zkVMs' linker
 # scripts. A definition in a linker script takes precedence over --defsym.
 LINK_ARGS="$LINK_ARGS-Wl,--defsym=__bss_start=0,--defsym=__bss_end=0,--defsym=__stack_top=0,--defsym=__stack_size=0,--defsym=__num_harts=1 "
+# The layout/ guests get the vendor's heap and stack symbols that layout.yaml
+# declares as LAYOUT_* macros (layout/layout.h).
+check_layout() {
+  UV_CACHE_DIR=/cache/uv uv run --no-project --with pyyaml --with pyelftools \
+    "$HERE/tools/check_layout.py" "$@"
+}
+LAYOUT_DEFINES=$(check_layout defines "$PLATFORM_DIR/layout.yaml")
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<EOF
 #!/bin/sh
 for arg in "\$@"; do
   case "\$arg" in
-    -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections ;;
+    -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections $LAYOUT_DEFINES ;;
   esac
 done
-exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
+exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections $LAYOUT_DEFINES -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"
@@ -154,10 +162,20 @@ done
 UV_CACHE_DIR=/cache/uv uv run --no-project --with pycryptodome --with ecdsa \
   "$HERE/tools/gen_accel_vectors.py" --out "$TESTS/rv64i/accelerators/vectors" --cache /cache/vectors
 
-(cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
-  --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
+run_act() {
+  (cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
+    --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
+}
+run_act
 
 ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
+
+# The static layout checks (tools/check_layout.py) need a linked layout/ guest:
+# they check it against layout.yaml and write one test per check
+# (layout-static-<check>.c) that passes or fails with the reason. A second act
+# pass builds these tests; the other ELFs are up to date.
+check_layout check "$PLATFORM_DIR/layout.yaml" "$ELF_ROOT/layout/layout-heap-ends.elf" "$TESTS/rv64i/layout"
+run_act
 
 # Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition
 # (pass) or to the guest's decoy_<fn> (fail). Any other weak definition, such
