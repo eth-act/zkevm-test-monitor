@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::Parser;
-use runner::zkvm_backends::{self, Mode, RunResult, Termination, Tools};
+use runner::zkvm_backends::{self, Mode, RunResult, Tools};
 use runner::results::{self, TestEntry};
 use runner::runner::{self as suite, Suite};
 
@@ -10,7 +10,9 @@ use runner::runner::{self as suite, Suite};
 /// standards tests.
 ///
 /// Every ELF may have `<stem>.input`, `<stem>.expected` and `<stem>.outcome`
-/// files next to it (see the `io_and_expected_failures` module).
+/// files next to it (see the `io_and_expected_failures` module). A
+/// `static-results.json` file in the ELF tree adds tests that the guest build
+/// decided (see `runner::StaticVerdict`).
 ///
 /// Exit status: 0 when every test passed, 1 when a test failed, 2 on a usage
 /// error or when the ELF directory holds no ELFs, 3 when a test could not run
@@ -34,7 +36,8 @@ struct Cli {
     #[arg(long)]
     io_executor: Option<PathBuf>,
 
-    /// Directory containing ELF test files (searched recursively).
+    /// Directory containing ELF test files and static verdicts (searched
+    /// recursively).
     #[arg(long)]
     elf_dir: PathBuf,
 
@@ -62,6 +65,13 @@ struct Cli {
     /// detail in the results file.
     #[arg(long)]
     groups: bool,
+
+    /// Groups in which a host error fails only its test, not the run
+    /// (comma-separated). The backends report an ELF that the zkVM does not
+    /// load as a host error. The eth-act standards runtime guests link with
+    /// the vendor's linker script, so such an ELF is a finding of that test.
+    #[arg(long, value_delimiter = ',')]
+    host_error_fails_test: Vec<String>,
 
     /// Number of parallel test jobs (default: auto-detect).
     #[arg(short = 'j', long = "jobs")]
@@ -109,13 +119,14 @@ fn main() {
         process::exit(2);
     };
 
-    let elfs = suite::find_elfs(&cli.elf_dir, &cli.select).unwrap_or_else(|e| {
-        eprintln!("error: {e}");
+    let suite::Tests { elfs, statics } = suite::find_tests(&cli.elf_dir, &cli.select).unwrap_or_else(|e| {
+        eprintln!("error: {e:#}");
         process::exit(2);
     });
     if !cli.select.is_empty() {
-        eprintln!("Selected {} tests", elfs.len());
+        eprintln!("Selected {} tests", elfs.len() + statics.len());
     }
+    suite::report_statics(&statics);
 
     // The ere path (`--zkvm ere-<zkvm>`, `--features ere`) runs the ELFs on the official
     // ere images. ere runs its own execute, prove and verify stages, so it is not a
@@ -133,7 +144,7 @@ fn main() {
             })
         });
         let label = cli.label.as_deref().unwrap_or(&cli.suite);
-        report(&cli, &runs, || ere.finish(&cli.output_dir, label, &provenance));
+        report(&cli, &runs, &statics, || ere.finish(&cli.output_dir, label, &provenance));
         return;
     }
 
@@ -162,18 +173,28 @@ fn main() {
     });
 
     let runs = suite::run_tests(&*zkvm, suite_kind, &elfs, jobs, mode);
-    report(&cli, &runs, || Ok(()));
+    report(&cli, &runs, &statics, || Ok(()));
 }
 
-/// Write the results and summary, run `finish` (the ere run records), print
-/// the summary and exit with the runner's status.
-fn report(cli: &Cli, runs: &[(PathBuf, RunResult)], finish: impl FnOnce() -> anyhow::Result<()>) {
-    if runs.is_empty() {
+/// Write the results (the runs and the static verdicts) and summary, run
+/// `finish` (the ere run records), print the summary and exit with the
+/// runner's status.
+fn report(
+    cli: &Cli,
+    runs: &[(PathBuf, RunResult)],
+    statics: &[suite::StaticVerdict],
+    finish: impl FnOnce() -> anyhow::Result<()>,
+) {
+    if runs.is_empty() && statics.is_empty() {
         eprintln!("error: no ELFs found in {}", cli.elf_dir.display());
         process::exit(2);
     }
-    let host_errors = runs.iter().filter(|(_, result)| result.termination == Termination::HostError).count();
-    let entries: Vec<TestEntry> = runs.iter().map(|(path, result)| TestEntry::from_run(path, result)).collect();
+    let host_errors = suite::run_host_errors(runs, &cli.host_error_fails_test);
+    let entries: Vec<TestEntry> = runs
+        .iter()
+        .map(|(path, result)| TestEntry::from_run(path, result))
+        .chain(statics.iter().map(TestEntry::from_static))
+        .collect();
 
     if let Err(e) = std::fs::create_dir_all(&cli.output_dir) {
         eprintln!("error: failed to create output dir: {e}");

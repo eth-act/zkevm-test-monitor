@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
+use anyhow::Context;
 use rayon::prelude::*;
+use serde::Deserialize;
 
 use crate::zkvm_backends::{Execution, Mode, PassHalt, RunResult, Termination, Zkvm};
 use crate::io_and_expected_failures::{self, IoVectors, Outcome};
@@ -48,20 +50,54 @@ pub fn run_tests(
     run_elfs(elfs, jobs, |elf_path| run_one(zkvm, suite, elf_path, mode))
 }
 
-/// Find the ELF files in `elf_dir` (searched recursively) in alphabetical
-/// order, and keep the ones that `select` picks (all of them when it is empty).
+/// A verdict that the guest build decided, without a run: a check of the
+/// vendor's static library, its linker script or the linked ELFs, or a guest
+/// that does not link. tests/eth-act-standards/tools/check_static_library.py
+/// writes a list of them to a `static-results.json` file in the ELF tree.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct StaticVerdict {
+    pub name: String,
+    pub group: String,
+    pub passed: bool,
+    pub detail: Option<String>,
+}
+
+/// The name of a file of static verdicts in the ELF tree.
+pub const STATIC_RESULTS: &str = "static-results.json";
+
+/// The tests in an ELF tree: ELFs to run and static verdicts.
+#[derive(Debug, Default)]
+pub struct Tests {
+    pub elfs: Vec<PathBuf>,
+    pub statics: Vec<StaticVerdict>,
+}
+
+/// Find the ELF files and the static verdicts (`static-results.json` files)
+/// in `elf_dir` (searched recursively), the ELFs in alphabetical order, and
+/// keep the tests that `select` picks (all of them when it is empty).
 ///
-/// `select` holds words separated by spaces or commas. A test's name is its
-/// ELF's file stem and its group is the ELF's parent directory. A word that is
-/// exactly a test's or a group's name picks only that test or group. Any other
-/// word is a pattern on the test names: a glob with `*` and `?`, else a
-/// substring. A word that picks no test is an error.
-pub fn find_elfs(elf_dir: &Path, select: &[String]) -> anyhow::Result<Vec<PathBuf>> {
-    let mut elfs = discover_elfs(elf_dir);
+/// `select` holds words separated by spaces or commas. An ELF's test name is
+/// its file stem and its group is the ELF's parent directory; a static verdict
+/// names its test and group. A word that is exactly a test's or a group's name
+/// picks only that test or group. Any other word is a pattern on the test
+/// names: a glob with `*` and `?`, else a substring. A word that picks no test
+/// is an error.
+pub fn find_tests(elf_dir: &Path, select: &[String]) -> anyhow::Result<Tests> {
+    let mut elfs = Vec::new();
+    let mut static_files = Vec::new();
+    collect_tests(elf_dir, &mut elfs, &mut static_files);
     elfs.sort();
+    static_files.sort();
+    let mut statics = Vec::new();
+    for file in static_files {
+        let text = std::fs::read_to_string(&file).with_context(|| format!("failed to read {}", file.display()))?;
+        let verdicts: Vec<StaticVerdict> =
+            serde_json::from_str(&text).with_context(|| format!("failed to parse {}", file.display()))?;
+        statics.extend(verdicts);
+    }
     let words: Vec<&str> = select.iter().flat_map(|s| s.split([' ', ','])).filter(|w| !w.is_empty()).collect();
     if words.is_empty() {
-        return Ok(elfs);
+        return Ok(Tests { elfs, statics });
     }
 
     let file_name = |path: Option<&Path>| path.and_then(Path::file_name).map(|n| n.to_string_lossy().into_owned());
@@ -71,8 +107,9 @@ pub fn find_elfs(elf_dir: &Path, select: &[String]) -> anyhow::Result<Vec<PathBu
             let name = elf.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             (name, file_name(elf.parent()).unwrap_or_default())
         })
+        .chain(statics.iter().map(|v| (v.name.clone(), v.group.clone())))
         .collect();
-    let mut picked = vec![false; elfs.len()];
+    let mut picked = vec![false; tests.len()];
     for word in words {
         let exact = tests.iter().any(|(name, group)| name == word || group == word);
         let mut found = false;
@@ -87,7 +124,11 @@ pub fn find_elfs(elf_dir: &Path, select: &[String]) -> anyhow::Result<Vec<PathBu
             anyhow::bail!("no test in {} matches '{word}'", elf_dir.display());
         }
     }
-    Ok(elfs.into_iter().zip(picked).filter_map(|(elf, picked)| picked.then_some(elf)).collect())
+    let (picked_elfs, picked_statics) = picked.split_at(elfs.len());
+    Ok(Tests {
+        elfs: elfs.into_iter().zip(picked_elfs).filter_map(|(elf, &picked)| picked.then_some(elf)).collect(),
+        statics: statics.into_iter().zip(picked_statics).filter_map(|(v, &picked)| picked.then_some(v)).collect(),
+    })
 }
 
 /// Whether `pattern` matches `name`: as a glob when it has `*` (any characters)
@@ -289,14 +330,9 @@ fn report_progress(idx: usize, total: usize, elf_path: &Path, result: &RunResult
     );
 }
 
-/// Recursively discover all `*.elf` files under `dir`.
-fn discover_elfs(dir: &Path) -> Vec<PathBuf> {
-    let mut results = Vec::new();
-    collect_elfs(dir, &mut results);
-    results
-}
-
-fn collect_elfs(dir: &Path, out: &mut Vec<PathBuf>) {
+/// Recursively collect the `*.elf` files and the `static-results.json` files
+/// under `dir`.
+fn collect_tests(dir: &Path, elfs: &mut Vec<PathBuf>, static_files: &mut Vec<PathBuf>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(_) => return,
@@ -305,9 +341,33 @@ fn collect_elfs(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            collect_elfs(&path, out);
+            collect_tests(&path, elfs, static_files);
         } else if path.extension().is_some_and(|ext| ext == "elf") {
-            out.push(path);
+            elfs.push(path);
+        } else if path.file_name().is_some_and(|name| name == STATIC_RESULTS) {
+            static_files.push(path);
+        }
+    }
+}
+
+/// The number of runs with a host error, which make the run invalid. A host
+/// error in one of `groups` (an ELF's parent directory) fails only its test.
+pub fn run_host_errors(runs: &[(PathBuf, RunResult)], groups: &[String]) -> usize {
+    runs.iter()
+        .filter(|(path, result)| {
+            let group = path.parent().and_then(Path::file_name).map(|n| n.to_string_lossy());
+            result.termination == Termination::HostError && !group.is_some_and(|g| groups.iter().any(|x| *x == g))
+        })
+        .count()
+}
+
+/// Print the static verdicts to stderr, like the progress of a run.
+pub fn report_statics(statics: &[StaticVerdict]) {
+    for verdict in statics {
+        let status = if verdict.passed { "PASS" } else { "FAIL" };
+        match &verdict.detail {
+            Some(detail) => eprintln!("  [static] {status} {} ({detail})", verdict.name),
+            None => eprintln!("  [static] {status} {}", verdict.name),
         }
     }
 }
@@ -618,7 +678,8 @@ mod tests {
         assert!(run_one(&fake, Suite::Isa, &elf, Mode::Execute).passed);
     }
 
-    /// Find the tests that `select` picks among a standards-like ELF tree.
+    /// Find the tests that `select` picks among a standards-like ELF tree: the
+    /// ELFs, then the static verdicts.
     fn selected(select: &[&str]) -> anyhow::Result<Vec<String>> {
         let dir = tempfile::tempdir().unwrap();
         for test in [
@@ -636,8 +697,9 @@ mod tests {
             std::fs::write(elf.with_extension("input"), b"").unwrap();
         }
         let select: Vec<String> = select.iter().map(|s| s.to_string()).collect();
-        let elfs = find_elfs(dir.path(), &select)?;
-        Ok(elfs.iter().map(|elf| elf.file_stem().unwrap().to_string_lossy().into_owned()).collect())
+        let tests = find_tests(dir.path(), &select)?;
+        assert!(tests.statics.is_empty());
+        Ok(tests.elfs.iter().map(|elf| elf.file_stem().unwrap().to_string_lossy().into_owned()).collect())
     }
 
     #[test]
@@ -669,6 +731,64 @@ mod tests {
         assert!(selected(&["io-echo*x"]).is_err());
         // Only the ELF names count, not the test vectors.
         assert!(selected(&["input"]).is_err());
+    }
+
+    /// Find the tests that `select` picks in a tree with runtime ELFs and
+    /// static verdicts: (ELF names, static verdict names).
+    fn selected_with_statics(select: &[&str]) -> anyhow::Result<(Vec<String>, Vec<String>)> {
+        let dir = tempfile::tempdir().unwrap();
+        for test in ["io/io-echo", "runtime/rt-c-runtime", "runtime-lld/rt-c-runtime-lld"] {
+            let elf = dir.path().join(format!("{test}.elf"));
+            std::fs::create_dir_all(elf.parent().unwrap()).unwrap();
+            std::fs::write(&elf, b"").unwrap();
+        }
+        std::fs::create_dir_all(dir.path().join("library")).unwrap();
+        let verdicts = r#"[
+            {"name": "lib-start", "group": "library", "passed": true, "detail": null},
+            {"name": "lib-segments-lld", "group": "library", "passed": false, "detail": "x"},
+            {"name": "rt-bss-zero-lld", "group": "runtime-lld", "passed": false, "detail": "does not link"}
+        ]"#;
+        std::fs::write(dir.path().join("library").join(STATIC_RESULTS), verdicts).unwrap();
+        let select: Vec<String> = select.iter().map(|s| s.to_string()).collect();
+        let tests = find_tests(dir.path(), &select)?;
+        let elfs = tests.elfs.iter().map(|elf| elf.file_stem().unwrap().to_string_lossy().into_owned()).collect();
+        Ok((elfs, tests.statics.into_iter().map(|v| v.name).collect()))
+    }
+
+    #[test]
+    fn finds_and_selects_static_verdicts() {
+        let (elfs, statics) = selected_with_statics(&[]).unwrap();
+        assert_eq!(elfs, ["io-echo", "rt-c-runtime", "rt-c-runtime-lld"]);
+        assert_eq!(statics, ["lib-start", "lib-segments-lld", "rt-bss-zero-lld"]);
+        // A group selects its ELFs and its static verdicts.
+        assert_eq!(selected_with_statics(&["library"]).unwrap(), (vec![], vec!["lib-start".into(), "lib-segments-lld".into()]));
+        let (elfs, statics) = selected_with_statics(&["runtime-lld"]).unwrap();
+        assert_eq!((elfs, statics), (vec!["rt-c-runtime-lld".to_owned()], vec!["rt-bss-zero-lld".to_owned()]));
+        // Names and patterns apply to both.
+        assert_eq!(selected_with_statics(&["lib-start"]).unwrap(), (vec![], vec!["lib-start".into()]));
+        let (elfs, statics) = selected_with_statics(&["*-lld"]).unwrap();
+        assert_eq!((elfs, statics), (vec!["rt-c-runtime-lld".to_owned()], vec!["lib-segments-lld".into(), "rt-bss-zero-lld".into()]));
+        assert!(selected_with_statics(&["nosuch"]).is_err());
+    }
+
+    #[test]
+    fn a_malformed_static_results_file_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(STATIC_RESULTS), r#"[{"name": "lib-start"}]"#).unwrap();
+        let e = find_tests(dir.path(), &[]).unwrap_err();
+        assert!(format!("{e:#}").contains("failed to parse"), "{e:#}");
+    }
+
+    #[test]
+    fn host_errors_in_the_given_groups_fail_only_their_test() {
+        let runs = vec![
+            (PathBuf::from("elfs/io/io-echo.elf"), result(Termination::HostError, Some("executor error"))),
+            (PathBuf::from("elfs/runtime/rt-bss-zero.elf"), result(Termination::HostError, Some("loader error"))),
+            (PathBuf::from("elfs/runtime-lld/rt-bss-zero-lld.elf"), result(Termination::Success, None)),
+        ];
+        assert_eq!(run_host_errors(&runs, &[]), 2);
+        assert_eq!(run_host_errors(&runs, &["runtime".to_owned(), "runtime-lld".to_owned()]), 1);
+        assert_eq!(run_host_errors(&runs[1..], &["runtime".to_owned()]), 0);
     }
 
     #[test]

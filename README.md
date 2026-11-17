@@ -3,7 +3,7 @@
 Compliance testing for zkVMs with two test suites:
 
 - **ISA tests:** RISC-V ISA compliance, with the [ACT4](https://github.com/riscv/riscv-arch-test) framework (release [4.1.0](https://github.com/riscv/riscv-arch-test/releases/tag/4.1.0)).
-- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations), which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
+- **eth-act standards tests:** the [eth-act zkEVM standards](https://github.com/eth-act/zkevm-standards) for guest interfaces (I/O, cryptographic accelerators, memory operations) and for the vendor's static library and linker script, which EIP-8025 readiness uses, with small C programs in [`tests/eth-act-standards/`](tests/eth-act-standards/README.md).
 
 **Dashboard:** https://eth-act.github.io/zkevm-test-monitor/
 
@@ -74,6 +74,10 @@ flowchart LR
 - Each test is a small C program that uses only the standard headers. ACT4 builds it as a C
   test, with the zkVM's ISA config, and links it against the zkVM's own static library, the way
   an EIP-8025 guest does.
+- The static library and linker script tests do not use ACT4. Plain C and C++ guests link only
+  the zkVM's static library, with its linker script unchanged, with GNU ld and with LLD. A script
+  checks the library, the linker script and the linked ELFs, and the runner records each verdict
+  as a test.
 - A self-checking program ends through the zkVM's ACT4 halt macros, which write `PASS` or
   `FAIL` to public output 0, so the runner reads its verdict as for an ISA test. A program that
   ends before `rvtest_pass()` writes no `PASS` and fails. An I/O write program must write its `.expected` public output. A
@@ -133,7 +137,7 @@ SP1_CUDA_LIB=<dir> ...                  # CUDA 12 runtime for SP1's GPU prover (
 ```
 
 `TESTS` holds words separated by spaces or commas. A word that is a test name (`io-echo`) or a
-group (`io`, `accelerators`, `memory`) selects exactly that; any other word is a glob
+group (`io`, `accelerators`, `memory`, `library`, `runtime`, `runtime-lld`) selects exactly that; any other word is a glob
 (`io-write-*`) or a substring (`bls`) of the test names. A word that selects no test stops the
 run. It applies to the eth-act standards tests only.
 
