@@ -553,8 +553,8 @@ run_ere_pipeline() {
 
 # BACKEND=ere (default) runs only the Standard ISA suite of OpenVM, SP1 and ZisK, through
 # ere. BACKEND=noere builds the zkVM in this repository's containers and runs both the Full
-# and the Standard ISA suites, for reproducing bugs and testing branches. LambdaVM always
-# runs noere until ere supports it.
+# and the Standard ISA suites, for reproducing bugs and testing branches. LambdaVM runs
+# only on the noere path: this repository does not run it through ere yet.
 BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
   noere|ere) ;;
