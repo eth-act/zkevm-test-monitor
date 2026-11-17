@@ -12,7 +12,7 @@
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #   /cache                    download cache for the accelerator vector sources and uv
 #
-# Every <group>/<name>.c (group: io, accelerators, memory) becomes
+# Every <group>/<name>.c (group: io, accelerators, memory, randomness) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
 # writes the rest of the I/O vectors.
@@ -23,7 +23,7 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory"
+GROUPS_LIST="io accelerators memory randomness"
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
@@ -71,7 +71,14 @@ else
   cp "$PLATFORM_DIR/link.ld" "$DUT/"
 fi
 cp "$STANDARDS/io-interface/zkvm_io.h" "$STANDARDS/c-interface-accelerators/zkvm_accelerators.h" \
-  "$HERE/include/checks.h" "$DUT/"
+  "$STANDARDS/host-randomness/zkvm_random.h" "$HERE/include/checks.h" "$DUT/"
+
+# A vendor library without zkvm_random_u64 would fail every link. This archive
+# comes after the vendor library on the link line, so the linker uses its
+# zkvm_random_u64 only when the vendor has none; that one fails the test.
+riscv64-unknown-elf-gcc -march=rv64im -mabi=lp64 -O2 \
+  -c "$HERE/include/zkvm_random_fallback.c" -o "$DUT/zkvm_random_fallback.o"
+riscv64-unknown-elf-ar crs "$DUT/libzkvm_random_fallback.a" "$DUT/zkvm_random_fallback.o"
 
 # ACT compiles C tests with -std=gnu99; zkvm_accelerators.h requires C11. The
 # last -std option wins, so the wrapper appends -std=gnu11.
@@ -97,7 +104,7 @@ for arg in "\$@"; do
     -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections ;;
   esac
 done
-exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
+exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB" "$DUT/libzkvm_random_fallback.a"
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"
