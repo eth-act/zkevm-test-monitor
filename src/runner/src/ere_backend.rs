@@ -284,14 +284,19 @@ impl EreBackend {
         })();
 
         // Keep the server for the next test unless the error can mean that it
-        // is broken. A zkVM error (e.g. a guest that exits non-zero) is a
-        // normal test failure and leaves the server healthy.
+        // is broken. An execution that fails with a zkVM error (e.g. a guest
+        // that exits non-zero) or a wrong verdict is a normal test failure and
+        // leaves the server healthy. A failed prove or verify can leave the
+        // prover broken: ZisK v1.4.0-alpha's memory-operations service dies
+        // when a prove fails, and every later prove on that server then fails
+        // to set up. So any such failure starts a new server.
         let keep = match &outcome {
             Ok(()) => true,
-            Err((_, err)) => {
+            Err(("failed", err)) => {
                 err.downcast_ref::<Verdict>().is_some()
                     || matches!(err.downcast_ref::<EreError>(), Some(EreError::zkVM(_)))
             }
+            Err(_) => false,
         };
         if keep {
             *server = Some(zkvm);
