@@ -60,9 +60,7 @@ process_results() {
     fi
   fi
 
-  # NOERE_SUITES limits which noere suites are recorded (the ere default records
-  # only the noere Full ISA suite).
-  local SUITE_TYPES="${NOERE_SUITES:-full standard}"
+  local SUITE_TYPES="full standard"
   [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="standard"
   for SUITE_TYPE in $SUITE_TYPES; do
     if [ "$SUITE_TYPE" = "full" ]; then
@@ -549,14 +547,14 @@ run_ere_pipeline() {
   "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/target" --output-dir "$OUT_DIR" \
     --suite act4-standard --label standard-isa --mode "$MODE" $GPU_ARG || true
 
-  # ere runs the Standard ISA (RV64IM_Zicclsm) only; Full ISA stays on the noere path.
+  # ere runs the Standard ISA suite (RV64IM_Zicclsm) only.
   ERE_MODE="$MODE" process_results "$ZKVM" "" ere
 }
 
-# BACKEND=ere (default) runs the Standard ISA suite of OpenVM, SP1 and ZisK through ere,
-# then the Full ISA suite on the noere path (execute only; needs ./run build <zkvm>).
-# BACKEND=noere builds and runs both suites in this repository's containers, for
-# reproducing bugs and testing branches. LambdaVM always runs noere until ere supports it.
+# BACKEND=ere (default) runs only the Standard ISA suite of OpenVM, SP1 and ZisK, through
+# ere. BACKEND=noere builds the zkVM in this repository's containers and runs both the Full
+# and the Standard ISA suites, for reproducing bugs and testing branches. LambdaVM runs
+# only on the noere path: this repository does not run it through ere yet.
 BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
   noere|ere) ;;
@@ -566,8 +564,6 @@ esac
 for ZKVM in $ZKVMS; do
   if [ "$BACKEND" = "ere" ] && [[ " openvm sp1 zisk " == *" $ZKVM "* ]]; then
     run_ere_pipeline "$ZKVM" || true
-    echo "Running $ZKVM Full ISA suite on the noere path (mode: execute)..."
-    ACT4_MODE=execute NOERE_SUITES=full "run_${ZKVM}_split_pipeline" || true
   elif [ "$ZKVM" = "zisk" ]; then
     run_zisk_split_pipeline || true
   elif [ "$ZKVM" = "lambdavm" ]; then
