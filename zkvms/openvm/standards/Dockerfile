@@ -47,7 +47,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 ENV PATH="/root/.cargo/bin:${PATH}" CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 ARG ERE_REPO=https://github.com/eth-act/ere.git
-ARG ERE_COMMIT=de784c6d1a0bb82b8cfd9e48b13d4dbabd8957df
+ARG ERE_COMMIT=4d21321114d3423f67c8e447e4b1d9f1b786789f
 RUN git init /ere && cd /ere && \
     git remote add origin "$ERE_REPO" && \
     git fetch --depth 1 origin "$ERE_COMMIT" && \
