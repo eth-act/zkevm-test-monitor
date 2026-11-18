@@ -55,7 +55,7 @@
     },
     "pico": {
       "repo_url": "https://github.com/brevis-network/pico",
-      "commit": "08b6cdd858dee5da0366202b516d646a158479e0",
+      "commit": "6788178d63aede0a4adbd7ab1a7c6a2ead15dfbb",
       "isa": "RV64IM_Zicclsm",
       "ere": {
         "suites": [

@@ -51,10 +51,12 @@ and needs no local zkVM build.
   test. `PROVE_TIMEOUT=<secs>` replaces it (for example for the BLS12-381 MSM tests), and
   the history records the limit of each run (`prove_timeout_secs`).
 - Measured on an RTX 5090 (32 GB) at ere v0.20.2, peak server-container RAM (cgroup
-  `memory.peak`) and time: ISA tests: SP1 13 GiB, ZisK 65 GiB, OpenVM 2 GiB, each suite
-  under 10 min. eth-act standards tests: SP1 131 GiB and 3.6 h (`accel-bls12-g2-msm` alone
-  takes 2.1 h and the G1 MSM 1.1 h, so SP1 needs `PROVE_TIMEOUT`; its prover uses about 8
-  CPU cores), ZisK 74 GiB, OpenVM 4 GiB.
+  `memory.peak`) and time: ISA tests: SP1 13 GiB, ZisK 65 GiB, OpenVM 2 GiB, Pico 34 GiB,
+  each suite under 10 min. eth-act standards tests: SP1 131 GiB and 3.6 h
+  (`accel-bls12-g2-msm` alone takes 2.1 h and the G1 MSM 1.1 h, so SP1 needs
+  `PROVE_TIMEOUT`; its prover uses about 8 CPU cores), ZisK 74 GiB, OpenVM 4 GiB, Pico
+  68 GiB and 37 min. Pico builds a native library of each ELF at its first execution,
+  which takes about 27 CPU cores during its ISA run.
 - ere limits each server container's RAM to `ERE_DOCKER_MEMORY` and RAM plus swap to
   `ERE_DOCKER_MEMORY_SWAP` (default: 90% of the host's memory). On a shared host, set both,
   for example `ERE_DOCKER_MEMORY=170g ERE_DOCKER_MEMORY_SWAP=170g`, so a prove that needs
