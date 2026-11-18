@@ -50,11 +50,15 @@ and needs no local zkVM build.
 - Each prove has a time limit: 120 s for an ISA test, 30 min for an eth-act standards
   test. `PROVE_TIMEOUT=<secs>` replaces it (for example for the BLS12-381 MSM tests), and
   the history records the limit of each run (`prove_timeout_secs`).
-- Measured on an RTX 5090 (32 GB) at ere `de784c6`, peak server-container RAM and the
-  longest prove: ISA tests: SP1 13 GB, ZisK 67 GB, OpenVM 3 GB, each suite under 10 min.
-  eth-act standards tests: SP1 136 GB and 105 min (`accel-bls12-g2-msm`; the G1 MSM
-  takes 46 min, so SP1 needs `PROVE_TIMEOUT`), ZisK 81 GB, OpenVM 4 GB. ere sets no
-  memory limit on its containers.
+- Measured on an RTX 5090 (32 GB) at ere v0.20.2, peak server-container RAM (cgroup
+  `memory.peak`) and time: ISA tests: SP1 13 GiB, ZisK 65 GiB, OpenVM 2 GiB, each suite
+  under 10 min. eth-act standards tests: SP1 131 GiB and 3.6 h (`accel-bls12-g2-msm` alone
+  takes 2.1 h and the G1 MSM 1.1 h, so SP1 needs `PROVE_TIMEOUT`; its prover uses about 8
+  CPU cores), ZisK 74 GiB, OpenVM 4 GiB.
+- ere limits each server container's RAM to `ERE_DOCKER_MEMORY` and RAM plus swap to
+  `ERE_DOCKER_MEMORY_SWAP` (default: 90% of the host's memory). On a shared host, set both,
+  for example `ERE_DOCKER_MEMORY=170g ERE_DOCKER_MEMORY_SWAP=170g`, so a prove that needs
+  more fails instead of taking the host down.
 - Results: `out/<zkvm>/ere/` (including `details-act4-*.json`, the outcome and
   error of each test) and `results/history/<zkvm>-ere-act4-standard.json`.
 - The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the
