@@ -127,6 +127,7 @@ GPU=1 ./run build zisk              # Build with GPU support
 GPU=1 ./run isa-tests zisk              # Prove with GPU
 BACKEND=noere ./run isa-tests zisk      # noere path (ere is the default)
 BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests zisk  # prove the standards tests without ere
+PROVE_TIMEOUT=10800 ./run eth-act-standards-tests sp1  # ere: allow 3 h per prove (default 120 s ISA, 30 min standards)
 TESTS=io-echo ./run eth-act-standards-tests sp1       # one standards test (no history)
 TESTS="io bls" ./run eth-act-standards-tests openvm   # a group (io) and a pattern (bls)
 SP1_CUDA_LIB=<dir> ...                  # CUDA 12 runtime for SP1's GPU prover (found if unset)

@@ -36,7 +36,7 @@ ENV RUST_LOG=info
 # The runner (src/runner/) reads the guest exit code from sp1-perf-executor's "exit code: N"
 # line, because the executor itself always exits 0.
 ARG REPO_URL=https://github.com/succinctlabs/sp1
-ARG COMMIT_HASH=f5a5bbf6a1cf6007315b410d88678d96fb399fb5
+ARG COMMIT_HASH=b8387fa61e1361d90ee7de49f551863418ca0f08
 
 # Clone SP1 at the specific commit
 # This layer will be cached until COMMIT_HASH changes

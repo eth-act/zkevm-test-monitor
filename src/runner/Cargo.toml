@@ -13,9 +13,9 @@ chrono = "0.4"
 tempfile = "3"
 libc = "0.2"
 
-# ere path (`--features ere`): runs ELFs on the official ere images. Pinned to an ere
-# revision; use the release tag once ere publishes one that contains this revision.
-ere-dockerized = { git = "https://github.com/eth-act/ere", rev = "77e2aae2b92bc0231a3603749ee1a30f8e89c87d", optional = true }
+# ere path (`--features ere`): runs ELFs on the official ere images of this release
+# (Cargo.lock holds its commit, 4d21321, which is also the image tag).
+ere-dockerized = { git = "https://github.com/eth-act/ere", tag = "v0.20.2", optional = true }
 
 [features]
 # Optional so that the noere path's build does not fetch or compile ere-dockerized;

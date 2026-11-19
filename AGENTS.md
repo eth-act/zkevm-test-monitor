@@ -43,6 +43,23 @@ and needs no local zkVM build.
 
 - Needs Docker; `ACT4_MODE=full` (default) or `prove` also needs an NVIDIA GPU.
   `ACT4_MODE=execute` runs on the CPU images.
+- The ZisK GPU server downloads its proving key (6 GB) at the first prove into the
+  volume `ere-zisk-proving-key-<version>`. That takes longer than the 120 s prove limit
+  of an ISA test, so after a ZisK version change, fill the volume first with
+  `TESTS=io-echo ./run eth-act-standards-tests zisk` (30 min limit).
+- Each prove has a time limit: 120 s for an ISA test, 30 min for an eth-act standards
+  test. `PROVE_TIMEOUT=<secs>` replaces it (for example for the BLS12-381 MSM tests), and
+  the history records the limit of each run (`prove_timeout_secs`).
+- Measured on an RTX 5090 (32 GB) at ere v0.20.2, peak server-container RAM (cgroup
+  `memory.peak`) and time: ISA tests: SP1 13 GiB, ZisK 65 GiB, OpenVM 2 GiB, each suite
+  under 10 min. eth-act standards tests: SP1 131 GiB and 3.6 h (`accel-bls12-g2-msm` alone
+  takes 2.1 h and the G1 MSM 1.1 h, so SP1 needs `PROVE_TIMEOUT`; its prover uses about 8
+  CPU cores), ZisK 74 GiB, OpenVM 4 GiB.
+- ere limits each server container's RAM to `ERE_DOCKER_MEMORY` (default: 90% of the
+  host's memory) and RAM plus swap to `ERE_DOCKER_MEMORY_SWAP` (default: `-1`, all free
+  swap of the host). On a shared host, set both,
+  for example `ERE_DOCKER_MEMORY=170g ERE_DOCKER_MEMORY_SWAP=170g`, so a prove that needs
+  more fails instead of taking the host down.
 - Results: `out/<zkvm>/ere/` (including `details-act4-*.json`, the outcome and
   error of each test) and `results/history/<zkvm>-ere-act4-standard.json`.
 - The site reads the suites listed in `config.json` `zkvms.<name>.ere.suites` from the

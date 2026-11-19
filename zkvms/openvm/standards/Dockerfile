@@ -4,12 +4,12 @@
 #
 # OpenVM ships no C library for guests (its own C-interface PRs #3075-#3080 were
 # closed unmerged). This image therefore uses eth-act/ere's ere-platform-openvm,
-# which implements zkvm_accelerators.h on OpenVM's guest libraries, at a fixed
-# ere commit. ./vendor wraps it as a static library and adds only the two
-# zkvm_io.h functions (see vendor/lib.rs). The library is built the way ere
+# which exports the zkvm_io.h functions and implements zkvm_accelerators.h on
+# OpenVM's guest libraries, at a fixed ere commit. ./vendor builds it, unchanged,
+# as a static library (see vendor/lib.rs). The library is built the way ere
 # compiles OpenVM guests with a stock nightly toolchain
 # (crates/compiler/openvm/src/rust_rv64ima.rs): ere's target spec, build-std and
-# rustflags, plus one target feature of OpenVM's own target (see below). OpenVM is the version ere pins (tag v2.1.0-preview); the
+# rustflags. OpenVM is the version ere pins (tag v2.1.0-preview); the
 # COMMIT_HASH build argument is ignored.
 #
 # The image also builds openvm-eth-act-standards-executor (./executor), which runs, proves
@@ -47,7 +47,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 ENV PATH="/root/.cargo/bin:${PATH}" CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 ARG ERE_REPO=https://github.com/eth-act/ere.git
-ARG ERE_COMMIT=e49696e5e1bfedbfd6a8f4009140b72005ce72e3
+ARG ERE_COMMIT=4d21321114d3423f67c8e447e4b1d9f1b786789f
 RUN git init /ere && cd /ere && \
     git remote add origin "$ERE_REPO" && \
     git fetch --depth 1 origin "$ERE_COMMIT" && \
@@ -98,14 +98,12 @@ RUN if [ -n "$OPENVM_EXECUTOR_REV" ]; then \
     rm -rf /executor/target
 
 # Start from ere's lockfile so the guest crates resolve to the versions ere tests.
-# RUSTFLAGS are ere's (rust_rv64ima.rs) plus +unaligned-scalar-mem, which OpenVM's
-# own target riscv64im-unknown-openvm-elf enables and openvm-mem relies on: without
-# it LLVM lowers openvm-mem's 64-byte block copy to a call to memmove itself, which
-# recurses until the stack pointer leaves guest memory.
+# RUSTFLAGS are ere's (rust_rv64ima.rs), without its link arguments: this builds
+# a static library, which build-guests.sh links with link-args.
 COPY vendor /vendor
 WORKDIR /vendor
 RUN cp /ere/Cargo.lock Cargo.lock && \
-    RUSTFLAGS='-C passes=lower-atomic -C panic=abort --cfg getrandom_backend="custom" --cfg openvm_intrinsics --check-cfg=cfg(openvm_intrinsics) -C target-feature=+unaligned-scalar-mem' \
+    RUSTFLAGS='-C passes=lower-atomic -C panic=abort --cfg getrandom_backend="custom" --cfg openvm_intrinsics --check-cfg=cfg(openvm_intrinsics)' \
     cargo "+$GUEST_TOOLCHAIN" build --release \
       --target /ere/crates/compiler/openvm/src/rust_rv64ima/riscv64ima-unknown-none-elf.json \
       -Zbuild-std=core,alloc,panic_abort -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec && \

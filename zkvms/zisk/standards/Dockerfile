@@ -6,11 +6,11 @@
 # are built as ACT4 C tests in the ZisK ACT4 image (see tests/eth-act-standards/build-guests.sh),
 # which links /opt/zisk/lib/libziskos_staticlib.a.
 #
-# The image pins v1.3.0-alpha, the ZisK version that eth-act/ere pins
-# (`ziskos = "1.3.0-alpha"`), and ignores the COMMIT_HASH build argument (the
-# monitor's ISA pin). The crates.io ziskos 1.3.0-alpha was published from
-# a07f4464, an ancestor of the tag that differs from it only in CI files and
-# zisk-contracts.
+# The image pins v1.4.0-alpha, the ZisK version that eth-act/ere pins
+# (`ziskos = "1.4.0-alpha"`), and ignores the COMMIT_HASH build argument (the
+# monitor's ISA pin). The crates.io ziskos 1.4.0-alpha was published from
+# 85d48027, an ancestor of the tag that differs from it only in CI files, the
+# book, tools, ziskasm and ziskup.
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -46,7 +46,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 ENV PATH="/root/.cargo/bin:${PATH}" CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 ARG REPO_URL=https://github.com/0xPolygonHermez/zisk.git
-ARG ZISK_COMMIT=02d2ae7b711454ce4574d852f8bfbddbfcbb1d67
+ARG ZISK_COMMIT=64a1f1664184e76053686745d50c6b9aaa51b034
 RUN git init /zisk && cd /zisk && \
     git remote add origin "$REPO_URL" && \
     git fetch --depth 1 origin "$ZISK_COMMIT" && \

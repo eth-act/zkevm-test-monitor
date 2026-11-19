@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "adler2"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -307,6 +313,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
+name = "crc32fast"
+version = "1.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b929dd2a135771f40afabd1073f85eed59c800b7c61901e5c254270497dad64"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -362,8 +377,8 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "ere-catalog"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "ere-util-build",
  "serde",
@@ -372,21 +387,21 @@ dependencies = [
 
 [[package]]
 name = "ere-codec"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 
 [[package]]
 name = "ere-compiler-core"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "ere-dockerized"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "anyhow",
  "ere-catalog",
@@ -402,8 +417,8 @@ dependencies = [
 
 [[package]]
 name = "ere-prover-core"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "anyhow",
  "auto_impl",
@@ -413,6 +428,9 @@ dependencies = [
  "ere-codec",
  "ere-compiler-core",
  "ere-verifier-core",
+ "flate2",
+ "prost",
+ "rustc-demangle",
  "serde",
  "strum",
  "thiserror",
@@ -420,8 +438,8 @@ dependencies = [
 
 [[package]]
 name = "ere-server-api"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "prost",
  "serde",
@@ -430,35 +448,36 @@ dependencies = [
 
 [[package]]
 name = "ere-server-client"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "ere-prover-core",
  "ere-server-api",
+ "prost",
  "thiserror",
  "twirp",
 ]
 
 [[package]]
 name = "ere-util-build"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "cargo_metadata",
 ]
 
 [[package]]
 name = "ere-util-tokio"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "tokio",
 ]
 
 [[package]]
 name = "ere-verifier-core"
-version = "0.18.1"
-source = "git+https://github.com/eth-act/ere?rev=77e2aae2b92bc0231a3603749ee1a30f8e89c87d#77e2aae2b92bc0231a3603749ee1a30f8e89c87d"
+version = "0.20.2"
+source = "git+https://github.com/eth-act/ere?tag=v0.20.2#4d21321114d3423f67c8e447e4b1d9f1b786789f"
 dependencies = [
  "auto_impl",
  "ere-codec",
@@ -486,6 +505,17 @@ name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+
+[[package]]
+name = "flate2"
+version = "1.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "626d4928326b646e70f65ed36fc7cf9f206bdb68a0019ee7c6b4709da4e084c4"
+dependencies = [
+ "crc32fast",
+ "miniz_oxide",
+ "zlib-rs",
+]
 
 [[package]]
 name = "foldhash"
@@ -946,6 +976,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
+name = "miniz_oxide"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b63fbc4a50860e98e7b2aa7804ded1db5cbc3aff9193adaff57a6931bf7c4b4c"
+dependencies = [
+ "adler2",
+ "simd-adler32",
+]
+
+[[package]]
 name = "mio"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1123,6 +1163,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustc-demangle"
+version = "0.1.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b74b56ffa8bb2830709a538c2cbcae9aa062db0d2a42563bfb09bdaae44020eb"
+
+[[package]]
 name = "rustix"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1238,6 +1284,12 @@ dependencies = [
  "errno",
  "libc",
 ]
+
+[[package]]
+name = "simd-adler32"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
 
 [[package]]
 name = "slab"
@@ -1929,6 +1981,12 @@ dependencies = [
  "quote",
  "syn 3.0.6",
 ]
+
+[[package]]
+name = "zlib-rs"
+version = "0.6.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
 
 [[package]]
 name = "zmij"
