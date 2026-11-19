@@ -55,8 +55,9 @@ and needs no local zkVM build.
   under 10 min. eth-act standards tests: SP1 131 GiB and 3.6 h (`accel-bls12-g2-msm` alone
   takes 2.1 h and the G1 MSM 1.1 h, so SP1 needs `PROVE_TIMEOUT`; its prover uses about 8
   CPU cores), ZisK 74 GiB, OpenVM 4 GiB.
-- ere limits each server container's RAM to `ERE_DOCKER_MEMORY` and RAM plus swap to
-  `ERE_DOCKER_MEMORY_SWAP` (default: 90% of the host's memory). On a shared host, set both,
+- ere limits each server container's RAM to `ERE_DOCKER_MEMORY` (default: 90% of the
+  host's memory) and RAM plus swap to `ERE_DOCKER_MEMORY_SWAP` (default: `-1`, all free
+  swap of the host). On a shared host, set both,
   for example `ERE_DOCKER_MEMORY=170g ERE_DOCKER_MEMORY_SWAP=170g`, so a prove that needs
   more fails instead of taking the host down.
 - Results: `out/<zkvm>/ere/` (including `details-act4-*.json`, the outcome and
