@@ -36,7 +36,7 @@ Limit CPU cores: `JOBS=8 ./run tests zisk`
 
 ## ere path (default) and noere path (`BACKEND=noere`)
 
-`./run isa-tests <openvm|sp1|zisk>` runs the Standard ISA suite (RV64IM_Zicclsm) on the
+`./run isa-tests <openvm|pico|sp1|zisk>` runs the Standard ISA suite (RV64IM_Zicclsm) on the
 official `ghcr.io/eth-act/ere` images of the ere revision that `src/runner/Cargo.toml`
 pins (`ere-dockerized`). ere builds and runs the zkVM. The default runs no Full ISA suite
 and needs no local zkVM build.
@@ -51,10 +51,12 @@ and needs no local zkVM build.
   test. `PROVE_TIMEOUT=<secs>` replaces it (for example for the BLS12-381 MSM tests), and
   the history records the limit of each run (`prove_timeout_secs`).
 - Measured on an RTX 5090 (32 GB) at ere v0.20.2, peak server-container RAM (cgroup
-  `memory.peak`) and time: ISA tests: SP1 13 GiB, ZisK 65 GiB, OpenVM 2 GiB, each suite
-  under 10 min. eth-act standards tests: SP1 131 GiB and 3.6 h (`accel-bls12-g2-msm` alone
-  takes 2.1 h and the G1 MSM 1.1 h, so SP1 needs `PROVE_TIMEOUT`; its prover uses about 8
-  CPU cores), ZisK 74 GiB, OpenVM 4 GiB.
+  `memory.peak`) and time: ISA tests: SP1 13 GiB, ZisK 65 GiB, OpenVM 2 GiB, Pico 34 GiB,
+  each suite under 10 min. eth-act standards tests: SP1 131 GiB and 3.6 h
+  (`accel-bls12-g2-msm` alone takes 2.1 h and the G1 MSM 1.1 h, so SP1 needs
+  `PROVE_TIMEOUT`; its prover uses about 8 CPU cores), ZisK 74 GiB, OpenVM 4 GiB, Pico
+  68 GiB and 37 min. Pico builds a native library of each ELF at its first execution,
+  which takes about 27 CPU cores during its ISA run.
 - ere limits each server container's RAM to `ERE_DOCKER_MEMORY` (default: 90% of the
   host's memory) and RAM plus swap to `ERE_DOCKER_MEMORY_SWAP` (default: `-1`, all free
   swap of the host). On a shared host, set both,
@@ -69,7 +71,8 @@ and needs no local zkVM build.
   branches; it runs both the Full and the Standard ISA suites. Noere results go to
   `results/history/<zkvm>-act4-*.json`. For zkVMs that run through ere, the site shows the
   noere Full ISA results of earlier runs, but not noere Standard ISA results.
-  LambdaVM runs only on the noere path.
+  LambdaVM runs only on the noere path. Pico runs only through ere: `BACKEND=noere`
+  stops with an error for it, and `./run build` skips it.
 
 ## Adding a New ZKVM
 
@@ -104,4 +107,4 @@ tests exit 0 (pass) or non-zero (fail). No signature extraction needed.
 }
 ```
 
-Current ZKVMs: `sp1`, `openvm`, `zisk`, `lambdavm`
+Current ZKVMs: `sp1`, `openvm`, `zisk`, `lambdavm`, `pico` (ere only)

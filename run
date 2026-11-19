@@ -7,12 +7,18 @@ CMD=${1:-help}
 shift || true
 
 # run_eth_act_standards_tests [zkvm ...] — run the eth-act standards tests for the
-# given zkVMs, or for every zkVM with a zkvms/<zkvm>/standards/ platform.
+# given zkVMs, or for every zkVM with a zkvms/<zkvm>/standards/ platform (with
+# BACKEND=noere, every one but Pico, which runs only through ere).
 run_eth_act_standards_tests() {
-    local zkvms="$*" failed=""
+    local zkvms="$*" failed="" zkvm
     if [ -z "$zkvms" ]; then
         for dir in zkvms/*/standards/; do
-            zkvms="$zkvms $(basename "$(dirname "$dir")")"
+            zkvm=$(basename "$(dirname "$dir")")
+            if [ "${BACKEND:-ere}" = "noere" ] && [ "$zkvm" = "pico" ]; then
+                echo "Skipping pico: it has no noere path"
+                continue
+            fi
+            zkvms="$zkvms $zkvm"
         done
     fi
     for zkvm in $zkvms; do
@@ -105,11 +111,12 @@ Usage: ./run COMMAND [OPTIONS]
 Commands:
   build [zkvm ...]          Build ZKVM binaries
   isa-tests [zkvm ...]      Run the ISA tests (ACT4 RISC-V compliance; OpenVM/SP1/ZisK:
-                            Standard ISA through ere; BACKEND=noere builds and runs
-                            the Full and Standard ISA suites locally)
+                            Standard ISA through ere; Pico: through ere only;
+                            BACKEND=noere builds and runs the Full and Standard ISA
+                            suites locally)
   eth-act-standards-tests [zkvm ...]
                             Run the eth-act standards tests (I/O, accelerators,
-                            memory operations; zisk, sp1, openvm; through ere;
+                            memory operations; zisk, sp1, openvm, pico; through ere;
                             BACKEND=noere runs this repository's executors and
                             provers, by default execute only)
   tests [zkvm ...]          Run both test suites

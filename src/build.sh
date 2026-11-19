@@ -20,6 +20,13 @@ fi
 for ZKVM in $ZKVMS; do
   echo "Building $ZKVM..."
 
+  # Pico runs only through ere, on its published images, so there is nothing to
+  # build (the noere path is not implemented for Pico).
+  if [ "$ZKVM" = "pico" ]; then
+    echo "  Skipping: pico runs only through ere, which needs no build"
+    continue
+  fi
+
   # Check if already built (unless forced)
   if [ -f "out/bin/${ZKVM}-binary" ] && [ "$FORCE" != "1" ]; then
     echo "  ✓ Binary exists (set FORCE=1 to rebuild)"

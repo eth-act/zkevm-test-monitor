@@ -52,6 +52,17 @@
       "binary_name": "lambdavm-binary",
       "binary_path": "target/release/cli",
       "isa": "RV64IM_Zicclsm"
+    },
+    "pico": {
+      "repo_url": "https://github.com/brevis-network/pico",
+      "commit": "6788178d63aede0a4adbd7ab1a7c6a2ead15dfbb",
+      "isa": "RV64IM_Zicclsm",
+      "ere": {
+        "suites": [
+          "act4-standard"
+        ],
+        "sdk_repo_url": "https://github.com/brevis-network/pico"
+      }
     }
   }
 }

@@ -104,7 +104,7 @@ pub struct EreBackend {
 
 impl EreBackend {
     /// Pulls the image of the pinned revision and returns the backend and what
-    /// it tests. `zkvm` is `openvm`, `sp1` or `zisk`. With `standards`, the
+    /// it tests. `zkvm` is `openvm`, `pico`, `sp1` or `zisk`. With `standards`, the
     /// ELFs are eth-act standards tests.
     ///
     /// Call this before any other thread starts: it sets the environment
@@ -140,6 +140,9 @@ impl EreBackend {
             );
             set_default_env("ERE_ZISK_CACHE_VOLUME", "ere-zisk-cache");
             set_default_env("ERE_OPENVM_CACHE_VOLUME", "ere-openvm-cache");
+            // Pico's pure-mode execution library of each ELF. The image creates
+            // the directory with mode 700, which a new volume copies.
+            set_default_env("ERE_PICO_PURE_CACHE_VOLUME", "ere-pico-pure-cache");
         }
 
         let ere_image = pull_image(kind, gpu)?;
@@ -312,14 +315,14 @@ impl EreBackend {
     /// the proof.
     ///
     /// A standards test must instead have its expected public output: its
-    /// `.expected` bytes, or `PASS` without them. SP1's public values are a
-    /// stream and must match exactly; ZisK's and OpenVM's are a fixed area, so
-    /// trailing zero bytes are padding.
+    /// `.expected` bytes, or `PASS` without them. SP1's and Pico's public values
+    /// are a stream and must match exactly; ZisK's and OpenVM's are a fixed area,
+    /// so trailing zero bytes are padding.
     fn verdict(&self, public_values: &PublicValues, vectors: &IoVectors) -> anyhow::Result<()> {
         if self.standards {
             let expected = vectors.expected.as_deref().unwrap_or(io_and_expected_failures::PASS_OUTPUT);
             let actual: &[u8] = public_values;
-            let mismatch = if self.kind == zkVMKind::SP1 {
+            let mismatch = if matches!(self.kind, zkVMKind::SP1 | zkVMKind::Pico) {
                 (actual != expected).then(|| io_and_expected_failures::describe_exact_mismatch(actual, expected))
             } else {
                 (!io_and_expected_failures::matches_zero_padded(actual, expected))
@@ -445,8 +448,8 @@ mod tests {
     }
 
     /// A standards test needs its expected public output: `.expected`, or
-    /// `PASS` without it. SP1 must match exactly; ZisK and OpenVM may pad with
-    /// zero bytes.
+    /// `PASS` without it. SP1 and Pico must match exactly; ZisK and OpenVM may
+    /// pad with zero bytes.
     #[test]
     fn standards_verdict_is_the_expected_output() {
         let vectors = |expected: Option<&[u8]>| IoVectors {
@@ -457,6 +460,9 @@ mod tests {
         let pv = |bytes: &[u8]| PublicValues(bytes.to_vec());
         let sp1 = backend("sp1", true);
         let zisk = backend("zisk", true);
+        let pico = backend("pico", true);
+        assert!(pico.verdict(&pv(b"PASS"), &vectors(None)).is_ok());
+        assert!(pico.verdict(&pv(b"PASS\0\0\0\0"), &vectors(None)).is_err());
         assert!(sp1.verdict(&pv(b"PASS"), &vectors(None)).is_ok());
         assert!(sp1.verdict(&pv(b"PASS\0\0\0\0"), &vectors(None)).is_err());
         assert!(zisk.verdict(&pv(b"PASS\0\0\0\0"), &vectors(None)).is_ok());

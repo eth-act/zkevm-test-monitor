@@ -47,6 +47,8 @@ script, with a comment that gives its reason (#58):
   `-z separate-code`, which LLD does by default). ACT requires a linker script, so
   `zkvms/openvm/standards/link.ld` is an empty placeholder (`INSERT`, so GNU ld's default script
   stays).
+- Pico (`pico.ld`, which `cargo pico lib` writes next to the library): no changes, so Pico has no
+  `link.ld.patch`.
 
 ACT's C start code references `__bss_start`, `__bss_end`, `__stack_top`, `__stack_size` and
 `__num_harts`. It is linked but never runs, so `build-guests.sh` defines them on the link line
@@ -56,8 +58,8 @@ The runner judges a test in one of three ways:
 
 - **ACT4 verdict.** A self-checking program calls `rvtest_pass()`, and a failed check calls
   `print_error()` (`include/checks.h`). The runner reads the verdict as for an ISA test:
-  the halt macros write `PASS` or `FAIL` to public output 0 on every zkVM, and SP1 and OpenVM
-  also exit with the verdict. On SP1 and OpenVM, a return from `main` also gives exit code 0,
+  the halt macros write `PASS` or `FAIL` to public output 0 on every zkVM, and SP1, OpenVM and
+  Pico also exit with the verdict. On SP1 and OpenVM, a return from `main` also gives exit code 0,
   so the runner also requires the `PASS` output. A program that ends before `rvtest_pass()`
   fails.
 - **Expected output.** An I/O write program returns from `main`. Its public output must equal
@@ -123,8 +125,8 @@ The test does not check the standard's documentation or LTO clauses.
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
 
-SP1 public values are a variable-length stream, so on SP1 the output must equal the expected
-bytes exactly.
+SP1 and Pico public values are a variable-length stream, so on SP1 and Pico the output must
+equal the expected bytes exactly.
 
 OpenVM public values are a fixed area of 256 bytes with zero padding (ere's VM config), so the
 runner compares them as for ZisK.
@@ -140,6 +142,7 @@ them. There, `io-write-trailing-zeros` cannot tell whether the zkVM kept the fin
 | ZisK | `ziskos-staticlib` + ZisK's own linker script at tag v1.4.0-alpha, the version eth-act/ere pins | `ziskemu` at the same tag (`out/bin/zisk-eth-act-standards-emu`) |
 | SP1 | zkEVM SDK `libzkevm.a` + `zkvm.ld` (`make sdk` in `zkevm/`) at upstream tag v6.9.0, the version eth-act/ere pins | `sp1-eth-act-standards-executor` (`zkvms/sp1/standards/executor`) |
 | OpenVM | none from OpenVM; eth-act/ere's `ere-platform-openvm` at the ere revision the runner pins, over OpenVM tag v2.1.0-preview | `openvm-eth-act-standards-executor` (`zkvms/openvm/standards/executor`) |
+| Pico | Pico's static library `libpico_zkvm.a` + `pico.ld` (`cargo pico lib`) at tag v3.1.5, the version eth-act/ere pins | none: Pico runs only through ere |
 
 The ZisK image pins its own ZisK tag, not the monitor's ZisK pin for the ACT4 suites. It
 builds `ziskemu` (execute only) at that tag and copies it and its shared libraries to
@@ -166,6 +169,14 @@ panic handler, `read_input` and `write_output`, the `zkvm_*` accelerators (on
 The OpenVM linker script puts the program at `0x00200800`, where OpenVM guests start.
 `openvm-eth-act-standards-executor` runs the guest in OpenVM's SDK executor, with the VM config that ere's
 prover uses and the input as one input vector.
+
+Pico ships the standard's static library: `cargo pico lib` builds `pico-sdk` as `libpico_zkvm.a`
+(`_start`, `read_input` / `write_output`, the `zkvm_*` accelerators, and the memory functions)
+and writes `pico.ld` beside it. The Pico image starts from ere's Pico compiler image, so
+`cargo-pico` and the guest toolchain are the ones ere uses, and builds the library from a
+checkout of the tag (`PICO_SOURCE`): the crates at tag v3.1.5 are version 3.1.1, and without a
+checkout `cargo pico lib` would take `pico-sdk` from tag v3.1.1. Pico has no noere path, so the
+image builds no host executor and `BACKEND=noere` stops with an error.
 
 ## Running
 

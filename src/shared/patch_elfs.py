@@ -4,7 +4,7 @@
 Replaces non-instruction data words embedded in executable sections with NOPs.
 ACT4's SELFCHECK mechanism places .word string pointers after jal failedtest_*
 calls in .text. ZKVMs that scan every word in executable segments at load time
-(SP1, OpenVM, LambdaVM) panic on these non-instruction words.
+(SP1, OpenVM, LambdaVM, Pico) reject these non-instruction words.
 
 ACT4 includes "rvtest_failure_code.h" with quotes, so tests/env/rvtest_failure_code.h
 wins over a copy in dut_include_dir. ZisK's entrypoint copies its minimal override

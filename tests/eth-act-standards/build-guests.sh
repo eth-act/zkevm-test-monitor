@@ -54,21 +54,24 @@ for f in /act4-config/"$ISA_CONFIG"/*; do
   esac
 done
 cp "$PLATFORM_DIR/test_config.yaml" "$DUT/"
-# The linker script is the zkVM's own, unchanged except for link.ld.patch. A
-# zkVM that publishes no linker script (OpenVM) has its own link.ld here.
-if [ -f "$PLATFORM_DIR/link.ld.patch" ]; then
+# The linker script is the zkVM's own, unchanged except for link.ld.patch when
+# the platform has one (Pico's needs none). A zkVM that publishes no linker
+# script (OpenVM) has its own link.ld here.
+if [ -f "$PLATFORM_DIR/link.ld" ]; then
+  cp "$PLATFORM_DIR/link.ld" "$DUT/"
+else
   VENDOR_LDS=(/vendor/*.ld)
   if [ "${#VENDOR_LDS[@]}" -ne 1 ] || [ ! -f "${VENDOR_LDS[0]}" ]; then
     echo "error: expected the zkVM's linker script in /vendor" >&2
     exit 1
   fi
   cp "${VENDOR_LDS[0]}" "$DUT/link.ld"
-  patch --quiet --fuzz=0 --no-backup-if-mismatch "$DUT/link.ld" "$PLATFORM_DIR/link.ld.patch" || {
-    echo "error: link.ld.patch does not apply to $(basename "${VENDOR_LDS[0]}")" >&2
-    exit 1
-  }
-else
-  cp "$PLATFORM_DIR/link.ld" "$DUT/"
+  if [ -f "$PLATFORM_DIR/link.ld.patch" ]; then
+    patch --quiet --fuzz=0 --no-backup-if-mismatch "$DUT/link.ld" "$PLATFORM_DIR/link.ld.patch" || {
+      echo "error: link.ld.patch does not apply to $(basename "${VENDOR_LDS[0]}")" >&2
+      exit 1
+    }
+  fi
 fi
 cp "$STANDARDS/io-interface/zkvm_io.h" "$STANDARDS/c-interface-accelerators/zkvm_accelerators.h" \
   "$HERE/include/checks.h" "$DUT/"

@@ -40,14 +40,14 @@ flowchart LR
   checks itself. At the end, it writes `PASS` or `FAIL` to public output 0 and exits 0 on pass
   and non-zero on fail.
 - There are two ways to run these tests:
-  - **ere path** (the default): OpenVM, SP1 and ZisK run on the official
+  - **ere path** (the default): OpenVM, Pico, SP1 and ZisK run on the official
     [eth-act/ere](https://github.com/eth-act/ere) images of the ere revision that
     `src/runner/Cargo.toml` pins. ere builds and runs the zkVM; there is no local zkVM build.
     It runs only the Standard ISA suite (RV64IM_Zicclsm).
   - **noere path** (`BACKEND=noere`, without ere): builds each zkVM in this repository's containers from
     `config.json` and runs both suites, Full and Standard ISA. Use it to reproduce bugs and to
     test forks or branches.
-    LambdaVM always runs here.
+    LambdaVM always runs here. Pico has no noere path: it runs only through ere.
 - In `ACT4_MODE=prove` or `full`, a target test must also prove, and in `full` also verify.
 - `./run isa-tests <zkvm>` runs this pipeline. `FORCE=1` regenerates the ELFs.
 
@@ -80,7 +80,7 @@ flowchart LR
   program with the `.outcome` `fail` must terminate abnormally (the NULL-pointer tests). With
   `fail <code>`, the zkVM must also report that error code. A host error (for example, an executor usage or I/O error) never
   passes a test. The runner gives each program its `.input` file.
-- The suite runs for ZisK, SP1 and OpenVM through ere by default: on the official ere image of
+- The suite runs for ZisK, SP1, OpenVM and Pico through ere by default: on the official ere image of
   the revision that `src/runner/Cargo.toml` pins, with execute, prove and verify
   (`ACT4_MODE`, default `full`; prove and full need an NVIDIA GPU). A test that expects an
   abnormal termination has no valid proof, so it is only executed. `BACKEND=noere` runs the
@@ -100,13 +100,14 @@ flowchart LR
 | OpenVM | RV64IM_Zicclsm | [openvm-org/openvm](https://github.com/openvm-org/openvm) | yes |
 | ZisK | RV64IMFDAC_Zicclsm | [0xPolygonHermez/zisk](https://github.com/0xPolygonHermez/zisk) | yes |
 | LambdaVM | RV64IM_Zicclsm | [yetanotherco/lambda_vm](https://github.com/yetanotherco/lambda_vm) | no |
+| Pico | RV64IM_Zicclsm | [brevis-network/pico](https://github.com/brevis-network/pico) | only |
 
 ## Usage
 
 ```bash
 ./run build sp1          # Build binary via Docker
 ./run isa-tests sp1                  # Run the ISA tests
-./run eth-act-standards-tests sp1    # Run the eth-act standards tests (zisk, sp1, openvm)
+./run eth-act-standards-tests sp1    # Run the eth-act standards tests (zisk, sp1, openvm, pico)
 ./run tests sp1 openvm               # Run both suites for two zkVMs
 ./run tests                          # Run both suites for all zkVMs
 ./run all sp1                        # Build + both suites
