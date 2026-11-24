@@ -8,6 +8,9 @@
    which calls main; an ISA test has no main, so main is ACT's entry point. */
 OUTPUT_ARCH(riscv)
 ENTRY(_start)
+/* The stub _start does not reference main (the reference calls it), so keep main and what it
+   reaches under --gc-sections. */
+EXTERN(main)
 PHDRS { text PT_LOAD FLAGS(5); rodata PT_LOAD FLAGS(4); data PT_LOAD FLAGS(6); }
 SECTIONS {
   . = 0x80000000;
