@@ -33,16 +33,16 @@ static inline void guard_sb(uintptr_t addr) {
 
 /*
  * The stack bottom, the lowest byte of the stack: the vendor linker symbol that
- * zkvms/<zkvm>/standards/layout.yaml names (symbols.stack_bottom).
- * build-guests.sh defines GUARD_STACK_BOTTOM as that symbol. A platform that
- * declares no stack bottom has no stack guard region to test, so the
- * guard-stack-* guests fail.
+ * zkvms/<zkvm>/standards/profile.json names (symbols.stack_bottom).
+ * build-guests.sh defines LAYOUT_STACK_BOTTOM as that symbol (as for the
+ * layout/ guests). A platform that declares no stack bottom has no stack guard
+ * region to test, so the guard-stack-* guests fail.
  */
-#ifdef GUARD_STACK_BOTTOM
-extern char GUARD_STACK_BOTTOM[];
+#ifdef LAYOUT_STACK_BOTTOM
+extern char LAYOUT_STACK_BOTTOM[];
 
 static inline uintptr_t guard_stack_bottom(void) {
-    return (uintptr_t)GUARD_STACK_BOTTOM;
+    return (uintptr_t)LAYOUT_STACK_BOTTOM;
 }
 #else
 static inline uintptr_t guard_stack_bottom(void) {

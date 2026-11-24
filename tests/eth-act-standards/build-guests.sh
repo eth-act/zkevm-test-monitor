@@ -33,9 +33,10 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory termination elf layout"
+GROUPS_LIST="io accelerators memory termination elf layout guard"
 
-# A platform without a memory profile (Pico) has no elf and layout groups.
+# A platform without a memory profile (Pico) has no elf and layout groups, and
+# no stack bottom for the guard group.
 ELF_EXEC_PERM=""
 if [ -f "$PLATFORM_DIR/profile.json" ]; then
   ELF_EXEC_PERM=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["exec_perm"])' "$PLATFORM_DIR/profile.json")
@@ -45,7 +46,7 @@ if [ -f "$PLATFORM_DIR/profile.json" ]; then
   esac
 else
   echo "note: $PLATFORM_DIR has no profile.json, so the elf and layout groups are not built"
-  GROUPS_LIST="io accelerators memory termination"
+  GROUPS_LIST="io accelerators memory termination guard"
 fi
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
@@ -190,13 +191,18 @@ for fn in $MEMOPS; do
   fi
 done
 
-# Without a stack bottom, the platform has no stack guard region to test: the
-# guard-stack-* guests fail through print_error() (guard/guard.h), so they are
+# The guard-stack-* guests access the bytes at and below the stack bottom, the
+# vendor's linker symbol that profile.json names (symbols.stack_bottom, the
+# macro LAYOUT_STACK_BOTTOM). Without one, the platform has no stack guard
+# region to test: they fail through print_error() (guard/guard.h), so they are
 # built without their expected abnormal termination.
-if [ "$STACK_BOTTOM" = none ]; then
-  echo "note: the platform declares no stack bottom, so the guard-stack-* tests and guard-layout fail"
-  rm "$TESTS/rv64i/guard"/guard-stack-*.outcome
-fi
+case " $LAYOUT_DEFINES " in
+  *" -DLAYOUT_STACK_BOTTOM="*) ;;
+  *)
+    echo "note: the platform declares no stack bottom, so the guard-stack-* tests fail"
+    rm -f "$TESTS/rv64i/guard"/guard-stack-*.outcome "$TESTS/rv64i/guard"/guard-stack-*.prove-failure
+    ;;
+esac
 
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
 # go-ethereum and execution-specs files (tools/accel_vector_sources.json) and
@@ -217,21 +223,10 @@ fi
 UV_CACHE_DIR=/cache/uv uv run --no-project --with pycryptodome --with ecdsa \
   "$HERE/tools/gen_accel_vectors.py" --out "$TESTS/rv64i/accelerators/vectors" --cache /cache/vectors
 
-run_act() {
-  (cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
-    --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
-}
-run_act
+(cd /act4 && uv run act "$DUT/test_config.yaml" --workdir "$WORK/act" --test-dir "$TESTS" \
+  --extensions "$(echo $GROUPS_LIST | tr ' ' ',')")
 
 ELF_ROOT="$WORK/act/$ZKVM-eth-act-standards/elfs/rv64i"
-
-# guard-layout checks the memory map of every linked guest against the null
-# pointer trap region and the stack guard region. tools/check_guard_layout.py
-# writes it as a guest that passes, or fails with the violations. A second ACT
-# run builds it; ACT's build cache keeps the other ELFs.
-python3 "$HERE/tools/check_guard_layout.py" --stack-bottom "$STACK_BOTTOM" \
-  "$TESTS/rv64i/guard/guard-layout.c" "$ELF_ROOT"/*/*.elf
-run_act
 
 # Each mem-link-<fn> ELF must resolve <fn> to the vendor's strong definition
 # (pass) or to the guest's decoy_<fn> (fail). Any other weak definition, such
@@ -256,9 +251,10 @@ for group in $GROUPS_LIST; do
     name=$(basename "$elf" .elf)
     # cat, not cp: ACT's build cache may leave the ELFs as symlinks.
     cat "$elf" > "$OUT/$group/$name.elf"
+    # From the test tree: the build drops some sidecars there (guard-stack-*).
     for vector in input expected outcome prove-failure; do
-      if [ -f "$HERE/$group/$name.$vector" ]; then
-        cp "$HERE/$group/$name.$vector" "$OUT/$group/$name.$vector"
+      if [ -f "$TESTS/rv64i/$group/$name.$vector" ]; then
+        cp "$TESTS/rv64i/$group/$name.$vector" "$OUT/$group/$name.$vector"
       fi
     done
     count=$((count + 1))

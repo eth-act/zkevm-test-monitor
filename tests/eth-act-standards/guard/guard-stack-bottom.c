@@ -4,17 +4,19 @@
 // NEEDS_SIGNATURE: false
 // END_TEST_CONFIG
 /*
- * A byte load from and a byte store to the stack bottom, the lowest byte of
+ * A byte store to and a byte load from the stack bottom, the lowest byte of
  * the stack, complete (memory-safety-guard-regions: "The guard region must be
  * contiguous and adjacent to the bottom of the stack with no gap between
  * them"). With guard-stack-lb-1 and guard-stack-sb-1, this places the guard
- * region's upper end at the stack bottom.
+ * region's upper end at the stack bottom. The store comes first: no standard
+ * defines a read of stack memory that was never written (the zkVM reference
+ * leaves it unspecified, eth-act/zkevm-standards#53).
  */
 #include "guard.h"
 
 int main(void) {
-    guard_lb(guard_stack_bottom());
     guard_sb(guard_stack_bottom());
+    guard_lb(guard_stack_bottom());
     rvtest_pass();
     return 0;
 }
