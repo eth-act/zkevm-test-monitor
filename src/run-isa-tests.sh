@@ -613,6 +613,30 @@ run_ere_pipeline() {
   ERE_MODE=execute ERE_SUITES=misaligned process_results "$ZKVM" "" ere
 }
 
+# run_reference_pipeline — the suites on the zkVM reference (eth-act/zkevm-standards
+# reference/, zkvm-run), execute only. ELFs are built with the reference ISA config
+# (zkvms/reference/isa-configs/reference-rv64im-zicclsm). zkvm-run comes from the
+# reference platform image (out/bin/zkvm-run, built by
+# ./run eth-act-standards-tests reference). The reference records no history.
+run_reference_pipeline() {
+  local ZKVM=reference
+  local ELF_DIR="out/${ZKVM}/elfs"
+  local OUT_DIR="out/${ZKVM}"
+  if [ ! -x out/bin/zkvm-run ]; then
+    echo "  Error: out/bin/zkvm-run not found; run ./run eth-act-standards-tests reference first"
+    return 1
+  fi
+  generate_act4_elfs "$ZKVM" "$ELF_DIR" || return 1
+  local RUNNER="src/runner/target/release/runner"
+  cargo build --release --quiet --manifest-path src/runner/Cargo.toml || { echo "  Failed to build runner"; return 1; }
+  mkdir -p "$OUT_DIR"
+  local REF_ARGS=(--zkvm reference --binary out/bin/zkvm-run --profile zkvms/reference/standards/profile.json --mode execute)
+  echo "Running the misaligned suite on the reference..."
+  "$RUNNER" "${REF_ARGS[@]}" --elf-dir "$ELF_DIR/misaligned" --output-dir "$OUT_DIR" \
+    --suite act4-misaligned --label misaligned || true
+  echo "reference run: history not recorded"
+}
+
 # BACKEND=ere (default) runs only the Standard ISA and misaligned suites of OpenVM, Pico,
 # SP1 and ZisK, through ere. BACKEND=noere builds the zkVM in this repository's containers
 # and runs the Full ISA, Standard ISA and misaligned suites, for reproducing bugs and testing
@@ -625,7 +649,10 @@ case "$BACKEND" in
 esac
 
 for ZKVM in $ZKVMS; do
-  if [ "$BACKEND" = "ere" ] && [[ " openvm pico sp1 zisk " == *" $ZKVM "* ]]; then
+  if [ "$ZKVM" = "reference" ]; then
+    # The reference runs only when named: it records no history.
+    [ "$TARGETS" = "all" ] || run_reference_pipeline || true
+  elif [ "$BACKEND" = "ere" ] && [[ " openvm pico sp1 zisk " == *" $ZKVM "* ]]; then
     run_ere_pipeline "$ZKVM" || true
   elif [ "$ZKVM" = "pico" ]; then
     # A run of all zkVMs skips Pico; an explicit request fails.

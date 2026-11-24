@@ -8,9 +8,9 @@
 # /act4/config/<zkvm>. <test_config.yaml> is the zkVM's rv64im-zicclsm config,
 # relative to /act4.
 #
-# Every <name>.S becomes <out-dir>/<name>.elf, with <name>.outcome and
-# <name>.control copied next to it. The tests have NEEDS_SIGNATURE: false, so ACT
-# compiles them without the reference model (Sail would trap at the misaligned jump).
+# Every <name>.S becomes <out-dir>/<name>.elf, with <name>.outcome, <name>.control
+# and <name>.prove-failure copied next to it. The tests have NEEDS_SIGNATURE: false,
+# so ACT compiles them without the reference model (Sail would trap at the misaligned jump).
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -41,7 +41,7 @@ for src in "$HERE"/*.S; do
   name=$(basename "$src" .S)
   # cat, not cp: ACT's build cache may leave the ELFs as symlinks.
   cat "$ELF_DIR/$name.elf" > "$OUT/$name.elf"
-  for vector in outcome control; do
+  for vector in outcome control prove-failure; do
     if [ -f "$HERE/$name.$vector" ]; then
       cp "$HERE/$name.$vector" "$OUT/$name.$vector"
     fi
