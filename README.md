@@ -61,7 +61,10 @@ flowchart LR
   (`NEEDS_SIGNATURE: false`). The suite runs in execute mode on both paths (on the ere path for
   OpenVM, SP1 and ZisK). The results go to `results/history/<zkvm>-act4-misaligned.json` and
   `<zkvm>-ere-act4-misaligned.json`; the dashboard does not show them.
-- `./run isa-tests <zkvm>` runs this pipeline. `FORCE=1` regenerates the ELFs.
+- `./run isa-tests <zkvm>` runs this pipeline. `./run isa-tests reference` runs the Full ISA, Standard ISA and misaligned
+  suites on the zkVM reference (eth-act/zkevm-standards `reference/`, `zkvm-run` from
+  `./run eth-act-standards-tests reference`), execute only and without history; it runs only when
+  named. `FORCE=1` regenerates the ELFs.
 
 ### eth-act standards tests (guest interfaces)
 
