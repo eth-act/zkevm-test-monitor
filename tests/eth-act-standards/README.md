@@ -18,7 +18,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `library/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | static checks: the library is an `ar` archive of RISC-V objects; the zkVM supplies a linker script, with `PHDRS`; with each linker, the entry point of every runtime ELF is `_start`, the script defines `_heap_start` and `_heap_end`, and a probe's code and read-only data sections are in separate segments with the required flags; the zkVM reference's loader accepts every guest ELF (`static-validate`) |
 | `runtime/`, `runtime-lld/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | plain C and C++ guests that link only the vendor library, with the vendor's linker script unchanged, with GNU ld (`runtime/`) and with LLD (`runtime-lld/`): the C environment at `main` (`.data`, `.sdata`, `.rodata`, `.bss`, `.sbss` and the stack), zero `.bss` and `.sbss` at `main`, a C++ static constructor, and the heap symbols |
 | `elf/` | [ELF loading and validation](https://github.com/eth-act/zkevm-standards/tree/main/standards/elf-loading-and-validation) | the initial memory image (`.data`, `.bss`, `.rodata`); loads from the executable segment; calls to code in `.data` and to code that the guest wrote; a store over code; crafted ELFs, labelled by the zkVM reference's loader, that the loader must accept (ignored section headers and `PT_NOTE`, `p_paddr`, zero fill after 17 to 23 file bytes) or reject (one for each header, segment and entry point check); for a `PF_X` zkVM, the static check `static-exec-decodes` (see ELF loading) |
-| `layout/` | [Memory layout restrictions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-layout-restrictions) | static checks of a linked guest against the zkVM's `layout.yaml` (`layout-static-a1` to `-a3`: a vendor linker script; each `PT_LOAD` segment, the heap and the stack in memory that the zkVM defines; symbols for the heap and stack bounds); writes and reads at the first and last bytes of the declared heap (`layout-heap-ends`); `sp` at `main` in the declared stack, and writes and reads at its lowest bytes (`layout-stack-ends`) |
+| `layout/` | [Memory layout restrictions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-layout-restrictions) | writes and reads at the first and last bytes of the heap that the vendor's linker symbols declare (`layout-heap-ends`); `sp` at `main` in the declared stack, and writes and reads at its lowest bytes (`layout-stack-ends`); the symbols come from the zkVM's `profile.json`, and `static-validate` checks every segment against its `memory` regions |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -176,27 +176,23 @@ The test does not check the standard's documentation or LTO clauses.
 The `layout/` tests check this sentence of the memory layout standard: "Each zkVM vendor must
 provide its own linker script that correctly describes its memory constraints, including the
 location and size of critical memory regions such as heap and stack areas".
-`zkvms/<zkvm>/standards/layout.yaml` records, from the zkVM's source at the pinned version:
+The zkVM's memory profile `zkvms/<zkvm>/standards/profile.json` (see "Memory profiles")
+records, from the zkVM's source at the pinned version, the memory regions that the zkVM defines
+(`memory`, from its executor and prover, not from the linker script) and the vendor's linker
+symbols for the heap start and end and for the stack bottom and top (`symbols`, `null` for a
+bound the script does not declare; the standard names no symbols, so the profile uses the
+vendor's names), each with a citation in `sources`.
 
-- the vendor's linker script, or `none`;
-- the memory regions that the zkVM defines (from its executor and prover, not from the linker
-  script), each with a citation;
-- the vendor's linker symbols for the heap start and end and for the stack bottom and top, or
-  `none` for each. The standard names no symbols, so the file uses the vendor's names.
+The static check `static-validate` (see "Static library and linker script") loads every linked
+guest with the zkVM reference under this profile, which rejects a `PT_LOAD` segment outside the
+`memory` regions.
 
-`tools/check_layout.py` checks a linked `layout/` guest against this file. Each check becomes
-a test, `layout-static-<check>`, that passes or fails with the reason:
-
-- `a1`: the zkVM vendor provides its own linker script;
-- `a2`: each `PT_LOAD` segment, the heap and the stack are in one region of `layout.yaml`. A
-  bound that the linker script does not declare is not checked (`a3` fails for it);
-- `a3`: the ELF has a symbol for each of the four bounds.
-
-The check needs a linked guest, so `build-guests.sh` builds these tests in a second act pass.
 The guests get the declared symbols as macros (`layout/layout.h`). A guest that needs a symbol
-that is `none` fails with "linker script declares no <bound>", so a missing symbol fails one
+that is `null` fails with "linker script declares no <bound>", so a missing symbol fails one
 test and does not stop the build. The guests access only the declared ends of the heap and the
-stack, because the standard sets no size and requires no fault.
+stack, because the standard sets no size and requires no fault. On the reference, whose stack is
+a fixed region of its profile and not a linker symbol, `layout-stack-ends` fails (listed in
+`reference-known-differences.txt`).
 
 The `layout/` tests do not check the standard's `libc` clause ("the linker script must define
 symbols that the `libc` implementation depends upon"): the standard names no C library, and
@@ -523,7 +519,6 @@ config.
 1. Add `zkvms/<zkvm>/standards/`:
    - a `Dockerfile` that builds the vendor library and the host executor;
    - a `test_config.yaml` that names `link.ld` and the ISA config's UDB config;
-   - a `layout.yaml` with the zkVM's memory layout (see the `layout/` tests);
    - a `link.ld.patch` with the changes the zkVM's own linker script needs (or, if the zkVM
      publishes none, a `link-args` file with its link options and a placeholder `link.ld`). The
      runtime guests use the script without the patch, or the `link-args`.

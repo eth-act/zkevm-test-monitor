@@ -1,17 +1,17 @@
 /*
  * The vendor's heap and stack symbols for the layout/ guests.
  *
- * build-guests.sh passes each symbol that zkvms/<zkvm>/standards/layout.yaml
- * declares as a macro: LAYOUT_HEAP_START, LAYOUT_HEAP_END, LAYOUT_STACK_BOTTOM
- * and LAYOUT_STACK_TOP name the vendor's linker symbols. A macro is not
- * defined when layout.yaml says none; a guest that needs it then fails with
- * "linker script declares no <bound>".
+ * build-guests.sh passes each symbol that zkvms/<zkvm>/standards/profile.json
+ * names in `symbols` as a macro: LAYOUT_HEAP_START, LAYOUT_HEAP_END,
+ * LAYOUT_STACK_BOTTOM and LAYOUT_STACK_TOP name the vendor's linker symbols.
+ * A macro is not defined when the profile gives null; a guest that needs it
+ * then fails with "linker script declares no <bound>".
  *
  * The bounds are 64-bit data words, because -mcmodel=medany reaches a symbol
  * only within 2 GiB of the code (SP1's heap end is 0x1c00000000). They are
  * kept in every layout/ ELF (used): a linker script defines a PROVIDE()d
- * symbol only for a link that references it, so tools/check_layout.py finds
- * all declared symbols in any layout/ ELF.
+ * symbol only for a link that references it, so every declared symbol is in
+ * any layout/ ELF, where tools/resolve_profile.py finds the stack bounds.
  */
 #ifndef LAYOUT_H
 #define LAYOUT_H
