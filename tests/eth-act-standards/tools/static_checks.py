@@ -29,7 +29,11 @@ records as tests. The checks are in group "library":
                              ELF under the zkVM's memory profile: for each ELF,
                              tools/resolve_profile.py, then
                              `zkvm-run --validate`; only with --zkvm-run and
-                             --profile
+                             --profile; not the crafted elf/accept-* and
+                             elf/reject-* variants, which test the loader
+    static-exec-decodes      for an execute-only zkVM (exec_perm x), every
+                             word of each guest ELF's PF_X-only segments is an
+                             RV64IM instruction (`zkvm-run --check-exec-decodes`)
 
 A guest that did not link is a failed test in its own group (runtime or
 runtime-lld). Without a linker script, the checks of the script and of the
@@ -156,12 +160,17 @@ def check_archive(library):
 
 
 def guest_elfs(out):
-    """Every guest ELF that the build wrote under `out`."""
-    return sorted(out.rglob("*.elf"))
+    """Every guest ELF that the build wrote under `out`, without the crafted
+    variants of the elf group (elf/accept-*, elf/reject-*), which test the
+    zkVM's loader, not the vendor's build."""
+    return sorted(elf for elf in out.rglob("*.elf")
+                  if not (elf.parent.name == "elf" and elf.name.startswith(("accept-", "reject-"))))
 
 
-def check_validate(elfs, zkvm_run, profile, out):
-    """The zkVM reference's loader accepts each ELF under the zkVM's memory
+def check_reference(elfs, zkvm_run, profile, out, flag):
+    """Each ELF passes `zkvm-run <flag>` (--validate: the zkVM reference's
+    loader accepts it; --check-exec-decodes: it also decodes every word of its
+    PF_X-only segments as an RV64IM instruction) under the zkVM's memory
     profile, with the stack range resolved from the ELF's symbols."""
     if not elfs:
         return ["no guest ELF was built"]
@@ -175,15 +184,14 @@ def check_validate(elfs, zkvm_run, profile, out):
             if resolve.returncode != 0:
                 failures.append(f"{name}: {(resolve.stderr or resolve.stdout).strip()}")
                 continue
-            run = subprocess.run([str(zkvm_run), "--validate", str(resolved), str(elf)],
-                                 capture_output=True, text=True)
+            run = subprocess.run([str(zkvm_run), flag, str(resolved), str(elf)], capture_output=True, text=True)
             answer = run.stdout.strip()
             if run.returncode == 0 and answer == "OK":
                 continue
-            if run.returncode == 2 and answer.startswith("REJECT "):
+            if (run.returncode, answer.split(" ")[0]) in ((2, "REJECT"), (3, "UNDECODABLE")):
                 failures.append(f"{name}: {answer}")
             else:
-                sys.exit(f"error: zkvm-run --validate {elf}: exit {run.returncode}: {answer or run.stderr.strip()}")
+                sys.exit(f"error: zkvm-run {flag} {elf}: exit {run.returncode}: {answer or run.stderr.strip()}")
     return failures
 
 
@@ -326,7 +334,12 @@ def main():
             verdict(f"lib-segments{suffix}", check_segments(probe, linker) if script else no_script),
         ]
     if args.zkvm_run:
-        results.append(verdict("static-validate", check_validate(guest_elfs(args.out), args.zkvm_run, args.profile, args.out)))
+        elfs = guest_elfs(args.out)
+        results.append(verdict("static-validate", check_reference(elfs, args.zkvm_run, args.profile, args.out, "--validate")))
+        # Only an execute-only zkVM needs its PF_X segments to hold nothing but instructions.
+        if json.loads(args.profile.read_text())["exec_perm"] == "x":
+            results.append(verdict("static-exec-decodes",
+                                   check_reference(elfs, args.zkvm_run, args.profile, args.out, "--check-exec-decodes")))
 
     for r in results:
         if r["group"] == "library":

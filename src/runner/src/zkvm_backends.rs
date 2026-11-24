@@ -1507,7 +1507,8 @@ impl Zkvm for Reference {
 
 /// What a `zkvm-run` run reports. It prints
 /// `outcome=<outcome> output=<hex> misaligned=<count>` and exits 0, or prints
-/// `REJECT <message>` and exits 2 when its loader rejects the ELF. Outcomes:
+/// `REJECT <message>` and exits 2 when its loader rejects the ELF (a
+/// rejection, `Termination::Rejected`). Outcomes:
 /// `success`, `failure:<code>` (main returned a non-zero code), `fault`
 /// (abnormal termination without a code), and three that are no guest
 /// outcome: `unspecified:<symbol>` (an accelerator call: the reference gives no
@@ -1516,7 +1517,7 @@ fn reference_execution(exit_code: Option<i32>, stdout: &str, stderr: &str) -> Ex
     let line = stdout.trim();
     if exit_code == Some(2) {
         if let Some(message) = line.strip_prefix("REJECT ") {
-            return Execution::host_error(exit_code, format!("rejected: {message}"));
+            return Execution::rejected(exit_code, format!("the zkVM rejected the ELF: {message}"));
         }
     }
     let parsed = (exit_code == Some(0))
@@ -2158,7 +2159,7 @@ mod tests {
         );
         assert_eq!(
             host(run(2, "REJECT segment 0x80000000: W^X violated")),
-            (Termination::HostError, "rejected: segment 0x80000000: W^X violated".to_owned())
+            (Termination::Rejected, "the zkVM rejected the ELF: segment 0x80000000: W^X violated".to_owned())
         );
         assert_eq!(run(1, "").termination, Termination::HostError);
         assert_eq!(run(0, "outcome=success output=5 misaligned=0").termination, Termination::HostError);

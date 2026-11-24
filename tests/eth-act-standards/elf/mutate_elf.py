@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """Write the crafted ELF variants of the elf group.
 
-Usage: mutate_elf.py <elf-dir> <exec-perm> <outside-addr> [<boot-addr>]
+Usage: mutate_elf.py <elf-dir> <profile.json>
 
 Reads elf-image.elf and elf-tail.elf in <elf-dir> (build-guests.sh builds
 them) and writes each variant <name>.elf next to them, with its <name>.input
-and <name>.outcome when it has them. The arguments are the zkVM's parameters
-from zkvms/<zkvm>/standards/elf.env: ELF_EXEC_PERM, ELF_OUTSIDE_ADDR and
-ELF_BOOT_ADDR.
+when it has one. The zkVM's parameters come from its memory profile
+(zkvms/<zkvm>/standards/profile.json): `exec_perm` (the flags of an
+executable segment, x or rx), the end of `address_space` (an address outside
+it) and `boot_addr` (a fixed boot address, or null).
 
 - Each accept-* variant changes only ELF content that the ELF loading and
   validation standard says a loader must ignore or handle, so the guest must
   still pass.
 - Each reject-* variant breaks one rule that the loader must check, so the
-  zkVM must reject it (outcome `reject`). A variant of elf-image that the
-  zkVM loads anyway runs a guest that passes.
+  zkVM must reject it. A variant of elf-image that the zkVM loads anyway runs
+  a guest that passes.
+
+This script writes no `.outcome`: build-guests.sh labels each variant with
+the verdict of the zkVM reference's loader (`zkvm-run --validate`).
 
 A variant that needs a new program header gets a copy of the program header
 table at the end of the file, with the new entry; e_phoff and e_phnum point
@@ -23,6 +27,7 @@ to the copy. The section header table does not move.
 Python standard library only.
 """
 
+import json
 import struct
 import sys
 from pathlib import Path
@@ -262,9 +267,13 @@ def reject_entry_not_boot(elf, boot):
 
 def main():
     elf_dir = Path(sys.argv[1])
-    perm = sys.argv[2]
-    outside = int(sys.argv[3], 0)
-    boot = int(sys.argv[4], 0) if len(sys.argv) > 4 and sys.argv[4] else None
+    profile = json.loads(Path(sys.argv[2]).read_text())
+    perm = profile["exec_perm"]
+    if perm not in ("x", "rx"):
+        sys.exit(f"mutate_elf.py: {sys.argv[2]}: exec_perm must be x or rx")
+    space = profile["address_space"]
+    outside = int(space["base"], 0) + int(space["size"], 0)
+    boot = int(profile["boot_addr"], 0) if profile.get("boot_addr") else None
     image = elf_dir / "elf-image.elf"
     tail = elf_dir / "elf-tail.elf"
 
@@ -303,8 +312,6 @@ def main():
         elf.write(elf_dir / f"{name}.elf")
         if data_in is not None:
             (elf_dir / f"{name}.input").write_bytes(data_in)
-        if name.startswith("reject-"):
-            (elf_dir / f"{name}.outcome").write_text("reject\n")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@
  * function text_data_fn holds the word 0x00000000, which is not an
  * instruction, after its `ret`. The loader accepts the ELF, and the guest
  * loads the word. build-guests.sh builds this test only for PF_X | PF_R
- * zkVMs (ELF_EXEC_PERM=rx).
+ * zkVMs (profile.json exec_perm rx).
  */
 #include "checks.h"
 
