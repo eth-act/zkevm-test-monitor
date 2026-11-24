@@ -121,8 +121,8 @@ Commands:
   eth-act-standards-tests [zkvm ...]
                             Run the eth-act standards tests (I/O, accelerators,
                             memory operations, termination, ELF loading, memory
-                            layout, static library and linker script; zisk, sp1,
-                            openvm, pico; through ere;
+                            layout, guard regions, static library and linker
+                            script; zisk, sp1, openvm, pico; through ere;
                             BACKEND=noere runs this repository's executors and
                             provers, by default execute only)
   tests [zkvm ...]          Run both test suites

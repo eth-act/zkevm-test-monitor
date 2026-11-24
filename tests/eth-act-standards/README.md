@@ -2,7 +2,7 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers seven
+asks of each zkVM. It covers eight
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items, and the
 termination semantics. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
@@ -19,6 +19,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `runtime/`, `runtime-lld/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | plain C and C++ guests that link only the vendor library, with the vendor's linker script unchanged, with GNU ld (`runtime/`) and with LLD (`runtime-lld/`): the C environment at `main` (`.data`, `.sdata`, `.rodata`, `.bss`, `.sbss` and the stack), zero `.bss` and `.sbss` at `main`, a C++ static constructor, and the heap symbols |
 | `elf/` | [ELF loading and validation](https://github.com/eth-act/zkevm-standards/tree/main/standards/elf-loading-and-validation) | the initial memory image (`.data`, `.bss`, `.rodata`); loads from the executable segment; calls to code in `.data` and to code that the guest wrote; a store over code; crafted ELFs, labelled by the zkVM reference's loader, that the loader must accept (ignored section headers and `PT_NOTE`, `p_paddr`, zero fill after 17 to 23 file bytes) or reject (one for each header, segment and entry point check); for a `PF_X` zkVM, the static check `static-exec-decodes` (see ELF loading) |
 | `layout/` | [Memory layout restrictions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-layout-restrictions) | writes and reads at the first and last bytes of the heap that the vendor's linker symbols declare (`layout-heap-ends`); `sp` at `main` in the declared stack, and writes and reads at its lowest bytes (`layout-stack-ends`); the symbols come from the zkVM's `profile.json`, and `static-validate` checks every segment against its `memory` regions |
+| `guard/` | [Memory safety guard regions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-safety-guard-regions) | a byte load and a byte store at the first and the last byte of the null pointer trap region (`guard-null-*`: `0x0` and `0xfff`) and at the highest and the lowest byte of the 4 kB below the stack bottom (`guard-stack-{lb,sb}-{1,4096}`), each expected to terminate abnormally; a byte store and a byte load at the stack bottom, expected to complete (`guard-stack-bottom`); the memory map is `static-validate` |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -528,7 +529,7 @@ from) and `symbols` (the zkVM's linker symbols for the stack and the heap, or `n
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`, `termination`, `elf`, `layout`, `library`, `runtime`, `runtime-lld`) selects exactly
+`memory`, `termination`, `elf`, `layout`, `guard`, `library`, `runtime`, `runtime-lld`) selects exactly
 that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of the test names. A word
 that selects no test stops the run.
 
