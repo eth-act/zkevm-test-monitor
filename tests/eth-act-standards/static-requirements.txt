@@ -1,0 +1,16 @@
+# The requirement IDs that each static check of tools/static_checks.py tests:
+# <check-name> <ID>... (the IDs of the "Normative requirements" tables in
+# eth-act/zkevm-standards). static_checks.py records the IDs of the standards in
+# covered-standards.txt with each verdict; tools/check_requirements.py counts
+# them as coverage.
+lib-archive LIB1
+lib-linker-script LIB12
+lib-script-phdrs LIB14
+lib-entry LIB5
+lib-entry-lld LIB5 LIB13
+lib-heap-symbols LIB15
+lib-heap-symbols-lld LIB15 LIB13
+lib-segments LIB14
+lib-segments-lld LIB14 LIB13
+# The checks that the reference's zkvm_validate runs.
+static-validate ELF2 ELF13 ELF14 ELF15 ELF17 ELF22 ELF25 ELF26 LAY1 GUA3 GUA4 GUA8

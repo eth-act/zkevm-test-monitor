@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
-"""Check a zkVM's static library, its linker script and the linked runtime
-guests against the static library and linker script standard.
+"""The static checks of the eth-act standards tests: a zkVM's static library,
+its linker script and the built guest ELFs, checked without running them.
 
 Usage:
-    check_static_library.py --library LIB [--linker-script LD] --io-header H
-        --accelerators-header H --probe-object O <out-dir>
+    static_checks.py --library LIB [--linker-script LD] --probe-object O
+        [--zkvm-run ZKVM_RUN --profile PROFILE] <out-dir>
 
-build-runtime-guests.sh runs it after it links the runtime guests into
+build-runtime-guests.sh runs it after build-guests.sh built the ACT4 guests
+into <out-dir>/<group>/ and after it linked the runtime guests into
 <out-dir>/runtime/ (GNU ld) and <out-dir>/runtime-lld/ (LLD), and the probe
 library/rt-segments.c into <out-dir>/library/rt-segments.probe and
 rt-segments-lld.probe. A guest that did not link has a <name>.link-error file
 instead of its ELF.
 
 Writes <out-dir>/library/static-results.json: a list of verdicts
-{"name", "group", "passed", "detail"}, which the runner records as tests.
-The checks are in group "library":
+{"name", "group", "passed", "detail", "requirements"}, which the runner
+records as tests. The checks are in group "library":
 
     lib-archive              the library is an ar archive of RISC-V ELF64 objects
-    lib-start                the library defines _start
-    lib-io-functions         ... every function of zkvm_io.h
-    lib-accelerator-functions  ... every function of zkvm_accelerators.h
     lib-linker-script        the zkVM supplies a linker script with the library
     lib-script-phdrs         the linker script has a PHDRS declaration
     lib-entry[-lld]          e_entry is _start in every runtime ELF
@@ -27,11 +25,21 @@ The checks are in group "library":
     lib-segments[-lld]       in the probe, code is in executable, non-writable
                              segments, and read-only data in readable,
                              non-executable segments
+    static-validate          the zkVM reference's loader accepts every guest
+                             ELF under the zkVM's memory profile: for each ELF,
+                             tools/resolve_profile.py, then
+                             `zkvm-run --validate`; only with --zkvm-run and
+                             --profile
 
 A guest that did not link is a failed test in its own group (runtime or
 runtime-lld). Without a linker script, the checks of the script and of the
-ELFs fail. The script uses only the Python standard library and
-riscv64-unknown-elf-nm.
+ELFs fail.
+
+"requirements" lists the requirement IDs of the check
+(tests/eth-act-standards/static-requirements.txt) whose standard
+tests/eth-act-standards/covered-standards.txt names; a guest that did not link
+has the IDs of its .req file. The script uses only the Python standard library,
+and riscv64-unknown-elf-nm through resolve_profile.py.
 """
 
 import argparse
@@ -40,9 +48,10 @@ import re
 import struct
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-NM = "riscv64-unknown-elf-nm"
+HERE = Path(__file__).resolve().parent.parent
 EM_RISCV = 243
 PT_LOAD = 1
 PF_X, PF_W, PF_R = 1, 2, 4
@@ -146,18 +155,48 @@ def check_archive(library):
     return []
 
 
-def declared_functions(header):
-    """The functions that a C header declares."""
-    text = Path(header).read_text()
-    text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.S)
-    text = re.sub(r"^\s*#.*$", "", text, flags=re.M)
-    return re.findall(r"\b([A-Za-z_]\w*)\s*\([^()]*\)\s*;", text)
+def guest_elfs(out):
+    """Every guest ELF that the build wrote under `out`."""
+    return sorted(out.rglob("*.elf"))
 
 
-def defined_symbols(library):
-    """The symbols that the library defines (nm --defined-only)."""
-    result = subprocess.run([NM, "--defined-only", "-g", library], capture_output=True, text=True)
-    return {fields[2] for fields in (line.split() for line in result.stdout.splitlines()) if len(fields) == 3}
+def check_validate(elfs, zkvm_run, profile, out):
+    """The zkVM reference's loader accepts each ELF under the zkVM's memory
+    profile, with the stack range resolved from the ELF's symbols."""
+    if not elfs:
+        return ["no guest ELF was built"]
+    failures = []
+    with tempfile.TemporaryDirectory() as work:
+        resolved = Path(work) / "profile.json"
+        for elf in elfs:
+            name = elf.relative_to(out)
+            resolve = subprocess.run([sys.executable, str(Path(__file__).with_name("resolve_profile.py")),
+                                      str(profile), str(elf), str(resolved)], capture_output=True, text=True)
+            if resolve.returncode != 0:
+                failures.append(f"{name}: {(resolve.stderr or resolve.stdout).strip()}")
+                continue
+            run = subprocess.run([str(zkvm_run), "--validate", str(resolved), str(elf)],
+                                 capture_output=True, text=True)
+            answer = run.stdout.strip()
+            if run.returncode == 0 and answer == "OK":
+                continue
+            if run.returncode == 2 and answer.startswith("REJECT "):
+                failures.append(f"{name}: {answer}")
+            else:
+                sys.exit(f"error: zkvm-run --validate {elf}: exit {run.returncode}: {answer or run.stderr.strip()}")
+    return failures
+
+
+def requirement_lists():
+    """check name -> requirement IDs (static-requirements.txt), keeping only
+    the IDs of the standards in covered-standards.txt."""
+    covered = set((HERE / "covered-standards.txt").read_text().split())
+    table = {}
+    for line in (HERE / "static-requirements.txt").read_text().splitlines():
+        words = line.split("#", 1)[0].split()
+        if words:
+            table[words[0]] = [r for r in words[1:] if re.match(r"[A-Z]+", r).group(0) in covered]
+    return table, covered
 
 
 def missing(names, symbols):
@@ -255,26 +294,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--library", required=True)
     parser.add_argument("--linker-script")
-    parser.add_argument("--io-header", required=True, help="zkvm_io.h")
-    parser.add_argument("--accelerators-header", required=True, help="zkvm_accelerators.h")
     parser.add_argument("--probe-object", required=True)
+    parser.add_argument("--zkvm-run", type=Path, help="the zkVM reference's zkvm-run")
+    parser.add_argument("--profile", type=Path, help="the zkVM's profile.json")
     parser.add_argument("out", type=Path)
     args = parser.parse_args()
+    if (args.zkvm_run is None) != (args.profile is None):
+        parser.error("--zkvm-run and --profile go together")
 
     check_probe_object(args.probe_object)
-    io_functions = declared_functions(args.io_header)
-    accel_functions = declared_functions(args.accelerators_header)
-    if not io_functions or not accel_functions:
-        sys.exit("error: no function declarations found in the standard headers")
-    symbols = defined_symbols(args.library)
+    requirements, covered = requirement_lists()
     script = args.linker_script
     no_script = ["the zkVM supplies no linker script"]
 
     results = [
         verdict("lib-archive", check_archive(args.library)),
-        verdict("lib-start", missing(["_start"], symbols)),
-        verdict("lib-io-functions", missing(io_functions, symbols)),
-        verdict("lib-accelerator-functions", missing(accel_functions, symbols)),
         verdict("lib-linker-script", [] if script else no_script),
         verdict("lib-script-phdrs", check_phdrs(script) if script else no_script),
     ]
@@ -291,6 +325,18 @@ def main():
             verdict(f"lib-heap-symbols{suffix}", check_heap_symbols(elfs, linker) if script else no_script),
             verdict(f"lib-segments{suffix}", check_segments(probe, linker) if script else no_script),
         ]
+    if args.zkvm_run:
+        results.append(verdict("static-validate", check_validate(guest_elfs(args.out), args.zkvm_run, args.profile, args.out)))
+
+    for r in results:
+        if r["group"] == "library":
+            if r["name"] not in requirements:
+                sys.exit(f"error: {r['name']} has no line in static-requirements.txt")
+            r["requirements"] = requirements[r["name"]]
+        else:
+            req = HERE / "runtime" / f"{r['name'].removesuffix('-lld')}.req"
+            ids = req.read_text().split() if req.exists() else []
+            r["requirements"] = [i for i in ids if re.match(r"[A-Z]+", i).group(0) in covered]
 
     out = args.out / "library" / "static-results.json"
     out.parent.mkdir(parents=True, exist_ok=True)

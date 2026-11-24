@@ -1,5 +1,5 @@
 /*
- * Probe for the segment check of tools/check_static_library.py. The linker
+ * Probe for the segment check of tools/static_checks.py. The linker
  * script must assign the code sections (.text*, .init, .fini) to an
  * executable, non-writable segment, and every read-only data section
  * (.rodata*, .srodata*, .eh_frame*, .gcc_except_table, .data.rel.ro) to a

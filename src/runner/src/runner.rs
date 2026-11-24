@@ -53,8 +53,9 @@ pub fn run_tests(
 
 /// A verdict that the guest build decided, without a run: a check of the
 /// vendor's static library, its linker script or the linked ELFs, or a guest
-/// that does not link. tests/eth-act-standards/tools/check_static_library.py
-/// writes a list of them to a `static-results.json` file in the ELF tree.
+/// that does not link. tests/eth-act-standards/tools/static_checks.py
+/// writes a list of them to a `static-results.json` file in the ELF tree; the
+/// runner ignores their other fields (`requirements`).
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct StaticVerdict {
     pub name: String,
@@ -954,7 +955,7 @@ mod tests {
         }
         std::fs::create_dir_all(dir.path().join("library")).unwrap();
         let verdicts = r#"[
-            {"name": "lib-start", "group": "library", "passed": true, "detail": null},
+            {"name": "lib-archive", "group": "library", "passed": true, "detail": null, "requirements": ["LIB1"]},
             {"name": "lib-segments-lld", "group": "library", "passed": false, "detail": "x"},
             {"name": "rt-bss-zero-lld", "group": "runtime-lld", "passed": false, "detail": "does not link"}
         ]"#;
@@ -969,13 +970,13 @@ mod tests {
     fn finds_and_selects_static_verdicts() {
         let (elfs, statics) = selected_with_statics(&[]).unwrap();
         assert_eq!(elfs, ["io-echo", "rt-c-runtime", "rt-c-runtime-lld"]);
-        assert_eq!(statics, ["lib-start", "lib-segments-lld", "rt-bss-zero-lld"]);
+        assert_eq!(statics, ["lib-archive", "lib-segments-lld", "rt-bss-zero-lld"]);
         // A group selects its ELFs and its static verdicts.
-        assert_eq!(selected_with_statics(&["library"]).unwrap(), (vec![], vec!["lib-start".into(), "lib-segments-lld".into()]));
+        assert_eq!(selected_with_statics(&["library"]).unwrap(), (vec![], vec!["lib-archive".into(), "lib-segments-lld".into()]));
         let (elfs, statics) = selected_with_statics(&["runtime-lld"]).unwrap();
         assert_eq!((elfs, statics), (vec!["rt-c-runtime-lld".to_owned()], vec!["rt-bss-zero-lld".to_owned()]));
         // Names and patterns apply to both.
-        assert_eq!(selected_with_statics(&["lib-start"]).unwrap(), (vec![], vec!["lib-start".into()]));
+        assert_eq!(selected_with_statics(&["lib-archive"]).unwrap(), (vec![], vec!["lib-archive".into()]));
         let (elfs, statics) = selected_with_statics(&["*-lld"]).unwrap();
         assert_eq!((elfs, statics), (vec!["rt-c-runtime-lld".to_owned()], vec!["lib-segments-lld".into(), "rt-bss-zero-lld".into()]));
         assert!(selected_with_statics(&["nosuch"]).is_err());
@@ -984,7 +985,7 @@ mod tests {
     #[test]
     fn a_malformed_static_results_file_is_an_error() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join(STATIC_RESULTS), r#"[{"name": "lib-start"}]"#).unwrap();
+        std::fs::write(dir.path().join(STATIC_RESULTS), r#"[{"name": "lib-archive"}]"#).unwrap();
         let e = find_tests(dir.path(), &[]).unwrap_err();
         assert!(format!("{e:#}").contains("failed to parse"), "{e:#}");
     }

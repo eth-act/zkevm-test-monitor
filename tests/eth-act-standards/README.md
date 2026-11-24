@@ -220,18 +220,20 @@ code executes. Destructors run after `main`, and only the list of typical steps 
 name them. A destructor also needs `__cxa_atexit` and `__dso_handle`. `rt-heap-symbols` references
 the heap symbols weakly, so a missing symbol fails the test, not the link.
 
-`tools/check_static_library.py` runs after the links, in the same image. It writes one verdict per
-check to `library/static-results.json`:
+`tools/static_checks.py` runs after the links, in the same image. It writes one verdict per
+check to `library/static-results.json`, with the requirement IDs of the check
+(`static-requirements.txt`, restricted to the standards in `covered-standards.txt`) in
+`"requirements"`:
 
 | Check | Clause | Method |
 |---|---|---|
 | `lib-archive` | "Each zkVM vendor must provide a static library (`.a` archive) targeting their zkVM." | an `ar` archive whose ELF members are all RISC-V ELF64 objects |
-| `lib-start`, `lib-io-functions`, `lib-accelerator-functions` | "The library must include implementations of" `_start`, the I/O functions and the accelerator functions | `nm --defined-only`; the function names come from the pinned `zkvm_io.h` and `zkvm_accelerators.h` |
 | `lib-linker-script` | "The vendor must supply a linker script alongside the static library." | the zkVM's platform names a linker script (`VENDOR_LD` in `src/run-eth-act-standards-tests.sh`) |
 | `lib-script-phdrs` | "Using a `PHDRS` declaration, ..." | the script has a `PHDRS` declaration |
 | `lib-entry`, `lib-entry-lld` | "The linker script must set the ELF entry point to `_start`." | in every runtime ELF of the linker, `e_entry` is the address of `_start` |
 | `lib-heap-symbols`, `lib-heap-symbols-lld` | "Define the following two symbols": `_heap_start` and `_heap_end` | `rt-heap-symbols` defines both. It references them, so a `PROVIDE` in the script also defines them |
 | `lib-segments`, `lib-segments-lld` | "assign the code sections (`.text*`, `.init`, `.fini`) to an executable, non-writable segment, and assign every read-only data section (`.rodata*`, `.srodata*`, `.eh_frame*`, `.gcc_except_table`, `.data.rel.ro`, ...) to a separate readable, non-executable segment" | the probe `library/rt-segments.c` has a symbol in each named section and an `.eh_frame`. In the linked probe (`library/rt-segments.probe`, `rt-segments-lld.probe`), each code section is in a segment with `PF_X` and without `PF_W`, and each read-only data section is in a segment with `PF_R` and without `PF_X` |
+| `static-validate` | the loader checks of the ELF loading, memory layout and guard regions standards | for every guest ELF of the run (the ACT4 guests and the runtime guests), `tools/resolve_profile.py` resolves the zkVM's `profile.json` for the ELF, then the zkVM reference's `zkvm-run --validate` loads it; the check fails with `<elf>: REJECT <message>` for each ELF the reference rejects. Every zkVM's run builds the reference platform image for `out/bin/zkvm-run`. A platform without `profile.json` (Pico) has no such verdict |
 
 The probe links without `--gc-sections`, because GNU ld then drops its `.eh_frame`. It does not
 run. A section that the link discards is in no segment, so it passes: SP1's script discards
@@ -243,8 +245,11 @@ The runner reads `library/static-results.json` and records each verdict as a tes
 A static verdict does not run, so it has no prove or verify stage, and the dashboard counts
 proving and verification over the other tests (`static_tests` in the history).
 
-These clauses have no test here:
+These clauses have no static check here:
 
+- `_start`, `read_input`, `write_output` and the accelerator functions in the library: every
+  guest links them, so a missing one fails its link. `term-main-nonzero` (`_start`), `io-echo`
+  (the I/O functions) and `accel-keccak256` (an accelerator) name them (LIB2–LIB4) in `.req`.
 - A non-zero return from `main`: the termination tests cover it.
 - The behavior of `read_input` and of the accelerators: the `io` and `accelerators` groups test
   it. The runtime guests call `write_output` from `main`.
@@ -257,7 +262,7 @@ These clauses have no test here:
 | ZisK | `ziskos-staticlib` + ZisK's own linker script at tag v1.4.0-alpha, the version eth-act/ere pins | `ziskemu` at the same tag (`out/bin/zisk-eth-act-standards-emu`) |
 | SP1 | zkEVM SDK `libzkevm.a` + `zkvm.ld` (`make sdk` in `zkevm/`) at upstream tag v6.9.0, the version eth-act/ere pins | `sp1-eth-act-standards-executor` (`zkvms/sp1/standards/executor`) |
 | OpenVM | none from OpenVM; eth-act/ere's `ere-platform-openvm` at the ere revision the runner pins, over OpenVM tag v2.1.0-preview | `openvm-eth-act-standards-executor` (`zkvms/openvm/standards/executor`) |
-| reference | a stub library with every symbol of the reference's `zkvm_library` (one `ebreak` each), and `zkvms/reference/standards/link.ld` (the reference layout with ACT's sections) | `zkvm-run` from eth-act/zkevm-standards `reference/` at the commit `config.json` pins (`out/bin/zkvm-run`) |
+| reference | a stub library with every symbol of the reference's `zkvm_library` (one `ebreak` each), and `zkvms/reference/standards/link.ld` (the reference layout with ACT's sections), which the runtime guests and the static checks also use as the reference's linker script | `zkvm-run` from eth-act/zkevm-standards `reference/` at the commit `config.json` pins (`out/bin/zkvm-run`) |
 | Pico | Pico's static library `libpico_zkvm.a` + `pico.ld` (`cargo pico lib`) at tag v3.1.5, the version eth-act/ere pins | none: Pico runs only through ere |
 
 The ZisK image pins its own ZisK tag, not the monitor's ZisK pin for the ACT4 suites. It
@@ -387,8 +392,9 @@ from) and `symbols` (the zkVM's linker symbols for the stack and the heap, or `n
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`, `library`, `runtime`, `runtime-lld`) selects exactly that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of
-the test names. A word that selects no test stops the run.
+`memory`, `termination`, `library`, `runtime`, `runtime-lld`) selects exactly that. Any other
+word is a glob (`io-write-*`) or a substring (`bls`) of the test names. A word that selects no
+test stops the run.
 
 ```bash
 TESTS=io-echo BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm

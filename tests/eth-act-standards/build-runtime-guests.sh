@@ -11,6 +11,7 @@
 #   /vendor                   the zkVM's C library, and its own linker script if
 #                             it publishes one (read-only)
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
+#   /zkvm-run                 the zkVM reference's zkvm-run (read-only)
 #
 # The runtime guests runtime/*.c and runtime/*.cpp are plain C and C++
 # programs, not ACT4 tests. Each one links only the vendor library, with the
@@ -23,9 +24,12 @@
 # A guest that does not link has no ELF: the linker's output goes to
 # <name>.link-error instead. The probe library/rt-segments.c is linked the same
 # way to <out-dir>/library/rt-segments.probe and rt-segments-lld.probe (it does
-# not run). Last, tools/check_static_library.py checks the library, the linker
-# script and the ELFs, and writes its verdicts and a failed test for each guest
-# that did not link to <out-dir>/library/static-results.json.
+# not run). Last, tools/static_checks.py checks the library, the linker
+# script and the ELFs, validates every guest ELF under <out-dir> (the ACT4
+# guests too) with /zkvm-run against /platform/profile.json, and writes its
+# verdicts and a failed test for each guest that did not link to
+# <out-dir>/library/static-results.json. A platform without profile.json
+# (Pico) has no static-validate verdict.
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -132,10 +136,14 @@ done
 
 SCRIPT_ARG=()
 if [ -n "$VENDOR_LD" ]; then SCRIPT_ARG=(--linker-script "$VENDOR_LD"); fi
-echo "Static checks of $(basename "$VENDOR_LIB")${VENDOR_LD:+ and $(basename "$VENDOR_LD")}:"
-python3 "$HERE/tools/check_static_library.py" --library "$VENDOR_LIB" "${SCRIPT_ARG[@]}" \
-  --io-header "$STANDARDS/io-interface/zkvm_io.h" \
-  --accelerators-header "$STANDARDS/c-interface-accelerators/zkvm_accelerators.h" \
+VALIDATE_ARGS=()
+if [ -f "$PLATFORM_DIR/profile.json" ]; then
+  VALIDATE_ARGS=(--zkvm-run /zkvm-run --profile "$PLATFORM_DIR/profile.json")
+else
+  echo "note: $PLATFORM_DIR has no profile.json, so there is no static-validate verdict"
+fi
+echo "Static checks of $(basename "$VENDOR_LIB")${VENDOR_LD:+ and $(basename "$VENDOR_LD")}, and of the guest ELFs:"
+python3 "$HERE/tools/static_checks.py" --library "$VENDOR_LIB" "${SCRIPT_ARG[@]}" "${VALIDATE_ARGS[@]}" \
   --probe-object "$WORK/rt-segments.probe.o" "$OUT"
 
 echo "Built $count runtime guest ELFs for $ZKVM in $OUT"

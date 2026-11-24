@@ -151,6 +151,9 @@ case "$ZKVM" in
     IMAGE_EMULATOR="/out/zkvm-run"
     VENDOR_LIB="/out/libzkvm_reference.a"
     # The platform's link.ld: the reference layout with ACT's sections placed.
+    # The reference publishes no linker script for guests, so this is the
+    # reference's script for the runtime guests and the static checks too
+    # (copied into the vendor directory below).
     VENDOR_LD=""
     IMAGE_COMMIT_FILES="/reference-commit.txt:vendor-commit.txt"
     COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
@@ -226,6 +229,9 @@ docker run --rm --entrypoint cat "$IMAGE" "$VENDOR_LIB" > "$VENDOR_DIR/$(basenam
 if [ -n "$VENDOR_LD" ]; then
   docker run --rm --entrypoint cat "$IMAGE" "$VENDOR_LD" > "$VENDOR_DIR/$(basename "$VENDOR_LD")"
 fi
+if [ "$ZKVM" = "reference" ]; then
+  cp "$PLATFORM_DIR/link.ld" "$VENDOR_DIR/link.ld"
+fi
 
 # The guests are built as ACT4 C tests in the zkVM's ACT4 image, the image the
 # ISA tests use (same Dockerfile and build arguments as src/run-isa-tests.sh).
@@ -258,8 +264,25 @@ docker run --rm --entrypoint bash \
   exit 1
 }
 
+# The static checks validate every guest ELF with the zkVM reference's
+# zkvm-run (static-validate), so every zkVM's run builds the reference
+# platform image, at the standards commit config.json pins, for out/bin/zkvm-run.
+ZKVM_RUN="out/bin/zkvm-run"
+if [ "$ZKVM" != "reference" ]; then
+  echo "Building the reference platform image for zkvm-run..."
+  docker build --build-arg "STANDARDS_COMMIT=$STANDARDS_COMMIT" -t reference-eth-act-standards:latest \
+    -f zkvms/reference/standards/Dockerfile zkvms/reference/standards \
+    > "$RESULTS_DIR/eth-act-standards-reference-image.log" 2>&1 || {
+    echo "  Failed to build reference-eth-act-standards:latest — check $RESULTS_DIR/eth-act-standards-reference-image.log"
+    exit 1
+  }
+  docker run --rm --entrypoint cat reference-eth-act-standards:latest /out/zkvm-run > "$ZKVM_RUN"
+  chmod +x "$ZKVM_RUN"
+fi
+
 # The runtime guests (groups runtime and runtime-lld) and the static checks of
-# the library and its linker script (group library, in library/static-results.json).
+# the library, its linker script and the guest ELFs (group library, in
+# library/static-results.json).
 RUNTIME_IMAGE="eth-act-standards-runtime:latest"
 echo "Building the runtime guest image..."
 docker build -t "$RUNTIME_IMAGE" - < tests/eth-act-standards/runtime.Dockerfile \
@@ -274,6 +297,7 @@ docker run --rm --entrypoint bash \
   -v "$PWD/$STANDARDS_DIR:/zkevm-standards:ro" \
   -v "$PWD/$VENDOR_DIR:/vendor:ro" \
   -v "$PWD/$ELF_DIR:/elfs" \
+  -v "$PWD/$ZKVM_RUN:/zkvm-run:ro" \
   "$RUNTIME_IMAGE" -c "/eth-act-standards-tests/build-runtime-guests.sh $ZKVM /elfs; status=\$?; chown -R $(id -u):$(id -g) /elfs; exit \$status" \
   > "$RESULTS_DIR/eth-act-standards-runtime-build.log" 2>&1 || {
   echo "  Failed to build eth-act standards runtime guests — check $RESULTS_DIR/eth-act-standards-runtime-build.log"
