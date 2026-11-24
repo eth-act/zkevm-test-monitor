@@ -113,21 +113,21 @@
       {
         "base": {
           "len": 64,
-          "value": "0x40000000"
+          "value": "0x20000000"
         },
         "size": {
           "len": 64,
-          "value": "0x1000000"
+          "value": "0x100000"
         },
         "attributes": {
-          "mem_type": "MainMemory",
-          "cacheable": true,
+          "mem_type": "IOMemory",
+          "cacheable": false,
           "coherent": true,
           "executable": false,
           "readable": true,
-          "writable": false,
-          "read_idempotent": true,
-          "write_idempotent": true,
+          "writable": true,
+          "read_idempotent": false,
+          "write_idempotent": false,
           "misaligned_exceptions": {
             "load_store": {
               "None": null
