@@ -2,6 +2,7 @@ use std::ffi::OsStr;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
@@ -9,7 +10,33 @@ use anyhow::Context;
 use crate::io_and_expected_failures;
 
 /// The `--zkvm` names.
-pub const ZKVMS: [&str; 4] = ["lambdavm", "openvm", "sp1", "zisk"];
+pub const ZKVMS: [&str; 5] = ["lambdavm", "openvm", "reference", "sp1", "zisk"];
+
+/// Environment variable with the time limit on each execution, in seconds.
+pub const EXECUTE_TIMEOUT_ENV: &str = "EXECUTE_TIMEOUT";
+
+/// The time limit on each execution without `EXECUTE_TIMEOUT`.
+pub const DEFAULT_EXECUTE_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// The time limit on each execution: `EXECUTE_TIMEOUT` seconds, else
+/// `DEFAULT_EXECUTE_TIMEOUT`. An execution that runs longer is a host error.
+pub fn execute_timeout() -> anyhow::Result<Duration> {
+    match std::env::var(EXECUTE_TIMEOUT_ENV) {
+        Ok(secs) => secs
+            .parse::<u64>()
+            .ok()
+            .filter(|&secs| secs > 0)
+            .map(Duration::from_secs)
+            .ok_or_else(|| anyhow::anyhow!("{EXECUTE_TIMEOUT_ENV} must be a number of seconds, not `{secs}`")),
+        Err(_) => Ok(DEFAULT_EXECUTE_TIMEOUT),
+    }
+}
+
+/// `execute_timeout()`, read once; `main` checks the variable before any run.
+fn execute_limit() -> Duration {
+    static LIMIT: OnceLock<Duration> = OnceLock::new();
+    *LIMIT.get_or_init(|| execute_timeout().unwrap_or(DEFAULT_EXECUTE_TIMEOUT))
+}
 
 /// A zkVM backend: it runs a guest ELF and, with its prover tools, proves
 /// and verifies it.
@@ -47,12 +74,14 @@ pub struct Tools {
     pub sp1_perf: Option<PathBuf>,
     pub cargo_zisk: Option<PathBuf>,
     pub witness_lib: Option<PathBuf>,
+    /// The reference's memory profile (`--profile`).
+    pub profile: Option<PathBuf>,
     pub gpu: bool,
 }
 
 /// Build the backend for `--zkvm <name>`.
 pub fn build(name: &str, tools: Tools) -> anyhow::Result<Box<dyn Zkvm>> {
-    let Tools { binary, io_executor, sp1_perf, cargo_zisk, witness_lib, gpu } = tools;
+    let Tools { binary, io_executor, sp1_perf, cargo_zisk, witness_lib, profile, gpu } = tools;
     let executor = || -> anyhow::Result<Executor> {
         match (binary.clone(), io_executor.clone()) {
             (Some(binary), None) => Ok(Executor::Cli(binary)),
@@ -70,6 +99,10 @@ pub fn build(name: &str, tools: Tools) -> anyhow::Result<Box<dyn Zkvm>> {
     Ok(match name {
         "lambdavm" => Box::new(LambdaVM { binary: binary_only()? }),
         "openvm" => Box::new(OpenVM { executor: executor()?, gpu }),
+        "reference" => Box::new(Reference {
+            zkvm_run: binary_only()?,
+            profile: profile.ok_or_else(|| anyhow::anyhow!("--profile is required for zkvm '{name}'"))?,
+        }),
         "sp1" => Box::new(Sp1 { executor: executor()?, sp1_perf, gpu }),
         "zisk" => Box::new(Zisk { ziskemu: binary_only()?, cargo_zisk, witness_lib }),
         other => anyhow::bail!("unknown zkvm '{other}', expected one of: {}", ZKVMS.join(", ")),
@@ -294,14 +327,12 @@ impl Zkvm for LambdaVM {
     }
 
     fn execute(&self, elf_path: &Path, _input: Option<&[u8]>) -> Execution {
-        let output = Command::new(&self.binary)
-            .arg("execute")
-            .arg(elf_path)
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .output();
+        let output = output_with_timeout(
+            Command::new(&self.binary).arg("execute").arg(elf_path).stdout(Stdio::null()).stderr(Stdio::piped()),
+        );
         match output {
-            Ok(o) => Execution::from_status(o.status.code(), o.status.success()),
+            Ok(Ok(o)) => Execution::from_status(o.status.code(), o.status.success()),
+            Ok(Err(limit)) => execute_timed_out(limit),
             Err(e) => runner_error(elf_path, e.into()),
         }
     }
@@ -1141,11 +1172,12 @@ fn run_zisk(binary: &Path, elf_path: &Path, input: Option<&[u8]>) -> Execution {
             cmd.arg("-i").arg(&input_path);
         }
         cmd.arg("-o").arg(&output_path);
-        let output = cmd
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .output()
-            .with_context(|| format!("failed to run {}", binary.display()))?;
+        let output = match output_with_timeout(cmd.stdout(Stdio::null()).stderr(Stdio::piped()))
+            .with_context(|| format!("failed to run {}", binary.display()))?
+        {
+            Ok(output) => output,
+            Err(limit) => return Ok(execute_timed_out(limit)),
+        };
 
         let exit_code = output.status.code();
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1221,15 +1253,20 @@ fn run_io_executor(executor: &Path, elf_path: &Path, input: Option<&[u8]>, area:
         let code_path = tmp.path().join("exit-code.txt");
         std::fs::write(&input_path, input.unwrap_or_default())?;
 
-        let output = Command::new(executor)
-            .arg(elf_path)
-            .arg(&input_path)
-            .arg(&output_path)
-            .arg(&code_path)
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .output()
-            .with_context(|| format!("failed to run {}", executor.display()))?;
+        let output = match output_with_timeout(
+            Command::new(executor)
+                .arg(elf_path)
+                .arg(&input_path)
+                .arg(&output_path)
+                .arg(&code_path)
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped()),
+        )
+        .with_context(|| format!("failed to run {}", executor.display()))?
+        {
+            Ok(output) => output,
+            Err(limit) => return Ok(execute_timed_out(limit)),
+        };
 
         let exit_code = output.status.code();
         let reason = emulator_error_reason(&String::from_utf8_lossy(&output.stderr));
@@ -1264,6 +1301,166 @@ fn run_io_executor(executor: &Path, elf_path: &Path, input: Option<&[u8]>, area:
         Ok(Execution::success(exit_code, PublicOutput { bytes: actual, area }, PassHalt::Unknown))
     };
     inner().unwrap_or_else(|e| Execution::host_error(None, format!("runner error: {e:#}")))
+}
+
+/// Run `cmd` in its own process group until it exits or the execute time
+/// limit passes; then kill the group. `Err(limit)`: the limit passed.
+fn output_with_timeout(cmd: &mut Command) -> std::io::Result<Result<std::process::Output, Duration>> {
+    use std::io::Read;
+    fn read_all(pipe: Option<impl Read + Send + 'static>) -> std::thread::JoinHandle<Vec<u8>> {
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            if let Some(mut pipe) = pipe {
+                let _ = pipe.read_to_end(&mut bytes);
+            }
+            bytes
+        })
+    }
+    let limit = execute_limit();
+    let mut child = cmd.stdin(Stdio::null()).process_group(0).spawn()?;
+    let group = child.id() as libc::pid_t;
+    let (stdout, stderr) = (read_all(child.stdout.take()), read_all(child.stderr.take()));
+    let started = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break Some(status);
+        }
+        if started.elapsed() >= limit {
+            break None;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    // The group lives on while any member runs; ESRCH means none is left.
+    unsafe { libc::kill(-group, libc::SIGKILL) };
+    let Some(status) = status else {
+        let _ = child.wait();
+        return Ok(Err(limit));
+    };
+    Ok(Ok(std::process::Output {
+        status,
+        stdout: stdout.join().unwrap_or_default(),
+        stderr: stderr.join().unwrap_or_default(),
+    }))
+}
+
+/// The execution ran past the time limit.
+fn execute_timed_out(limit: Duration) -> Execution {
+    Execution::host_error(None, format!("execute timeout after {}s", limit.as_secs()))
+}
+
+/// The zkVM reference (eth-act/zkevm-standards `reference/`):
+/// `zkvm-run <profile> <elf> <input>` runs the guest in the Lean reference
+/// under the memory profile `--profile`. It does not prove.
+pub struct Reference {
+    pub zkvm_run: PathBuf,
+    pub profile: PathBuf,
+}
+
+impl Zkvm for Reference {
+    fn name(&self) -> &'static str {
+        "reference"
+    }
+
+    fn supports_io(&self) -> bool {
+        true
+    }
+
+    fn can_prove(&self) -> bool {
+        false
+    }
+
+    fn execute(&self, elf_path: &Path, input: Option<&[u8]>) -> Execution {
+        let inner = || -> anyhow::Result<Execution> {
+            let tmp = tempfile::tempdir().context("failed to create temp dir")?;
+            let input_path = tmp.path().join("input.bin");
+            std::fs::write(&input_path, input.unwrap_or_default())?;
+            let output = match output_with_timeout(
+                Command::new(&self.zkvm_run)
+                    .arg(&self.profile)
+                    .arg(elf_path)
+                    .arg(&input_path)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped()),
+            )
+            .with_context(|| format!("failed to run {}", self.zkvm_run.display()))?
+            {
+                Ok(output) => output,
+                Err(limit) => return Ok(execute_timed_out(limit)),
+            };
+            Ok(reference_execution(
+                output.status.code(),
+                &String::from_utf8_lossy(&output.stdout),
+                &String::from_utf8_lossy(&output.stderr),
+            ))
+        };
+        inner().unwrap_or_else(|e| runner_error(elf_path, e))
+    }
+
+    fn prove(&self, _elf_path: &Path, _input: Option<&[u8]>, _output: Option<&[u8]>, _verify: bool) -> anyhow::Result<Proof> {
+        anyhow::bail!("the reference does not prove")
+    }
+}
+
+/// What a `zkvm-run` run reports. It prints
+/// `outcome=<outcome> output=<hex> misaligned=<count>` and exits 0, or prints
+/// `REJECT <message>` and exits 2 when its loader rejects the ELF. Outcomes:
+/// `success`, `failure:<code>` (main returned a non-zero code), `fault`
+/// (abnormal termination without a code), and three that are no guest
+/// outcome: `unspecified:<symbol>` (an accelerator call: the reference gives no
+/// accelerator semantics), `stuck:<message>` and `lean_out_of_fuel`.
+fn reference_execution(exit_code: Option<i32>, stdout: &str, stderr: &str) -> Execution {
+    let line = stdout.trim();
+    if exit_code == Some(2) {
+        if let Some(message) = line.strip_prefix("REJECT ") {
+            return Execution::host_error(exit_code, format!("rejected: {message}"));
+        }
+    }
+    let parsed = (exit_code == Some(0))
+        .then(|| {
+            let rest = line.strip_prefix("outcome=")?;
+            let (rest, misaligned) = rest.rsplit_once(" misaligned=")?;
+            let (outcome, hex) = rest.rsplit_once(" output=")?;
+            misaligned.parse::<u64>().ok()?;
+            Some((outcome, decode_hex(hex)?))
+        })
+        .flatten();
+    let Some((outcome, output)) = parsed else {
+        let detail = format!("zkvm-run error (exit {}): {}{}", exit_text(exit_code), line, stderr.trim());
+        return Execution::host_error(exit_code, detail);
+    };
+    match outcome {
+        "success" => Execution::success(exit_code, PublicOutput { bytes: output, area: OutputArea::Exact }, PassHalt::Unknown),
+        "fault" => Execution::failure(exit_code, None, "guest terminated abnormally (fault, no error code)".to_owned()),
+        "lean_out_of_fuel" => Execution::host_error(exit_code, "reference out of fuel".to_owned()),
+        _ => {
+            if let Some(code) = outcome.strip_prefix("failure:") {
+                return match parse_error_code(code) {
+                    Some(code) => Execution::failure(
+                        exit_code,
+                        Some(code),
+                        format!("guest terminated abnormally (error code {code})"),
+                    ),
+                    None => Execution::host_error(exit_code, format!("zkvm-run printed an invalid error code {code:?}")),
+                };
+            }
+            if let Some(symbol) = outcome.strip_prefix("unspecified:") {
+                let detail = format!("unspecified: {symbol} (the reference gives no accelerator semantics)");
+                return Execution::host_error(exit_code, detail);
+            }
+            if let Some(message) = outcome.strip_prefix("stuck:") {
+                return Execution::host_error(exit_code, format!("stuck: {message}"));
+            }
+            Execution::host_error(exit_code, format!("zkvm-run printed an unknown outcome {outcome:?}"))
+        }
+    }
+}
+
+/// The bytes of a lowercase hex string.
+fn decode_hex(hex: &str) -> Option<Vec<u8>> {
+    if hex.len() % 2 != 0 {
+        return None;
+    }
+    (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(hex.get(i..i + 2)?, 16).ok()).collect()
 }
 
 /// Parse a guest error code: a decimal `i32`, or a `u32` exit code (a register
@@ -1729,7 +1926,7 @@ mod tests {
     }
 
     fn binary() -> Tools {
-        Tools { binary: Some(PathBuf::from("bin")), ..Tools::default() }
+        Tools { binary: Some(PathBuf::from("bin")), profile: Some(PathBuf::from("profile.json")), ..Tools::default() }
     }
 
     fn io_exec() -> Tools {
@@ -1741,8 +1938,8 @@ mod tests {
         for name in ZKVMS {
             let zkvm = build(name, binary()).unwrap();
             assert_eq!(zkvm.name(), name);
-            // Only ziskemu takes an input among the zkVMs' own executors.
-            assert_eq!(zkvm.supports_io(), name == "zisk", "{name}");
+            // Only ziskemu and zkvm-run take an input among the zkVMs' own executors.
+            assert_eq!(zkvm.supports_io(), matches!(name, "zisk" | "reference"), "{name}");
             // lambdavm and openvm-binary also prove; sp1 and zisk need their prover tools.
             assert_eq!(zkvm.can_prove(), matches!(name, "lambdavm" | "openvm"), "{name}");
         }
@@ -1762,6 +1959,41 @@ mod tests {
         assert!(sp1.can_prove());
         let zisk = build("zisk", Tools { cargo_zisk: Some(PathBuf::from("cargo-zisk")), ..binary() }).unwrap();
         assert!(zisk.can_prove());
+    }
+
+    #[test]
+    fn parses_reference_outputs() {
+        let run = |exit, stdout: &str| reference_execution(Some(exit), stdout, "");
+        let e = run(0, "outcome=success output=50415353 misaligned=0\n");
+        assert_eq!(e.termination, Termination::Success);
+        let output = e.output.unwrap();
+        assert_eq!(output.bytes, b"PASS");
+        assert!(matches!(output.area, OutputArea::Exact));
+        assert_eq!(run(0, "outcome=failure:3 output=7061 misaligned=1").termination, failure(Some(3)));
+        assert_eq!(run(0, "outcome=failure:4294967295 output= misaligned=0").termination, failure(Some(-1)));
+        assert_eq!(run(0, "outcome=fault output= misaligned=0").termination, failure(None));
+        let host = |e: Execution| (e.termination, e.detail.unwrap());
+        assert_eq!(
+            host(run(0, "outcome=unspecified:zkvm_keccak256 output= misaligned=0")),
+            (
+                Termination::HostError,
+                "unspecified: zkvm_keccak256 (the reference gives no accelerator semantics)".to_owned()
+            )
+        );
+        assert_eq!(
+            host(run(0, "outcome=stuck:read of register mtval output= misaligned=0")),
+            (Termination::HostError, "stuck: read of register mtval".to_owned())
+        );
+        assert_eq!(
+            host(run(0, "outcome=lean_out_of_fuel output= misaligned=0")),
+            (Termination::HostError, "reference out of fuel".to_owned())
+        );
+        assert_eq!(
+            host(run(2, "REJECT segment 0x80000000: W^X violated")),
+            (Termination::HostError, "rejected: segment 0x80000000: W^X violated".to_owned())
+        );
+        assert_eq!(run(1, "").termination, Termination::HostError);
+        assert_eq!(run(0, "outcome=success output=5 misaligned=0").termination, Termination::HostError);
     }
 
     #[test]

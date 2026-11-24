@@ -1,0 +1,36 @@
+{
+  "name": "openvm",
+  "exec_perm": "rx",
+  "address_space": {
+    "base": "0x400",
+    "size": "0x1ffffc00"
+  },
+  "boot_addr": null,
+  "input": {
+    "base": "0x0",
+    "size": "0x0"
+  },
+  "memory": [
+    {
+      "base": "0x400",
+      "size": "0x1ffffc00"
+    }
+  ],
+  "stack": {
+    "base": "0x0",
+    "size": "0x0"
+  },
+  "symbols": {
+    "stack_bottom": null,
+    "stack_top": null,
+    "heap_start": "_end",
+    "heap_end": null
+  },
+  "sources": {
+    "exec_perm": "OpenVM's loader puts the words of the executable segment in the memory image too, so loads read code",
+    "memory": "OpenVM v2.1.0-preview (538c5488), github.com/openvm-org/openvm: crates/toolchain/platform/src/memory.rs:1-4,13-15 (GUEST_MIN_MEM, GUEST_MAX_MEM); extensions/riscv/circuit/src/adapters/mod.rs:295 (the executor rejects addresses of MEM_SIZE or more)",
+    "input": "OpenVM streams the input through its hint mechanism; there is no fixed input region",
+    "stack": "crates/toolchain/openvm/src/lib.rs:128: _start sets sp to the constant STACK_TOP (0x200400); no stack symbols, so the profile has no stack range",
+    "symbols": "crates/toolchain/platform/src/memory.rs:33,45 (the allocator starts at _end), 58 (it ends at the constant GUEST_MAX_MEM)"
+  }
+}

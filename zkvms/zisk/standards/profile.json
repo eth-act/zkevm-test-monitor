@@ -1,0 +1,40 @@
+{
+  "name": "zisk",
+  "exec_perm": "x",
+  "address_space": {
+    "base": "0x80000000",
+    "size": "0x40000000"
+  },
+  "boot_addr": null,
+  "input": {
+    "base": "0x0",
+    "size": "0x0"
+  },
+  "memory": [
+    {
+      "base": "0x80000000",
+      "size": "0x8000000"
+    },
+    {
+      "base": "0xa0000000",
+      "size": "0x20000000"
+    }
+  ],
+  "stack": {
+    "base": "0x0",
+    "size": "0x0"
+  },
+  "symbols": {
+    "stack_bottom": "_init_stack_bottom",
+    "stack_top": "_init_stack_top",
+    "heap_start": "_heap_bottom",
+    "heap_end": "_heap_top"
+  },
+  "sources": {
+    "exec_perm": "ZisK's linker script puts .text in a FLAGS(1) segment (PF_X alone) and .rodata in a separate segment",
+    "memory": "ZisK v1.3.0-alpha (02d2ae7b), github.com/0xPolygonHermez/zisk: core/src/mem.rs:137-139 (ROM_ADDR, ROM_SIZE), 113-115 (RAM_ADDR, RAM_SIZE)",
+    "input": "ZisK reads the input from its own input area through ziskos's read_input; it is not a loadable region of the ELF",
+    "stack": "resolved per ELF from _init_stack_bottom and _init_stack_top (ziskbuild/zisk_linker_script.ld:103,105; ziskos/entrypoint/src/lib.rs:374)",
+    "symbols": "ziskbuild/zisk_linker_script.ld:103,105,140,141"
+  }
+}

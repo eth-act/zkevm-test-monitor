@@ -145,7 +145,8 @@ run. It applies to the eth-act standards tests only.
 2. Create `zkvms/<name>/build.Dockerfile`
 3. Create `zkvms/<name>/act4.Dockerfile` + `isa-tests-entrypoint.sh`
 4. Create `zkvms/<name>/isa-configs/<isa>/` with `test_config.yaml`, `sail.json`, `link.ld`, `rvmodel_macros.h`
-5. Optional: `zkvms/<name>/standards/` for the eth-act standards tests (see
+5. Optional: `zkvms/<name>/standards/` for the eth-act standards tests (`zkvms/reference/` is the
+   reference platform, the executable reference of eth-act/zkevm-standards; see
    [`tests/eth-act-standards/README.md`](tests/eth-act-standards/README.md))
 
 ## Project layout
