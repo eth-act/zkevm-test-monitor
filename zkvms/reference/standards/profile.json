@@ -1,6 +1,33 @@
-{"name": "reference-rx", "exec_perm": "rx",
- "address_space": {"base": "0x0", "size": "0x100000000"},
- "boot_addr": null,
- "input": {"base": "0x40000000", "size": "0x1000000"},
- "memory": [{"base": "0x80000000", "size": "0x8000000"}],
- "stack": {"base": "0x88001000", "size": "0x100000"}}
+{
+  "name": "reference-rx",
+  "exec_perm": "rx",
+  "address_space": {
+    "base": "0x0",
+    "size": "0x100000000"
+  },
+  "boot_addr": null,
+  "input": {
+    "base": "0x40000000",
+    "size": "0x1000000"
+  },
+  "memory": [
+    {
+      "base": "0x80000000",
+      "size": "0x8000000"
+    }
+  ],
+  "stack": {
+    "base": "0x88001000",
+    "size": "0x100000"
+  },
+  "symbols": {
+    "stack_bottom": "_stack_bottom",
+    "stack_top": "_stack_top",
+    "heap_start": "_heap_start",
+    "heap_end": "_heap_end"
+  },
+  "sources": {
+    "profile": "eth-act/zkevm-standards reference/memory-profiles/reference-rx.json at the pinned commit",
+    "symbols": "reference/tests/stublib/link.ld.in (zkvms/reference/standards/link.ld)"
+  }
+}

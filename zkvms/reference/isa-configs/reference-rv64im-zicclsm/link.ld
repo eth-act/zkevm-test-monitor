@@ -24,6 +24,7 @@ SECTIONS {
   .bss : { *(.sbss .sbss.* .bss .bss.* COMMON) } :data
   . = ALIGN(4096);
   _heap_start = .; _heap_end = 0x88000000;
+  _stack_bottom = 0x88001000; _stack_top = 0x88101000;
   /DISCARD/ : { *(.comment) *(.riscv.attributes) *(.note*) }
 }
 PROVIDE(main = rvtest_entry_point);

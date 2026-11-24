@@ -48,5 +48,6 @@ RUN mkdir -p /out && cd /out && \
     riscv64-unknown-elf-gcc -march=rv64im_zicclsm -mabi=lp64 -c stubs.S -o stubs.o && \
     riscv64-unknown-elf-ar rcs libzkvm_reference.a stubs.o && \
     sed -e 's/@TEXT_FLAGS@/5/' -e 's/@RAM_BASE@/0x80000000/' -e 's/@RAM_END@/0x88000000/' \
+      -e 's/@STACK_BASE@/0x88001000/' -e 's/@STACK_END@/0x88101000/' \
       /src/reference/tests/stublib/link.ld.in > /out/link.ld && \
     cp /src/reference/memory-profiles/reference-rx.json /out/profile.json
