@@ -36,4 +36,5 @@ SECTIONS {
   _stack_bottom = 0x88001000; _stack_top = 0x88101000;
   /DISCARD/ : { *(.comment) *(.riscv.attributes) *(.note*) }
 }
-PROVIDE(main = rvtest_entry_point);
+/* Not PROVIDE: nothing in an ISA test references main, but the reference binds it. */
+main = rvtest_entry_point;
