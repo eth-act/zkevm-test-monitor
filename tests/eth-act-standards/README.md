@@ -233,8 +233,10 @@ history: the script prints `reference run: history not recorded`. `zkvm-run` rep
 the `accelerators` group never passes), `stuck:<message>` and `lean_out_of_fuel`. A loader
 rejection (`REJECT <message>`) is a host error `rejected: <message>`.
 
-`EXECUTE_TIMEOUT` (seconds, default 600) limits each execution on every backend; a longer
-execution is a host error `execute timeout after <N>s`.
+`EXECUTE_TIMEOUT` (seconds, default 600; 7200 for the reference, which runs some tens of thousands of
+instructions a second) limits each execution on every backend; a longer execution is a host
+error `execute timeout after <N>s`. On the reference the accelerator tests are host errors, so
+the script prints the summary of a run with host errors instead of stopping.
 
 ### Requirement IDs and `.req`
 

@@ -1348,8 +1348,12 @@ fn execute_timed_out(limit: Duration) -> Execution {
     Execution::host_error(None, format!("execute timeout after {}s", limit.as_secs()))
 }
 
+/// The step limit `zkvm-run` gets: high enough that the execute time limit
+/// ends a long run first.
+const REFERENCE_FUEL: &str = "1000000000000";
+
 /// The zkVM reference (eth-act/zkevm-standards `reference/`):
-/// `zkvm-run <profile> <elf> <input>` runs the guest in the Lean reference
+/// `zkvm-run <profile> <elf> <input> <fuel>` runs the guest in the Lean reference
 /// under the memory profile `--profile`. It does not prove.
 pub struct Reference {
     pub zkvm_run: PathBuf,
@@ -1379,6 +1383,8 @@ impl Zkvm for Reference {
                     .arg(&self.profile)
                     .arg(elf_path)
                     .arg(&input_path)
+                    // Fuel: the number of steps; the execute time limit bounds the run instead.
+                    .arg(REFERENCE_FUEL)
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped()),
             )

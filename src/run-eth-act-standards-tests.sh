@@ -152,6 +152,9 @@ case "$ZKVM" in
     BUILD_ARGS=(--build-arg "STANDARDS_COMMIT=$(jq -r .zkevm_standards_commit config.json)")
     PROFILE_ARGS=(--profile "$PLATFORM_DIR/profile.json")
     NOTES="reference (zkvm-run)"
+    # The Lean reference runs some tens of thousands of instructions a second, so
+    # the memory-operation sweeps take tens of minutes.
+    export EXECUTE_TIMEOUT="${EXECUTE_TIMEOUT:-7200}"
     ;;
   pico)
     # Pico runs only through ere: there is no host executor or prover here.
@@ -319,6 +322,11 @@ if [ -n "${TESTS:-}" ]; then RUNNER_ARGS+=(--select "$TESTS"); fi
   --output-dir "$RESULTS_DIR" \
   --suite eth-act-standards --groups \
   $RUNNER_JOBS || RUNNER_STATUS=$?
+# On the reference, the accelerator tests are host errors (no accelerator
+# semantics), so a run with host errors still gives its summary.
+if [ "$ZKVM" = "reference" ] && [ "$RUNNER_STATUS" -eq 3 ] && [ -f "$RESULTS_FILE" ]; then
+  RUNNER_STATUS=1
+fi
 if [ "$RUNNER_STATUS" -gt 1 ]; then
   echo "  Error: the runner could not complete the $ZKVM run (exit $RUNNER_STATUS); no history recorded"
   exit 1
