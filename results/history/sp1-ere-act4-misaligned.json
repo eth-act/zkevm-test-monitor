@@ -1,0 +1,47 @@
+{
+  "zkvm": "sp1",
+  "suite": "act4-misaligned",
+  "runs": [
+    {
+      "date": "2026-11-24T21:04:47Z",
+      "monitor_commit": "ad36433f",
+      "act4_commit": "6e8a45123f14cebfb3df151a0e7b849b4389b33b",
+      "act4_version": "4.1.0",
+      "isa": "RV64IM",
+      "total": 18,
+      "passed": [
+        "aligned-beq",
+        "aligned-bge",
+        "aligned-bgeu",
+        "aligned-blt",
+        "aligned-bltu",
+        "aligned-bne",
+        "aligned-jal",
+        "aligned-jalr-2mod4",
+        "aligned-jalr-3mod4"
+      ],
+      "failed": [
+        "misaligned-beq",
+        "misaligned-bge",
+        "misaligned-bgeu",
+        "misaligned-blt",
+        "misaligned-bltu",
+        "misaligned-bne",
+        "misaligned-jal",
+        "misaligned-jalr-2mod4",
+        "misaligned-jalr-3mod4"
+      ],
+      "prove_failed": [],
+      "verify_failed": [],
+      "has_proving": false,
+      "ere_rev": "4d21321",
+      "ere_version": "0.20.2",
+      "ere_image": "ghcr.io/eth-act/ere/ere-server-sp1@sha256:c0400acdd24fd37a92b58c1e516c4b81021be097aee177dbd0ab68d564c97a24",
+      "sdk_version": "v6.9.0",
+      "resource": "gpu",
+      "prove_timeout_secs": 10800,
+      "execute_timeout_secs": 600,
+      "mode": "execute"
+    }
+  ]
+}

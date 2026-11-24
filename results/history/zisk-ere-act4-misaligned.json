@@ -1,0 +1,46 @@
+{
+  "zkvm": "zisk",
+  "suite": "act4-misaligned",
+  "runs": [
+    {
+      "date": "2026-11-24T20:02:23Z",
+      "monitor_commit": "ad36433f",
+      "act4_commit": "6e8a45123f14cebfb3df151a0e7b849b4389b33b",
+      "act4_version": "4.1.0",
+      "isa": "RV64IMFDAC_Zicclsm",
+      "total": 18,
+      "passed": [
+        "aligned-beq",
+        "aligned-bge",
+        "aligned-bgeu",
+        "aligned-blt",
+        "aligned-bltu",
+        "aligned-bne",
+        "aligned-jal",
+        "aligned-jalr-2mod4",
+        "aligned-jalr-3mod4",
+        "misaligned-beq",
+        "misaligned-bge",
+        "misaligned-bgeu",
+        "misaligned-blt",
+        "misaligned-bltu",
+        "misaligned-bne",
+        "misaligned-jal",
+        "misaligned-jalr-2mod4",
+        "misaligned-jalr-3mod4"
+      ],
+      "failed": [],
+      "prove_failed": [],
+      "verify_failed": [],
+      "has_proving": false,
+      "ere_rev": "4d21321",
+      "ere_version": "0.20.2",
+      "ere_image": "ghcr.io/eth-act/ere/ere-server-zisk@sha256:561745b7974a0b7abc86bf10c3f45e8095ee037478811032e9aff4b7b8ad18c7",
+      "sdk_version": "v1.4.0-alpha",
+      "resource": "gpu",
+      "prove_timeout_secs": 10800,
+      "execute_timeout_secs": 600,
+      "mode": "execute"
+    }
+  ]
+}
