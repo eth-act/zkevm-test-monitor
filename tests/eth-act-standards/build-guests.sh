@@ -198,7 +198,7 @@ for group in $GROUPS_LIST; do
     name=$(basename "$elf" .elf)
     # cat, not cp: ACT's build cache may leave the ELFs as symlinks.
     cat "$elf" > "$OUT/$group/$name.elf"
-    for vector in input expected outcome; do
+    for vector in input expected outcome prove-failure; do
       if [ -f "$HERE/$group/$name.$vector" ]; then
         cp "$HERE/$group/$name.$vector" "$OUT/$group/$name.$vector"
       fi

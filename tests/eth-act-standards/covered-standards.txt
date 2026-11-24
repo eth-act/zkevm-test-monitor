@@ -1,3 +1,4 @@
 ACC
 MEM
 IO
+TER

@@ -159,11 +159,15 @@ pub fn run_one(zkvm: &dyn Zkvm, suite: Suite, elf_path: &Path, mode: Mode) -> Ru
     let mut result = judge(execution, vectors.expected.as_deref(), pass_output, start);
 
     // Prove an execution that passed, and check that the proof proves its output. Prove a
-    // test that expects an abnormal termination too, unless its execution was a host
-    // error: no proof of a failed execution may verify as a successful one (see
-    // `apply_outcome`).
+    // test that expects an abnormal termination too when it has `.prove-failure`, unless
+    // its execution was a host error: no proof of a failed execution may verify as a
+    // successful one (see `apply_outcome`). Other expected failures are only executed.
     let expected_failure = matches!(vectors.outcome, Outcome::Fail { .. });
-    let prove = if expected_failure { result.termination != Termination::HostError } else { result.passed };
+    let prove = if expected_failure {
+        vectors.prove_failure && result.termination != Termination::HostError
+    } else {
+        result.passed
+    };
     if mode != Mode::Execute && prove {
         result = match zkvm.prove(elf_path, vectors.input.as_deref(), output.as_deref(), mode == Mode::Full) {
             Ok(proof) if expected_failure => {
@@ -619,9 +623,22 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let elf = dir.path().join("t.elf");
         std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
+        std::fs::write(dir.path().join("t.prove-failure"), "").unwrap();
         let fake = Fake { termination, proof, accepts, proofs: AtomicUsize::new(0) };
         let r = run_one(&fake, Suite::Isa, &elf, mode);
         (r, fake.proofs.load(Ordering::Relaxed))
+    }
+
+    #[test]
+    fn an_expected_failure_without_prove_failure_is_only_executed() {
+        let dir = tempfile::tempdir().unwrap();
+        let elf = dir.path().join("t.elf");
+        std::fs::write(dir.path().join("t.outcome"), "fail\n").unwrap();
+        let fake = Fake { termination: failure(None), proof: Some(true), accepts: true, proofs: AtomicUsize::new(0) };
+        let r = run_one(&fake, Suite::Isa, &elf, Mode::Full);
+        assert!(r.passed);
+        assert_eq!(fake.proofs.load(Ordering::Relaxed), 0);
+        assert_eq!((r.prove_status, r.verify_status), (None, None));
     }
 
     #[test]

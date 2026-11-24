@@ -351,8 +351,9 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
   exit 1
 fi
 
-# Tests that expect an abnormal termination (.outcome) have no valid proof, so
-# the dashboard counts proving and verification over the other tests.
+# Tests that expect an abnormal termination (.outcome) pass only if no proof of
+# them verifies, which their verdict records, so the dashboard counts proving
+# and verification over the other tests.
 EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
 
 mkdir -p results/history

@@ -18,7 +18,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
-termination (`.outcome`) is proved too, and no proof of it may verify as a successful execution
+termination (`.outcome`) and a `.prove-failure` file is proved too, and no proof of it may verify as a successful execution
 (see "Expected abnormal termination" below). The dashboard counts proving and verification over
 the other tests. `BACKEND=noere` runs the suite without ere, on
 the host executors and provers below; there `ACT4_MODE` defaults to `execute` (see Running).
@@ -79,12 +79,15 @@ The runner judges a test in one of three ways:
     (for `fail <code>`);
   - a host error fails.
 
-  In `prove` and `full` mode the runner also proves the execution, unless it was a host error.
+  In `prove` and `full` mode the runner also proves the execution of a test with a
+  `<name>.prove-failure` file (only `term-main-nonzero`: the only termination test with a
+  normative clause), unless it was a host error; the other expected failures are only executed.
+  This is a smoke test with an honest prover: it makes no Type 1 or Type 2 soundness claim.
   The [termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics)
   require that no proof of a failed execution verifies as a successful one. So an abnormal
   termination whose proof verifies fails with `a proof of the failed execution verifies`. A
   prover that gives no proof (`prove=refused`) or a verifier that rejects the proof
-  (`verify=rejected`) leaves the verdict of the execution. A refusal shows only that this prover
+  (`verify=rejected`) leaves the verdict of the execution. A refusal is recorded as not tested (`prove_not_tested` in the results): it shows only that this prover
   declined: the test can find an accepted proof of a failed execution, but it cannot show that
   none exists. A normal finish is proved too, and fails as above. The verification accepts only
   a proof of a successful execution:
@@ -97,7 +100,7 @@ The runner judges a test in one of three ways:
 
   On the noere path, a prover that fails (after one retry) without a verification error counts
   as `refused`, so a prover crash also looks like a refusal. On the ere path, only a zkVM error
-  counts. A timeout or a Docker error gives `prove=failed`, as for a test that passed.
+  counts. A timeout or a Docker or transport error gives `prove=failed` (or `verify=failed`) and a host error, and the server is dropped.
 
   The `termination/` programs write the `PASS` marker to public output 0 before they fail, so a
   zkVM that ignores the failure gives the output of a passing test. `term-abort` needs the

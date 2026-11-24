@@ -163,7 +163,8 @@
     }
 
     // Prove and verify counts of a run. A test that expects an abnormal
-    // termination (expected_failures) has no valid proof, so it is left out.
+    // termination (expected_failures) is left out: it passes only if no proof of
+    // it verifies, which its own verdict already records.
     function countProveVerify(run) {
         if (!run?.has_proving) return { prove: null, verify: null, total: null };
         const skip = new Set(run.expected_failures || []);

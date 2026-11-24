@@ -258,6 +258,8 @@ impl EreBackend {
 
         let input = Input::new().with_stdin(vectors.input.clone().unwrap_or_default());
         let expected_failure = matches!(vectors.outcome, io_and_expected_failures::Outcome::Fail { .. });
+        // Only an expected failure with `.prove-failure` is proved (`IoVectors::prove_failure`).
+        let prove_expected_failure = expected_failure && vectors.prove_failure;
         let outcome = (|| {
             let started = Instant::now();
             let executed = zkvm.execute(&input);
@@ -266,7 +268,7 @@ impl EreBackend {
             // Prove a test that expects an abnormal termination whatever its execution
             // gave, unless that was a host error: no proof of a failed execution may
             // verify as a successful one (runner::apply_outcome).
-            if expected_failure && mode != Mode::Execute && result.termination != Termination::HostError {
+            if prove_expected_failure && mode != Mode::Execute && result.termination != Termination::HostError {
                 prove_failure(&zkvm, &input, mode, detail, result)?;
             }
             let (public_values, _) = executed.map_err(|err| ("failed", err))?;
@@ -396,7 +398,7 @@ fn execution_termination<T>(executed: &anyhow::Result<(PublicValues, T)>) -> Ter
 /// verifies the proof. A zkVM error from `prove` means that the prover gave no
 /// proof (`refused`), and one from `verify` that the verifier rejected the proof
 /// (`rejected`). Any other error (a timeout, or a Docker or transport error) is
-/// returned, as for a test that passed (`prove_failed`, `verify_failed`).
+/// a host error, and the server is dropped (`prove_failed`, `verify_failed`).
 ///
 /// A proof that verifies counts as a proof of a successful execution
 /// (`Proof::verified`):
@@ -428,6 +430,7 @@ fn prove_failure(
         }
         Err(err) => {
             result.prove_status = Some("failed".to_string());
+            result.termination = Termination::HostError;
             return Err(("prove_failed", err));
         }
     };
@@ -448,6 +451,7 @@ fn prove_failure(
         }
         Err(err) => {
             result.verify_status = Some("failed".to_string());
+            result.termination = Termination::HostError;
             return Err(("verify_failed", err));
         }
     };
@@ -552,6 +556,7 @@ mod tests {
             input: Some(Vec::new()),
             expected: expected.map(<[u8]>::to_vec),
             outcome: io_and_expected_failures::Outcome::Pass,
+            prove_failure: false,
         };
         let pv = |bytes: &[u8]| PublicValues(bytes.to_vec());
         let sp1 = backend("sp1", true);
