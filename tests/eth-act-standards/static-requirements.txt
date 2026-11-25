@@ -10,7 +10,10 @@ lib-entry LIB5
 lib-entry-lld LIB5 LIB13
 lib-heap-symbols LIB15
 lib-heap-symbols-lld LIB15 LIB13
-lib-segments LIB14
-lib-segments-lld LIB14 LIB13
+# Code and read-only data in separate segments, as an execute-only zkVM's
+# script must keep them (ELF24).
+lib-segments LIB14 ELF24
+lib-segments-lld LIB14 LIB13 ELF24
 # The checks that the reference's zkvm_validate runs.
 static-validate ELF2 ELF13 ELF14 ELF15 ELF17 ELF22 ELF25 ELF26 LAY1 GUA3 GUA4 GUA8
+static-exec-decodes ELF19

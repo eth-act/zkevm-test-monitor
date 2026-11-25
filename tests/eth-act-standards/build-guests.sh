@@ -11,11 +11,20 @@
 #   /vendor                   the zkVM's C library (read-only)
 #   /zkevm-standards          eth-act/zkevm-standards at the pinned commit (read-only)
 #   /cache                    download cache for the accelerator vector sources and uv
+#   /zkvm-run                 the zkVM reference's zkvm-run (read-only)
 #
-# Every <group>/<name>.c (group: io, accelerators, memory, termination) becomes
+# Every <group>/<name>.c (group: io, accelerators, memory, termination, elf) becomes
 # <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
 # and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
-# writes the rest of the I/O vectors.
+# writes the rest of the I/O vectors. elf/mutate_elf.py writes the crafted ELF
+# variants of the elf group, and the zkVM reference's loader labels each one
+# (see below).
+#
+# The elf group takes the zkVM's ELF loading parameters from its memory profile
+# /platform/profile.json: `exec_perm`, the flags of an executable segment that
+# the zkVM accepts, x (PF_X alone) or rx (PF_X | PF_R); `address_space`; and
+# `boot_addr`, the fixed address where the zkVM begins execution (null for a
+# zkVM that starts at e_entry).
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -23,7 +32,20 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory termination"
+GROUPS_LIST="io accelerators memory termination elf"
+
+# A platform without a memory profile (Pico) has no elf group.
+ELF_EXEC_PERM=""
+if [ -f "$PLATFORM_DIR/profile.json" ]; then
+  ELF_EXEC_PERM=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["exec_perm"])' "$PLATFORM_DIR/profile.json")
+  case "$ELF_EXEC_PERM" in
+    x | rx) ;;
+    *) echo "error: $PLATFORM_DIR/profile.json: exec_perm must be x or rx" >&2; exit 1 ;;
+  esac
+else
+  echo "note: $PLATFORM_DIR has no profile.json, so the elf group is not built"
+  GROUPS_LIST="io accelerators memory termination"
+fi
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
   echo "error: $STANDARDS has no zkvm_io.h; mount eth-act/zkevm-standards at /zkevm-standards" >&2
@@ -120,6 +142,11 @@ fi
 for group in $GROUPS_LIST; do
   cp -r "$HERE/$group" "$TESTS/rv64i/$group"
 done
+# elf-text-data keeps data in the executable segment, which only a PF_X | PF_R
+# zkVM allows.
+if [ "$ELF_EXEC_PERM" = x ]; then
+  rm "$TESTS/rv64i/elf/elf-text-data.c"
+fi
 # The vendored optimized-routines tests sweep lengths up to LEN = 250000, which
 # is billions of guest instructions per test. Build them with a smaller LEN.
 AOR_LEN=1024
@@ -209,5 +236,52 @@ for group in $GROUPS_LIST; do
     python3 "$HERE/$group/write_io_vectors.py" "$OUT/$group"
   fi
 done
+if [ -n "$ELF_EXEC_PERM" ]; then
+  # On a PF_X zkVM, a load from the executable segment terminates the program
+  # abnormally.
+  if [ "$ELF_EXEC_PERM" = x ]; then
+    echo fail > "$OUT/elf/elf-text-read.outcome"
+  fi
+  # The crafted variants of elf-image and elf-tail.
+  python3 "$HERE/elf/mutate_elf.py" "$OUT/elf" "$PLATFORM_DIR/profile.json"
+  # reject-class32: an rv32 program at the zkVM's entry address, in a segment
+  # with the zkVM's executable segment flags.
+  ENTRY=$(riscv64-unknown-elf-readelf -h "$OUT/elf/elf-image.elf" | awk '/Entry point address:/ { print $4 }')
+  TEXT_FLAGS=5
+  if [ "$ELF_EXEC_PERM" = x ]; then TEXT_FLAGS=1; fi
+  cat > "$WORK/class32.ld" <<EOF
+ENTRY(_start)
+PHDRS { text PT_LOAD FLAGS($TEXT_FLAGS); }
+SECTIONS { . = $ENTRY; .text : { *(.text) } :text }
+EOF
+  riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -nostdlib -static -T "$WORK/class32.ld" \
+    -o "$OUT/elf/reject-class32.elf" "$HERE/elf/rv32/reject-class32.S"
+
+  # The label of each crafted variant is the verdict of the zkVM reference's
+  # loader under the zkVM's memory profile (resolved with the symbols of
+  # elf-image, the ELF the variants come from): `reject` when it rejects the
+  # ELF, else the guest must pass. A variant listed in
+  # reference-known-differences.txt keeps the label of its name instead.
+  python3 "$HERE/tools/resolve_profile.py" "$PLATFORM_DIR/profile.json" "$OUT/elf/elf-image.elf" "$WORK/profile.json"
+  for elf in "$OUT"/elf/accept-*.elf "$OUT"/elf/reject-*.elf; do
+    name=$(basename "$elf" .elf)
+    status=0
+    verdict=$(/zkvm-run --validate "$WORK/profile.json" "$elf") || status=$?
+    case "$status:$verdict" in
+      "0:OK") label=pass ;;
+      2:REJECT\ *) label=reject ;;
+      *) echo "error: zkvm-run --validate $name: exit $status: $verdict" >&2; exit 1 ;;
+    esac
+    if grep -q "^$name " "$HERE/reference-known-differences.txt"; then
+      echo "note: $name: the reference says $verdict; listed in reference-known-differences.txt, so labelled by its name"
+      case "$name" in reject-*) label=reject ;; *) label=pass ;; esac
+    elif [ "${name%%-*}" = "${label/pass/accept}" ]; then
+      echo "$name: $verdict"
+    else
+      echo "note: $name: the reference says $verdict, so the test expects $label"
+    fi
+    if [ "$label" = reject ]; then echo reject > "$OUT/elf/$name.outcome"; fi
+  done
+fi
 
 echo "Built $count eth-act standards test ELFs for $ZKVM in $OUT"

@@ -1,0 +1,319 @@
+{
+  "revision": "682a99fb557e6779b2b2bbd96261844966d427f2",
+  "slurm_job": "55",
+  "vendors": [
+    {
+      "vendor": "openvm",
+      "node": "zkevm-gpu-beast-01",
+      "exit": "0",
+      "mode": "full",
+      "commit": "682a99fb557e6779b2b2bbd96261844966d427f2",
+      "tests_selected": [
+        "io-echo",
+        "elf"
+      ],
+      "selected_outcomes": 32,
+      "expected_from_build": 32,
+      "summary": {
+        "zkvm": "ere-openvm",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:39:34Z",
+        "passed": 18,
+        "failed": 14,
+        "total": 32,
+        "proved": 19,
+        "prove_failed": 0,
+        "verified": 19,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 18,
+        "failed": 14,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "accept-no-shdrs",
+          "accept-shdrs-altered",
+          "elf-exec-data",
+          "elf-exec-written",
+          "elf-image",
+          "elf-tail",
+          "elf-text-data",
+          "elf-text-read",
+          "reject-class32",
+          "reject-entry-misaligned",
+          "reject-entry-outside",
+          "reject-machine",
+          "reject-magic",
+          "reject-msb",
+          "reject-type",
+          "reject-vaddr-misaligned",
+          "reject-vaddr-outside",
+          "io-echo"
+        ],
+        "failed": [
+          "accept-extra-phdr",
+          "accept-paddr",
+          "accept-tail-1",
+          "accept-tail-2",
+          "accept-tail-3",
+          "accept-tail-4",
+          "accept-tail-5",
+          "accept-tail-6",
+          "accept-tail-7",
+          "elf-text-patch",
+          "reject-entry-not-exec",
+          "reject-exec-perm",
+          "reject-overlap",
+          "reject-wx"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 1.33,
+      "gpu_GiB_peak": 2.11,
+      "gpu_requests": [
+        "c588d2c49721b5c2d7103aa992af59e78f66ed3a2bc7c65fdb1869b4a9761cce slurm-55-openvm 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-openvm@sha256:9bb21a190a09a757b4d076426cee3368db6db20892c9fe57180701a264d1e8cf",
+        "sdk_version": "v2.1.0-preview",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    },
+    {
+      "vendor": "zisk",
+      "node": "zkevm-gpu-beast-02",
+      "exit": "1",
+      "mode": "full",
+      "commit": "682a99fb557e6779b2b2bbd96261844966d427f2",
+      "tests_selected": [
+        "io-echo",
+        "elf"
+      ],
+      "selected_outcomes": 0,
+      "expected_from_build": 31,
+      "summary": {},
+      "case_counts": {
+        "passed": 0,
+        "failed": 0,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [
+        "accept-extra-phdr",
+        "accept-no-shdrs",
+        "accept-paddr",
+        "accept-shdrs-altered",
+        "accept-tail-1",
+        "accept-tail-2",
+        "accept-tail-3",
+        "accept-tail-4",
+        "accept-tail-5",
+        "accept-tail-6",
+        "accept-tail-7",
+        "elf-exec-data",
+        "elf-exec-written",
+        "elf-image",
+        "elf-tail",
+        "elf-text-patch",
+        "elf-text-read",
+        "io-echo",
+        "reject-class32",
+        "reject-entry-misaligned",
+        "reject-entry-not-exec",
+        "reject-entry-outside",
+        "reject-exec-perm",
+        "reject-machine",
+        "reject-magic",
+        "reject-msb",
+        "reject-overlap",
+        "reject-type",
+        "reject-vaddr-misaligned",
+        "reject-vaddr-outside",
+        "reject-wx"
+      ],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [],
+        "failed": [],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": null,
+      "gpu_GiB_peak": 0.0,
+      "gpu_requests": [],
+      "provenance": {},
+      "history_append_verified": false,
+      "build_excerpt": [
+        "      Built testgen @ file:///act4/generators/testgen",
+        "Uninstalled 3 packages in 1ms",
+        "Installed 3 packages in 1ms",
+        "\u2713 DUT configs prepared: 1 config in 16.1s",
+        "\u2713 Build complete: 130 succeeded",
+        "/elfs/elf/elf-image.elf: stack symbol(s) _init_stack_bottom not defined"
+      ]
+    },
+    {
+      "vendor": "sp1",
+      "node": "zkevm-gpu-beast-03",
+      "exit": "1",
+      "mode": "full",
+      "commit": "682a99fb557e6779b2b2bbd96261844966d427f2",
+      "tests_selected": [
+        "io-echo",
+        "elf"
+      ],
+      "selected_outcomes": 32,
+      "expected_from_build": 32,
+      "summary": {
+        "zkvm": "ere-sp1",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:44:08Z",
+        "passed": 14,
+        "failed": 18,
+        "total": 32,
+        "proved": 14,
+        "prove_failed": 0,
+        "verified": 14,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 14,
+        "failed": 18,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "accept-no-shdrs",
+          "elf-image",
+          "elf-tail",
+          "elf-text-read",
+          "reject-entry-misaligned",
+          "reject-exec-perm",
+          "reject-machine",
+          "reject-magic",
+          "reject-msb",
+          "reject-overlap",
+          "reject-type",
+          "reject-vaddr-misaligned",
+          "reject-wx",
+          "io-echo"
+        ],
+        "failed": [
+          "accept-extra-phdr",
+          "accept-paddr",
+          "accept-shdrs-altered",
+          "accept-tail-1",
+          "accept-tail-2",
+          "accept-tail-3",
+          "accept-tail-4",
+          "accept-tail-5",
+          "accept-tail-6",
+          "accept-tail-7",
+          "elf-exec-data",
+          "elf-exec-written",
+          "elf-text-data",
+          "elf-text-patch",
+          "reject-class32",
+          "reject-entry-not-exec",
+          "reject-entry-outside",
+          "reject-vaddr-outside"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": true,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 11.92,
+      "gpu_GiB_peak": 10.86,
+      "gpu_requests": [
+        "e6e58d85a95f1ad96f749b8176283eb098ea9bc06ed79fed2909302950d88d3c slurm-55-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "89e0b4e048f6cb291806cf5b51b51c6abc8edf3b66f95016edf941a52ba367f6 slurm-55-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "c9a2417d143f3d67b7226851118af9ee4ad0677d2ae9396952e5d4b0d70a26be slurm-55-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "247fbd92f4ba0822ef7b3eafa981112357dffb4f5e4970572764a2531a85d219 slurm-55-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "4a3c81a51a162cae04d0fa98759e367fd0375f94546aa6da048eef4518178497 slurm-55-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "bb0c56d0dade3d180e012de369326d13b21b6763400e358f975d9f0702444c64 slurm-55-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-sp1@sha256:c0400acdd24fd37a92b58c1e516c4b81021be097aee177dbd0ab68d564c97a24",
+        "sdk_version": "v6.9.0",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    },
+    {
+      "vendor": "pico",
+      "node": "zkevm-gpu-beast-04",
+      "exit": "1",
+      "mode": "full",
+      "commit": "682a99fb557e6779b2b2bbd96261844966d427f2",
+      "tests_selected": [
+        "io-echo",
+        "elf"
+      ],
+      "selected_outcomes": 0,
+      "expected_from_build": 1,
+      "summary": {},
+      "case_counts": {
+        "passed": 0,
+        "failed": 0,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [
+        "io-echo"
+      ],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [],
+        "failed": [],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": null,
+      "gpu_GiB_peak": 0.0,
+      "gpu_requests": [],
+      "provenance": {},
+      "history_append_verified": false,
+      "build_excerpt": [
+        "      Built act @ file:///act4/framework",
+        "Uninstalled 3 packages in 0.87ms",
+        "Installed 3 packages in 1ms",
+        "\u2713 DUT configs prepared: 1 config in 15.7s",
+        "\u2713 Build complete: 118 succeeded",
+        "Built 59 eth-act standards test ELFs for pico in /elfs"
+      ]
+    }
+  ]
+}

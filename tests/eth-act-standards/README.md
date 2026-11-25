@@ -2,7 +2,7 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers five
+asks of each zkVM. It covers six
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items, and the
 termination semantics. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
@@ -15,13 +15,15 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `accelerators/` | [C interface for accelerators](https://github.com/eth-act/zkevm-standards/tree/main/standards/c-interface-accelerators) (`zkvm_accelerators.h`) | one program for each of the 19 functions, with valid and invalid known-answer cases (the byte-buffer functions `keccak256`, `sha256`, `ripemd160` and `modexp` also with each buffer at a misaligned address); three programs that pass a NULL pointer and expect a panic |
 | `termination/` | [Termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics) | a failed termination after the guest wrote the `PASS` marker, through each route: `main` returning 1 (`term-main-nonzero`), `abort()` (`term-abort`) and `__builtin_trap()`, `ebreak` with GCC (`term-trap`); and three illegal instructions from ACT4's `ExceptionsSm` cases, which must not execute: `unimp`, which LLVM emits for a trap and so Rust's abort and `panic = "abort"` compile to, all zeros and all ones (`illegal-*`) |
 | `memory/` | [Accelerated memory operations](https://github.com/eth-act/zkevm-standards/tree/main/standards/accelerated-memory-operations) | `memcpy`, `memmove`, `memset` and `memcmp`: Arm's optimized-routines tests (`mem-aor-*`: alignments 0..31, lengths 0..99 and doubling to 800), and our tests for what they miss (`mem-*`: alignments 0..7, lengths 0..72, bytes of 0x80 and more, guard bytes, unchanged inputs); plus link resolution (`mem-link-*`) |
-| `library/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | static checks: the library is an `ar` archive of RISC-V objects that defines `_start` and every function of `zkvm_io.h` and `zkvm_accelerators.h`; the zkVM supplies a linker script, with `PHDRS`; with each linker, the entry point of every runtime ELF is `_start`, the script defines `_heap_start` and `_heap_end`, and a probe's code and read-only data sections are in separate segments with the required flags |
+| `library/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | static checks: the library is an `ar` archive of RISC-V objects; the zkVM supplies a linker script, with `PHDRS`; with each linker, the entry point of every runtime ELF is `_start`, the script defines `_heap_start` and `_heap_end`, and a probe's code and read-only data sections are in separate segments with the required flags; the zkVM reference's loader accepts every guest ELF (`static-validate`) |
 | `runtime/`, `runtime-lld/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | plain C and C++ guests that link only the vendor library, with the vendor's linker script unchanged, with GNU ld (`runtime/`) and with LLD (`runtime-lld/`): the C environment at `main` (`.data`, `.sdata`, `.rodata`, `.bss`, `.sbss` and the stack), zero `.bss` and `.sbss` at `main`, a C++ static constructor, and the heap symbols |
+| `elf/` | [ELF loading and validation](https://github.com/eth-act/zkevm-standards/tree/main/standards/elf-loading-and-validation) | the initial memory image (`.data`, `.bss`, `.rodata`); loads from the executable segment; calls to code in `.data` and to code that the guest wrote; a store over code; crafted ELFs, labelled by the zkVM reference's loader, that the loader must accept (ignored section headers and `PT_NOTE`, `p_paddr`, zero fill after 17 to 23 file bytes) or reject (one for each header, segment and entry point check); for a `PF_X` zkVM, the static check `static-exec-decodes` (see ELF loading) |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
 termination (`.outcome`) and a `.prove-failure` file is proved too, and no proof of it may verify as a successful execution
-(see "Expected abnormal termination" below). The dashboard counts proving and verification over
+(see "Expected abnormal termination" below); a test that expects a rejection is only executed (see
+ELF loading for the prover check of a rejected ELF on the noere path). The dashboard counts proving and verification over
 the other tests. `BACKEND=noere` runs the suite without ere, on
 the host executors and provers below; there `ACT4_MODE` defaults to `execute` (see Running).
 `TESTS` runs only some tests (see Selecting tests).
@@ -65,7 +67,7 @@ ACT's C start code references `__bss_start`, `__bss_end`, `__stack_top`, `__stac
 (`--defsym`), not in the linker scripts. The runtime guests build without ACT, so they do not
 need them (#57).
 
-The runner judges a test in one of three ways:
+The runner judges a test in one of five ways:
 
 - **ACT4 verdict.** A self-checking program calls `rvtest_pass()`, and a failed check calls
   `print_error()` (`include/checks.h`). The runner reads the verdict as for an ISA test:
@@ -117,18 +119,25 @@ The runner judges a test in one of three ways:
 
   The `accel-null-*` programs expect `fail`: the standard says that a function called with a
   NULL pointer SHOULD panic. If the call returns, the program prints the status.
+- **Expected rejection.** `<name>.outcome` holds `reject`. The zkVM must reject the ELF before
+  the guest runs (a rejected ELF, below). A guest that runs fails the test with `not rejected`,
+  and a host error fails it. See ELF loading for the prover check.
+- **Pass or abnormal termination.** `<name>.outcome` holds `pass-or-fail`. The program passes
+  as for an ACT4 verdict, or it terminates abnormally.
 
 The runner puts each execution in one of three classes, as the
 [standard termination semantics](https://github.com/eth-act/zkevm-standards/tree/main/standards/standard-termination-semantics)
-define them:
+define them, or reports a rejected ELF (ELF loading standard):
 
 | Class | SP1 and OpenVM | ZisK |
 |---|---|---|
 | Successful termination | the executor exits 0 (the guest halted with exit code 0) | `ziskemu` exits 0 without "finished with error", and a test without `.expected` has no `FAIL` marker |
-| Abnormal termination | the executor exits 1: a non-zero guest exit code (with the code), or an execution that the zkVM rejected, such as an invalid memory access (without a code) | the `FAIL` marker, or a guest fault on stderr: an invalid memory address, a jump outside the program, or "finished with error" (always without a code) |
-| Host error | any other exit status (2: a usage, I/O, SDK, ELF load or compile error), or a death by signal | any other non-zero `ziskemu` exit (for example a file that is not an ELF, or a loader error), no output file, or a death by signal |
+| Abnormal termination | the executor exits 1: a non-zero guest exit code (with the code), or an execution that the zkVM rejected, such as an invalid memory access (without a code) | the `FAIL` marker, or a guest fault on stderr: an invalid memory address, a load from an address without readable data, a jump outside the program, or "finished with error" (always without a code) |
+| Rejected ELF | the executor exits 3: the zkVM's loader returned an error | `ziskemu` exits 1 with `Error during emulation: Unknown(...)`, its error for an ELF that it cannot convert, unless it could not read the file |
+| Host error | any other exit status (2: a usage, I/O, SDK or compile error; 101: a panic), or a death by signal | any other non-zero `ziskemu` exit (for example an ELF file that it cannot read, or a shared library loader error), no output file, or a death by signal |
 
-A host error is not a guest outcome, so it never passes a test. The runner exits 3 when a test
+A rejected ELF is not a guest outcome: only a `reject` test passes on it. A host error is not a
+guest outcome either, so it never passes a test. The runner exits 3 when a test
 hit a host error and 2 when it finds no ELFs; the run script then records no history. In the
 `runtime` and `runtime-lld` groups, a host error fails only its test (see
 [Static library and linker script](#static-library-and-linker-script)). The executors write the guest's
@@ -233,7 +242,7 @@ check to `library/static-results.json`, with the requirement IDs of the check
 | `lib-entry`, `lib-entry-lld` | "The linker script must set the ELF entry point to `_start`." | in every runtime ELF of the linker, `e_entry` is the address of `_start` |
 | `lib-heap-symbols`, `lib-heap-symbols-lld` | "Define the following two symbols": `_heap_start` and `_heap_end` | `rt-heap-symbols` defines both. It references them, so a `PROVIDE` in the script also defines them |
 | `lib-segments`, `lib-segments-lld` | "assign the code sections (`.text*`, `.init`, `.fini`) to an executable, non-writable segment, and assign every read-only data section (`.rodata*`, `.srodata*`, `.eh_frame*`, `.gcc_except_table`, `.data.rel.ro`, ...) to a separate readable, non-executable segment" | the probe `library/rt-segments.c` has a symbol in each named section and an `.eh_frame`. In the linked probe (`library/rt-segments.probe`, `rt-segments-lld.probe`), each code section is in a segment with `PF_X` and without `PF_W`, and each read-only data section is in a segment with `PF_R` and without `PF_X` |
-| `static-validate` | the loader checks of the ELF loading, memory layout and guard regions standards | for every guest ELF of the run (the ACT4 guests and the runtime guests), `tools/resolve_profile.py` resolves the zkVM's `profile.json` for the ELF, then the zkVM reference's `zkvm-run --validate` loads it; the check fails with `<elf>: REJECT <message>` for each ELF the reference rejects. Every zkVM's run builds the reference platform image for `out/bin/zkvm-run`. A platform without `profile.json` (Pico) has no such verdict |
+| `static-validate` | the loader checks of the ELF loading, memory layout and guard regions standards | for every guest ELF of the run (the ACT4 guests and the runtime guests, not the crafted `elf/accept-*` and `elf/reject-*` variants), `tools/resolve_profile.py` resolves the zkVM's `profile.json` for the ELF, then the zkVM reference's `zkvm-run --validate` loads it; the check fails with `<elf>: REJECT <message>` for each ELF the reference rejects. Every zkVM's run builds the reference platform image for `out/bin/zkvm-run`. A platform without `profile.json` (Pico) has no such verdict |
 
 The probe links without `--gc-sections`, because GNU ld then drops its `.eh_frame`. It does not
 run. A section that the link discards is in no segment, so it passes: SP1's script discards
@@ -254,6 +263,81 @@ These clauses have no static check here:
 - The behavior of `read_input` and of the accelerators: the `io` and `accelerators` groups test
   it. The runtime guests call `write_output` from `main`.
 - The values of `gp` and `sp`, and the stack size: the standard mandates only the post-conditions.
+
+## ELF loading
+
+The `elf/` tests check the
+[ELF loading and validation standard](https://github.com/eth-act/zkevm-standards/tree/main/standards/elf-loading-and-validation).
+The zkVM's memory profile `zkvms/<zkvm>/standards/profile.json` (see "Memory profiles") gives
+its parameters:
+
+- `exec_perm`: the flags of an executable segment that the zkVM accepts, `x` (`PF_X` alone,
+  execute-only) or `rx` (`PF_X | PF_R`). ZisK declares `x`: its linker script puts `.text` in a
+  `PF_X` segment. SP1 declares `rx`: its loader requires `PF_R` on every segment. OpenVM declares
+  `rx`: its loader puts the words of the executable segment in the memory image too.
+- `address_space`: its end is the address outside it that the `*-outside` variants use.
+- `boot_addr`: the fixed address where the zkVM begins execution, for a zkVM that does not
+  start at `e_entry` (`null`, as for the three zkVMs here).
+
+A platform without a profile (Pico) has no `elf` group.
+
+The guests compare memory with values that their code computes:
+
+| Test | What it does | Outcome |
+|---|---|---|
+| `elf-image` | checks that `.data` holds its file bytes, `.bss` holds zero and `.rodata` is readable | pass |
+| `elf-tail` | the base of the `accept-tail-<r>` variants; without an input, it only passes | pass |
+| `elf-text-read` | loads an instruction word and compares it with the encoding | pass on `rx`, `fail` on `x` |
+| `elf-text-data` | loads a word that is not an instruction from the executable segment (`rx` only) | pass |
+| `elf-exec-data` | calls code in `.data` | `fail` |
+| `elf-exec-written` | writes code to `.bss` and calls it | `fail` |
+| `elf-text-patch` | stores an instruction over a function and calls it: the old code must run and, on `rx`, a load must give the old word; or the program terminates abnormally | `pass-or-fail` |
+
+A check that fails in `elf-text-read` and `elf-text-patch` returns from `main` without the `PASS`
+verdict, because an abnormal termination would pass these tests.
+
+`elf/mutate_elf.py` writes crafted variants of `elf-image` (and of `elf-tail`):
+
+- `accept-*` (the guest must pass): `accept-extra-phdr` (a `PT_NOTE` whose `p_vaddr` is the
+  checked `.data` bytes), `accept-no-shdrs`, `accept-shdrs-altered` (changed address, size,
+  type and flags of each allocated section, and an invalid `.symtab` link), `accept-paddr`
+  (`p_paddr` differs from `p_vaddr`), and `accept-tail-1` to `accept-tail-7` (a read-only
+  segment with 16 + r file bytes and 16 bytes of zero fill; the input gives its address and r).
+- `reject-*`, each with one broken rule: `reject-magic`, `reject-class32`
+  (an rv32 program from `elf/rv32/`, which `build-guests.sh` links at the zkVM's entry
+  address), `reject-msb`, `reject-machine`, `reject-type`, `reject-vaddr-misaligned` (the
+  executable segment at 2 mod 4), `reject-overlap`, `reject-vaddr-outside` (a segment at the
+  end of `address_space`), `reject-wx`, `reject-exec-perm` (the other flags combination),
+  `reject-entry-misaligned`, `reject-entry-outside`, `reject-entry-not-exec`, and, with
+  `boot_addr`, `reject-entry-not-boot`.
+
+The zkVM reference labels each variant: `build-guests.sh` resolves the zkVM's profile with the
+symbols of `elf-image` (`tools/resolve_profile.py`) and runs `zkvm-run --validate` on the
+variant. The variant gets the outcome `reject` when the reference rejects it; otherwise the guest
+must pass. The build log prints each verdict, and a `note:` when it differs from the variant's
+name. A variant in `reference-known-differences.txt` keeps the label of its name
+(`accept-no-shdrs` and `accept-shdrs-altered`: the reference needs the symbol table,
+eth-act/zkevm-standards#54).
+
+SP1's and OpenVM's executors exit 3 when the zkVM's loader returns an error, and the ZisK backend
+reads `ziskemu`'s error line (see the classes above). Through ere, a zkVM error from ere's `setup`
+is a rejected ELF. ere's server exits when it starts with an ELF that its zkVM rejects, so a new
+server starts with `elf/elf-image.elf`, and `setup` then switches it to the test's ELF. The runner
+checks no diagnostic text.
+
+An invalid ELF must not reach the prover. ere rejects it at `setup`, before any proof. On the noere
+path, `ACT4_MODE=prove` or `full` also gives each ELF that the zkVM rejected to the zkVM's prover.
+The test passes only if the prover makes no proof and writes no proof file (`refused`).
+
+For an execute-only zkVM (`exec_perm` `x`), `tools/static_checks.py` adds `static-exec-decodes` to
+the `library` group: on every guest ELF that the zkVM's linker script linked (not on the crafted
+variants), `zkvm-run --check-exec-decodes` decodes each word of the `PF_X`-only segments as an
+RV64IM instruction (ELF19). That code and read-only data are in separate segments (ELF24) is
+`lib-segments`.
+
+The tests do not check `e_flags`, the order of the program headers, the proof's commitment,
+diagnostic text, or what the standard permits but does not require (for example, rejecting data
+in an execute-only segment).
 
 ## Platforms
 
@@ -351,7 +435,7 @@ history: the script prints `reference run: history not recorded`. `zkvm-run` rep
 `failure:<code>`, `fault` (abnormal termination without a code), or one of three host errors:
 `unspecified:<symbol>` (an accelerator call: the reference gives no accelerator semantics, so
 the `accelerators` group never passes), `stuck:<message>` and `lean_out_of_fuel`. A loader
-rejection (`REJECT <message>`) is a host error `rejected: <message>`.
+rejection (`REJECT <message>`) is a rejected ELF: only a test with the outcome `reject` passes.
 
 `EXECUTE_TIMEOUT` (seconds, default 600; 7200 for the reference, which runs some tens of thousands of
 instructions a second) limits each execution on every backend; a longer execution is a host
@@ -392,9 +476,9 @@ from) and `symbols` (the zkVM's linker symbols for the stack and the heap, or `n
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`, `termination`, `library`, `runtime`, `runtime-lld`) selects exactly that. Any other
-word is a glob (`io-write-*`) or a substring (`bls`) of the test names. A word that selects no
-test stops the run.
+`memory`, `termination`, `elf`, `library`, `runtime`, `runtime-lld`) selects exactly that. Any
+other word is a glob (`io-write-*`) or a substring (`bls`) of the test names. A word that selects
+no test stops the run.
 
 ```bash
 TESTS=io-echo BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm

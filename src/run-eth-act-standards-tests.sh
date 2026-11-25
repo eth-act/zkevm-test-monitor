@@ -17,15 +17,16 @@
 #    - BACKEND=noere: on the host executor from step 1, without ere.
 #      ACT4_MODE=execute|prove|full (default: execute). Proving runs on an NVIDIA
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
-#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk). Pico has
-#      no noere path: it runs only through ere.
+#      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk). The prover
+#      also gets each ELF that the zkVM rejected (outcome reject) and must make no
+#      proof of it. Pico has no noere path: it runs only through ere.
 # The zkVM `reference` is the executable reference of eth-act/zkevm-standards
 # (reference/, at the commit config.json pins): its zkvm-run runs the guests,
 # always in execute mode on the noere path, and the run records no history.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
 # that is a test name (io-echo) or a group (io, accelerators, memory, termination,
-# library, runtime, runtime-lld) selects exactly that; any other word is a glob
-# (io-write-*) or a substring (bls) of the test names.
+# elf, library, runtime, runtime-lld) selects exactly that; any other word is a
+# glob (io-write-*) or a substring (bls) of the test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 
@@ -233,6 +234,23 @@ if [ "$ZKVM" = "reference" ]; then
   cp "$PLATFORM_DIR/link.ld" "$VENDOR_DIR/link.ld"
 fi
 
+# build-guests.sh labels the crafted ELFs of the elf group, and the static
+# checks validate every guest ELF, with the zkVM reference's zkvm-run, so every
+# zkVM's run builds the reference platform image, at the standards commit
+# config.json pins, for out/bin/zkvm-run.
+ZKVM_RUN="out/bin/zkvm-run"
+if [ "$ZKVM" != "reference" ]; then
+  echo "Building the reference platform image for zkvm-run..."
+  docker build --build-arg "STANDARDS_COMMIT=$STANDARDS_COMMIT" -t reference-eth-act-standards:latest \
+    -f zkvms/reference/standards/Dockerfile zkvms/reference/standards \
+    > "$RESULTS_DIR/eth-act-standards-reference-image.log" 2>&1 || {
+    echo "  Failed to build reference-eth-act-standards:latest — check $RESULTS_DIR/eth-act-standards-reference-image.log"
+    exit 1
+  }
+  docker run --rm --entrypoint cat reference-eth-act-standards:latest /out/zkvm-run > "$ZKVM_RUN"
+  chmod +x "$ZKVM_RUN"
+fi
+
 # The guests are built as ACT4 C tests in the zkVM's ACT4 image, the image the
 # ISA tests use (same Dockerfile and build arguments as src/run-isa-tests.sh).
 ACT_IMAGE="${ZKVM}:latest"
@@ -258,27 +276,12 @@ docker run --rm --entrypoint bash \
   -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4-config:ro" \
   -v "$PWD/$VENDOR_DIR:/vendor:ro" \
   -v "$PWD/$ELF_DIR:/elfs" \
+  -v "$PWD/$ZKVM_RUN:/zkvm-run:ro" \
   "$ACT_IMAGE" -c "/eth-act-standards-tests/build-guests.sh $ZKVM /elfs; status=\$?; chown -R $(id -u):$(id -g) /elfs /cache; exit \$status" \
   > "$RESULTS_DIR/eth-act-standards-build.log" 2>&1 || {
   echo "  Failed to build eth-act standards test guests — check $RESULTS_DIR/eth-act-standards-build.log"
   exit 1
 }
-
-# The static checks validate every guest ELF with the zkVM reference's
-# zkvm-run (static-validate), so every zkVM's run builds the reference
-# platform image, at the standards commit config.json pins, for out/bin/zkvm-run.
-ZKVM_RUN="out/bin/zkvm-run"
-if [ "$ZKVM" != "reference" ]; then
-  echo "Building the reference platform image for zkvm-run..."
-  docker build --build-arg "STANDARDS_COMMIT=$STANDARDS_COMMIT" -t reference-eth-act-standards:latest \
-    -f zkvms/reference/standards/Dockerfile zkvms/reference/standards \
-    > "$RESULTS_DIR/eth-act-standards-reference-image.log" 2>&1 || {
-    echo "  Failed to build reference-eth-act-standards:latest — check $RESULTS_DIR/eth-act-standards-reference-image.log"
-    exit 1
-  }
-  docker run --rm --entrypoint cat reference-eth-act-standards:latest /out/zkvm-run > "$ZKVM_RUN"
-  chmod +x "$ZKVM_RUN"
-fi
 
 # The runtime guests (groups runtime and runtime-lld) and the static checks of
 # the library, its linker script and the guest ELFs (group library, in
@@ -407,9 +410,10 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$((ELF_COUNT + STATIC_COUNT))" ]; then
   exit 1
 fi
 
-# Tests that expect an abnormal termination (.outcome) pass only if no proof of
-# them verifies, which their verdict records, and the static verdicts do not
-# run, so the dashboard counts proving and verification over the other tests.
+# Tests that expect an abnormal termination or a rejection (.outcome) pass only
+# if no proof of them verifies, which their verdict records, and the static
+# verdicts do not run, so the dashboard counts proving and verification over the
+# other tests.
 EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
 STATIC_TESTS=$(jq -c '[.[].name]' "$STATIC_RESULTS")
 
