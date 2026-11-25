@@ -5,15 +5,7 @@ Slurm job 59 ran the pinned executable reference in execute mode.
 
 The reference I/O group recorded 19/19 passes.
 
-Runner unit test output
-
-```text
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-```
+Runner unit tests passed 45/45.
 
 Requirement coverage output
 
