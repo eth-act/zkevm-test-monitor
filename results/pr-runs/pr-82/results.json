@@ -1,0 +1,59 @@
+{
+  "revision": "7fb0e9ec3b7b21da6192fcb647ad5f76fdd61ba7",
+  "slurm_job": "59",
+  "reference": {
+    "zkvm": "reference",
+    "suite": "eth-act-standards",
+    "timestamp": "2026-11-25T21:58:17Z",
+    "passed": 19,
+    "failed": 0,
+    "total": 19
+  },
+  "logs": {
+    "unit-tests.log": [
+      "",
+      "running 0 tests",
+      "",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      ""
+    ],
+    "eth-act-standards-build.log": [
+      "Uninstalled 3 packages in 0.95ms",
+      "Installed 3 packages in 1ms",
+      "\u2713 DUT configs prepared: 1 config in 15.6s",
+      "\u2713 Build complete: 106 succeeded",
+      "Built 53 eth-act standards test ELFs for reference in /elfs"
+    ],
+    "eth-act-standards-act-image.log": [
+      "#16 exporting attestation manifest sha256:64d360f377b775ea67b38241fac7e50c345f4e67b62e89fec685f606fb7b5aae 0.0s done",
+      "#16 exporting manifest list sha256:82096910c465cfdee80cee4c94e62ee351808c1e9121e191234e651a0fa80bfb 0.0s done",
+      "#16 naming to docker.io/slurm-reference-59/reference:latest done",
+      "#16 unpacking to docker.io/slurm-reference-59/reference:latest 0.1s done",
+      "#16 DONE 0.5s"
+    ],
+    "requirements.log": [
+      "requirements: 0 monitor-tested ids of no standard, all covered"
+    ],
+    "eth-act-standards-runner-build.log": [
+      "   Compiling tempfile v3.26.0",
+      "   Compiling clap_derive v4.5.55",
+      "   Compiling serde_derive v1.0.228",
+      "   Compiling clap v4.5.60",
+      "    Finished `release` profile [optimized] target(s) in 3.62s"
+    ],
+    "reference-io.log": [
+      "  [17/19] PASS io-read-after-write (2.03s)",
+      "  [18/19] PASS io-read-large (71.88s)",
+      "  [19/19] PASS io-read-no-side-effects (248.49s)",
+      "19/19 passed",
+      "  eth-act standards reference: 19/19 selected tests passed (TESTS set: no history recorded)"
+    ],
+    "eth-act-standards-image.log": [
+      "#10 exporting manifest list sha256:cadf3bddf0d442a79d9ada24aa703881ebd472385bc5d8b4662a2289c7ddfd9d",
+      "#10 exporting manifest list sha256:cadf3bddf0d442a79d9ada24aa703881ebd472385bc5d8b4662a2289c7ddfd9d 0.0s done",
+      "#10 naming to docker.io/slurm-reference-59/reference-eth-act-standards:latest done",
+      "#10 unpacking to docker.io/slurm-reference-59/reference-eth-act-standards:latest done",
+      "#10 DONE 0.1s"
+    ]
+  }
+}
