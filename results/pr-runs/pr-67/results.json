@@ -1,0 +1,228 @@
+{
+  "revision": "5e0f3890203b6fc88d3686dc3db2266d70dc0886",
+  "slurm_job": "56",
+  "vendors": [
+    {
+      "vendor": "openvm",
+      "node": "zkevm-gpu-beast-01",
+      "exit": "0",
+      "mode": "full",
+      "commit": "5e0f3890203b6fc88d3686dc3db2266d70dc0886",
+      "tests_selected": [
+        "io-echo",
+        "layout"
+      ],
+      "selected_outcomes": 3,
+      "expected_from_build": 3,
+      "summary": {
+        "zkvm": "ere-openvm",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:45:28Z",
+        "passed": 1,
+        "failed": 2,
+        "total": 3,
+        "proved": 1,
+        "prove_failed": 0,
+        "verified": 1,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 1,
+        "failed": 2,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "io-echo"
+        ],
+        "failed": [
+          "layout-heap-ends",
+          "layout-stack-ends"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 1.29,
+      "gpu_GiB_peak": 2.07,
+      "gpu_requests": [
+        "b3bf438bd76382b0a260895f18a7d6e2dcde78bc14cf909c6624071bd13f166f slurm-56-openvm 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-openvm@sha256:9bb21a190a09a757b4d076426cee3368db6db20892c9fe57180701a264d1e8cf",
+        "sdk_version": "v2.1.0-preview",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    },
+    {
+      "vendor": "zisk",
+      "node": "zkevm-gpu-beast-02",
+      "exit": "1",
+      "mode": "full",
+      "commit": "5e0f3890203b6fc88d3686dc3db2266d70dc0886",
+      "tests_selected": [
+        "io-echo",
+        "layout"
+      ],
+      "selected_outcomes": 0,
+      "expected_from_build": 3,
+      "summary": {},
+      "case_counts": {
+        "passed": 0,
+        "failed": 0,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [
+        "io-echo",
+        "layout-heap-ends",
+        "layout-stack-ends"
+      ],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [],
+        "failed": [],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": null,
+      "gpu_GiB_peak": 0.0,
+      "gpu_requests": [],
+      "provenance": {},
+      "history_append_verified": false,
+      "build_excerpt": [
+        "      Built act @ file:///act4/framework",
+        "Uninstalled 3 packages in 0.85ms",
+        "Installed 3 packages in 1ms",
+        "\u2713 DUT configs prepared: 1 config in 15.4s",
+        "\u2713 Build complete: 134 succeeded",
+        "/elfs/elf/elf-image.elf: stack symbol(s) _init_stack_bottom not defined"
+      ]
+    },
+    {
+      "vendor": "sp1",
+      "node": "zkevm-gpu-beast-03",
+      "exit": "0",
+      "mode": "full",
+      "commit": "5e0f3890203b6fc88d3686dc3db2266d70dc0886",
+      "tests_selected": [
+        "io-echo",
+        "layout"
+      ],
+      "selected_outcomes": 3,
+      "expected_from_build": 3,
+      "summary": {
+        "zkvm": "ere-sp1",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:47:48Z",
+        "passed": 2,
+        "failed": 1,
+        "total": 3,
+        "proved": 2,
+        "prove_failed": 0,
+        "verified": 2,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 2,
+        "failed": 1,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "io-echo",
+          "layout-heap-ends"
+        ],
+        "failed": [
+          "layout-stack-ends"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 11.7,
+      "gpu_GiB_peak": 10.86,
+      "gpu_requests": [
+        "e8e68dda26015fa9e0c4557182d36a9a43e62ae23fc5f9da495494b91f3e85f2 slurm-56-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-sp1@sha256:c0400acdd24fd37a92b58c1e516c4b81021be097aee177dbd0ab68d564c97a24",
+        "sdk_version": "v6.9.0",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    },
+    {
+      "vendor": "pico",
+      "node": "zkevm-gpu-beast-04",
+      "exit": "1",
+      "mode": "full",
+      "commit": "5e0f3890203b6fc88d3686dc3db2266d70dc0886",
+      "tests_selected": [
+        "io-echo",
+        "layout"
+      ],
+      "selected_outcomes": 0,
+      "expected_from_build": 1,
+      "summary": {},
+      "case_counts": {
+        "passed": 0,
+        "failed": 0,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [
+        "io-echo"
+      ],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [],
+        "failed": [],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": null,
+      "gpu_GiB_peak": 0.0,
+      "gpu_requests": [],
+      "provenance": {},
+      "history_append_verified": false,
+      "build_excerpt": [
+        "      Built act @ file:///act4/framework",
+        "Uninstalled 3 packages in 1ms",
+        "Installed 3 packages in 1ms",
+        "\u2713 DUT configs prepared: 1 config in 15.3s",
+        "\u2713 Build complete: 118 succeeded",
+        "Built 59 eth-act standards test ELFs for pico in /elfs"
+      ]
+    }
+  ]
+}
