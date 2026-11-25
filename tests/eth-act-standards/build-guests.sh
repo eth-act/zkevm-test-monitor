@@ -13,18 +13,19 @@
 #   /cache                    download cache for the accelerator vector sources and uv
 #   /zkvm-run                 the zkVM reference's zkvm-run (read-only)
 #
-# Every <group>/<name>.c (group: io, accelerators, memory, termination, elf) becomes
-# <out-dir>/<group>/<name>.elf. The test vectors <name>.input, <name>.expected
-# and <name>.outcome are copied next to the ELF, and <group>/write_io_vectors.py
-# writes the rest of the I/O vectors. elf/mutate_elf.py writes the crafted ELF
-# variants of the elf group, and the zkVM reference's loader labels each one
-# (see below).
+# Every <group>/<name>.c (group: io, accelerators, memory, termination, elf, layout)
+# becomes <out-dir>/<group>/<name>.elf. The test vectors <name>.input,
+# <name>.expected and <name>.outcome are copied next to the ELF, and
+# <group>/write_io_vectors.py writes the rest of the I/O vectors.
+# elf/mutate_elf.py writes the crafted ELF variants of the elf group, and the
+# zkVM reference's loader labels each one (see below).
 #
-# The elf group takes the zkVM's ELF loading parameters from its memory profile
-# /platform/profile.json: `exec_perm`, the flags of an executable segment that
-# the zkVM accepts, x (PF_X alone) or rx (PF_X | PF_R); `address_space`; and
-# `boot_addr`, the fixed address where the zkVM begins execution (null for a
-# zkVM that starts at e_entry).
+# The elf and layout groups take the zkVM's parameters from its memory profile
+# /platform/profile.json. The elf group: `exec_perm`, the flags of an
+# executable segment that the zkVM accepts, x (PF_X alone) or rx (PF_X |
+# PF_R); `address_space`; and `boot_addr`, the fixed address where the zkVM
+# begins execution (null for a zkVM that starts at e_entry). The layout group:
+# `symbols`, the vendor's linker symbols for the heap and the stack.
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -32,9 +33,9 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory termination elf"
+GROUPS_LIST="io accelerators memory termination elf layout"
 
-# A platform without a memory profile (Pico) has no elf group.
+# A platform without a memory profile (Pico) has no elf and layout groups.
 ELF_EXEC_PERM=""
 if [ -f "$PLATFORM_DIR/profile.json" ]; then
   ELF_EXEC_PERM=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["exec_perm"])' "$PLATFORM_DIR/profile.json")
@@ -43,7 +44,7 @@ if [ -f "$PLATFORM_DIR/profile.json" ]; then
     *) echo "error: $PLATFORM_DIR/profile.json: exec_perm must be x or rx" >&2; exit 1 ;;
   esac
 else
-  echo "note: $PLATFORM_DIR has no profile.json, so the elf group is not built"
+  echo "note: $PLATFORM_DIR has no profile.json, so the elf and layout groups are not built"
   GROUPS_LIST="io accelerators memory termination"
 fi
 
@@ -115,14 +116,25 @@ fi
 # values do not matter; defining them here keeps them out of the zkVMs' linker
 # scripts. A definition in a linker script takes precedence over --defsym.
 LINK_ARGS="$LINK_ARGS-Wl,--defsym=__bss_start=0,--defsym=__bss_end=0,--defsym=__stack_top=0,--defsym=__stack_size=0,--defsym=__num_harts=1 "
+# The layout/ guests get the vendor's heap and stack symbols that profile.json
+# names (`symbols`) as LAYOUT_* macros (layout/layout.h); a null symbol gives
+# no macro.
+LAYOUT_DEFINES=""
+if [ -f "$PLATFORM_DIR/profile.json" ]; then
+  LAYOUT_DEFINES=$(python3 -c '
+import json, sys
+symbols = json.load(open(sys.argv[1])).get("symbols") or {}
+print(" ".join(f"-DLAYOUT_{key.upper()}={name}" for key, name in sorted(symbols.items()) if name))
+' "$PLATFORM_DIR/profile.json")
+fi
 cat > "$DUT/riscv64-unknown-elf-gcc-gnu11" <<EOF
 #!/bin/sh
 for arg in "\$@"; do
   case "\$arg" in
-    -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections ;;
+    -c | -S | -E) exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections $LAYOUT_DEFINES ;;
   esac
 done
-exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
+exec riscv64-unknown-elf-gcc "\$@" -std=gnu11 -ffunction-sections -fdata-sections $LAYOUT_DEFINES -Wl,--gc-sections $LINK_ARGS"$VENDOR_LIB"
 EOF
 chmod +x "$DUT/riscv64-unknown-elf-gcc-gnu11"
 export PATH="$DUT:$PATH"

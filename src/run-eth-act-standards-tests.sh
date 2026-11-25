@@ -25,8 +25,8 @@
 # always in execute mode on the noere path, and the run records no history.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
 # that is a test name (io-echo) or a group (io, accelerators, memory, termination,
-# elf, library, runtime, runtime-lld) selects exactly that; any other word is a
-# glob (io-write-*) or a substring (bls) of the test names.
+# elf, layout, library, runtime, runtime-lld) selects exactly that; any other word
+# is a glob (io-write-*) or a substring (bls) of the test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 

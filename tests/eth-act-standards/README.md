@@ -2,7 +2,7 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers six
+asks of each zkVM. It covers seven
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items, and the
 termination semantics. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
@@ -18,6 +18,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `library/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | static checks: the library is an `ar` archive of RISC-V objects; the zkVM supplies a linker script, with `PHDRS`; with each linker, the entry point of every runtime ELF is `_start`, the script defines `_heap_start` and `_heap_end`, and a probe's code and read-only data sections are in separate segments with the required flags; the zkVM reference's loader accepts every guest ELF (`static-validate`) |
 | `runtime/`, `runtime-lld/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | plain C and C++ guests that link only the vendor library, with the vendor's linker script unchanged, with GNU ld (`runtime/`) and with LLD (`runtime-lld/`): the C environment at `main` (`.data`, `.sdata`, `.rodata`, `.bss`, `.sbss` and the stack), zero `.bss` and `.sbss` at `main`, a C++ static constructor, and the heap symbols |
 | `elf/` | [ELF loading and validation](https://github.com/eth-act/zkevm-standards/tree/main/standards/elf-loading-and-validation) | the initial memory image (`.data`, `.bss`, `.rodata`); loads from the executable segment; calls to code in `.data` and to code that the guest wrote; a store over code; crafted ELFs, labelled by the zkVM reference's loader, that the loader must accept (ignored section headers and `PT_NOTE`, `p_paddr`, zero fill after 17 to 23 file bytes) or reject (one for each header, segment and entry point check); for a `PF_X` zkVM, the static check `static-exec-decodes` (see ELF loading) |
+| `layout/` | [Memory layout restrictions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-layout-restrictions) | writes and reads at the first and last bytes of the heap that the vendor's linker symbols declare (`layout-heap-ends`); `sp` at `main` in the declared stack, and writes and reads at its lowest bytes (`layout-stack-ends`); the symbols come from the zkVM's `profile.json`, and `static-validate` checks every segment against its `memory` regions |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -171,6 +172,31 @@ error, so a strong symbol alone does not show its source. `-Wl,--trace-symbol=<f
 `-Wl,-Map=<file>`) shows which input defined it.
 
 The test does not check the standard's documentation or LTO clauses.
+
+The `layout/` tests check this sentence of the memory layout standard: "Each zkVM vendor must
+provide its own linker script that correctly describes its memory constraints, including the
+location and size of critical memory regions such as heap and stack areas".
+The zkVM's memory profile `zkvms/<zkvm>/standards/profile.json` (see "Memory profiles")
+records, from the zkVM's source at the pinned version, the memory regions that the zkVM defines
+(`memory`, from its executor and prover, not from the linker script) and the vendor's linker
+symbols for the heap start and end and for the stack bottom and top (`symbols`, `null` for a
+bound the script does not declare; the standard names no symbols, so the profile uses the
+vendor's names), each with a citation in `sources`.
+
+The static check `static-validate` (see "Static library and linker script") loads every linked
+guest with the zkVM reference under this profile, which rejects a `PT_LOAD` segment outside the
+`memory` regions.
+
+The guests get the declared symbols as macros (`layout/layout.h`). A guest that needs a symbol
+that is `null` fails with "linker script declares no <bound>", so a missing symbol fails one
+test and does not stop the build. The guests access only the declared ends of the heap and the
+stack, because the standard sets no size and requires no fault. On the reference, whose stack is
+a fixed region of its profile and not a linker symbol, `layout-stack-ends` fails (listed in
+`reference-known-differences.txt`).
+
+The `layout/` tests do not check the standard's `libc` clause ("the linker script must define
+symbols that the `libc` implementation depends upon"): the standard names no C library, and
+ACT links the guests without one.
 
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
@@ -476,9 +502,9 @@ from) and `symbols` (the zkVM's linker symbols for the stack and the heap, or `n
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`, `termination`, `elf`, `library`, `runtime`, `runtime-lld`) selects exactly that. Any
-other word is a glob (`io-write-*`) or a substring (`bls`) of the test names. A word that selects
-no test stops the run.
+`memory`, `termination`, `elf`, `layout`, `library`, `runtime`, `runtime-lld`) selects exactly
+that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of the test names. A word
+that selects no test stops the run.
 
 ```bash
 TESTS=io-echo BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
