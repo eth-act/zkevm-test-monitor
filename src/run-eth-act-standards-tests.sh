@@ -19,9 +19,9 @@
 # (reference/, at the commit config.json pins): its zkvm-run runs the guests,
 # always in execute mode on the noere path, and the run records no history.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
-# that is a test name (io-echo) or a group (io, accelerators, memory) selects
-# exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
-# test names.
+# that is a test name (io-echo) or a group (io, accelerators, memory, termination)
+# selects exactly that; any other word is a glob (io-write-*) or a substring (bls)
+# of the test names.
 set -euo pipefail
 source "$(dirname "$0")/shared/cuda.sh"
 
@@ -351,8 +351,9 @@ if [ "$(jq .total "$RESULTS_FILE")" -ne "$ELF_COUNT" ]; then
   exit 1
 fi
 
-# Tests that expect an abnormal termination (.outcome) have no valid proof, so
-# the dashboard counts proving and verification over the other tests.
+# Tests that expect an abnormal termination (.outcome) pass only if no proof of
+# them verifies, which their verdict records, so the dashboard counts proving
+# and verification over the other tests.
 EXPECTED_FAILURES=$(find "$ELF_DIR" -name '*.outcome' -printf '%f\n' | sed 's/\.outcome$//' | sort | jq -R . | jq -sc .)
 
 mkdir -p results/history

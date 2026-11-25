@@ -36,6 +36,9 @@ pub struct Results {
     pub failed: Vec<String>,
     pub prove_failed: Vec<String>,
     pub verify_failed: Vec<String>,
+    /// Tests that expect an abnormal termination whose prover gave no proof
+    /// (`prove_status` "refused"): their proof side is not tested.
+    pub prove_not_tested: Vec<String>,
     /// Test name → group (parent directory). Written for grouped suites only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub groups: Option<BTreeMap<String, String>>,
@@ -169,6 +172,11 @@ pub fn write_results(
         failed: failed_names,
         prove_failed: prove_failed_names,
         verify_failed: verify_failed_names,
+        prove_not_tested: sorted
+            .iter()
+            .filter(|e| e.prove_status.as_deref() == Some("refused"))
+            .map(|e| e.name.clone())
+            .collect(),
         groups: grouped.then(|| {
             sorted
                 .iter()

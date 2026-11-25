@@ -1,0 +1,202 @@
+[
+  {
+    "vendor": "openvm",
+    "node": "zkevm-gpu-beast-01",
+    "exit": "0",
+    "summary": {
+      "zkvm": "ere-openvm",
+      "suite": "eth-act-standards",
+      "timestamp": "2026-11-25T19:52:48Z",
+      "passed": 4,
+      "failed": 3,
+      "total": 7,
+      "proved": 2,
+      "prove_failed": 0,
+      "verified": 2,
+      "verify_failed": 0
+    },
+    "missing": [],
+    "unexpected": [],
+    "host_errors": false,
+    "setup_at_proof": [],
+    "verdicts": {
+      "passed": [
+        "io-echo",
+        "illegal-ones",
+        "illegal-zeros",
+        "term-trap"
+      ],
+      "failed": [
+        "illegal-unimp",
+        "term-abort",
+        "term-main-nonzero"
+      ],
+      "prove_failed": [],
+      "verify_failed": [],
+      "prove_not_tested": []
+    },
+    "ram_GiB_peak": 1.29,
+    "gpu_GiB_peak": 2.07,
+    "provenance": {
+      "ere_rev": "4d21321",
+      "ere_version": "0.20.2",
+      "ere_image": "ghcr.io/eth-act/ere/ere-server-openvm@sha256:9bb21a190a09a757b4d076426cee3368db6db20892c9fe57180701a264d1e8cf",
+      "sdk_version": "v2.1.0-preview",
+      "resource": "gpu",
+      "prove_timeout_secs": 1800,
+      "execute_timeout_secs": 180
+    }
+  },
+  {
+    "vendor": "zisk",
+    "node": "zkevm-gpu-beast-02",
+    "exit": "0",
+    "summary": {
+      "zkvm": "ere-zisk",
+      "suite": "eth-act-standards",
+      "timestamp": "2026-11-25T19:55:20Z",
+      "passed": 6,
+      "failed": 1,
+      "total": 7,
+      "proved": 1,
+      "prove_failed": 0,
+      "verified": 1,
+      "verify_failed": 0
+    },
+    "missing": [],
+    "unexpected": [],
+    "host_errors": false,
+    "setup_at_proof": [
+      "term-main-nonzero: prove refused: zkVM method error: Prove failed: Error generating proof: Setup error: ASM backend operation failed: ASM MT service returned non-zero result: 1"
+    ],
+    "verdicts": {
+      "passed": [
+        "io-echo",
+        "illegal-ones",
+        "illegal-unimp",
+        "illegal-zeros",
+        "term-main-nonzero",
+        "term-trap"
+      ],
+      "failed": [
+        "term-abort"
+      ],
+      "prove_failed": [],
+      "verify_failed": [],
+      "prove_not_tested": [
+        "term-main-nonzero"
+      ]
+    },
+    "ram_GiB_peak": 49.76,
+    "gpu_GiB_peak": 30.03,
+    "provenance": {
+      "ere_rev": "4d21321",
+      "ere_version": "0.20.2",
+      "ere_image": "ghcr.io/eth-act/ere/ere-server-zisk@sha256:561745b7974a0b7abc86bf10c3f45e8095ee037478811032e9aff4b7b8ad18c7",
+      "sdk_version": "v1.4.0-alpha",
+      "resource": "gpu",
+      "prove_timeout_secs": 1800,
+      "execute_timeout_secs": 180
+    }
+  },
+  {
+    "vendor": "sp1",
+    "node": "zkevm-gpu-beast-03",
+    "exit": "1",
+    "summary": {
+      "zkvm": "ere-sp1",
+      "suite": "eth-act-standards",
+      "timestamp": "2026-11-25T19:56:47Z",
+      "passed": 3,
+      "failed": 4,
+      "total": 7,
+      "proved": 1,
+      "prove_failed": 0,
+      "verified": 1,
+      "verify_failed": 0
+    },
+    "missing": [],
+    "unexpected": [],
+    "host_errors": true,
+    "setup_at_proof": [],
+    "verdicts": {
+      "passed": [
+        "io-echo",
+        "term-abort",
+        "term-main-nonzero"
+      ],
+      "failed": [
+        "illegal-ones",
+        "illegal-unimp",
+        "illegal-zeros",
+        "term-trap"
+      ],
+      "prove_failed": [],
+      "verify_failed": [],
+      "prove_not_tested": [
+        "term-main-nonzero"
+      ]
+    },
+    "ram_GiB_peak": 11.59,
+    "gpu_GiB_peak": 10.79,
+    "provenance": {
+      "ere_rev": "4d21321",
+      "ere_version": "0.20.2",
+      "ere_image": "ghcr.io/eth-act/ere/ere-server-sp1@sha256:c0400acdd24fd37a92b58c1e516c4b81021be097aee177dbd0ab68d564c97a24",
+      "sdk_version": "v6.9.0",
+      "resource": "gpu",
+      "prove_timeout_secs": 1800,
+      "execute_timeout_secs": 180
+    }
+  },
+  {
+    "vendor": "pico",
+    "node": "zkevm-gpu-beast-04",
+    "exit": "1",
+    "summary": {
+      "zkvm": "ere-pico",
+      "suite": "eth-act-standards",
+      "timestamp": "2026-11-25T19:59:55Z",
+      "passed": 4,
+      "failed": 3,
+      "total": 7,
+      "proved": 1,
+      "prove_failed": 0,
+      "verified": 1,
+      "verify_failed": 0
+    },
+    "missing": [],
+    "unexpected": [],
+    "host_errors": true,
+    "setup_at_proof": [],
+    "verdicts": {
+      "passed": [
+        "io-echo",
+        "illegal-unimp",
+        "term-main-nonzero",
+        "term-trap"
+      ],
+      "failed": [
+        "illegal-ones",
+        "illegal-zeros",
+        "term-abort"
+      ],
+      "prove_failed": [],
+      "verify_failed": [],
+      "prove_not_tested": [
+        "term-main-nonzero"
+      ]
+    },
+    "ram_GiB_peak": 31.07,
+    "gpu_GiB_peak": 28.61,
+    "provenance": {
+      "ere_rev": "4d21321",
+      "ere_version": "0.20.2",
+      "ere_image": "ghcr.io/eth-act/ere/ere-server-pico@sha256:f7126eb660e3205689dcc50104317863d1cf753fdfaef0d397eec387741a108b",
+      "sdk_version": "v3.1.5",
+      "resource": "gpu",
+      "prove_timeout_secs": 1800,
+      "execute_timeout_secs": 180
+    }
+  }
+]

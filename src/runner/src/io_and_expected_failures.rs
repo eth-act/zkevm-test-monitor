@@ -54,6 +54,10 @@ pub struct IoVectors {
     pub input: Option<Vec<u8>>,
     pub expected: Option<Vec<u8>>,
     pub outcome: Outcome,
+    /// A `<stem>.prove-failure` file: in the prove modes, prove this test that
+    /// expects an abnormal termination, and fail it if its proof verifies as a
+    /// successful execution. Without it, such a test is only executed.
+    pub prove_failure: bool,
 }
 
 impl IoVectors {
@@ -88,7 +92,8 @@ impl IoVectors {
         if standards {
             input.get_or_insert_with(Vec::new);
         }
-        Ok(IoVectors { input, expected, outcome })
+        let prove_failure = elf_path.with_extension("prove-failure").exists();
+        Ok(IoVectors { input, expected, outcome, prove_failure })
     }
 
     /// Whether the test feeds an input or checks the output.
@@ -182,7 +187,7 @@ mod tests {
         std::fs::write(&elf, b"").unwrap();
 
         let isa = IoVectors::load(&elf, false).unwrap();
-        assert_eq!(isa, IoVectors { input: None, expected: None, outcome: Outcome::Pass });
+        assert_eq!(isa, IoVectors { input: None, expected: None, outcome: Outcome::Pass, prove_failure: false });
         assert!(!isa.has_io());
 
         let standards = IoVectors::load(&elf, true).unwrap();
