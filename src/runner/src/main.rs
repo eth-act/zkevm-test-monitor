@@ -18,7 +18,7 @@ use runner::runner::{self as suite, Suite};
 #[derive(Parser)]
 #[command(name = "runner")]
 struct Cli {
-    /// ZK-VM backend to use: lambdavm, openvm, sp1 or zisk. With `--features ere`:
+    /// ZK-VM backend to use: lambdavm, openvm, reference, sp1 or zisk. With `--features ere`:
     /// ere-openvm, ere-pico, ere-sp1 or ere-zisk (the ere path).
     #[arg(long)]
     zkvm: String,
@@ -84,6 +84,10 @@ struct Cli {
     #[arg(long)]
     witness_lib: Option<PathBuf>,
 
+    /// The reference's memory profile (zkvm `reference`): a profile file of
+    /// eth-act/zkevm-standards (`reference/memory-profiles/`).
+    #[arg(long)]
+    profile: Option<PathBuf>,
     /// Enable GPU acceleration (openvm and sp1 proving; zisk uses the GPU
     /// when cargo-zisk is a cuda build).
     #[arg(long)]
@@ -109,6 +113,10 @@ fn main() {
         process::exit(2);
     };
 
+    if let Err(e) = zkvm_backends::execute_timeout() {
+        eprintln!("error: {e}");
+        process::exit(2);
+    }
     let elfs = suite::find_elfs(&cli.elf_dir, &cli.select).unwrap_or_else(|e| {
         eprintln!("error: {e}");
         process::exit(2);
@@ -143,6 +151,7 @@ fn main() {
         sp1_perf: cli.sp1_perf.clone(),
         cargo_zisk: cli.cargo_zisk.clone(),
         witness_lib: cli.witness_lib.clone(),
+        profile: cli.profile.clone(),
         gpu: cli.gpu,
     };
     let zkvm = zkvm_backends::build(&cli.zkvm, tools)

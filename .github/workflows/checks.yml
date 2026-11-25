@@ -1,0 +1,26 @@
+name: checks
+
+on:
+  pull_request:
+
+jobs:
+  runner-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Runner unit tests
+        run: cargo test --manifest-path src/runner/Cargo.toml
+
+  requirements:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the pinned eth-act/zkevm-standards
+        run: |
+          commit=$(jq -r .zkevm_standards_commit config.json)
+          mkdir -p out/deps/zkevm-standards
+          git -C out/deps/zkevm-standards init -q
+          git -C out/deps/zkevm-standards fetch -q --depth 1 https://github.com/eth-act/zkevm-standards "$commit"
+          git -C out/deps/zkevm-standards checkout -q FETCH_HEAD
+      - name: Requirement coverage
+        run: python3 tests/eth-act-standards/tools/check_requirements.py

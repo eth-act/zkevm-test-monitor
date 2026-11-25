@@ -1,0 +1,4 @@
+# Tests that may disagree with the zkVM reference (./run eth-act-standards-tests reference).
+# One per line: <test-stem> <issue-url> <reason>
+# Add a test here only when the standard is ambiguous about it, with an issue in
+# eth-act/zkevm-standards; a wrong test or a wrong reference is fixed instead.

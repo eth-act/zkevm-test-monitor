@@ -15,6 +15,9 @@
 #      GPU with the zkVM's prover: OpenVM's standards executor (built for the GPU
 #      here), sp1-prover, or cargo-zisk-cuda (GPU=1 ./run build zisk). Pico has
 #      no noere path: it runs only through ere.
+# The zkVM `reference` is the executable reference of eth-act/zkevm-standards
+# (reference/, at the commit config.json pins): its zkvm-run runs the guests,
+# always in execute mode on the noere path, and the run records no history.
 # TESTS="<word> ..." runs only the selected tests and records no history. A word
 # that is a test name (io-echo) or a group (io, accelerators, memory) selects
 # exactly that; any other word is a glob (io-write-*) or a substring (bls) of the
@@ -25,6 +28,14 @@ source "$(dirname "$0")/shared/cuda.sh"
 ZKVM="${1:?usage: run-eth-act-standards-tests.sh <zkvm>}"
 # ere (default) or noere; see the header.
 BACKEND_KIND="${BACKEND:-ere}"
+# The reference has no ere image and no prover.
+if [ "$ZKVM" = "reference" ]; then
+  BACKEND_KIND=noere
+  if [ "${ACT4_MODE:-execute}" != "execute" ]; then
+    echo "  Error: the reference only executes; ACT4_MODE must be execute"
+    exit 1
+  fi
+fi
 case "$BACKEND_KIND" in
   ere) MODE="${ACT4_MODE:-full}" ;;
   noere) MODE="${ACT4_MODE:-execute}" ;;
@@ -66,6 +77,8 @@ IMAGE_EMULATOR=""
 IMAGE_EMULATOR_LIBS=""
 PROVER_ARGS=()
 BUILD_ARGS=()
+# PROFILE_ARGS: the runner's --profile (the reference's memory profile).
+PROFILE_ARGS=()
 COMMIT_FILE="out/commits/${ZKVM}.txt"
 NOTES=""
 case "$ZKVM" in
@@ -124,6 +137,24 @@ case "$ZKVM" in
                    --build-arg "OPENVM_EXECUTOR_REV=$OPENVM_EXECUTOR_REV")
       NOTES="$NOTES The host executor is NOT the pinned OpenVM: it is built from ${OPENVM_EXECUTOR_GIT} at ${OPENVM_EXECUTOR_REV}."
     fi
+    ;;
+  reference)
+    # zkvm-run from eth-act/zkevm-standards at the pinned commit, with the
+    # reference-rx memory profile; a stub library defines the library symbols.
+    EXECUTOR_ARG="--binary"
+    EMULATOR="out/bin/zkvm-run"
+    IMAGE_EMULATOR="/out/zkvm-run"
+    VENDOR_LIB="/out/libzkvm_reference.a"
+    # The platform's link.ld: the reference layout with ACT's sections placed.
+    VENDOR_LD=""
+    IMAGE_COMMIT_FILES="/reference-commit.txt:vendor-commit.txt"
+    COMMIT_FILE="$ELF_DIR/vendor-commit.txt"
+    BUILD_ARGS=(--build-arg "STANDARDS_COMMIT=$(jq -r .zkevm_standards_commit config.json)")
+    PROFILE_ARGS=(--profile "$PLATFORM_DIR/profile.json")
+    NOTES="reference (zkvm-run)"
+    # The Lean reference runs some tens of thousands of instructions a second, so
+    # the memory-operation sweeps take tens of minutes.
+    export EXECUTE_TIMEOUT="${EXECUTE_TIMEOUT:-7200}"
     ;;
   pico)
     # Pico runs only through ere: there is no host executor or prover here.
@@ -237,7 +268,7 @@ if [ -n "$NOERE_PROVE" ] && [ "$ZKVM" != "openvm" ]; then
   fi
 fi
 
-RUNNER_ARGS=(--zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR" --mode "$MODE" "${PROVER_ARGS[@]}")
+RUNNER_ARGS=(--zkvm "$ZKVM" "$EXECUTOR_ARG" "$EMULATOR" --mode "$MODE" "${PROVER_ARGS[@]}" "${PROFILE_ARGS[@]}")
 RUNNER="src/runner/target/release/runner"
 CARGO_ARGS=()
 if [ "$BACKEND_KIND" = "ere" ]; then
@@ -291,6 +322,11 @@ if [ -n "${TESTS:-}" ]; then RUNNER_ARGS+=(--select "$TESTS"); fi
   --output-dir "$RESULTS_DIR" \
   --suite eth-act-standards --groups \
   $RUNNER_JOBS || RUNNER_STATUS=$?
+# On the reference, the accelerator tests are host errors (no accelerator
+# semantics), so a run with host errors still gives its summary.
+if [ "$ZKVM" = "reference" ] && [ "$RUNNER_STATUS" -eq 3 ] && [ -f "$RESULTS_FILE" ]; then
+  RUNNER_STATUS=1
+fi
 if [ "$RUNNER_STATUS" -gt 1 ]; then
   echo "  Error: the runner could not complete the $ZKVM run (exit $RUNNER_STATUS); no history recorded"
   exit 1
@@ -301,6 +337,11 @@ if [ ! -f "$RESULTS_FILE" ]; then
 fi
 if [ -n "${TESTS:-}" ]; then
   echo "  eth-act standards ${ZKVM}: $(jq '.passed | length' "$RESULTS_FILE")/$(jq '.total' "$RESULTS_FILE") selected tests passed (TESTS set: no history recorded)"
+  exit 0
+fi
+if [ "$ZKVM" = "reference" ]; then
+  echo "  eth-act standards reference: $(jq '.passed | length' "$RESULTS_FILE")/$(jq '.total' "$RESULTS_FILE") passed"
+  echo "reference run: history not recorded"
   exit 0
 fi
 # Every ELF this run built must have a result.

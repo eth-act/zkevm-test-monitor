@@ -1,0 +1,36 @@
+{
+  "name": "sp1",
+  "exec_perm": "rx",
+  "address_space": {
+    "base": "0x10000",
+    "size": "0xffffff0000"
+  },
+  "boot_addr": null,
+  "input": {
+    "base": "0x0",
+    "size": "0x0"
+  },
+  "memory": [
+    {
+      "base": "0x10000",
+      "size": "0xffffff0000"
+    }
+  ],
+  "stack": {
+    "base": "0x0",
+    "size": "0x0"
+  },
+  "symbols": {
+    "stack_bottom": null,
+    "stack_top": "__stack_top",
+    "heap_start": "_heap_start",
+    "heap_end": "_heap_end"
+  },
+  "sources": {
+    "exec_perm": "SP1's loader rejects a segment without PF_R, so its executable segment is PF_X | PF_R",
+    "memory": "SP1 v6.6.0 (f5a5bbf6), github.com/succinctlabs/sp1: crates/core/machine/src/operations/address.rs:84-87 (the prover requires addresses of 2^16 or more); crates/primitives/src/consts.rs:11 and crates/core/runner/src/native.rs:73 (the executor has 2^40 bytes of memory)",
+    "input": "SP1 has no fixed input region: read_input returns the stdin buffer that the zkevm SDK reads at startup (zkevm/)",
+    "stack": "zkevm/zkvm.ld:84-88: the stack grows down from __stack_top toward 0 (no stack_bottom symbol), so the profile has no stack range",
+    "symbols": "zkevm/zkvm.ld:88 (__stack_top), 107-108 (_heap_start, _heap_end)"
+  }
+}

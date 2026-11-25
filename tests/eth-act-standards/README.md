@@ -142,6 +142,7 @@ them. There, `io-write-trailing-zeros` cannot tell whether the zkVM kept the fin
 | ZisK | `ziskos-staticlib` + ZisK's own linker script at tag v1.4.0-alpha, the version eth-act/ere pins | `ziskemu` at the same tag (`out/bin/zisk-eth-act-standards-emu`) |
 | SP1 | zkEVM SDK `libzkevm.a` + `zkvm.ld` (`make sdk` in `zkevm/`) at upstream tag v6.9.0, the version eth-act/ere pins | `sp1-eth-act-standards-executor` (`zkvms/sp1/standards/executor`) |
 | OpenVM | none from OpenVM; eth-act/ere's `ere-platform-openvm` at the ere revision the runner pins, over OpenVM tag v2.1.0-preview | `openvm-eth-act-standards-executor` (`zkvms/openvm/standards/executor`) |
+| reference | a stub library with every symbol of the reference's `zkvm_library` (one `ebreak` each), and `zkvms/reference/standards/link.ld` (the reference layout with ACT's sections) | `zkvm-run` from eth-act/zkevm-standards `reference/` at the commit `config.json` pins (`out/bin/zkvm-run`) |
 | Pico | Pico's static library `libpico_zkvm.a` + `pico.ld` (`cargo pico lib`) at tag v3.1.5, the version eth-act/ere pins | none: Pico runs only through ere |
 
 The ZisK image pins its own ZisK tag, not the monitor's ZisK pin for the ACT4 suites. It
@@ -214,6 +215,59 @@ OPENVM_EXECUTOR_GIT=https://github.com/<owner>/openvm OPENVM_EXECUTOR_REV=<commi
   BACKEND=noere ACT4_MODE=full ./run eth-act-standards-tests openvm
 ```
 
+### Running on the reference
+
+`./run eth-act-standards-tests reference` runs the tests on the executable reference of
+eth-act/zkevm-standards (`reference/`, Sail and Lean) at the commit `config.json` pins
+(`zkevm_standards_commit`). The image builds the Lean reference (about 15 minutes) and a stub
+static library: the reference performs a library function when the PC reaches its symbol, so
+the stubs only define the symbols. The guests are built with the reference ISA config
+(`zkvms/reference/isa-configs/reference-rv64im-zicclsm/`), whose halt macros write `PASS` or
+`FAIL` with `write_output` and halt through `_start`, and run under the memory profile
+`zkvms/reference/standards/profile.json` (`reference-rx`).
+
+The reference only executes (`BACKEND` and `ACT4_MODE` are ignored), and its runs record no
+history: the script prints `reference run: history not recorded`. `zkvm-run` reports `success`,
+`failure:<code>`, `fault` (abnormal termination without a code), or one of three host errors:
+`unspecified:<symbol>` (an accelerator call: the reference gives no accelerator semantics, so
+the `accelerators` group never passes), `stuck:<message>` and `lean_out_of_fuel`. A loader
+rejection (`REJECT <message>`) is a host error `rejected: <message>`.
+
+`EXECUTE_TIMEOUT` (seconds, default 600; 7200 for the reference, which runs some tens of thousands of
+instructions a second) limits each execution on every backend; a longer execution is a host
+error `execute timeout after <N>s`. On the reference the accelerator tests are host errors, so
+the script prints the summary of a run with host errors instead of stopping.
+
+### Requirement IDs and `.req`
+
+Each standard's README in eth-act/zkevm-standards ends with a "Normative requirements" table:
+an ID per requirement (`IO2`, `TER5`, ...) and where it is checked. A test names the IDs it
+checks in a `<name>.req` sidecar (whitespace-separated IDs; the runner ignores it); a static
+check names them in `static-requirements.txt` (`<check> <ID>...`). `covered-standards.txt` lists
+the ID prefixes whose tests are in this repository. `tools/check_requirements.py` (run by CI)
+fails if a requirement of a covered standard that the table says the monitor checks
+(`monitor` or `monitor-static`) has no test, or if a `.req` file names an unknown ID. It reads
+the pinned standards checkout (`out/deps/zkevm-standards`, or `--standards DIR`).
+
+### Reference agreement
+
+Every test must pass on the reference, except the `accelerators` group (no accelerator
+semantics) and the tests in `reference-known-differences.txt`
+(`<test-stem> <issue-url> <reason>`). When a test disagrees with the reference, the standard
+decides: a wrong test is fixed; a wrong reference is fixed in eth-act/zkevm-standards and the
+pin updated; an ambiguous standard gets an issue there and a line in
+`reference-known-differences.txt`.
+
+### Memory profiles
+
+`zkvms/<zkvm>/standards/profile.json` describes each zkVM's memory layout in the reference's
+profile format (eth-act/zkevm-standards `reference/memory-profiles/`): the executable-segment
+permission (`exec_perm`), the regions where loadable segments may be placed (`memory`), the
+addressable space, and two keys the reference ignores: `sources` (where each value comes
+from) and `symbols` (the zkVM's linker symbols for the stack and the heap, or `null`).
+`tools/resolve_profile.py PROFILE ELF OUT` fills in the stack range of one linked ELF from its
+`symbols` and writes a profile `zkvm-run --validate` reads.
+
 ### Selecting tests
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
@@ -242,6 +296,11 @@ config.
 3. Add the vendor library path, the linker script path (`VENDOR_LD`), the executor and its runner
    flag to
    `src/run-eth-act-standards-tests.sh`.
+4. Add `zkvms/<zkvm>/standards/profile.json`, its memory profile (see "Memory profiles").
+
+`zkvms/reference/` is the reference platform: its image builds the reference from
+eth-act/zkevm-standards instead of a vendor library, and its runs are compared with every
+zkVM's (see "Running on the reference").
 
 ## Accelerator vectors
 

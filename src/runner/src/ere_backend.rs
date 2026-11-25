@@ -55,6 +55,8 @@ pub struct Provenance {
     pub resource: String,
     /// Time limit on each prove, in seconds: a prove that took longer failed.
     pub prove_timeout_secs: u64,
+    /// Time limit on each execution, in seconds (`EXECUTE_TIMEOUT`).
+    pub execute_timeout_secs: u64,
 }
 
 /// Outcome, error and time of one test, for the details file.
@@ -94,6 +96,8 @@ pub struct EreBackend {
     standards: bool,
     /// Time limit on each prove (`PROVE`, `PROVE_STANDARDS` or `PROVE_TIMEOUT`).
     prove_timeout: Duration,
+    /// Time limit on each execution (`EXECUTE_TIMEOUT`).
+    execute_timeout: Duration,
     /// The running server, kept for the next test; `None` before the first test
     /// and after an error that can leave it broken. The lock also makes tests
     /// run one at a time.
@@ -145,6 +149,8 @@ impl EreBackend {
             set_default_env("ERE_PICO_PURE_CACHE_VOLUME", "ere-pico-pure-cache");
         }
 
+        let execute_timeout = crate::zkvm_backends::execute_timeout()?;
+
         let ere_image = pull_image(kind, gpu)?;
         let provenance = Provenance {
             ere_rev: DOCKER_IMAGE_TAG.to_string(),
@@ -153,12 +159,14 @@ impl EreBackend {
             sdk_version,
             resource: if gpu { "gpu" } else { "cpu" }.to_string(),
             prove_timeout_secs: prove_timeout.as_secs(),
+            execute_timeout_secs: execute_timeout.as_secs(),
         };
         let backend = Self {
             kind,
             resource: if gpu { ProverResource::Gpu } else { ProverResource::Cpu },
             standards,
             prove_timeout,
+            execute_timeout,
             server: Mutex::new(None),
             details: Mutex::new(Vec::new()),
         };
@@ -237,6 +245,7 @@ impl EreBackend {
             Some(mut zkvm) => zkvm.setup(Elf(elf)).map(|()| zkvm),
             None => {
                 let config = DockerizedzkVMConfig {
+                    execute_timeout: Some(self.execute_timeout),
                     prove_timeout: Some(self.prove_timeout),
                     ..Default::default()
                 };
@@ -442,6 +451,7 @@ mod tests {
             resource: ProverResource::Cpu,
             standards,
             prove_timeout: PROVE,
+            execute_timeout: crate::zkvm_backends::DEFAULT_EXECUTE_TIMEOUT,
             server: Mutex::new(None),
             details: Mutex::new(Vec::new()),
         }

@@ -14,6 +14,10 @@ run_eth_act_standards_tests() {
     if [ -z "$zkvms" ]; then
         for dir in zkvms/*/standards/; do
             zkvm=$(basename "$(dirname "$dir")")
+            # The reference runs only when named: it records no history.
+            if [ "$zkvm" = "reference" ]; then
+                continue
+            fi
             if [ "${BACKEND:-ere}" = "noere" ] && [ "$zkvm" = "pico" ]; then
                 echo "Skipping pico: it has no noere path"
                 continue
