@@ -1,0 +1,81 @@
+{
+  "revision": "55597bdcf1410f3e47761c703bd9f1928962dfb5",
+  "slurm_job": "59",
+  "reference": {
+    "full-isa": {
+      "zkvm": "reference",
+      "suite": "act4-full",
+      "timestamp": "2026-11-25T21:53:35Z",
+      "passed": 64,
+      "failed": 0,
+      "total": 64
+    },
+    "standard-isa": {
+      "zkvm": "reference",
+      "suite": "act4-standard",
+      "timestamp": "2026-11-25T21:53:36Z",
+      "passed": 72,
+      "failed": 0,
+      "total": 72
+    },
+    "misaligned": {
+      "zkvm": "reference",
+      "suite": "act4-misaligned",
+      "timestamp": "2026-11-25T21:53:36Z",
+      "passed": 18,
+      "failed": 0,
+      "total": 18
+    }
+  },
+  "logs": {
+    "isa.log": [
+      "  [16/18] PASS misaligned-bgeu (0.04s)",
+      "  [17/18] PASS misaligned-bne (0.04s)",
+      "  [18/18] PASS misaligned-jalr-2mod4 (0.04s)",
+      "18/18 passed",
+      "reference run: history not recorded"
+    ],
+    "eth-act-standards-build.log": [
+      "Uninstalled 3 packages in 1ms",
+      "Installed 3 packages in 1ms",
+      "\u2713 DUT configs prepared: 1 config in 15.5s",
+      "\u2713 Build complete: 118 succeeded",
+      "Built 59 eth-act standards test ELFs for reference in /elfs"
+    ],
+    "control.log": [
+      "Running reference eth-act standards tests (noere, mode: execute)...",
+      "Selected 1 tests",
+      "  [1/1] PASS io-echo (0.04s)",
+      "1/1 passed",
+      "  eth-act standards reference: 1/1 selected tests passed (TESTS set: no history recorded)"
+    ],
+    "eth-act-standards-act-image.log": [
+      "#16 exporting manifest list sha256:9c9c7d884600e9401708f9faec1e6d31ae61bcf3e8c5c98cc1537caa10869036",
+      "#16 exporting manifest list sha256:9c9c7d884600e9401708f9faec1e6d31ae61bcf3e8c5c98cc1537caa10869036 0.0s done",
+      "#16 naming to docker.io/slurm-reference-59/reference:latest done",
+      "#16 unpacking to docker.io/slurm-reference-59/reference:latest 0.1s done",
+      "#16 DONE 0.5s"
+    ],
+    "eth-act-standards-runner-build.log": [
+      "   Compiling tempfile v3.26.0",
+      "   Compiling clap_derive v4.5.55",
+      "   Compiling serde_derive v1.0.228",
+      "   Compiling clap v4.5.60",
+      "    Finished `release` profile [optimized] target(s) in 3.72s"
+    ],
+    "eth-act-standards-image.log": [
+      "#10 exporting attestation manifest sha256:572e38f52fc74e449659881bdee0c2d07a1feb86d4307eefd54f9647637379a2 0.0s done",
+      "#10 exporting manifest list sha256:4f24bdd979b4dc6b3c905346770ee317083a0b671e0d5d9c2ede314c89a1d2d4 0.0s done",
+      "#10 naming to docker.io/slurm-reference-59/reference-eth-act-standards:latest done",
+      "#10 unpacking to docker.io/slurm-reference-59/reference-eth-act-standards:latest done",
+      "#10 DONE 0.1s"
+    ],
+    "act4-elfgen.log": [
+      "Uninstalled 3 packages in 0.87ms",
+      "Installed 3 packages in 7ms",
+      "\u2713 DUT configs prepared: 1 config in 15.7s",
+      "\u2713 Build complete: 36 succeeded",
+      "Built 18 instruction-address-misaligned test ELFs in /elfs/misaligned"
+    ]
+  }
+}

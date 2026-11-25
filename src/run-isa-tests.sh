@@ -631,6 +631,12 @@ run_reference_pipeline() {
   cargo build --release --quiet --manifest-path src/runner/Cargo.toml || { echo "  Failed to build runner"; return 1; }
   mkdir -p "$OUT_DIR"
   local REF_ARGS=(--zkvm reference --binary out/bin/zkvm-run --profile zkvms/reference/standards/profile.json --mode execute)
+  echo "Running the Full ISA suite (I, M) on the reference..."
+  "$RUNNER" "${REF_ARGS[@]}" --elf-dir "$ELF_DIR/native" --output-dir "$OUT_DIR" \
+    --suite act4-full --label full-isa || true
+  echo "Running the Standard ISA suite (I, M, Misalign) on the reference..."
+  "$RUNNER" "${REF_ARGS[@]}" --elf-dir "$ELF_DIR/target" --output-dir "$OUT_DIR" \
+    --suite act4-standard --label standard-isa || true
   echo "Running the misaligned suite on the reference..."
   "$RUNNER" "${REF_ARGS[@]}" --elf-dir "$ELF_DIR/misaligned" --output-dir "$OUT_DIR" \
     --suite act4-misaligned --label misaligned || true

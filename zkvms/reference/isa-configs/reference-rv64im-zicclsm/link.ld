@@ -14,15 +14,18 @@ PHDRS { text PT_LOAD FLAGS(5); rodata PT_LOAD FLAGS(4); data PT_LOAD FLAGS(6); }
 SECTIONS {
   . = 0x80000000;
   .text : {
+    /* _start comes first and holds `jal x0, .+4`: Sail, ACT's reference model for the
+       expected signatures, starts at the entry point and falls through to the test. The
+       zkVM reference never fetches it: it performs _start, which calls main. */
+    _start = .; LONG(0x0040006f)
     *(.text.init)
     *(.text.rvtest) *(.text.rvtest.*)
     *(.text.rvmodel) *(.text.rvmodel.*)
     *(.text .text.*)
-    /* An ISA test links no library, so the library symbols the reference binds get
-       one word each here (ebreak, never executed: the reference performs the library
-       function when the PC reaches its symbol). */
+    /* An ISA test links no library, so the I/O symbols the reference binds get one word
+       each here (ebreak, never executed: the reference performs the library function
+       when the PC reaches its symbol). */
     . = ALIGN(4);
-    _start = .; LONG(0x00100073)
     read_input = .; LONG(0x00100073)
     write_output = .; LONG(0x00100073)
   } :text =0x13000000
