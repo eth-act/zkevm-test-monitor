@@ -30,7 +30,8 @@ fi
 # history. The ere path reads out/<zkvm>/ere/, writes
 # results/history/<zkvm>-ere-<suite>.json, and records the ere provenance of the run
 # (ere-act4-<label>.json) and its mode (ERE_MODE)
-# instead of the noere build commit.
+# instead of the noere build commit. ERE_SUITES selects the ere suites (default:
+# standard).
 process_results() {
   local ZKVM="$1"
   local NOTES="${2:-}"
@@ -60,12 +61,15 @@ process_results() {
     fi
   fi
 
-  local SUITE_TYPES="full standard"
-  [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="standard"
+  local SUITE_TYPES="full standard misaligned"
+  [ "$BACKEND_KIND" = "ere" ] && SUITE_TYPES="${ERE_SUITES:-standard}"
   for SUITE_TYPE in $SUITE_TYPES; do
     if [ "$SUITE_TYPE" = "full" ]; then
       FILE_LABEL="full-isa"
       SUITE="act4-full"
+    elif [ "$SUITE_TYPE" = "misaligned" ]; then
+      FILE_LABEL="misaligned"
+      SUITE="act4-misaligned"
     else
       FILE_LABEL="standard-isa"
       SUITE="act4-standard"
@@ -259,6 +263,19 @@ run_zisk_split_pipeline() {
       $TARGET_PROVE_ARGS $RUNNER_JOBS || true
   fi
 
+  # Run the instruction-address-misaligned suite — execute only
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm zisk --binary out/bin/zisk-binary \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
   process_results "$ZKVM"
 
 }
@@ -342,6 +359,19 @@ run_sp1_split_pipeline() {
       $TARGET_GPU_ARG $RUNNER_JOBS || true
   fi
 
+  # Run the instruction-address-misaligned suite — execute only
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm sp1 --binary out/bin/sp1-binary --sp1-perf out/bin/sp1-prover \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
   process_results "$ZKVM"
 
 }
@@ -407,6 +437,19 @@ run_lambdavm_split_pipeline() {
       --suite act4-standard \
       --label standard-isa \
       --mode "$MODE" \
+      $RUNNER_JOBS || true
+  fi
+
+  # Run the instruction-address-misaligned suite (execute-only)
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm lambdavm --binary out/bin/lambdavm-binary \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
       $RUNNER_JOBS || true
   fi
 
@@ -516,6 +559,19 @@ run_openvm_split_pipeline() {
     fi
   fi
 
+  # Run the instruction-address-misaligned suite (execute-only)
+  if [ -d "$ELF_DIR/misaligned" ]; then
+    echo "Running $ZKVM misaligned suite (mode: execute)..."
+    "$RUNNER" \
+      --zkvm openvm --binary out/bin/openvm-binary \
+      --elf-dir "$ELF_DIR/misaligned" \
+      --output-dir "out/${ZKVM}" \
+      --suite act4-misaligned \
+      --label misaligned \
+      --mode execute \
+      $RUNNER_JOBS || true
+  fi
+
   process_results "$ZKVM"
 
 }
@@ -547,15 +603,45 @@ run_ere_pipeline() {
   "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/target" --output-dir "$OUT_DIR" \
     --suite act4-standard --label standard-isa --mode "$MODE" $GPU_ARG || true
 
-  # ere runs the Standard ISA suite (RV64IM_Zicclsm) only.
-  ERE_MODE="$MODE" process_results "$ZKVM" "" ere
+  # The instruction-address-misaligned suite, execute only (on the same image).
+  echo "Running $ZKVM misaligned suite on ere (mode: execute)..."
+  "$RUNNER" --zkvm "ere-$ZKVM" --elf-dir "$ELF_DIR/misaligned" --output-dir "$OUT_DIR" \
+    --suite act4-misaligned --label misaligned --mode execute $GPU_ARG || true
+
+  # ere runs the Standard ISA suite (RV64IM_Zicclsm) and the misaligned suite.
+  ERE_MODE="$MODE" ERE_SUITES=standard process_results "$ZKVM" "" ere
+  ERE_MODE=execute ERE_SUITES=misaligned process_results "$ZKVM" "" ere
 }
 
-# BACKEND=ere (default) runs only the Standard ISA suite of OpenVM, Pico, SP1 and ZisK,
-# through ere. BACKEND=noere builds the zkVM in this repository's containers and runs both
-# the Full and the Standard ISA suites, for reproducing bugs and testing branches. LambdaVM
-# runs only on the noere path: this repository does not run it through ere yet. Pico has no
-# noere path.
+# run_reference_pipeline — the suites on the zkVM reference (eth-act/zkevm-standards
+# reference/, zkvm-run), execute only. ELFs are built with the reference ISA config
+# (zkvms/reference/isa-configs/reference-rv64im-zicclsm). zkvm-run comes from the
+# reference platform image (out/bin/zkvm-run, built by
+# ./run eth-act-standards-tests reference). The reference records no history.
+run_reference_pipeline() {
+  local ZKVM=reference
+  local ELF_DIR="out/${ZKVM}/elfs"
+  local OUT_DIR="out/${ZKVM}"
+  if [ ! -x out/bin/zkvm-run ]; then
+    echo "  Error: out/bin/zkvm-run not found; run ./run eth-act-standards-tests reference first"
+    return 1
+  fi
+  generate_act4_elfs "$ZKVM" "$ELF_DIR" || return 1
+  local RUNNER="src/runner/target/release/runner"
+  cargo build --release --quiet --manifest-path src/runner/Cargo.toml || { echo "  Failed to build runner"; return 1; }
+  mkdir -p "$OUT_DIR"
+  local REF_ARGS=(--zkvm reference --binary out/bin/zkvm-run --profile zkvms/reference/standards/profile.json --mode execute)
+  echo "Running the misaligned suite on the reference..."
+  "$RUNNER" "${REF_ARGS[@]}" --elf-dir "$ELF_DIR/misaligned" --output-dir "$OUT_DIR" \
+    --suite act4-misaligned --label misaligned || true
+  echo "reference run: history not recorded"
+}
+
+# BACKEND=ere (default) runs only the Standard ISA and misaligned suites of OpenVM, Pico,
+# SP1 and ZisK, through ere. BACKEND=noere builds the zkVM in this repository's containers
+# and runs the Full ISA, Standard ISA and misaligned suites, for reproducing bugs and testing
+# branches. LambdaVM runs only on the noere path: this repository does not run it through ere
+# yet. Pico has no noere path.
 BACKEND="${BACKEND:-ere}"
 case "$BACKEND" in
   noere|ere) ;;
@@ -563,7 +649,10 @@ case "$BACKEND" in
 esac
 
 for ZKVM in $ZKVMS; do
-  if [ "$BACKEND" = "ere" ] && [[ " openvm pico sp1 zisk " == *" $ZKVM "* ]]; then
+  if [ "$ZKVM" = "reference" ]; then
+    # The reference runs only when named: it records no history.
+    [ "$TARGETS" = "all" ] || run_reference_pipeline || true
+  elif [ "$BACKEND" = "ere" ] && [[ " openvm pico sp1 zisk " == *" $ZKVM "* ]]; then
     run_ere_pipeline "$ZKVM" || true
   elif [ "$ZKVM" = "pico" ]; then
     # A run of all zkVMs skips Pico; an explicit request fails.

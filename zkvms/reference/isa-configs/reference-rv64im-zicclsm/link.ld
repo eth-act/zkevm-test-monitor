@@ -5,7 +5,9 @@
    its code (.text.init, .text.rvtest, .text.rvmodel) in the text segment, .tohost
    with the data. sail.json has the same regions (RAM, the read-only input region at
    0x40000000 and the stack at 0x88001000). The entry point is the library's _start,
-   which calls main; an ISA test has no main, so main is ACT's entry point. */
+   which calls main; an ISA test has no main, so main is ACT's entry point. This is the
+   ISA tests' script; the standards guests link zkvms/reference/standards/link.ld, the
+   same layout without the library symbols (the stub library defines them). */
 OUTPUT_ARCH(riscv)
 ENTRY(_start)
 PHDRS { text PT_LOAD FLAGS(5); rodata PT_LOAD FLAGS(4); data PT_LOAD FLAGS(6); }
@@ -16,6 +18,13 @@ SECTIONS {
     *(.text.rvtest) *(.text.rvtest.*)
     *(.text.rvmodel) *(.text.rvmodel.*)
     *(.text .text.*)
+    /* An ISA test links no library, so the library symbols the reference binds get
+       one word each here (ebreak, never executed: the reference performs the library
+       function when the PC reaches its symbol). */
+    . = ALIGN(4);
+    _start = .; LONG(0x00100073)
+    read_input = .; LONG(0x00100073)
+    write_output = .; LONG(0x00100073)
   } :text =0x13000000
   . = ALIGN(4096);
   .rodata : { *(.rodata .rodata.* .srodata .srodata.* .eh_frame .eh_frame_hdr .gcc_except_table) } :rodata
@@ -27,4 +36,5 @@ SECTIONS {
   _stack_bottom = 0x88001000; _stack_top = 0x88101000;
   /DISCARD/ : { *(.comment) *(.riscv.attributes) *(.note*) }
 }
-PROVIDE(main = rvtest_entry_point);
+/* Not PROVIDE: nothing in an ISA test references main, but the reference binds it. */
+main = rvtest_entry_point;

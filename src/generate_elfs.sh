@@ -3,14 +3,15 @@
 #
 # Sourced:  defines generate_act4_elfs.
 # Executed: ./src/generate_elfs.sh <zkvm> [--force]
-#   Generates ELFs into out/<zkvm>/elfs/{native,target} and prints how many
+#   Generates ELFs into out/<zkvm>/elfs/{native,target,misaligned} and prints how many
 #   there are. It needs no zkVM binary and runs no tests.
 
 # elfs_reusable <elf-dir> — true if the cached ELFs can be reused: FORCE is
-# unset and the ELFs were generated at the ACT4 commit that config.json pins.
+# unset, the ELFs include the misaligned tests, and they were generated at the
+# ACT4 commit that config.json pins.
 elfs_reusable() {
   local ELF_DIR="$1"
-  [ -z "${FORCE:-}" ] && [ -d "$ELF_DIR/native" ] || return 1
+  [ -z "${FORCE:-}" ] && [ -d "$ELF_DIR/native" ] && [ -d "$ELF_DIR/misaligned" ] || return 1
   local WANT HAVE
   WANT=$(jq -r '.act4_commit // "act4"' config.json)
   HAVE=$(cat "$ELF_DIR/act4-commit.txt" 2>/dev/null || true)
@@ -23,7 +24,9 @@ elfs_reusable() {
 # generate_act4_elfs <zkvm> <elf_dir>
 #
 # Builds the <zkvm>:latest ELF-generation image and compiles self-checking ELFs into
-# <elf_dir>/{native,target}. Reuses cached ELFs (see elfs_reusable) unless FORCE is set.
+# <elf_dir>/{native,target}, and the instruction-address-misaligned tests
+# (tests/instruction-address-misaligned) into <elf_dir>/misaligned. Reuses cached
+# ELFs (see elfs_reusable) unless FORCE is set.
 generate_act4_elfs() {
   local ZKVM="$1"
   local ELF_DIR
@@ -81,6 +84,15 @@ generate_act4_elfs() {
       echo "  Failed to generate ELFs for $ZKVM — check $LOG_FILE"
       return 1
     }
+    # The instruction-address-misaligned tests: the same image builds them with
+    # the zkVM's rv64im-zicclsm config into misaligned/.
+    docker run --rm --name zkvm-${ZKVM}-elfgen-misaligned \
+      -v "$PWD/zkvms/${ZKVM}/isa-configs:/act4/config/${ZKVM}" \
+      -v "$PWD/tests/instruction-address-misaligned:/misaligned-tests:ro" \
+      -v "$ELF_DIR:/elfs" \
+      --entrypoint /misaligned-tests/build-elfs.sh \
+      "${ZKVM}:latest" "config/${ZKVM}/${ZKVM}-rv64im-zicclsm/test_config.yaml" /elfs/misaligned \
+      >> "$LOG_FILE" 2>&1 || echo "  Failed to generate the misaligned test ELFs for $ZKVM — check $LOG_FILE"
     echo "$ACT4_COMMIT" > "$ELF_DIR/act4-commit.txt"
   fi
 }
@@ -101,5 +113,6 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 
   echo "ELFs for $ZKVM in $ELF_DIR:" \
     "$(find "$ELF_DIR/native" -name '*.elf' 2>/dev/null | wc -l) native," \
-    "$(find "$ELF_DIR/target" -name '*.elf' 2>/dev/null | wc -l) target"
+    "$(find "$ELF_DIR/target" -name '*.elf' 2>/dev/null | wc -l) target," \
+    "$(find "$ELF_DIR/misaligned" -name '*.elf' 2>/dev/null | wc -l) misaligned"
 fi
