@@ -33,9 +33,10 @@ ZKVM="${1:?usage: build-guests.sh <zkvm> <out-dir>}"
 OUT="${2:?usage: build-guests.sh <zkvm> <out-dir>}"
 PLATFORM_DIR="/platform"
 STANDARDS="/zkevm-standards/standards"
-GROUPS_LIST="io accelerators memory termination elf layout"
+GROUPS_LIST="io accelerators memory termination elf layout guard"
 
-# A platform without a memory profile (Pico) has no elf and layout groups.
+# A platform without a memory profile (Pico) has no elf and layout groups, and
+# no stack bottom for the guard group.
 ELF_EXEC_PERM=""
 if [ -f "$PLATFORM_DIR/profile.json" ]; then
   ELF_EXEC_PERM=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["exec_perm"])' "$PLATFORM_DIR/profile.json")
@@ -45,7 +46,7 @@ if [ -f "$PLATFORM_DIR/profile.json" ]; then
   esac
 else
   echo "note: $PLATFORM_DIR has no profile.json, so the elf and layout groups are not built"
-  GROUPS_LIST="io accelerators memory termination"
+  GROUPS_LIST="io accelerators memory termination guard"
 fi
 
 if [ ! -f "$STANDARDS/io-interface/zkvm_io.h" ]; then
@@ -190,6 +191,19 @@ for fn in $MEMOPS; do
   fi
 done
 
+# The guard-stack-* guests access the bytes at and below the stack bottom, the
+# vendor's linker symbol that profile.json names (symbols.stack_bottom, the
+# macro LAYOUT_STACK_BOTTOM). Without one, the platform has no stack guard
+# region to test: they fail through print_error() (guard/guard.h), so they are
+# built without their expected abnormal termination.
+case " $LAYOUT_DEFINES " in
+  *" -DLAYOUT_STACK_BOTTOM="*) ;;
+  *)
+    echo "note: the platform declares no stack bottom, so the guard-stack-* tests fail"
+    rm -f "$TESTS/rv64i/guard"/guard-stack-*.outcome "$TESTS/rv64i/guard"/guard-stack-*.prove-failure
+    ;;
+esac
+
 # The accelerator known-answer vectors are generated from pinned, sha256-checked
 # go-ethereum and execution-specs files (tools/accel_vector_sources.json) and
 # the extracted execution-specs pytest cases (tools/eest_pytest_vectors.json).
@@ -237,9 +251,10 @@ for group in $GROUPS_LIST; do
     name=$(basename "$elf" .elf)
     # cat, not cp: ACT's build cache may leave the ELFs as symlinks.
     cat "$elf" > "$OUT/$group/$name.elf"
+    # From the test tree: the build drops some sidecars there (guard-stack-*).
     for vector in input expected outcome prove-failure; do
-      if [ -f "$HERE/$group/$name.$vector" ]; then
-        cp "$HERE/$group/$name.$vector" "$OUT/$group/$name.$vector"
+      if [ -f "$TESTS/rv64i/$group/$name.$vector" ]; then
+        cp "$TESTS/rv64i/$group/$name.$vector" "$OUT/$group/$name.$vector"
       fi
     done
     count=$((count + 1))

@@ -2,7 +2,7 @@
 
 These tests check the guest interfaces that the
 [EIP-8025 readiness review](https://github.com/jsign/eip-8025/blob/jsign-readiness/READINESS.md#zkvms)
-asks of each zkVM. It covers seven
+asks of each zkVM. It covers eight
 [eth-act/zkevm-standards](https://github.com/eth-act/zkevm-standards) items, and the
 termination semantics. The standards
 repository is pinned by `zkevm_standards_commit` in `config.json`. The guests include
@@ -19,6 +19,7 @@ commit into `out/deps/zkevm-standards` and records it with each run.
 | `runtime/`, `runtime-lld/` | [Static library and linker script](https://github.com/eth-act/zkevm-standards/tree/main/standards/static-library-and-linker-script) | plain C and C++ guests that link only the vendor library, with the vendor's linker script unchanged, with GNU ld (`runtime/`) and with LLD (`runtime-lld/`): the C environment at `main` (`.data`, `.sdata`, `.rodata`, `.bss`, `.sbss` and the stack), zero `.bss` and `.sbss` at `main`, a C++ static constructor, and the heap symbols |
 | `elf/` | [ELF loading and validation](https://github.com/eth-act/zkevm-standards/tree/main/standards/elf-loading-and-validation) | the initial memory image (`.data`, `.bss`, `.rodata`); loads from the executable segment; calls to code in `.data` and to code that the guest wrote; a store over code; crafted ELFs, labelled by the zkVM reference's loader, that the loader must accept (ignored section headers and `PT_NOTE`, `p_paddr`, zero fill after 17 to 23 file bytes) or reject (one for each header, segment and entry point check); for a `PF_X` zkVM, the static check `static-exec-decodes` (see ELF loading) |
 | `layout/` | [Memory layout restrictions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-layout-restrictions) | writes and reads at the first and last bytes of the heap that the vendor's linker symbols declare (`layout-heap-ends`); `sp` at `main` in the declared stack, and writes and reads at its lowest bytes (`layout-stack-ends`); the symbols come from the zkVM's `profile.json`, and `static-validate` checks every segment against its `memory` regions |
+| `guard/` | [Memory safety guard regions](https://github.com/eth-act/zkevm-standards/tree/main/standards/memory-safety-guard-regions) | a byte load and a byte store at the first and the last byte of the null pointer trap region (`guard-null-*`: `0x0` and `0xfff`) and at the highest and the lowest byte of the 4 kB below the stack bottom (`guard-stack-{lb,sb}-{1,4096}`), each expected to terminate abnormally; a byte store and a byte load at the stack bottom, expected to complete (`guard-stack-bottom`); the memory map is `static-validate` |
 
 By default the suite runs through ere, with execute, prove and verify (`ACT4_MODE`, default
 `full`). Every stage must give the expected public output. A test that expects an abnormal
@@ -190,13 +191,39 @@ guest with the zkVM reference under this profile, which rejects a `PT_LOAD` segm
 The guests get the declared symbols as macros (`layout/layout.h`). A guest that needs a symbol
 that is `null` fails with "linker script declares no <bound>", so a missing symbol fails one
 test and does not stop the build. The guests access only the declared ends of the heap and the
-stack, because the standard sets no size and requires no fault. On the reference, whose stack is
-a fixed region of its profile and not a linker symbol, `layout-stack-ends` fails (listed in
-`reference-known-differences.txt`).
+stack, because the standard sets no size and requires no fault. The reference's own linker script
+declares no stack (eth-act/zkevm-standards#76), so `zkvms/reference/standards/link.ld` defines
+`_stack_bottom` and `_stack_top` for its profile's fixed stack region.
 
 The `layout/` tests do not check the standard's `libc` clause ("the linker script must define
 symbols that the `libc` implementation depends upon"): the standard names no C library, and
 ACT links the guests without one.
+
+The `guard-stack-*` programs test the stack guard region: "A guard region of at least 4 kB must be
+placed immediately below the bottom of the stack", and any access to it must trigger abnormal
+termination. The stack bottom, the lowest stack byte, is a vendor linker symbol: the static
+library standard leaves stack symbols vendor-internal. `zkvms/<zkvm>/standards/profile.json` names
+it (`symbols.stack_bottom`), and `build-guests.sh` passes it to the guests as
+`LAYOUT_STACK_BOTTOM` (as for the `layout/` guests). `guard-stack-lb-1`, `guard-stack-sb-1`,
+`guard-stack-lb-4096` and `guard-stack-sb-4096` access the highest and the lowest byte of the
+required 4 kB and expect `fail`. `guard-stack-bottom` stores and then loads the stack bottom and
+must pass. With the `-1` programs, it shows that the guard region is "adjacent to the bottom of
+the stack with no gap between them". A platform whose `stack_bottom` is `null` (SP1 and OpenVM)
+declares no stack bottom, so it has no stack guard region to test: there the `guard-stack-*`
+programs fail through `print_error()` ("the platform declares no stack bottom"), and
+`build-guests.sh` drops their `.outcome` and `.prove-failure`. On the reference,
+`zkvms/reference/standards/link.ld` defines `_stack_bottom` and `_stack_top` for the
+`reference-rx` stack region, which the reference's own script does not declare
+(eth-act/zkevm-standards#76).
+
+Every guard test that expects `fail` has a `.prove-failure` file: in the prove modes it is proved
+too, and fails if its proof verifies as a successful execution (GUA9).
+
+The memory map that the standard requires (the null region and the stack guard region "must not
+be mapped to readable or writable memory", and the null region "must not be used by the zkVM
+runtime, linker scripts, or any other system component") is the static check `static-validate`:
+the zkVM reference's loader rejects every guest whose segments map the null page or the page
+below the profile's stack (`null page is mapped`, `stack guard page is mapped`).
 
 ZisK has a fixed public output area of 64 u32 words with zero padding. On ZisK, the runner
 therefore accepts output that equals the expected bytes followed by zero bytes.
@@ -502,7 +529,7 @@ from) and `symbols` (the zkVM's linker symbols for the stack and the heap, or `n
 
 On both paths, `TESTS` runs only some tests and records no history. It holds words separated by
 spaces or commas. A word that is a test name (`io-echo`) or a group (`io`, `accelerators`,
-`memory`, `termination`, `elf`, `layout`, `library`, `runtime`, `runtime-lld`) selects exactly
+`memory`, `termination`, `elf`, `layout`, `guard`, `library`, `runtime`, `runtime-lld`) selects exactly
 that. Any other word is a glob (`io-write-*`) or a substring (`bls`) of the test names. A word
 that selects no test stops the run.
 
