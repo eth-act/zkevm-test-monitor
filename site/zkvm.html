@@ -164,10 +164,11 @@
 
     // Prove and verify counts of a run. A test that expects an abnormal
     // termination (expected_failures) is left out: it passes only if no proof of
-    // it verifies, which its own verdict already records.
+    // it verifies, which its own verdict already records. A static verdict of
+    // the guest build (static_tests) does not run, so it is left out too.
     function countProveVerify(run) {
         if (!run?.has_proving) return { prove: null, verify: null, total: null };
-        const skip = new Set(run.expected_failures || []);
+        const skip = new Set([...(run.expected_failures || []), ...(run.static_tests || [])]);
         const count = list => (Array.isArray(list) ? list : []).filter(n => !skip.has(n)).length;
         const total = run.total - skip.size;
         const proved = total - count(run.failed) - count(run.prove_failed);
@@ -258,7 +259,9 @@
     }
 
     // eth-act standards test groups, in display order.
-    const STANDARDS_GROUPS = [['io', 'I/O interface'], ['accelerators', 'Cryptographic accelerators'], ['memory', 'Accelerated memory operations'], ['termination', 'Termination semantics']];
+    const STANDARDS_GROUPS = [['io', 'I/O interface'], ['accelerators', 'Cryptographic accelerators'], ['memory', 'Accelerated memory operations'],
+        ['termination', 'Termination semantics'], ['library', 'Static library and linker script'],
+        ['runtime', 'Runtime with the vendor linker script (GNU ld)'], ['runtime-lld', 'Runtime with the vendor linker script (LLD)']];
 
     function escapeHtml(text) {
         return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

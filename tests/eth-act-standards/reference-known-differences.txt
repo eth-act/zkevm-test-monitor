@@ -3,3 +3,5 @@
 # Add a test here only when the standard is ambiguous about it, with an issue in
 # eth-act/zkevm-standards; a wrong test or a wrong reference is fixed instead.
 term-abort https://github.com/eth-act/zkevm-standards/pull/46 the merged termination standard has no abort function yet (#46 adds it); the reference library has no abort, so build-guests.sh builds term-abort as a normal finish
+rt-cxx-static https://github.com/eth-act/zkevm-standards/issues/59 the reference's _start calls main directly and runs no C++ static constructors (LIB16 is not modelled in Sail)
+rt-cxx-static-lld https://github.com/eth-act/zkevm-standards/issues/59 the reference's _start calls main directly and runs no C++ static constructors (LIB16 is not modelled in Sail)

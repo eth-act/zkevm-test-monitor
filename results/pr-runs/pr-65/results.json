@@ -1,0 +1,333 @@
+{
+  "revision": "7e3f8089f827cd58edefc2aa10e1baeddf063531",
+  "slurm_job": "54",
+  "vendors": [
+    {
+      "vendor": "openvm",
+      "node": "zkevm-gpu-beast-01",
+      "exit": "0",
+      "mode": "full",
+      "commit": "7e3f8089f827cd58edefc2aa10e1baeddf063531",
+      "tests_selected": [
+        "io-echo",
+        "library",
+        "runtime",
+        "runtime-lld"
+      ],
+      "selected_outcomes": 19,
+      "expected_from_build": 19,
+      "summary": {
+        "zkvm": "ere-openvm",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:22:06Z",
+        "passed": 6,
+        "failed": 13,
+        "total": 19,
+        "proved": 5,
+        "prove_failed": 0,
+        "verified": 5,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 6,
+        "failed": 13,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "io-echo",
+          "lib-archive",
+          "rt-bss-zero",
+          "rt-c-runtime",
+          "rt-bss-zero-lld",
+          "rt-c-runtime-lld"
+        ],
+        "failed": [
+          "lib-entry",
+          "lib-entry-lld",
+          "lib-heap-symbols",
+          "lib-heap-symbols-lld",
+          "lib-linker-script",
+          "lib-script-phdrs",
+          "lib-segments",
+          "lib-segments-lld",
+          "static-validate",
+          "rt-cxx-static",
+          "rt-heap-symbols",
+          "rt-cxx-static-lld",
+          "rt-heap-symbols-lld"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 1.31,
+      "gpu_GiB_peak": 2.08,
+      "gpu_requests": [
+        "d1b5eb302d67d318efc733c0940e2414d08447e1fb2d200277f19397dfa630f0 slurm-54-openvm 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-openvm@sha256:9bb21a190a09a757b4d076426cee3368db6db20892c9fe57180701a264d1e8cf",
+        "sdk_version": "v2.1.0-preview",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    },
+    {
+      "vendor": "zisk",
+      "node": "zkevm-gpu-beast-02",
+      "exit": "0",
+      "mode": "full",
+      "commit": "7e3f8089f827cd58edefc2aa10e1baeddf063531",
+      "tests_selected": [
+        "io-echo",
+        "library",
+        "runtime",
+        "runtime-lld"
+      ],
+      "selected_outcomes": 19,
+      "expected_from_build": 19,
+      "summary": {
+        "zkvm": "ere-zisk",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:24:59Z",
+        "passed": 18,
+        "failed": 1,
+        "total": 19,
+        "proved": 9,
+        "prove_failed": 0,
+        "verified": 9,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 18,
+        "failed": 1,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "io-echo",
+          "lib-archive",
+          "lib-entry",
+          "lib-entry-lld",
+          "lib-heap-symbols",
+          "lib-heap-symbols-lld",
+          "lib-linker-script",
+          "lib-script-phdrs",
+          "lib-segments",
+          "lib-segments-lld",
+          "rt-bss-zero",
+          "rt-c-runtime",
+          "rt-cxx-static",
+          "rt-heap-symbols",
+          "rt-bss-zero-lld",
+          "rt-c-runtime-lld",
+          "rt-cxx-static-lld",
+          "rt-heap-symbols-lld"
+        ],
+        "failed": [
+          "static-validate"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 48.08,
+      "gpu_GiB_peak": 30.03,
+      "gpu_requests": [
+        "5b1f908ae84e6428cf985e801155074d5af98347732fe39398ceb773e47a6082 slurm-54-zisk 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-zisk@sha256:561745b7974a0b7abc86bf10c3f45e8095ee037478811032e9aff4b7b8ad18c7",
+        "sdk_version": "v1.4.0-alpha",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    },
+    {
+      "vendor": "sp1",
+      "node": "zkevm-gpu-beast-03",
+      "exit": "0",
+      "mode": "full",
+      "commit": "7e3f8089f827cd58edefc2aa10e1baeddf063531",
+      "tests_selected": [
+        "io-echo",
+        "library",
+        "runtime",
+        "runtime-lld"
+      ],
+      "selected_outcomes": 19,
+      "expected_from_build": 19,
+      "summary": {
+        "zkvm": "ere-sp1",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:36:19Z",
+        "passed": 11,
+        "failed": 8,
+        "total": 19,
+        "proved": 4,
+        "prove_failed": 0,
+        "verified": 4,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 11,
+        "failed": 8,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "io-echo",
+          "lib-archive",
+          "lib-entry",
+          "lib-entry-lld",
+          "lib-heap-symbols",
+          "lib-heap-symbols-lld",
+          "lib-linker-script",
+          "lib-segments-lld",
+          "rt-bss-zero-lld",
+          "rt-c-runtime-lld",
+          "rt-heap-symbols-lld"
+        ],
+        "failed": [
+          "lib-script-phdrs",
+          "lib-segments",
+          "static-validate",
+          "rt-bss-zero",
+          "rt-c-runtime",
+          "rt-cxx-static",
+          "rt-heap-symbols",
+          "rt-cxx-static-lld"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 11.93,
+      "gpu_GiB_peak": 10.95,
+      "gpu_requests": [
+        "c3ac95eb9cd0c35a38776de66765ed1367b0d2e662bca7864c9abf252468fd00 slurm-54-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "10336f743442c6111602f232f09e21284f48fd3f6f63abd531a31b69d27aaaa0 slurm-54-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "ff4d1f1d993e843485ec9418c6bd3009076e4c99ea5791c5a80c6bd1b07c9a6a slurm-54-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "1f7610314ad5e606ba04991b03d0a8aad3fe090890c9779c38cbe3cccee443a4 slurm-54-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]",
+        "28f262c841889f8c4b32356245063d21637e1dfce5e36881ea4a35e4ac9578fc slurm-54-sp1 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-sp1@sha256:c0400acdd24fd37a92b58c1e516c4b81021be097aee177dbd0ab68d564c97a24",
+        "sdk_version": "v6.9.0",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    },
+    {
+      "vendor": "pico",
+      "node": "zkevm-gpu-beast-04",
+      "exit": "0",
+      "mode": "full",
+      "commit": "7e3f8089f827cd58edefc2aa10e1baeddf063531",
+      "tests_selected": [
+        "io-echo",
+        "library",
+        "runtime",
+        "runtime-lld"
+      ],
+      "selected_outcomes": 18,
+      "expected_from_build": 18,
+      "summary": {
+        "zkvm": "ere-pico",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T21:36:45Z",
+        "passed": 16,
+        "failed": 2,
+        "total": 18,
+        "proved": 9,
+        "prove_failed": 0,
+        "verified": 9,
+        "verify_failed": 0
+      },
+      "case_counts": {
+        "passed": 16,
+        "failed": 2,
+        "prove_failed": 0,
+        "verify_failed": 0,
+        "prove_not_tested": 0
+      },
+      "missing": [],
+      "unexpected": [],
+      "verdicts": {
+        "passed": [
+          "io-echo",
+          "lib-archive",
+          "lib-entry",
+          "lib-entry-lld",
+          "lib-heap-symbols",
+          "lib-heap-symbols-lld",
+          "lib-linker-script",
+          "lib-script-phdrs",
+          "rt-bss-zero",
+          "rt-c-runtime",
+          "rt-cxx-static",
+          "rt-heap-symbols",
+          "rt-bss-zero-lld",
+          "rt-c-runtime-lld",
+          "rt-cxx-static-lld",
+          "rt-heap-symbols-lld"
+        ],
+        "failed": [
+          "lib-segments",
+          "lib-segments-lld"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "host_errors": false,
+      "setup_at_proof": [],
+      "ram_GiB_peak": 33.3,
+      "gpu_GiB_peak": 29.09,
+      "gpu_requests": [
+        "fec5e733adc848f9076b9fd7b7a522b1ea2c768596fc82a292bb4433fd80a8a0 slurm-54-pico 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+      ],
+      "provenance": {
+        "ere_rev": "4d21321",
+        "ere_version": "0.20.2",
+        "ere_image": "ghcr.io/eth-act/ere/ere-server-pico@sha256:f7126eb660e3205689dcc50104317863d1cf753fdfaef0d397eec387741a108b",
+        "sdk_version": "v3.1.5",
+        "resource": "gpu",
+        "prove_timeout_secs": 1800,
+        "execute_timeout_secs": 180
+      },
+      "history_append_verified": false
+    }
+  ]
+}
