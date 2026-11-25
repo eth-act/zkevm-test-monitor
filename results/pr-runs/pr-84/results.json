@@ -1,0 +1,263 @@
+{
+  "revision": "8d744b781619c4d7786dc0933b9c23a80376842c",
+  "vendor_executable_revision": "e81a37cd6e72b5d188d62944e229b4929682ae96",
+  "pico_job": "61",
+  "pico_run": {
+    "vendor": "pico",
+    "node": "zkevm-gpu-beast-04",
+    "exit": "0",
+    "mode": "full",
+    "commit": "e81a37cd6e72b5d188d62944e229b4929682ae96",
+    "tests_selected": [],
+    "selected_outcomes": 53,
+    "expected_from_build": 53,
+    "summary": {
+      "zkvm": "ere-pico",
+      "suite": "eth-act-standards",
+      "timestamp": "2026-11-25T22:27:26Z",
+      "passed": 53,
+      "failed": 0,
+      "total": 53,
+      "proved": 50,
+      "prove_failed": 0,
+      "verified": 50,
+      "verify_failed": 0
+    },
+    "case_counts": {
+      "passed": 53,
+      "failed": 0,
+      "prove_failed": 0,
+      "verify_failed": 0,
+      "prove_not_tested": 0
+    },
+    "missing": [],
+    "unexpected": [],
+    "verdicts": {
+      "passed": [
+        "accel-blake2f",
+        "accel-bls12-g1-add",
+        "accel-bls12-g1-msm",
+        "accel-bls12-g2-add",
+        "accel-bls12-g2-msm",
+        "accel-bls12-map-fp-to-g1",
+        "accel-bls12-map-fp2-to-g2",
+        "accel-bls12-pairing",
+        "accel-bn254-g1-add",
+        "accel-bn254-g1-mul",
+        "accel-bn254-pairing",
+        "accel-keccak256",
+        "accel-kzg-point-eval",
+        "accel-modexp",
+        "accel-null-bn254-g1-add-result",
+        "accel-null-keccak256-output",
+        "accel-null-sha256-data",
+        "accel-ripemd160",
+        "accel-secp256k1-ecrecover",
+        "accel-secp256k1-verify",
+        "accel-secp256r1-verify",
+        "accel-sha256",
+        "io-echo",
+        "io-read-after-write",
+        "io-read-empty",
+        "io-read-idempotent",
+        "io-read-large",
+        "io-read-no-side-effects",
+        "io-read-one-byte",
+        "io-read-unaligned-length",
+        "io-write-1024-bytes",
+        "io-write-257-bytes",
+        "io-write-257-bytes-in-pieces",
+        "io-write-buffer-reuse",
+        "io-write-byte-at-a-time",
+        "io-write-nothing",
+        "io-write-null-zero-length",
+        "io-write-split",
+        "io-write-static-data",
+        "io-write-trailing-zeros",
+        "io-write-zero-length",
+        "mem-aor-memcmp",
+        "mem-aor-memcpy",
+        "mem-aor-memmove",
+        "mem-aor-memset",
+        "mem-link-memcmp",
+        "mem-link-memcpy",
+        "mem-link-memmove",
+        "mem-link-memset",
+        "mem-memcmp",
+        "mem-memcpy",
+        "mem-memmove",
+        "mem-memset"
+      ],
+      "failed": [],
+      "prove_failed": [],
+      "verify_failed": [],
+      "prove_not_tested": []
+    },
+    "host_errors": false,
+    "setup_at_proof": [],
+    "ram_GiB_peak": 66.57,
+    "gpu_GiB_peak": 29.88,
+    "gpu_requests": [
+      "f9fe761d82518991d3e361df4b31b3409c6d3fcb49969f95eeac7045f05cfdc1 slurm-61-pico 103079215104 103079215104 [{\"Driver\":\"\",\"Count\":0,\"DeviceIDs\":[\"0\"],\"Capabilities\":[[\"gpu\"]],\"Options\":{}}]"
+    ],
+    "provenance": {
+      "ere_rev": "4d21321",
+      "ere_version": "0.20.2",
+      "ere_image": "ghcr.io/eth-act/ere/ere-server-pico@sha256:f7126eb660e3205689dcc50104317863d1cf753fdfaef0d397eec387741a108b",
+      "sdk_version": "v3.1.5",
+      "resource": "gpu",
+      "prove_timeout_secs": 3600,
+      "execute_timeout_secs": 180
+    },
+    "history_append_verified": true
+  },
+  "requirement_check_exit": 0,
+  "vendors": {
+    "openvm": {
+      "group": "memory",
+      "verdicts": {
+        "passed": [
+          "mem-aor-memcmp",
+          "mem-aor-memcpy",
+          "mem-aor-memmove",
+          "mem-aor-memset",
+          "mem-memcmp",
+          "mem-memcpy",
+          "mem-memmove",
+          "mem-memset"
+        ],
+        "failed": [
+          "mem-link-memcmp",
+          "mem-link-memcpy",
+          "mem-link-memmove",
+          "mem-link-memset"
+        ],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "suite_summary": {
+        "zkvm": "ere-openvm",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-24T19:26:45Z",
+        "passed": 43,
+        "failed": 10,
+        "total": 53,
+        "proved": 43,
+        "prove_failed": 0,
+        "verified": 43,
+        "verify_failed": 0
+      },
+      "notes": "Full mode"
+    },
+    "zisk": {
+      "group": "memory",
+      "verdicts": {
+        "passed": [
+          "mem-aor-memcmp",
+          "mem-aor-memcpy",
+          "mem-aor-memmove",
+          "mem-aor-memset",
+          "mem-link-memcmp",
+          "mem-link-memcpy",
+          "mem-link-memmove",
+          "mem-link-memset",
+          "mem-memcpy",
+          "mem-memmove",
+          "mem-memset"
+        ],
+        "failed": [],
+        "prove_failed": [
+          "mem-memcmp"
+        ],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "suite_summary": {
+        "zkvm": "ere-zisk",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-24T19:41:06Z",
+        "passed": 47,
+        "failed": 4,
+        "total": 53,
+        "proved": 44,
+        "prove_failed": 2,
+        "verified": 44,
+        "verify_failed": 0
+      },
+      "notes": "Full mode"
+    },
+    "sp1": {
+      "group": "memory",
+      "verdicts": {
+        "passed": [
+          "mem-aor-memcmp",
+          "mem-aor-memcpy",
+          "mem-aor-memmove",
+          "mem-aor-memset",
+          "mem-link-memcmp",
+          "mem-link-memcpy",
+          "mem-link-memmove",
+          "mem-link-memset",
+          "mem-memcmp",
+          "mem-memcpy",
+          "mem-memmove",
+          "mem-memset"
+        ],
+        "failed": [],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "suite_summary": {
+        "zkvm": "ere-sp1",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-24T20:41:15Z",
+        "passed": 49,
+        "failed": 3,
+        "total": 52,
+        "proved": 49,
+        "prove_failed": 0,
+        "verified": 49,
+        "verify_failed": 0
+      },
+      "notes": "Full mode"
+    },
+    "pico": {
+      "group": "memory",
+      "verdicts": {
+        "passed": [
+          "mem-aor-memcmp",
+          "mem-aor-memcpy",
+          "mem-aor-memmove",
+          "mem-aor-memset",
+          "mem-link-memcmp",
+          "mem-link-memcpy",
+          "mem-link-memmove",
+          "mem-link-memset",
+          "mem-memcmp",
+          "mem-memcpy",
+          "mem-memmove",
+          "mem-memset"
+        ],
+        "failed": [],
+        "prove_failed": [],
+        "verify_failed": [],
+        "prove_not_tested": []
+      },
+      "suite_summary": {
+        "zkvm": "ere-pico",
+        "suite": "eth-act-standards",
+        "timestamp": "2026-11-25T22:27:26Z",
+        "passed": 53,
+        "failed": 0,
+        "total": 53,
+        "proved": 50,
+        "prove_failed": 0,
+        "verified": 50,
+        "verify_failed": 0
+      },
+      "notes": "Full mode"
+    }
+  }
+}
